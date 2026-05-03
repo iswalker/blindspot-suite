@@ -102,10 +102,6 @@ body {
 #api-connect-btn:disabled { background: #bbb; cursor: not-allowed; }
 #api-connect-btn:hover:not([disabled]) { background: #155c32; }
 #api-progress { font-size: 12px; color: #777; margin-top: 8px; min-height: 18px; }
-#oauth-client-id {
-  flex: 1; font-size: 12px; border: 1px solid #ccc; border-radius: 4px;
-  padding: 4px 8px; background: #fafafa;
-}
 #oauth-btn {
   display: inline-block; margin-top: 8px;
   padding: 9px 24px; background: #0f5fa8; color: #fff;
@@ -113,7 +109,6 @@ body {
 }
 #oauth-btn:disabled { background: #bbb; cursor: not-allowed; }
 #oauth-btn:hover:not([disabled]) { background: #0c4e8c; }
-#oauth-hint { font-size: 11px; color: #aaa; margin-top: 6px; }
 
 /* ---- Report ---- */
 #report { display: none; }
@@ -772,13 +767,8 @@ td.hbt-num:last-child { width: 13%; }
   </div>
   <button id="api-connect-btn">Connect to YNAB</button>
   <div id="api-progress"></div>
-  <div class="or-divider">or sign in with OAuth</div>
-  <div class="file-row">
-    <label for="oauth-client-id">Client ID</label>
-    <input type="text" id="oauth-client-id" placeholder="YNAB OAuth App Client ID…" autocomplete="off">
-  </div>
+  <div class="or-divider">or</div>
   <button id="oauth-btn">Sign in with YNAB</button>
-  <div id="oauth-hint">Get a Client ID at <em>app.youneedabudget.com/settings/developer</em> — set Redirect URI to this page's URL</div>
 </div>
 
 <!-- Report -->
@@ -1922,13 +1912,12 @@ function connectYnab() {
   });
 }
 
+var YNAB_OAUTH_CLIENT_ID = 'rq12UT9iB5IwrJY7AkbjcVYSzfsRMPoDwDOZ-zO_X0E';
+
 function startOAuthFlow() {
-  var clientId = (document.getElementById('oauth-client-id').value || '').trim();
-  if (!clientId) { setProgress('Please enter your YNAB OAuth Client ID.'); return; }
-  localStorage.setItem('ynab-oauth-client-id', clientId);
   var redirectUri = window.location.origin + window.location.pathname;
   window.location.href = 'https://app.youneedabudget.com/oauth/authorize'
-    + '?client_id=' + encodeURIComponent(clientId)
+    + '?client_id=' + encodeURIComponent(YNAB_OAUTH_CLIENT_ID)
     + '&redirect_uri=' + encodeURIComponent(redirectUri)
     + '&response_type=token';
 }
@@ -3878,8 +3867,6 @@ function showUpload() {
   setProgress('');
   var savedKey = localStorage.getItem('ynab-api-key');
   if (savedKey) document.getElementById('api-key-input').value = savedKey;
-  var savedOauthId = localStorage.getItem('ynab-oauth-client-id');
-  if (savedOauthId) document.getElementById('oauth-client-id').value = savedOauthId;
 }
 
 // ============================================================
