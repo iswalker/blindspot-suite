@@ -794,6 +794,11 @@ td.hbt-num:last-child { width: 13%; }
         </div>
       </div>
       <div style="margin-left:auto;display:flex;align-items:center;gap:16px">
+        <label class="toggle-wrap" id="expand-all-toggle-wrap">
+          <input type="checkbox" id="expand-all-toggle">
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span class="toggle-label">Expand All</span>
+        </label>
         <label class="toggle-wrap" id="cat-sort-toggle-wrap">
           <input type="checkbox" id="cat-sort-toggle">
           <span class="toggle-track"><span class="toggle-thumb"></span></span>
@@ -1040,7 +1045,8 @@ var state = {
   rowShading:          localStorage.getItem('row-shading') !== '0',
   catSortMode:         localStorage.getItem('cat-sort') || 'ynab',
   showTotalExp:        localStorage.getItem('show-total-exp') === '1',
-  homeSelectedAccounts: parseJsonLS('sel-home-accts') || {}
+  homeSelectedAccounts: parseJsonLS('sel-home-accts') || {},
+  expandAll:           localStorage.getItem('expand-all') === '1'
 };
 
 // ============================================================
@@ -2554,6 +2560,13 @@ function toggleGroup(groupIdx) {
   }
 }
 
+function expandAllGroups(expand) {
+  for (var i = 0; i < EXPENSE_GROUPS.length; i++) {
+    state.expanded[EXPENSE_GROUPS[i]] = expand;
+  }
+  renderTable();
+}
+
 // ============================================================
 // RANGE FILTER
 // ============================================================
@@ -3771,6 +3784,13 @@ function showReport() {
   if (catSortToggle) catSortToggle.checked = state.catSortMode === 'avg';
   var totalExpToggle = document.getElementById('total-exp-toggle');
   if (totalExpToggle) totalExpToggle.checked = state.showTotalExp;
+  var expandAllToggle = document.getElementById('expand-all-toggle');
+  if (expandAllToggle) expandAllToggle.checked = state.expandAll;
+  if (state.expandAll) {
+    for (var eai = 0; eai < EXPENSE_GROUPS.length; eai++) {
+      state.expanded[EXPENSE_GROUPS[eai]] = true;
+    }
+  }
 
   populateRangeFilter();
   populateAccountFilter();
@@ -4003,6 +4023,13 @@ document.addEventListener('DOMContentLoaded', function() {
     state.showTotalExp = this.checked;
     localStorage.setItem('show-total-exp', state.showTotalExp ? '1' : '0');
     renderTable();
+  });
+
+  // Expand All toggle
+  document.getElementById('expand-all-toggle').addEventListener('change', function() {
+    state.expandAll = this.checked;
+    localStorage.setItem('expand-all', state.expandAll ? '1' : '0');
+    expandAllGroups(state.expandAll);
   });
 
   // Refresh from YNAB
