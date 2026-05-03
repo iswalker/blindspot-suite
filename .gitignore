@@ -1,0 +1,5 @@
+# Personal configuration — contains category/account mappings, do not commit
+*.csv
+
+# Google Apps Script server-side file
+Code.gs
