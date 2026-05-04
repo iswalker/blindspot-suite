@@ -110,6 +110,16 @@ body {
 }
 #oauth-btn:disabled { background: #bbb; cursor: not-allowed; }
 #oauth-btn:hover:not([disabled]) { background: #0c4e8c; }
+#gsheet-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; margin-top: 8px;
+  padding: 9px 16px; background: #fff; color: #3c4043;
+  border: 1px solid #dadce0; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+#gsheet-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+#gsheet-btn:hover:not([disabled]) { background: #f8f9fa; border-color: #bbb; }
+#gsheet-btn svg { flex-shrink: 0; }
+#gsheet-status { display: block; font-size: 12px; margin-top: 5px; min-height: 16px; }
 
 /* ---- Report ---- */
 #report { display: none; }
@@ -142,7 +152,7 @@ body {
   white-space: nowrap;
 }
 #back-btn:hover { background: #f0f0f0; }
-#config-reload-btn, #expand-all-btn, #collapse-all-btn {
+#config-reload-btn, #gsheet-refresh-btn, #expand-all-btn, #collapse-all-btn {
   padding: 6px 14px;
   background: #fff;
   border: 1px solid #ccc;
@@ -152,7 +162,7 @@ body {
   color: #555;
   white-space: nowrap;
 }
-#config-reload-btn:hover, #expand-all-btn:hover, #collapse-all-btn:hover { background: #f0f0f0; }
+#config-reload-btn:hover, #gsheet-refresh-btn:hover, #expand-all-btn:hover, #collapse-all-btn:hover { background: #f0f0f0; }
 #refresh-btn {
   padding: 6px 14px;
   background: #fff;
@@ -745,6 +755,20 @@ td.hbt-num:last-child { width: 13%; }
     <input type="file" id="config-file" accept=".csv">
     <span class="file-status" id="config-status">not loaded</span>
   </div>
+  <div class="or-divider">or pull from Google Sheet</div>
+  <div class="file-row">
+    <label for="gsheet-url">Sheet URL</label>
+    <input type="text" id="gsheet-url" placeholder="https://docs.google.com/spreadsheets/d/…" autocomplete="off">
+  </div>
+  <button id="gsheet-btn">
+    <svg width="16" height="16" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <path fill="#0F9D58" d="M29 3H9C7.3 3 6 4.3 6 6v36c0 1.7 1.3 3 3 3h30c1.7 0 3-1.3 3-3V15L29 3z"/>
+      <path fill="#87CEAC" d="M29 3v12h12z"/>
+      <path fill="#fff" d="M14 24h20v2H14zm0 4h20v2H14zm0 4h14v2H14z"/>
+    </svg>
+    Link Google Account
+  </button>
+  <span class="file-status" id="gsheet-status"></span>
   <div class="or-divider">sign in with YNAB</div>
   <button id="oauth-btn">Sign in with YNAB</button>
   <div class="or-divider">or connect via API key</div>
@@ -787,6 +811,7 @@ td.hbt-num:last-child { width: 13%; }
       <button id="refresh-btn" style="display:none">&#8635; Refresh</button>
       <input type="file" id="config-reload-file" accept=".csv" style="display:none">
       <button id="config-reload-btn" title="Re-upload Config.csv">&#8679; Config</button>
+      <button id="gsheet-refresh-btn" title="Refresh config from Google Sheet" style="display:none">&#8635; Sheet</button>
       <button id="back-btn">&#8592; Reload Files</button>
     </div>
   </div>
@@ -1254,6 +1279,19 @@ function valCellsNet(vals, avg, pctRef, keys) {
 // ============================================================
 function ensureConfigLoaded() {
   if (state.catConfig.length > 0) return Promise.resolve();
+
+  // If a Google Sheet is linked, fetch fresh config from it (falling back to local cache on error)
+  var googleToken    = localStorage.getItem('google-access-token');
+  var googleSheetUrl = localStorage.getItem('google-sheet-url');
+  if (googleToken && extractSheetId(googleSheetUrl)) {
+    return fetchConfigFromGoogleSheet(googleToken)
+      .catch(function() {
+        // Token expired or network error — fall back to cached CSV
+        var stored = localStorage.getItem('cat-config-csv');
+        if (stored) { state.configText = stored; state.catConfig = parseConfigCsv(stored); }
+      });
+  }
+
   // Restore from localStorage (persisted on last manual upload or successful fetch)
   var stored = localStorage.getItem('cat-config-csv');
   if (stored) {
@@ -1913,6 +1951,85 @@ function connectYnab() {
 
 var YNAB_OAUTH_CLIENT_ID = 'rq12UT9iB5IwrJY7AkbjcVYSzfsRMPoDwDOZ-zO_X0E';
 
+// ── Google Sheets ──────────────────────────────────────────────
+// Create at console.cloud.google.com → APIs & Services → Credentials
+// Enable the "Google Sheets API", create an OAuth 2.0 Web Client ID,
+// and add this page's origin to Authorized JavaScript origins +
+// this page's URL to Authorized redirect URIs.
+var GOOGLE_CLIENT_ID = '736726411322-354tffirp4mbptlf4f2ni5j2994b9t4o.apps.googleusercontent.com';
+
+function extractSheetId(url) {
+  var m = (url || '').match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  return m ? m[1] : null;
+}
+
+function sheetValuesToCsv(values) {
+  return (values || []).map(function(row) {
+    return (row || []).map(function(cell) {
+      var s = String(cell == null ? '' : cell);
+      if (s.indexOf(',') !== -1 || s.indexOf('"') !== -1 || s.indexOf('\n') !== -1) {
+        return '"' + s.replace(/"/g, '""') + '"';
+      }
+      return s;
+    }).join(',');
+  }).join('\n');
+}
+
+function fetchConfigFromGoogleSheet(token) {
+  var sheetId = extractSheetId(localStorage.getItem('google-sheet-url') || '');
+  if (!sheetId || !token) return Promise.reject(new Error('Missing sheet ID or access token'));
+  return fetch(
+    'https://sheets.googleapis.com/v4/spreadsheets/' + encodeURIComponent(sheetId) + '/values/A:Z?majorDimension=ROWS',
+    { headers: { 'Authorization': 'Bearer ' + token } }
+  ).then(function(r) {
+    if (r.status === 401) localStorage.removeItem('google-access-token');
+    if (!r.ok) throw new Error('Google Sheets API error ' + r.status);
+    return r.json();
+  }).then(function(json) {
+    var csvText = sheetValuesToCsv(json.values);
+    state.configText = csvText;
+    state.catConfig  = parseConfigCsv(csvText);
+    localStorage.setItem('cat-config-csv', csvText);
+    return state.catConfig;
+  });
+}
+
+function startGoogleOAuth() {
+  if (!GOOGLE_CLIENT_ID) {
+    alert('GOOGLE_CLIENT_ID is not set in the source.\n\nCreate an OAuth 2.0 Web Client ID at console.cloud.google.com, enable the Google Sheets API, then paste the client ID into the GOOGLE_CLIENT_ID constant near the top of the script.');
+    return;
+  }
+  var urlInput = document.getElementById('gsheet-url');
+  var url = (urlInput ? urlInput.value.trim() : '') || localStorage.getItem('google-sheet-url') || '';
+  if (!extractSheetId(url)) {
+    alert('Please paste a valid Google Sheet URL first.');
+    return;
+  }
+  localStorage.setItem('google-sheet-url', url);
+  var redirectUri = window.location.origin + window.location.pathname;
+  window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth'
+    + '?client_id='    + encodeURIComponent(GOOGLE_CLIENT_ID)
+    + '&redirect_uri=' + encodeURIComponent(redirectUri)
+    + '&response_type=token'
+    + '&scope='        + encodeURIComponent('https://www.googleapis.com/auth/spreadsheets.readonly')
+    + '&state=google-config';
+}
+
+function refreshGoogleSheetConfig() {
+  var token = localStorage.getItem('google-access-token');
+  if (!token) { alert('Link your Google account first.'); return; }
+  var statusEl = document.getElementById('gsheet-status') || document.getElementById('cache-label');
+  if (statusEl) statusEl.textContent = 'Refreshing from Google Sheet…';
+  fetchConfigFromGoogleSheet(token).then(function(cfg) {
+    var msg = 'Config loaded from Google Sheet (' + cfg.length + ' rules)';
+    if (statusEl) { statusEl.textContent = msg; statusEl.className = 'file-status ok'; }
+    if (state.data) renderHome();
+  }).catch(function(e) {
+    var msg = 'Refresh failed: ' + (e && e.message || e);
+    if (statusEl) { statusEl.textContent = msg; statusEl.className = 'file-status'; }
+  });
+}
+
 function startOAuthFlow() {
   var redirectUri = window.location.origin + window.location.pathname;
   window.location.href = 'https://app.youneedabudget.com/oauth/authorize'
@@ -1923,16 +2040,21 @@ function startOAuthFlow() {
 
 function handleOAuthCallback() {
   var hash = window.location.hash;
-  if (!hash || hash.indexOf('access_token') === -1) return;
+  if (!hash || hash.indexOf('access_token') === -1) return null;
   var params = {};
   hash.replace(/^#/, '').split('&').forEach(function(pair) {
     var kv = pair.split('=');
     params[decodeURIComponent(kv[0])] = decodeURIComponent(kv[1] || '');
   });
-  if (!params.access_token) return;
+  if (!params.access_token) return null;
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+  if (params.state === 'google-config') {
+    localStorage.setItem('google-access-token', params.access_token);
+    return 'google';
+  }
   localStorage.setItem('ynab-api-key', params.access_token);
   localStorage.removeItem('ynab-budget-id'); // force budget re-selection after fresh OAuth
-  history.replaceState(null, '', window.location.pathname + window.location.search);
+  return 'ynab';
 }
 
 function refreshYnab() {
@@ -3853,6 +3975,8 @@ function showReport() {
 
   var hasYnab = !!(localStorage.getItem('ynab-api-key') && localStorage.getItem('ynab-budget-id'));
   document.getElementById('refresh-btn').style.display = hasYnab ? '' : 'none';
+  var hasGSheet = !!(localStorage.getItem('google-access-token') && extractSheetId(localStorage.getItem('google-sheet-url') || ''));
+  document.getElementById('gsheet-refresh-btn').style.display = hasGSheet ? '' : 'none';
   if (state.loadedAt) {
     var d = new Date(state.loadedAt);
     document.getElementById('cache-label').textContent =
@@ -3872,6 +3996,21 @@ function showUpload() {
   document.getElementById('reg-status').className      = 'file-status';
   document.getElementById('config-status').textContent = 'not loaded';
   document.getElementById('config-status').className   = 'file-status';
+  // Restore Google Sheet URL and linked status
+  var savedSheetUrl = localStorage.getItem('google-sheet-url') || '';
+  var gSheetInput   = document.getElementById('gsheet-url');
+  var gSheetStatus  = document.getElementById('gsheet-status');
+  if (gSheetInput) gSheetInput.value = savedSheetUrl;
+  if (gSheetStatus) {
+    var gToken = localStorage.getItem('google-access-token');
+    if (gToken && savedSheetUrl) {
+      gSheetStatus.textContent = 'Google Sheet linked';
+      gSheetStatus.className   = 'file-status ok';
+    } else {
+      gSheetStatus.textContent = '';
+      gSheetStatus.className   = 'file-status';
+    }
+  }
   document.getElementById('render-btn').disabled = true;
   document.getElementById('error-msg').textContent = '';
   ynabPendingKey = null;
@@ -3887,9 +4026,18 @@ function showUpload() {
 // INIT
 // ============================================================
 function init() {
-  handleOAuthCallback(); // must run before localStorage reads below
+  var oauthSource = handleOAuthCallback(); // must run before localStorage reads below
   document.getElementById('loading').style.display = 'flex';
   document.getElementById('upload-panel').style.display = 'none';
+
+  // Google OAuth just completed — fetch the sheet config then show upload so the user can sign into YNAB
+  if (oauthSource === 'google') {
+    var gToken = localStorage.getItem('google-access-token');
+    fetchConfigFromGoogleSheet(gToken)
+      .catch(function() {})
+      .then(function() { showUpload(); });
+    return;
+  }
 
   // 1. Try IndexedDB cache (stores processed data object, not raw CSV)
   dbGet('processed').then(function(cached) {
@@ -4091,6 +4239,26 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('config-reload-btn').addEventListener('click', function() {
     document.getElementById('config-reload-file').click();
   });
+
+  // Google Sheet refresh (report controls bar)
+  var gSheetRefreshBtn = document.getElementById('gsheet-refresh-btn');
+  if (localStorage.getItem('google-access-token') && extractSheetId(localStorage.getItem('google-sheet-url') || '')) {
+    gSheetRefreshBtn.style.display = '';
+  }
+  gSheetRefreshBtn.addEventListener('click', function() {
+    var cacheLabel = document.getElementById('cache-label');
+    cacheLabel.textContent = 'Refreshing from Google Sheet…';
+    var token = localStorage.getItem('google-access-token');
+    fetchConfigFromGoogleSheet(token).then(function(cfg) {
+      cacheLabel.textContent = 'Sheet config refreshed (' + cfg.length + ' rules)';
+      if (state.data) renderHome();
+    }).catch(function(e) {
+      cacheLabel.textContent = 'Sheet refresh failed: ' + (e && e.message || e);
+    });
+  });
+
+  // Google Sheet link button (upload panel)
+  document.getElementById('gsheet-btn').addEventListener('click', startGoogleOAuth);
   document.getElementById('config-reload-file').addEventListener('change', function() {
     var f = this.files[0]; if (!f) return;
     var r = new FileReader();
