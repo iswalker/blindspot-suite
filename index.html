@@ -651,6 +651,14 @@ td.hbt-num:last-child { width: 13%; }
 .home-tt-group { font-size: 11px; color: #aaa; margin-left: 4px; }
 .home-tt-right { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
 
+/* ---- Recoverable Costs trend sparkline tooltip ---- */
+#home-trend-tooltip {
+  position: fixed; display: none;
+  background: #fff; border-radius: 8px; padding: 12px 16px;
+  box-shadow: 0 4px 18px rgba(0,0,0,.15);
+  pointer-events: none; z-index: 200; width: 320px;
+}
+
 /* ---- LW / NW summary card ---- */
 #lw-summary-card, #nw-summary-card {
   background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
@@ -925,10 +933,13 @@ td.hbt-num:last-child { width: 13%; }
         <div class="home-metric-value na" id="home-planned-liq-value">&#8212;</div>
       </div>
       <div class="home-metric-op">+</div>
-      <div class="home-metric-card" id="home-trend-card">
+      <div class="home-metric-card" id="home-trend-card" style="cursor:pointer">
         <div class="home-metric-label">Recoverable Costs (Trend)</div>
         <div class="home-metric-sub">Pull back where possible</div>
-        <div class="home-metric-value na" id="home-trend-value">&#8212;</div>
+        <div style="display:flex;align-items:baseline;justify-content:flex-end;gap:8px">
+          <div class="home-metric-value na" id="home-trend-value">&#8212;</div>
+          <div id="home-trend-delta" style="display:none;font-size:13px;font-weight:600;white-space:nowrap"></div>
+        </div>
       </div>
       <div class="home-metric-op">+</div>
       <div class="home-metric-card" id="home-pending-card" style="cursor:default">
@@ -997,6 +1008,13 @@ td.hbt-num:last-child { width: 13%; }
 
 <!-- Home recoverable costs hover tooltip -->
 <div id="home-recov-tooltip"></div>
+
+<!-- Recoverable Costs Trend sparkline tooltip -->
+<div id="home-trend-tooltip">
+  <div class="home-tt-hdr">Recoverable Costs — 30-Day History</div>
+  <div style="font-size:11px;color:#888;margin-bottom:8px">Trend arrow reflects change over the last 7 days</div>
+  <canvas id="home-trend-sparkline" width="288" height="110" style="display:block;width:288px;height:110px"></canvas>
+</div>
 
 <!-- Detail pane -->
 <div id="detail-pane">
@@ -2473,6 +2491,7 @@ var lwChartState       = null;
 var nwChartState       = null;
 var homeRecovBreakdown = [];
 var homeTrendBreakdown = [];
+var homeTrendHistory   = [];
 
 var LW_MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -3202,6 +3221,145 @@ function renderAvailPill(v) {
   return '<span class="hbt-avail-zero">$0.00</span>';
 }
 
+// Build daily recoverable-available history by working backwards from today's value
+// using individual transactions stored in d.regTxns.
+function computeRecovHistory(d, curKey, days) {
+  var recovCats = {};
+  var currentTotal = 0;
+  if (d.recovCatAvail) {
+    for (var rcat in d.recovCatAvail) {
+      var avail = (d.recovCatAvail[rcat] || {})[curKey] || 0;
+      if (avail > 0) { currentTotal += avail; recovCats[rcat] = true; }
+    }
+  }
+  var hasAny = false;
+  for (var kk in recovCats) { hasAny = true; break; }
+  if (!d.regTxns || !hasAny) return [];
+
+  function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+  function toDS(dt) { return dt.getFullYear() + '-' + pad2(dt.getMonth() + 1) + '-' + pad2(dt.getDate()); }
+
+  var today     = new Date();
+  var todayStr  = toDS(today);
+  var cutoff    = new Date(today);
+  cutoff.setDate(cutoff.getDate() - days);
+  var cutoffStr   = toDS(cutoff);
+  var cutoffMonth = cutoffStr.slice(0, 7);
+
+  // Collect net spending (outflow - inflow) per date for all recoverable cats
+  var txnsByDate = {};
+  for (var mkey in d.regTxns) {
+    if (mkey < cutoffMonth) continue;
+    var monthData = d.regTxns[mkey] || {};
+    for (var grp in monthData) {
+      for (var cat in monthData[grp]) {
+        if (!recovCats[cat]) continue;
+        var txns = monthData[grp][cat] || [];
+        for (var ti = 0; ti < txns.length; ti++) {
+          var txn = txns[ti];
+          if (!txn.date || txn.date < cutoffStr || txn.date > todayStr) continue;
+          var net = (txn.outflow || 0) - (txn.inflow || 0);
+          txnsByDate[txn.date] = (txnsByDate[txn.date] || 0) + net;
+        }
+      }
+    }
+  }
+
+  // Sort the transaction dates once for efficiency
+  var txnDates = [];
+  for (var td in txnsByDate) txnDates.push(td);
+  txnDates.sort();
+
+  // For each day: value = currentTotal + sum(net spending on all days AFTER this one)
+  // (spending after this day reduced the available balance, so value was higher then)
+  var points = [];
+  for (var di = 0; di <= days; di++) {
+    var dt = new Date(today);
+    dt.setDate(dt.getDate() - (days - di));
+    var dStr = toDS(dt);
+    var txnsAfter = 0;
+    for (var j = 0; j < txnDates.length; j++) {
+      if (txnDates[j] > dStr) txnsAfter += txnsByDate[txnDates[j]];
+    }
+    points.push({ date: dStr, value: Math.max(0, currentTotal + txnsAfter) });
+  }
+  return points;
+}
+
+function drawRecovSparkline(canvas, points) {
+  if (!points || points.length < 2) return;
+  var dpr = window.devicePixelRatio || 1;
+  var W   = 288, H = 110;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  var ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  var vals = points.map(function(p) { return p.value; });
+  var minV = Math.min.apply(null, vals);
+  var maxV = Math.max.apply(null, vals);
+  var range = maxV - minV || 1;
+  minV = Math.max(0, minV - range * 0.1);
+  maxV = maxV + range * 0.1;
+  range = maxV - minV;
+
+  var pL = 8, pR = 48, pT = 8, pB = 22;
+  var cW = W - pL - pR, cH = H - pT - pB;
+  var n  = points.length;
+
+  function xp(i) { return pL + (i / (n - 1)) * cW; }
+  function yp(v) { return pT + (1 - (v - minV) / range) * cH; }
+  function fmtV(v) {
+    if (v >= 10000) return '$' + (v / 1000).toFixed(0) + 'k';
+    if (v >= 1000)  return '$' + (v / 1000).toFixed(1) + 'k';
+    return '$' + v.toFixed(0);
+  }
+
+  // Line
+  ctx.beginPath();
+  ctx.moveTo(xp(0), yp(vals[0]));
+  for (var i = 1; i < n; i++) ctx.lineTo(xp(i), yp(vals[i]));
+  ctx.strokeStyle = '#d97706';
+  ctx.lineWidth   = 2;
+  ctx.lineJoin    = 'round';
+  ctx.stroke();
+
+  // Dot + label at current (rightmost) value
+  var lastX = xp(n - 1), lastY = yp(vals[n - 1]);
+  ctx.beginPath();
+  ctx.arc(lastX, lastY, 3, 0, 2 * Math.PI);
+  ctx.fillStyle = '#d97706';
+  ctx.fill();
+  ctx.fillStyle    = '#d97706';
+  ctx.font         = 'bold 11px system-ui, sans-serif';
+  ctx.textAlign    = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(fmtV(vals[n - 1]), lastX + 6, lastY);
+
+  // 7-days-ago marker
+  var idx7 = n - 1 - 7;
+  if (idx7 >= 0) {
+    ctx.beginPath();
+    ctx.arc(xp(idx7), yp(vals[idx7]), 3, 0, 2 * Math.PI);
+    ctx.fillStyle = '#bbb';
+    ctx.fill();
+  }
+
+  // X-axis date labels
+  ctx.fillStyle    = '#bbb';
+  ctx.font         = '9px system-ui, sans-serif';
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'alphabetic';
+  var labelIdxs = [0, Math.floor(n / 3), Math.floor(2 * n / 3), n - 1];
+  for (var li = 0; li < labelIdxs.length; li++) {
+    var idx  = labelIdxs[li];
+    var ds   = points[idx].date;
+    var lbl  = parseInt(ds.slice(5, 7), 10) + '/' + parseInt(ds.slice(8, 10), 10);
+    ctx.fillText(lbl, xp(idx), H - 4);
+  }
+}
+
 function renderHome() {
   var d = state.data;
   if (!d) return;
@@ -3318,6 +3476,25 @@ function renderHome() {
     } else {
       trendEl.innerHTML = '&#8212;';
       trendEl.className = 'home-metric-value na';
+    }
+  }
+
+  // 7-day trend arrow + 30-day sparkline history
+  homeTrendHistory = computeRecovHistory(d, curKey, 30);
+  var deltaEl = document.getElementById('home-trend-delta');
+  if (deltaEl) {
+    if (homeTrendHistory.length > 7 && recovTotal > 0) {
+      var val7ago = homeTrendHistory[homeTrendHistory.length - 1 - 7].value;
+      var delta7  = recovTotal - val7ago;
+      var arrow   = delta7 >= 0 ? '▲' : '▼';
+      var dColor  = delta7 >= 0 ? '#2e7d32' : '#c62828';
+      var fmtD    = (delta7 >= 0 ? '+' : '−') + '$'
+                    + Math.abs(delta7).toLocaleString('en-US', {maximumFractionDigits: 0});
+      deltaEl.innerHTML = '<span style="color:' + dColor + '">' + arrow + ' ' + fmtD + '</span>';
+      deltaEl.style.display = '';
+    } else {
+      deltaEl.innerHTML = '';
+      deltaEl.style.display = 'none';
     }
   }
 
@@ -4379,6 +4556,32 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     recovCard.addEventListener('mousemove',  positionRecovTt);
     recovCard.addEventListener('mouseleave', function() { recovTt.style.display = 'none'; });
+  }
+
+  // Recoverable Costs Trend sparkline tooltip
+  var trendCard = document.getElementById('home-trend-card');
+  var trendTt   = document.getElementById('home-trend-tooltip');
+  function positionTrendTt(e) {
+    if (!trendTt || trendTt.style.display === 'none') return;
+    var ttW = trendTt.offsetWidth || 320, ttH = trendTt.offsetHeight || 160;
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var left = e.clientX + 14, top = e.clientY - 20;
+    if (left + ttW > vw - 8) left = e.clientX - ttW - 14;
+    if (top + ttH > vh - 8)  top  = vh - ttH - 8;
+    if (top < 8) top = 8;
+    trendTt.style.left = left + 'px';
+    trendTt.style.top  = top  + 'px';
+  }
+  if (trendCard && trendTt) {
+    trendCard.addEventListener('mouseenter', function(e) {
+      if (!homeTrendHistory.length) return;
+      trendTt.style.display = 'block';
+      positionTrendTt(e);
+      var sparkCanvas = document.getElementById('home-trend-sparkline');
+      if (sparkCanvas) drawRecovSparkline(sparkCanvas, homeTrendHistory);
+    });
+    trendCard.addEventListener('mousemove',  positionTrendTt);
+    trendCard.addEventListener('mouseleave', function() { trendTt.style.display = 'none'; });
   }
 
   // Account filter toggles (Margin + LW)
