@@ -3339,6 +3339,33 @@ function drawRecovSparkline(canvas, points) {
   ctx.lineJoin    = 'round';
   ctx.stroke();
 
+  // Day-1 dot + label (leftmost point, always the 1st of the month)
+  var x0 = xp(0), y0 = yp(vals[0]);
+  ctx.beginPath();
+  ctx.arc(x0, y0, 3, 0, 2 * Math.PI);
+  ctx.fillStyle = '#888';
+  ctx.fill();
+  ctx.fillStyle    = '#888';
+  ctx.font         = '10px system-ui, sans-serif';
+  ctx.textAlign    = 'left';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(fmtV(vals[0]), x0 + 5, y0 - 3);
+
+  // 7-days-ago dot + label (only when it doesn't coincide with day-1)
+  var idx7 = n - 1 - 7;
+  if (idx7 > 0) {
+    var x7 = xp(idx7), y7 = yp(vals[idx7]);
+    ctx.beginPath();
+    ctx.arc(x7, y7, 3, 0, 2 * Math.PI);
+    ctx.fillStyle = '#888';
+    ctx.fill();
+    ctx.fillStyle    = '#888';
+    ctx.font         = '10px system-ui, sans-serif';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(fmtV(vals[idx7]), x7, y7 - 3);
+  }
+
   // Dot + label at current (rightmost) value
   var lastX = xp(n - 1), lastY = yp(vals[n - 1]);
   ctx.beginPath();
@@ -3350,15 +3377,6 @@ function drawRecovSparkline(canvas, points) {
   ctx.textAlign    = 'left';
   ctx.textBaseline = 'middle';
   ctx.fillText(fmtV(vals[n - 1]), lastX + 6, lastY);
-
-  // 7-days-ago marker
-  var idx7 = n - 1 - 7;
-  if (idx7 >= 0) {
-    ctx.beginPath();
-    ctx.arc(xp(idx7), yp(vals[idx7]), 3, 0, 2 * Math.PI);
-    ctx.fillStyle = '#bbb';
-    ctx.fill();
-  }
 
   // X-axis date labels
   ctx.fillStyle    = '#bbb';
