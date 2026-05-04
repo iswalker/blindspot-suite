@@ -3637,20 +3637,24 @@ function drawLwChart(keys, assetVals, debtVals, netVals, hoveredIdx, canvasId, a
 
   var chartH = H - T_PAD - B_PAD;
 
-  // Resolve Net Liquid Target (lw-canvas only)
+  // Resolve Net Liquid Target and Minimum (lw-canvas only)
   var lwTargetAmt = null;
+  var lwMinAmt    = null;
   if (canvasId === 'lw-canvas') {
     for (var lqti = 0; lqti < state.catConfig.length; lqti++) {
-      if (state.catConfig[lqti].usedFor === 'Net Liquid' && state.catConfig[lqti].amount !== null) {
-        lwTargetAmt = state.catConfig[lqti].amount; break;
+      var lqcfg = state.catConfig[lqti];
+      if (lqcfg.amount !== null) {
+        if (lqcfg.usedFor === 'Net Liquid')         lwTargetAmt = lqcfg.amount;
+        if (lqcfg.usedFor === 'Net Liquid Minimum') lwMinAmt    = lqcfg.amount;
       }
     }
   }
 
-  // Y-axis scale — include target so it's always visible
+  // Y-axis scale — include target/minimum so they're always visible
   var maxBar = 0;
   for (var i = 0; i < n; i++) maxBar = Math.max(maxBar, assetVals[i], Math.abs(debtVals[i]));
   if (lwTargetAmt !== null) maxBar = Math.max(maxBar, lwTargetAmt);
+  if (lwMinAmt    !== null) maxBar = Math.max(maxBar, lwMinAmt);
   if (maxBar === 0) maxBar = 1;
   var rough  = maxBar / 6;
   var pow10  = Math.pow(10, Math.floor(Math.log(rough) / Math.LN10));
@@ -3736,6 +3740,23 @@ function drawLwChart(keys, assetVals, debtVals, netVals, hoveredIdx, canvasId, a
     ctx.textAlign = 'right';
     ctx.font      = '12px system-ui, -apple-system, sans-serif';
     ctx.fillText('Target ' + fmtYTick(lwTargetAmt), totalW - R_PAD - 2, tgtY - 4);
+  }
+
+  // Net Liquid Minimum line
+  if (lwMinAmt !== null) {
+    var minY = yPos(lwMinAmt);
+    ctx.strokeStyle = '#d97706';
+    ctx.lineWidth   = 0.5;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(L_PAD, minY);
+    ctx.lineTo(totalW - R_PAD, minY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#d97706';
+    ctx.textAlign = 'right';
+    ctx.font      = '12px system-ui, -apple-system, sans-serif';
+    ctx.fillText('Minimum ' + fmtYTick(lwMinAmt), totalW - R_PAD - 2, minY - 4);
   }
 
   // Net worth circles — green/red by month-over-month change; hovered = solid black
