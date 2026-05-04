@@ -141,7 +141,7 @@ body {
   white-space: nowrap;
 }
 #back-btn:hover { background: #f0f0f0; }
-#config-reload-btn {
+#config-reload-btn, #expand-all-btn, #collapse-all-btn {
   padding: 6px 14px;
   background: #fff;
   border: 1px solid #ccc;
@@ -151,7 +151,7 @@ body {
   color: #555;
   white-space: nowrap;
 }
-#config-reload-btn:hover { background: #f0f0f0; }
+#config-reload-btn:hover, #expand-all-btn:hover, #collapse-all-btn:hover { background: #f0f0f0; }
 #refresh-btn {
   padding: 6px 14px;
   background: #fff;
@@ -738,25 +738,15 @@ td.hbt-num:last-child { width: 13%; }
 <!-- Upload panel -->
 <div id="upload-panel">
   <h2>Blindspot Suite</h2>
-  <p>Select your two YNAB export files to generate the report.</p>
-  <div class="file-row">
-    <label for="plan-file">Plan CSV</label>
-    <input type="file" id="plan-file" accept=".csv">
-    <span class="file-status" id="plan-status">not loaded</span>
-  </div>
-  <div class="file-row">
-    <label for="reg-file">Register CSV</label>
-    <input type="file" id="reg-file" accept=".csv">
-    <span class="file-status" id="reg-status">not loaded</span>
-  </div>
+  <p>Load your Config first, then choose how to import data.</p>
   <div class="file-row">
     <label for="config-file">Config CSV</label>
     <input type="file" id="config-file" accept=".csv">
     <span class="file-status" id="config-status">not loaded</span>
   </div>
-  <button id="render-btn" disabled>Build Report</button>
-  <div id="error-msg"></div>
-  <div class="or-divider">or connect via YNAB API</div>
+  <div class="or-divider">sign in with YNAB</div>
+  <button id="oauth-btn">Sign in with YNAB</button>
+  <div class="or-divider">or connect via API key</div>
   <div class="file-row">
     <label for="api-key-input">API Key</label>
     <input type="text" id="api-key-input" placeholder="Personal Access Token&hellip;" autocomplete="off">
@@ -767,8 +757,19 @@ td.hbt-num:last-child { width: 13%; }
   </div>
   <button id="api-connect-btn">Connect to YNAB</button>
   <div id="api-progress"></div>
-  <div class="or-divider">or</div>
-  <button id="oauth-btn">Sign in with YNAB</button>
+  <div class="or-divider">or import CSV files</div>
+  <div class="file-row">
+    <label for="plan-file">Plan CSV</label>
+    <input type="file" id="plan-file" accept=".csv">
+    <span class="file-status" id="plan-status">not loaded</span>
+  </div>
+  <div class="file-row">
+    <label for="reg-file">Register CSV</label>
+    <input type="file" id="reg-file" accept=".csv">
+    <span class="file-status" id="reg-status">not loaded</span>
+  </div>
+  <button id="render-btn" disabled>Build Report</button>
+  <div id="error-msg"></div>
 </div>
 
 <!-- Report -->
@@ -802,12 +803,10 @@ td.hbt-num:last-child { width: 13%; }
           <div id="acct-filter-panel"></div>
         </div>
       </div>
-      <div style="margin-left:auto;display:flex;align-items:center;gap:16px">
-        <label class="toggle-wrap" id="expand-all-toggle-wrap">
-          <input type="checkbox" id="expand-all-toggle">
-          <span class="toggle-track"><span class="toggle-thumb"></span></span>
-          <span class="toggle-label">Expand All</span>
-        </label>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+        <button id="expand-all-btn">Expand All</button>
+        <button id="collapse-all-btn">Collapse All</button>
+        <div style="width:8px"></div>
         <label class="toggle-wrap" id="cat-sort-toggle-wrap">
           <input type="checkbox" id="cat-sort-toggle">
           <span class="toggle-track"><span class="toggle-thumb"></span></span>
@@ -1041,7 +1040,7 @@ var state = {
   data:                null,
   fromKey:             localStorage.getItem('sel-from') || null,
   toKey:               localStorage.getItem('sel-to')   || null,
-  expanded:            {},
+  expanded:            parseJsonLS('ynab-expanded-groups') || {},
   selectedAccounts:    parseJsonLS('sel-accts')       || {},
   loadedAt:            null,
   activeTab:           localStorage.getItem('sel-tab') || 'home',
@@ -1054,8 +1053,7 @@ var state = {
   rowShading:          localStorage.getItem('row-shading') !== '0',
   catSortMode:         localStorage.getItem('cat-sort') || 'ynab',
   showTotalExp:        localStorage.getItem('show-total-exp') === '1',
-  homeSelectedAccounts: parseJsonLS('sel-home-accts') || {},
-  expandAll:           localStorage.getItem('expand-all') === '1'
+  homeSelectedAccounts: parseJsonLS('sel-home-accts') || {}
 };
 
 // ============================================================
@@ -2591,12 +2589,14 @@ function toggleGroup(groupIdx) {
     catRows[ri].style.display = isExp ? '' : 'none';
     catRows[ri].classList.toggle('cat-row-bordered', isExp);
   }
+  localStorage.setItem('ynab-expanded-groups', JSON.stringify(state.expanded));
 }
 
 function expandAllGroups(expand) {
   for (var i = 0; i < EXPENSE_GROUPS.length; i++) {
     state.expanded[EXPENSE_GROUPS[i]] = expand;
   }
+  localStorage.setItem('ynab-expanded-groups', JSON.stringify(state.expanded));
   renderTable();
 }
 
@@ -3817,14 +3817,6 @@ function showReport() {
   if (catSortToggle) catSortToggle.checked = state.catSortMode === 'avg';
   var totalExpToggle = document.getElementById('total-exp-toggle');
   if (totalExpToggle) totalExpToggle.checked = state.showTotalExp;
-  var expandAllToggle = document.getElementById('expand-all-toggle');
-  if (expandAllToggle) expandAllToggle.checked = state.expandAll;
-  if (state.expandAll) {
-    for (var eai = 0; eai < EXPENSE_GROUPS.length; eai++) {
-      state.expanded[EXPENSE_GROUPS[eai]] = true;
-    }
-  }
-
   populateRangeFilter();
   populateAccountFilter();
   renderTable();
@@ -4066,12 +4058,9 @@ document.addEventListener('DOMContentLoaded', function() {
     renderTable();
   });
 
-  // Expand All toggle
-  document.getElementById('expand-all-toggle').addEventListener('change', function() {
-    state.expandAll = this.checked;
-    localStorage.setItem('expand-all', state.expandAll ? '1' : '0');
-    expandAllGroups(state.expandAll);
-  });
+  // Expand / Collapse All buttons
+  document.getElementById('expand-all-btn').addEventListener('click', function() { expandAllGroups(true); });
+  document.getElementById('collapse-all-btn').addEventListener('click', function() { expandAllGroups(false); });
 
   // Refresh from YNAB
   document.getElementById('refresh-btn').addEventListener('click', refreshYnab);
