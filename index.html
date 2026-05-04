@@ -3221,67 +3221,81 @@ function renderAvailPill(v) {
   return '<span class="hbt-avail-zero">$0.00</span>';
 }
 
-// Build daily recoverable-available history by working backwards from today's value
-// using individual transactions stored in d.regTxns.
-function computeRecovHistory(d, curKey, days) {
-  var recovCats = {};
-  var currentTotal = 0;
-  if (d.recovCatAvail) {
-    for (var rcat in d.recovCatAvail) {
-      var avail = (d.recovCatAvail[rcat] || {})[curKey] || 0;
-      if (avail > 0) { currentTotal += avail; recovCats[rcat] = true; }
-    }
-  }
-  var hasAny = false;
-  for (var kk in recovCats) { hasAny = true; break; }
-  if (!d.regTxns || !hasAny) return [];
+// Reconstruct what trendTotal would have been on each past day,
+// using per-category avgDaily rates from trendItems and actual transactions.
+function computeRecovHistory(d, curKey, days, trendItems) {
+  if (!trendItems || !trendItems.length || !d.regTxns) return [];
 
   function pad2(n) { return n < 10 ? '0' + n : '' + n; }
   function toDS(dt) { return dt.getFullYear() + '-' + pad2(dt.getMonth() + 1) + '-' + pad2(dt.getDate()); }
+  // txn.date is stored as M/D/YYYY — convert to YYYY-MM-DD for comparison
+  function dispToISO(s) {
+    var p = s ? s.split('/') : [];
+    if (p.length !== 3) return null;
+    return p[2] + '-' + pad2(parseInt(p[0], 10)) + '-' + pad2(parseInt(p[1], 10));
+  }
 
-  var today     = new Date();
-  var todayStr  = toDS(today);
-  var cutoff    = new Date(today);
+  // Build per-category lookup: currentAvail and avgDaily
+  var catInfo = {};
+  for (var i = 0; i < trendItems.length; i++) {
+    var item = trendItems[i];
+    catInfo[item.name] = { currentAvail: item.actual, avgDaily: item.avgDaily };
+  }
+
+  var today    = new Date();
+  var todayStr = toDS(today);
+  var cutoff   = new Date(today);
   cutoff.setDate(cutoff.getDate() - days);
   var cutoffStr   = toDS(cutoff);
   var cutoffMonth = cutoffStr.slice(0, 7);
 
-  // Collect net spending (outflow - inflow) per date for all recoverable cats
-  var txnsByDate = {};
+  // Collect net spending per category per ISO date
+  var txnsByCatDate = {};
   for (var mkey in d.regTxns) {
     if (mkey < cutoffMonth) continue;
     var monthData = d.regTxns[mkey] || {};
     for (var grp in monthData) {
       for (var cat in monthData[grp]) {
-        if (!recovCats[cat]) continue;
+        if (!catInfo[cat]) continue;
         var txns = monthData[grp][cat] || [];
         for (var ti = 0; ti < txns.length; ti++) {
           var txn = txns[ti];
-          if (!txn.date || txn.date < cutoffStr || txn.date > todayStr) continue;
+          if (!txn.date) continue;
+          var iso = dispToISO(txn.date);
+          if (!iso || iso < cutoffStr || iso > todayStr) continue;
           var net = (txn.outflow || 0) - (txn.inflow || 0);
-          txnsByDate[txn.date] = (txnsByDate[txn.date] || 0) + net;
+          if (!txnsByCatDate[cat]) txnsByCatDate[cat] = {};
+          txnsByCatDate[cat][iso] = (txnsByCatDate[cat][iso] || 0) + net;
         }
       }
     }
   }
 
-  // Sort the transaction dates once for efficiency
-  var txnDates = [];
-  for (var td in txnsByDate) txnDates.push(td);
-  txnDates.sort();
-
-  // For each day: value = currentTotal + sum(net spending on all days AFTER this one)
-  // (spending after this day reduced the available balance, so value was higher then)
+  // For each historical day D, compute what trendTotal would have been:
+  //   avail_D[cat] = currentAvail[cat] + spending that happened AFTER D
+  //   trendD = sum(max(0, avail_D[cat] + avgDaily[cat] * daysRemainingInMonth_D))
   var points = [];
   for (var di = 0; di <= days; di++) {
     var dt = new Date(today);
     dt.setDate(dt.getDate() - (days - di));
     var dStr = toDS(dt);
-    var txnsAfter = 0;
-    for (var j = 0; j < txnDates.length; j++) {
-      if (txnDates[j] > dStr) txnsAfter += txnsByDate[txnDates[j]];
+    var lastDay = new Date(dt.getFullYear(), dt.getMonth() + 1, 0).getDate();
+    var daysRemainingD = lastDay - dt.getDate();
+
+    var trendD = 0;
+    for (var cname in catInfo) {
+      var ci = catInfo[cname];
+      var spendAfter = 0;
+      if (txnsByCatDate[cname]) {
+        for (var ds in txnsByCatDate[cname]) {
+          if (ds > dStr) spendAfter += txnsByCatDate[cname][ds];
+        }
+      }
+      var availD = ci.currentAvail + spendAfter;
+      var projD  = availD + ci.avgDaily * daysRemainingD;
+      if (projD > 0) trendD += projD;
     }
-    points.push({ date: dStr, value: Math.max(0, currentTotal + txnsAfter) });
+    points.push({ date: dStr, value: Math.max(0, trendD) });
   }
   return points;
 }
@@ -3459,7 +3473,7 @@ function renderHome() {
       var projected = tavail + avgDaily * daysRemaining;
       if (projected > 0) {
         trendTotal += projected;
-        trendItems.push({ name: tcat, group: catGroupMap[tcat] || '', actual: tavail, projected: projected });
+        trendItems.push({ name: tcat, group: catGroupMap[tcat] || '', actual: tavail, projected: projected, avgDaily: avgDaily });
       }
     }
   }
@@ -3480,13 +3494,13 @@ function renderHome() {
   }
 
   // 7-day trend arrow + 30-day sparkline history
-  homeTrendHistory = computeRecovHistory(d, curKey, 30);
+  homeTrendHistory = computeRecovHistory(d, curKey, 30, trendItems);
   var deltaEl = document.getElementById('home-trend-delta');
   if (deltaEl) {
-    if (homeTrendHistory.length > 7 && recovTotal > 0) {
+    if (homeTrendHistory.length > 7 && trendTotal > 0) {
       var val7ago = homeTrendHistory[homeTrendHistory.length - 1 - 7].value;
-      var delta7  = recovTotal - val7ago;
-      var arrow   = delta7 >= 0 ? '▲' : '▼';
+      var delta7  = trendTotal - val7ago;
+      var arrow   = delta7 >= 0 ? '↗' : '↘';
       var dColor  = delta7 >= 0 ? '#2e7d32' : '#c62828';
       var fmtD    = (delta7 >= 0 ? '+' : '−') + '$'
                     + Math.abs(delta7).toLocaleString('en-US', {maximumFractionDigits: 0});
