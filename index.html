@@ -3493,17 +3493,22 @@ function renderHome() {
     }
   }
 
-  // 7-day trend arrow + 30-day sparkline history
-  homeTrendHistory = computeRecovHistory(d, curKey, 30, trendItems);
+  // Trend arrow + sparkline history from 1st of current month
+  var daysThisMonth = (new Date()).getDate() - 1;
+  homeTrendHistory = computeRecovHistory(d, curKey, daysThisMonth, trendItems);
   var deltaEl = document.getElementById('home-trend-delta');
   if (deltaEl) {
-    if (homeTrendHistory.length > 7 && trendTotal > 0) {
-      var val7ago = homeTrendHistory[homeTrendHistory.length - 1 - 7].value;
-      var delta7  = trendTotal - val7ago;
-      var arrow   = delta7 >= 0 ? '↗' : '↘';
-      var dColor  = delta7 >= 0 ? '#2e7d32' : '#c62828';
-      var fmtD    = (delta7 >= 0 ? '+' : '−') + '$'
-                    + Math.abs(delta7).toLocaleString('en-US', {maximumFractionDigits: 0});
+    if (homeTrendHistory.length > 1 && trendTotal > 0) {
+      var val1st  = homeTrendHistory[0].value;
+      var val7ago = homeTrendHistory.length > 7
+                    ? homeTrendHistory[homeTrendHistory.length - 1 - 7].value
+                    : null;
+      var baseline = (val7ago !== null) ? Math.min(val7ago, val1st) : val1st;
+      var delta7   = trendTotal - baseline;
+      var arrow    = delta7 >= 0 ? '↗' : '↘';
+      var dColor   = delta7 >= 0 ? '#2e7d32' : '#c62828';
+      var fmtD     = (delta7 >= 0 ? '+' : '−') + '$'
+                     + Math.abs(delta7).toLocaleString('en-US', {maximumFractionDigits: 0});
       deltaEl.innerHTML = '<span style="color:' + dColor + '">' + arrow + ' ' + fmtD + '</span>';
       deltaEl.style.display = '';
     } else {
