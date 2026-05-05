@@ -4451,10 +4451,11 @@ function showReport() {
   for (var ti3 = 0; ti3 < btns.length; ti3++) {
     btns[ti3].classList.toggle('tab-active', btns[ti3].getAttribute('data-tab') === tab);
   }
-  document.getElementById('home-panel').style.display   = tab === 'home'   ? 'block' : 'none';
-  document.getElementById('margin-panel').style.display = tab === 'margin' ? 'block' : 'none';
-  document.getElementById('lw-panel').style.display     = tab === 'lw'     ? 'block' : 'none';
-  document.getElementById('nw-panel').style.display     = tab === 'nw'     ? 'block' : 'none';
+  document.getElementById('home-panel').style.display    = tab === 'home'    ? 'block' : 'none';
+  document.getElementById('margin-panel').style.display  = tab === 'margin'  ? 'block' : 'none';
+  document.getElementById('lw-panel').style.display      = tab === 'lw'      ? 'block' : 'none';
+  document.getElementById('nw-panel').style.display      = tab === 'nw'      ? 'block' : 'none';
+  document.getElementById('lessons-panel').style.display = tab === 'lessons' ? 'block' : 'none';
 
   // Sync row-shading toggle state
   document.body.classList.toggle('shading-mode', state.rowShading);
@@ -4475,6 +4476,7 @@ function showReport() {
   if (tab === 'home') renderHome();
   if (tab === 'lw') renderLiquidWorth();
   if (tab === 'nw') renderNetWorth();
+  if (tab === 'lessons') renderLessonsLearned();
 
   var hasYnab = !!(localStorage.getItem('ynab-api-key') && localStorage.getItem('ynab-budget-id'));
   document.getElementById('refresh-btn').style.display = hasYnab ? '' : 'none';
