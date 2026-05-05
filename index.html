@@ -779,7 +779,7 @@ td.hbt-num:last-child { width: 13%; }
 .lessons-tt-month { font-size: 11px; font-weight: 700; color: #bbb; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 7px; }
 .lessons-tt-row { display: flex; justify-content: space-between; gap: 14px; margin-bottom: 4px; }
 .lessons-tt-row:last-child { margin-bottom: 0; }
-.lessons-tt-name { font-size: 12px; color: #444; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+.lessons-tt-name { font-size: 12px; color: #444; }
 .lessons-tt-amt  { font-size: 12px; font-weight: 600; color: #c62828; white-space: nowrap; }
 .lessons-tt-total { border-top: 1px solid #eee; margin-top: 7px; padding-top: 7px;
   display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; }
@@ -3586,9 +3586,9 @@ function showLessonsTooltip(clientX, clientY, idx) {
     total     += t.amount;
     var amtStr = '$' + t.amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
     html += '<div class="lessons-tt-row">'
-      + '<div style="flex:1;min-width:0;overflow:hidden">'
-      + '<div class="lessons-tt-name">' + escAttr(t.payee || t.category || '') + '</div>'
-      + (t.memo ? '<div style="font-size:11px;color:#999;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px">' + escAttr(t.memo) + '</div>' : '')
+      + '<div style="flex:1;min-width:0">'
+      + (t.memo ? '<div class="lessons-tt-name">' + escAttr(t.memo) + '</div>' : '')
+      + '<div style="font-size:11px;color:#999;margin-top:1px">' + escAttr(t.payee || t.category || '') + '</div>'
       + '</div>'
       + '<span class="lessons-tt-amt">' + amtStr + '</span>'
       + '</div>';
@@ -3760,17 +3760,22 @@ function renderLessonsLearned() {
   if (txnTableEl) {
     var filteredTxns = allTxnList.filter(function(t) { return t.month >= state.lessonsFromKey && t.month <= state.lessonsToKey; });
     filteredTxns.sort(function(a, b) { return b.amount - a.amount; });
-    var txnHtml = '<thead><tr><th>Date</th><th>Payee</th><th>Memo</th><th>Category</th>'
-      + '<th style="text-align:right">Amount</th></tr></thead><tbody>';
+    var txnHtml = '<thead><tr>'
+      + '<th style="text-align:center;width:1%;white-space:nowrap">Date</th>'
+      + '<th style="text-align:left">Payee</th>'
+      + '<th style="text-align:left">Memo</th>'
+      + '<th style="text-align:left">Category</th>'
+      + '<th style="text-align:right;width:1%;white-space:nowrap">Amount</th>'
+      + '</tr></thead><tbody>';
     for (var ri = 0; ri < filteredTxns.length; ri++) {
       var row = filteredTxns[ri];
       var amt = '$' + row.amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
       txnHtml += '<tr>'
-        + '<td>' + escAttr(row.date || '') + '</td>'
-        + '<td>' + escAttr(row.payee || '') + '</td>'
-        + '<td>' + escAttr(row.memo || '') + '</td>'
-        + '<td>' + escAttr(row.category || '') + '</td>'
-        + '<td style="text-align:right">' + amt + '</td>'
+        + '<td style="text-align:center;white-space:nowrap">' + escAttr(row.date || '') + '</td>'
+        + '<td style="text-align:left">' + escAttr(row.payee || '') + '</td>'
+        + '<td style="text-align:left;white-space:normal">' + escAttr(row.memo || '') + '</td>'
+        + '<td style="text-align:left">' + escAttr(row.category || '') + '</td>'
+        + '<td style="text-align:right;white-space:nowrap">' + amt + '</td>'
         + '</tr>';
     }
     txnHtml += '</tbody>';
