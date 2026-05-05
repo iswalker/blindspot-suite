@@ -756,6 +756,19 @@ td.hbt-num:last-child { width: 13%; }
 #lessons-table tr:last-child td { border-bottom: none; }
 #lessons-table tr:hover td { background: #fafaf7; }
 
+/* ---- Lessons transaction table ---- */
+#lessons-txn-table { border-collapse: collapse; width: 100%; }
+#lessons-txn-table th {
+  text-align: left; font-size: 11px; font-weight: 600; color: #333;
+  letter-spacing: .06em; padding: 10px 20px; border-bottom: 1px solid #e4e4e0;
+  background: #fff; white-space: nowrap;
+}
+#lessons-txn-table th:last-child { text-align: right; }
+#lessons-txn-table td { padding: 10px 20px; font-size: 13px; border-bottom: 1px solid #f0f0ec; }
+#lessons-txn-table td:last-child { text-align: right; white-space: nowrap; }
+#lessons-txn-table tr:last-child td { border-bottom: none; }
+#lessons-txn-table tr:hover td { background: #fafaf7; }
+
 /* ---- Lessons Learned tooltip ---- */
 #lessons-tooltip {
   position: fixed; display: none;
@@ -944,12 +957,22 @@ td.hbt-num:last-child { width: 13%; }
     <div class="panel-hdr">
       <h1>Lessons Learned</h1>
       <span id="lessons-total-label" style="font-size:14px;color:#c62828;font-weight:500;margin-left:4px"></span>
+      <div id="lessons-range-wrap" style="margin-left:auto;display:flex;align-items:center;gap:8px">
+        <div id="lessons-range-group" style="display:flex;align-items:center;gap:6px;font-size:13px">
+          <label>From <select id="lessons-from-sel"></select></label>
+          <span>&#8594;</span>
+          <label>To <select id="lessons-to-sel"></select></label>
+        </div>
+      </div>
     </div>
     <div class="lw-table-wrap">
       <table id="lessons-table"></table>
     </div>
     <div class="lw-chart-wrap" id="lessons-chart-wrap">
       <canvas id="lessons-canvas"></canvas>
+    </div>
+    <div class="lw-table-wrap">
+      <table id="lessons-txn-table"></table>
     </div>
   </div>
   <div id="lessons-tooltip"></div>
@@ -1136,6 +1159,8 @@ var state = {
   nwFromKey:           localStorage.getItem('sel-nw-from') || null,
   nwToKey:             localStorage.getItem('sel-nw-to')   || null,
   nwSelectedAccounts:  parseJsonLS('sel-nw-accts')    || {},
+  lessonsFromKey:      localStorage.getItem('sel-lessons-from') || null,
+  lessonsToKey:        localStorage.getItem('sel-lessons-to')   || null,
   rowShading:          localStorage.getItem('row-shading') !== '0',
   catSortMode:         localStorage.getItem('cat-sort') || 'ynab',
   showTotalExp:        localStorage.getItem('show-total-exp') === '1',
@@ -3524,10 +3549,10 @@ function drawLessonsChart(keys, byMonth, hoveredIdx) {
     ctx.fillText(lbl, cx, H - B_PAD + 4);
   }
 
-  // Average line — dashed, matching Target/Minimum style in Liquid Accounts
+  // Average line — dashed red, matching Target/Minimum style in Liquid Accounts
   if (avgV > 0) {
     var avgY = yPos(avgV);
-    ctx.strokeStyle = '#888';
+    ctx.strokeStyle = '#c62828';
     ctx.lineWidth   = 0.5;
     ctx.setLineDash([6, 4]);
     ctx.beginPath();
@@ -3535,7 +3560,7 @@ function drawLessonsChart(keys, byMonth, hoveredIdx) {
     ctx.lineTo(totalW - R_PAD, avgY);
     ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle    = '#888';
+    ctx.fillStyle    = '#c62828';
     ctx.font         = '12px system-ui, -apple-system, sans-serif';
     ctx.textAlign    = 'right';
     ctx.textBaseline = 'alphabetic';
@@ -3548,25 +3573,27 @@ function drawLessonsChart(keys, byMonth, hoveredIdx) {
 function showLessonsTooltip(clientX, clientY, idx) {
   var tt = document.getElementById('lessons-tooltip');
   if (!tt || !lessonsChartState) return;
-  var key  = lessonsChartState.keys[idx];
-  var txns = lessonsMonthTxns[key] || [];
-  var pp   = key.split('-');
+  var key    = lessonsChartState.keys[idx];
+  var txns   = lessonsMonthTxns[key] || [];
+  var pp     = key.split('-');
   var monthLbl = LW_MONTH_SHORT[parseInt(pp[1], 10) - 1] + ' ' + pp[0];
 
+  var sorted = txns.slice().sort(function(a, b) { return b.amount - a.amount; });
   var html = '<div class="lessons-tt-month">' + monthLbl + '</div>';
   var total = 0;
-  for (var i = 0; i < txns.length; i++) {
-    var t   = txns[i];
-    var amt = t.amount;
-    total  += amt;
-    var amtStr = '$' + amt.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-    var label  = t.payee ? escAttr(t.payee) : escAttr(t.category || '');
+  for (var i = 0; i < sorted.length; i++) {
+    var t      = sorted[i];
+    total     += t.amount;
+    var amtStr = '$' + t.amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
     html += '<div class="lessons-tt-row">'
-      + '<span class="lessons-tt-name">' + label + '</span>'
+      + '<div style="flex:1;min-width:0;overflow:hidden">'
+      + '<div class="lessons-tt-name">' + escAttr(t.payee || t.category || '') + '</div>'
+      + (t.memo ? '<div style="font-size:11px;color:#999;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px">' + escAttr(t.memo) + '</div>' : '')
+      + '</div>'
       + '<span class="lessons-tt-amt">' + amtStr + '</span>'
       + '</div>';
   }
-  if (txns.length > 1) {
+  if (sorted.length > 1) {
     var totStr = '$' + total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
     html += '<div class="lessons-tt-total"><span>Total</span><span style="color:#c62828">' + totStr + '</span></div>';
   }
@@ -3589,16 +3616,38 @@ function hideLessonsTooltip() {
   if (tt) tt.style.display = 'none';
 }
 
+function populateLessonsRangeFilter(allKeys) {
+  var fromSel = document.getElementById('lessons-from-sel');
+  var toSel   = document.getElementById('lessons-to-sel');
+  if (!fromSel || !toSel || !allKeys.length) return;
+  fromSel.innerHTML = '';
+  toSel.innerHTML   = '';
+  for (var i = 0; i < allKeys.length; i++) {
+    var o1 = document.createElement('option'); o1.value = allKeys[i]; o1.textContent = keyLabel(allKeys[i]);
+    var o2 = document.createElement('option'); o2.value = allKeys[i]; o2.textContent = keyLabel(allKeys[i]);
+    fromSel.appendChild(o1);
+    toSel.appendChild(o2);
+  }
+  var defaultFrom = allKeys[0];
+  var defaultTo   = allKeys[allKeys.length - 1];
+  fromSel.value        = state.lessonsFromKey && allKeys.indexOf(state.lessonsFromKey) !== -1 ? state.lessonsFromKey : defaultFrom;
+  toSel.value          = state.lessonsToKey   && allKeys.indexOf(state.lessonsToKey)   !== -1 ? state.lessonsToKey   : defaultTo;
+  state.lessonsFromKey = fromSel.value;
+  state.lessonsToKey   = toSel.value;
+}
+
 function renderLessonsLearned() {
-  var d         = state.data;
-  var tableEl   = document.getElementById('lessons-table');
-  var chartWrap = document.getElementById('lessons-chart-wrap');
-  var totalLbl  = document.getElementById('lessons-total-label');
+  var d          = state.data;
+  var tableEl    = document.getElementById('lessons-table');
+  var txnTableEl = document.getElementById('lessons-txn-table');
+  var chartWrap  = document.getElementById('lessons-chart-wrap');
+  var totalLbl   = document.getElementById('lessons-total-label');
 
   if (!d || !d.regTxns) {
-    tableEl.innerHTML = '<tr><td style="padding:20px;color:#aaa;font-size:13px">No transaction data loaded.</td></tr>';
-    if (chartWrap) chartWrap.style.display = 'none';
-    if (totalLbl) totalLbl.textContent = '';
+    if (tableEl)    tableEl.innerHTML    = '<tr><td style="padding:20px;color:#aaa;font-size:13px">No transaction data loaded.</td></tr>';
+    if (txnTableEl) txnTableEl.innerHTML = '';
+    if (chartWrap)  chartWrap.style.display = 'none';
+    if (totalLbl)   totalLbl.textContent = '';
     return;
   }
 
@@ -3612,6 +3661,7 @@ function renderLessonsLearned() {
 
   var byMonth     = {};
   var byMonthTxns = {};
+  var allTxnList  = [];
 
   for (var mkey in d.regTxns) {
     var monthData = d.regTxns[mkey] || {};
@@ -3630,55 +3680,102 @@ function renderLessonsLearned() {
           byMonth[mkey] = (byMonth[mkey] || 0) + net;
           if (!byMonthTxns[mkey]) byMonthTxns[mkey] = [];
           byMonthTxns[mkey].push({ date: txn.date, payee: txn.payee, memo: txn.memo, amount: net, category: cat });
+          allTxnList.push({ month: mkey, date: txn.date, payee: txn.payee, memo: txn.memo, amount: net, category: cat });
         }
       }
     }
   }
   lessonsMonthTxns = byMonthTxns;
 
-  var keys = Object.keys(byMonth).sort();
+  var allKeys = Object.keys(byMonth).sort();
 
-  if (!keys.length) {
+  if (!allKeys.length) {
     var tagDisp = tags.map(function(t) { return '"' + t + '"'; }).join(' or ');
-    tableEl.innerHTML = '<tr><td style="padding:20px;color:#aaa;font-size:13px;text-align:center">'
-      + 'No transactions found with ' + tagDisp + ' in the memo.</td></tr>';
-    if (chartWrap) chartWrap.style.display = 'none';
-    if (totalLbl) totalLbl.textContent = '';
+    if (tableEl)    tableEl.innerHTML    = '<tr><td style="padding:20px;color:#aaa;font-size:13px;text-align:center">No transactions found with ' + tagDisp + ' in the memo.</td></tr>';
+    if (txnTableEl) txnTableEl.innerHTML = '';
+    if (chartWrap)  chartWrap.style.display = 'none';
+    if (totalLbl)   totalLbl.textContent = '';
     return;
   }
 
+  // Populate range picker; sets state.lessonsFromKey / lessonsToKey
+  populateLessonsRangeFilter(allKeys);
+
+  // Keys filtered to selected range (for chart + txn table)
+  var keys = allKeys.filter(function(k) { return k >= state.lessonsFromKey && k <= state.lessonsToKey; });
+  if (!keys.length) keys = allKeys;
+
   if (chartWrap) chartWrap.style.display = '';
 
-  // All-time total
+  // Year summary (always uses all-time data regardless of filter)
+  var curYear  = new Date().getFullYear();
+  var curMonth = new Date().getMonth(); // 0-indexed
+  var remaining = 11 - curMonth;       // months left after the current one
+  var byYear = {};
+  for (var ky = 0; ky < allKeys.length; ky++) {
+    var yr = parseInt(allKeys[ky].slice(0, 4), 10);
+    byYear[yr] = (byYear[yr] || 0) + byMonth[allKeys[ky]];
+  }
+
+  // Projected year-end: average of last 3 months × remaining months
+  var last3 = allKeys.slice(-3);
+  var sum3 = 0;
+  for (var li = 0; li < last3.length; li++) sum3 += byMonth[last3[li]] || 0;
+  var avg3   = last3.length ? sum3 / last3.length : 0;
+  var ytdAmt = byYear[curYear] || 0;
+  var projYE = ytdAmt + avg3 * remaining;
+
+  // All-time grand total
   var grandTotal = 0;
-  for (var ki = 0; ki < keys.length; ki++) grandTotal += byMonth[keys[ki]];
+  for (var ki = 0; ki < allKeys.length; ki++) grandTotal += byMonth[allKeys[ki]];
   if (totalLbl) {
     totalLbl.textContent = '— $' + grandTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' all time';
   }
 
-  // Year summary table (current year + 4 prior)
-  var curYear = new Date().getFullYear();
-  var byYear  = {};
-  for (var ky = 0; ky < keys.length; ky++) {
-    var yr = parseInt(keys[ky].slice(0, 4), 10);
-    byYear[yr] = (byYear[yr] || 0) + byMonth[keys[ky]];
-  }
+  // Year summary table
   var yearHtml = '<thead><tr>';
   for (var yi = curYear - 4; yi <= curYear; yi++) {
+    var thTxt   = yi === curYear ? yi + ' YTD' : String(yi);
     var thStyle = yi === curYear ? 'text-align:right;color:#c62828' : 'text-align:right';
-    yearHtml += '<th style="' + thStyle + '">' + yi + '</th>';
+    yearHtml += '<th style="' + thStyle + '">' + thTxt + '</th>';
   }
   yearHtml += '</tr></thead><tbody><tr>';
   for (var yi2 = curYear - 4; yi2 <= curYear; yi2++) {
     var yTot    = byYear[yi2] || 0;
     var yStr    = yTot > 0 ? '$' + yTot.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '—';
     var tdStyle = yi2 === curYear ? 'text-align:right;color:#c62828' : 'text-align:right;color:#555';
-    yearHtml += '<td style="' + tdStyle + '">' + yStr + '</td>';
+    var projHtml = '';
+    if (yi2 === curYear && projYE > ytdAmt) {
+      projHtml = '<div style="font-size:11px;color:#888;margin-top:3px">'
+        + '$' + projYE.toLocaleString('en-US', {maximumFractionDigits: 0}) + ' proj. yr-end</div>';
+    }
+    yearHtml += '<td style="' + tdStyle + '">' + yStr + projHtml + '</td>';
   }
   yearHtml += '</tr></tbody>';
-  tableEl.innerHTML = yearHtml;
+  if (tableEl) tableEl.innerHTML = yearHtml;
 
   drawLessonsChart(keys, byMonth, -1);
+
+  // Transaction table for the filtered period, sorted largest outflow first
+  if (txnTableEl) {
+    var filteredTxns = allTxnList.filter(function(t) { return t.month >= state.lessonsFromKey && t.month <= state.lessonsToKey; });
+    filteredTxns.sort(function(a, b) { return b.amount - a.amount; });
+    var txnHtml = '<thead><tr><th>Date</th><th>Payee</th><th>Memo</th><th>Category</th>'
+      + '<th style="text-align:right">Amount</th></tr></thead><tbody>';
+    for (var ri = 0; ri < filteredTxns.length; ri++) {
+      var row = filteredTxns[ri];
+      var amt = '$' + row.amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      txnHtml += '<tr>'
+        + '<td>' + escAttr(row.date || '') + '</td>'
+        + '<td>' + escAttr(row.payee || '') + '</td>'
+        + '<td>' + escAttr(row.memo || '') + '</td>'
+        + '<td>' + escAttr(row.category || '') + '</td>'
+        + '<td style="text-align:right">' + amt + '</td>'
+        + '</tr>';
+    }
+    txnHtml += '</tbody>';
+    txnTableEl.innerHTML = txnHtml;
+  }
 }
 
 function renderHome() {
@@ -4704,8 +4801,11 @@ document.addEventListener('DOMContentLoaded', function() {
     state.nwToKey            = null;
     state.nwSelectedAccounts   = {};
     state.homeSelectedAccounts = {};
+    state.lessonsFromKey     = null;
+    state.lessonsToKey       = null;
     ['sel-from','sel-to','sel-accts','sel-lw-from','sel-lw-to','sel-lw-accts',
-     'sel-nw-from','sel-nw-to','sel-nw-accts','sel-home-accts','sel-tab'].forEach(function(k) {
+     'sel-nw-from','sel-nw-to','sel-nw-accts','sel-home-accts','sel-tab',
+     'sel-lessons-from','sel-lessons-to'].forEach(function(k) {
       localStorage.removeItem(k);
     });
     showUpload();
@@ -4826,6 +4926,28 @@ document.addEventListener('DOMContentLoaded', function() {
       localStorage.setItem('sel-nw-from', state.nwFromKey);
     }
     renderNetWorth();
+  });
+
+  // Lessons range filter
+  document.getElementById('lessons-from-sel').addEventListener('change', function() {
+    state.lessonsFromKey = this.value;
+    localStorage.setItem('sel-lessons-from', state.lessonsFromKey);
+    if (state.lessonsFromKey > state.lessonsToKey) {
+      state.lessonsToKey = state.lessonsFromKey;
+      document.getElementById('lessons-to-sel').value = state.lessonsToKey;
+      localStorage.setItem('sel-lessons-to', state.lessonsToKey);
+    }
+    renderLessonsLearned();
+  });
+  document.getElementById('lessons-to-sel').addEventListener('change', function() {
+    state.lessonsToKey = this.value;
+    localStorage.setItem('sel-lessons-to', state.lessonsToKey);
+    if (state.lessonsToKey < state.lessonsFromKey) {
+      state.lessonsFromKey = state.lessonsToKey;
+      document.getElementById('lessons-from-sel').value = state.lessonsFromKey;
+      localStorage.setItem('sel-lessons-from', state.lessonsFromKey);
+    }
+    renderLessonsLearned();
   });
 
   // YNAB connect / load-budget button
