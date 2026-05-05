@@ -742,6 +742,19 @@ td.hbt-num:last-child { width: 13%; }
 #lw-table td:last-child { text-align: right; white-space: nowrap; }
 #lw-table tr:last-child td { border-bottom: none; }
 #lw-table tr:hover td { background: #fafaf7; }
+
+/* ---- Lessons Learned table ---- */
+#lessons-table { border-collapse: collapse; width: 100%; }
+#lessons-table th {
+  text-align: left; font-size: 11px; font-weight: 600; color: #333;
+  letter-spacing: .06em; padding: 10px 20px; border-bottom: 1px solid #e4e4e0;
+  background: #fff; white-space: nowrap;
+}
+#lessons-table th:last-child { text-align: right; }
+#lessons-table td { padding: 10px 20px; font-size: 13px; border-bottom: 1px solid #f0f0ec; }
+#lessons-table td:last-child { text-align: right; white-space: nowrap; }
+#lessons-table tr:last-child td { border-bottom: none; }
+#lessons-table tr:hover td { background: #fafaf7; }
 @media print {
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
@@ -813,6 +826,7 @@ td.hbt-num:last-child { width: 13%; }
       <button class="tab-btn" data-tab="margin">Cash Flow</button>
       <button class="tab-btn" data-tab="lw">Liquid Accounts</button>
       <button class="tab-btn" data-tab="nw">Net Worth</button>
+      <button class="tab-btn" data-tab="lessons">Lessons Learned</button>
     </div>
     <div id="controls-bar">
       <span id="cache-label"></span>
@@ -909,6 +923,18 @@ td.hbt-num:last-child { width: 13%; }
     </div>
     <div class="lw-table-wrap">
       <table id="nw-table"></table>
+    </div>
+  </div>
+  <div id="lessons-panel" style="display:none">
+    <div class="panel-hdr">
+      <h1>Lessons Learned</h1>
+      <span id="lessons-total-label" style="font-size:14px;color:#c62828;font-weight:500;margin-left:4px"></span>
+    </div>
+    <div class="lw-chart-wrap" id="lessons-chart-wrap">
+      <canvas id="lessons-canvas"></canvas>
+    </div>
+    <div class="lw-table-wrap">
+      <table id="lessons-table"></table>
     </div>
   </div>
   <div id="home-panel">
@@ -2832,10 +2858,12 @@ function switchTab(tab) {
   document.getElementById('home-panel').style.display   = tab === 'home'   ? 'block' : 'none';
   document.getElementById('margin-panel').style.display = tab === 'margin' ? 'block' : 'none';
   document.getElementById('lw-panel').style.display     = tab === 'lw'     ? 'block' : 'none';
-  document.getElementById('nw-panel').style.display     = tab === 'nw'     ? 'block' : 'none';
+  document.getElementById('nw-panel').style.display      = tab === 'nw'      ? 'block' : 'none';
+  document.getElementById('lessons-panel').style.display = tab === 'lessons' ? 'block' : 'none';
   if (tab === 'home') renderHome();
   if (tab === 'lw') renderLiquidWorth();
   if (tab === 'nw') renderNetWorth();
+  if (tab === 'lessons') renderLessonsLearned();
 }
 
 function acctBalanceAt(acctId, monthKey) {
@@ -3390,6 +3418,167 @@ function drawRecovSparkline(canvas, points) {
     var lbl  = parseInt(ds.slice(5, 7), 10) + '/' + parseInt(ds.slice(8, 10), 10);
     ctx.fillText(lbl, xp(idx), H - 4);
   }
+}
+
+function drawLessonsChart(keys, byMonth) {
+  var canvas = document.getElementById('lessons-canvas');
+  if (!canvas || !keys.length) return;
+  var n     = keys.length;
+  var dpr   = window.devicePixelRatio || 1;
+  var L_PAD = 58, R_PAD = 16, T_PAD = 12, B_PAD = 28;
+  var H     = 200;
+
+  var containerW = canvas.parentElement ? canvas.parentElement.clientWidth - 32 : 600;
+  if (containerW < 100) containerW = 600;
+  var totalW    = containerW;
+  var available = totalW - L_PAD - R_PAD;
+  var BAR_W     = Math.max(6, Math.min(40, Math.floor(available / n * 0.55)));
+  var groupW    = available / n;
+
+  canvas.width        = Math.round(totalW * dpr);
+  canvas.height       = Math.round(H * dpr);
+  canvas.style.width  = totalW + 'px';
+  canvas.style.height = H + 'px';
+
+  var ctx    = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, totalW, H);
+
+  var chartH = H - T_PAD - B_PAD;
+  var maxV   = 0;
+  for (var i = 0; i < n; i++) maxV = Math.max(maxV, byMonth[keys[i]] || 0);
+  if (maxV === 0) maxV = 1;
+
+  var rawStep = maxV / 4;
+  var mag     = Math.pow(10, Math.floor(Math.log(rawStep) / Math.LN10));
+  var step    = Math.ceil(rawStep / mag) * mag;
+  var niceMax = Math.ceil(maxV / step) * step;
+  var nTicks  = Math.round(niceMax / step);
+
+  function yPos(v) { return T_PAD + chartH * (1 - v / niceMax); }
+  function fmtTick(v) {
+    if (v >= 10000) return '$' + (v / 1000).toFixed(0) + 'k';
+    if (v >= 1000)  return '$' + (v / 1000).toFixed(1) + 'k';
+    return '$' + v.toFixed(0);
+  }
+
+  // Grid lines + Y-axis labels
+  ctx.lineWidth = 1;
+  for (var ti = 0; ti <= nTicks; ti++) {
+    var v = ti * step, y = yPos(v);
+    ctx.strokeStyle = '#e8e8e4';
+    ctx.beginPath(); ctx.moveTo(L_PAD, y); ctx.lineTo(totalW - R_PAD, y); ctx.stroke();
+    ctx.fillStyle = '#999'; ctx.font = '10px system-ui, sans-serif';
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillText(fmtTick(v), L_PAD - 4, y);
+  }
+
+  // Bars + X-axis labels
+  for (var bi = 0; bi < n; bi++) {
+    var val  = byMonth[keys[bi]] || 0;
+    var cx   = L_PAD + (bi + 0.5) * groupW;
+    var bx   = Math.round(cx - BAR_W / 2);
+    var barH = chartH * (val / niceMax);
+    var by   = yPos(val);
+    ctx.fillStyle = '#c62828';
+    ctx.fillRect(bx, by, BAR_W, barH);
+
+    if (barH > 16) {
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 9px system-ui, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(fmtTick(val), cx, by + 3);
+    }
+
+    var lbl = parseInt(keys[bi].slice(5), 10) + '/' + keys[bi].slice(2, 4);
+    ctx.fillStyle = '#999'; ctx.font = '9px system-ui, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(lbl, cx, H - B_PAD + 4);
+  }
+}
+
+function renderLessonsLearned() {
+  var d         = state.data;
+  var tableEl   = document.getElementById('lessons-table');
+  var chartWrap = document.getElementById('lessons-chart-wrap');
+  var totalLbl  = document.getElementById('lessons-total-label');
+
+  if (!d || !d.regTxns) {
+    tableEl.innerHTML = '<tr><td style="padding:20px;color:#aaa;font-size:13px">No transaction data loaded.</td></tr>';
+    if (chartWrap) chartWrap.style.display = 'none';
+    if (totalLbl) totalLbl.textContent = '';
+    return;
+  }
+
+  // Search tags from Config (Used For = "Messup"), default to "#messup"
+  var tags = [];
+  for (var ci = 0; ci < (state.catConfig || []).length; ci++) {
+    var cfg = state.catConfig[ci];
+    if (cfg.usedFor === 'Messup' && cfg.id) tags.push(cfg.id.toLowerCase());
+  }
+  if (!tags.length) tags = ['#messup'];
+
+  var byMonth = {};
+  var txnList = [];
+
+  for (var mkey in d.regTxns) {
+    var monthData = d.regTxns[mkey] || {};
+    for (var grp in monthData) {
+      for (var cat in monthData[grp]) {
+        var txns = monthData[grp][cat] || [];
+        for (var ti = 0; ti < txns.length; ti++) {
+          var txn  = txns[ti];
+          var memo = (txn.memo || '').toLowerCase();
+          var matched = false;
+          for (var tgi = 0; tgi < tags.length; tgi++) {
+            if (memo.indexOf(tags[tgi]) !== -1) { matched = true; break; }
+          }
+          if (!matched) continue;
+          var net = (txn.outflow || 0) - (txn.inflow || 0);
+          byMonth[mkey] = (byMonth[mkey] || 0) + net;
+          txnList.push({ month: mkey, date: txn.date, payee: txn.payee, memo: txn.memo, amount: net, category: cat });
+        }
+      }
+    }
+  }
+
+  var keys = Object.keys(byMonth).sort();
+
+  if (!keys.length) {
+    var tagDisp = tags.map(function(t) { return '"' + t + '"'; }).join(' or ');
+    tableEl.innerHTML = '<tr><td colspan="5" style="padding:20px;color:#aaa;font-size:13px;text-align:center">'
+      + 'No transactions found with ' + tagDisp + ' in the memo.</td></tr>';
+    if (chartWrap) chartWrap.style.display = 'none';
+    if (totalLbl) totalLbl.textContent = '';
+    return;
+  }
+
+  if (chartWrap) chartWrap.style.display = '';
+
+  var grandTotal = 0;
+  for (var ki = 0; ki < keys.length; ki++) grandTotal += byMonth[keys[ki]];
+  if (totalLbl) {
+    totalLbl.textContent = '— $' + grandTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' all time';
+  }
+
+  drawLessonsChart(keys, byMonth);
+
+  txnList.sort(function(a, b) { return a.month > b.month ? -1 : a.month < b.month ? 1 : 0; });
+
+  var html = '<thead><tr><th>Date</th><th>Payee</th><th>Category</th><th>Memo</th>'
+    + '<th style="text-align:right">Amount</th></tr></thead><tbody>';
+  for (var ri = 0; ri < txnList.length; ri++) {
+    var row = txnList[ri];
+    var amt = '$' + row.amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    html += '<tr>'
+      + '<td>' + escAttr(row.date || '') + '</td>'
+      + '<td>' + escAttr(row.payee || '') + '</td>'
+      + '<td>' + escAttr(row.category || '') + '</td>'
+      + '<td>' + escAttr(row.memo || '') + '</td>'
+      + '<td>' + amt + '</td>'
+      + '</tr>';
+  }
+  html += '</tbody>';
+  tableEl.innerHTML = html;
 }
 
 function renderHome() {
