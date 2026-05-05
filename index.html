@@ -755,6 +755,21 @@ td.hbt-num:last-child { width: 13%; }
 #lessons-table td:last-child { text-align: right; white-space: nowrap; }
 #lessons-table tr:last-child td { border-bottom: none; }
 #lessons-table tr:hover td { background: #fafaf7; }
+
+/* ---- Lessons Learned tooltip ---- */
+#lessons-tooltip {
+  position: fixed; display: none;
+  background: #fff; border-radius: 8px; padding: 10px 14px;
+  box-shadow: 0 4px 18px rgba(0,0,0,.15);
+  pointer-events: none; z-index: 200; min-width: 220px; max-width: 320px;
+}
+.lessons-tt-month { font-size: 11px; font-weight: 700; color: #bbb; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 7px; }
+.lessons-tt-row { display: flex; justify-content: space-between; gap: 14px; margin-bottom: 4px; }
+.lessons-tt-row:last-child { margin-bottom: 0; }
+.lessons-tt-name { font-size: 12px; color: #444; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+.lessons-tt-amt  { font-size: 12px; font-weight: 600; color: #c62828; white-space: nowrap; }
+.lessons-tt-total { border-top: 1px solid #eee; margin-top: 7px; padding-top: 7px;
+  display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; }
 @media print {
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
@@ -930,13 +945,14 @@ td.hbt-num:last-child { width: 13%; }
       <h1>Lessons Learned</h1>
       <span id="lessons-total-label" style="font-size:14px;color:#c62828;font-weight:500;margin-left:4px"></span>
     </div>
-    <div class="lw-chart-wrap" id="lessons-chart-wrap">
-      <canvas id="lessons-canvas"></canvas>
-    </div>
     <div class="lw-table-wrap">
       <table id="lessons-table"></table>
     </div>
+    <div class="lw-chart-wrap" id="lessons-chart-wrap">
+      <canvas id="lessons-canvas"></canvas>
+    </div>
   </div>
+  <div id="lessons-tooltip"></div>
   <div id="home-panel">
     <div class="panel-hdr">
       <h1>Current Month</h1>
@@ -2518,6 +2534,8 @@ var nwChartState       = null;
 var homeRecovBreakdown = [];
 var homeTrendBreakdown = [];
 var homeTrendHistory   = [];
+var lessonsChartState  = null;
+var lessonsMonthTxns   = {};
 
 var LW_MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -3420,13 +3438,14 @@ function drawRecovSparkline(canvas, points) {
   }
 }
 
-function drawLessonsChart(keys, byMonth) {
+function drawLessonsChart(keys, byMonth, hoveredIdx) {
+  if (hoveredIdx === undefined) hoveredIdx = -1;
   var canvas = document.getElementById('lessons-canvas');
   if (!canvas || !keys.length) return;
   var n     = keys.length;
   var dpr   = window.devicePixelRatio || 1;
-  var L_PAD = 58, R_PAD = 16, T_PAD = 12, B_PAD = 28;
-  var H     = 200;
+  var L_PAD = 58, R_PAD = 16, T_PAD = 22, B_PAD = 28;
+  var H     = 210;
 
   var containerW = canvas.parentElement ? canvas.parentElement.clientWidth - 32 : 600;
   if (containerW < 100) containerW = 600;
@@ -3455,6 +3474,11 @@ function drawLessonsChart(keys, byMonth) {
   var niceMax = Math.ceil(maxV / step) * step;
   var nTicks  = Math.round(niceMax / step);
 
+  // Average across all months
+  var sumV = 0;
+  for (var ai = 0; ai < n; ai++) sumV += byMonth[keys[ai]] || 0;
+  var avgV = n > 0 ? sumV / n : 0;
+
   function yPos(v) { return T_PAD + chartH * (1 - v / niceMax); }
   function fmtTick(v) {
     if (v >= 10000) return '$' + (v / 1000).toFixed(0) + 'k';
@@ -3473,27 +3497,96 @@ function drawLessonsChart(keys, byMonth) {
     ctx.fillText(fmtTick(v), L_PAD - 4, y);
   }
 
-  // Bars + X-axis labels
+  // Bars + above-bar value labels + X-axis labels
   for (var bi = 0; bi < n; bi++) {
     var val  = byMonth[keys[bi]] || 0;
     var cx   = L_PAD + (bi + 0.5) * groupW;
     var bx   = Math.round(cx - BAR_W / 2);
     var barH = chartH * (val / niceMax);
     var by   = yPos(val);
-    ctx.fillStyle = '#c62828';
+
+    ctx.fillStyle = bi === hoveredIdx ? '#e53935' : '#c62828';
     ctx.fillRect(bx, by, BAR_W, barH);
 
-    if (barH > 16) {
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 9px system-ui, sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      ctx.fillText(fmtTick(val), cx, by + 3);
-    }
+    // Value label above bar
+    ctx.fillStyle    = '#333';
+    ctx.font         = '10px system-ui, sans-serif';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(fmtTick(val), cx, by - 2);
 
+    // X-axis label
     var lbl = parseInt(keys[bi].slice(5), 10) + '/' + keys[bi].slice(2, 4);
-    ctx.fillStyle = '#999'; ctx.font = '9px system-ui, sans-serif';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillStyle    = bi === hoveredIdx ? '#333' : '#999';
+    ctx.font         = '9px system-ui, sans-serif';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'top';
     ctx.fillText(lbl, cx, H - B_PAD + 4);
   }
+
+  // Average line — dashed, matching Target/Minimum style in Liquid Accounts
+  if (avgV > 0) {
+    var avgY = yPos(avgV);
+    ctx.strokeStyle = '#888';
+    ctx.lineWidth   = 0.5;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(L_PAD, avgY);
+    ctx.lineTo(totalW - R_PAD, avgY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle    = '#888';
+    ctx.font         = '12px system-ui, -apple-system, sans-serif';
+    ctx.textAlign    = 'right';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText('Avg ' + fmtTick(avgV), totalW - R_PAD - 2, avgY - 4);
+  }
+
+  lessonsChartState = { keys: keys, byMonth: byMonth, n: n, groupW: groupW, L_PAD: L_PAD };
+}
+
+function showLessonsTooltip(clientX, clientY, idx) {
+  var tt = document.getElementById('lessons-tooltip');
+  if (!tt || !lessonsChartState) return;
+  var key  = lessonsChartState.keys[idx];
+  var txns = lessonsMonthTxns[key] || [];
+  var pp   = key.split('-');
+  var monthLbl = LW_MONTH_SHORT[parseInt(pp[1], 10) - 1] + ' ' + pp[0];
+
+  var html = '<div class="lessons-tt-month">' + monthLbl + '</div>';
+  var total = 0;
+  for (var i = 0; i < txns.length; i++) {
+    var t   = txns[i];
+    var amt = t.amount;
+    total  += amt;
+    var amtStr = '$' + amt.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    var label  = t.payee ? escAttr(t.payee) : escAttr(t.category || '');
+    html += '<div class="lessons-tt-row">'
+      + '<span class="lessons-tt-name">' + label + '</span>'
+      + '<span class="lessons-tt-amt">' + amtStr + '</span>'
+      + '</div>';
+  }
+  if (txns.length > 1) {
+    var totStr = '$' + total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    html += '<div class="lessons-tt-total"><span>Total</span><span style="color:#c62828">' + totStr + '</span></div>';
+  }
+  tt.innerHTML = html;
+
+  var vw = window.innerWidth, vh = window.innerHeight;
+  tt.style.display = 'block';
+  var tw = tt.offsetWidth, th2 = tt.offsetHeight;
+  var tx = clientX + 14;
+  var ty = clientY - th2 / 2;
+  if (tx + tw > vw - 8) tx = clientX - tw - 14;
+  if (ty < 8) ty = 8;
+  if (ty + th2 > vh - 8) ty = vh - th2 - 8;
+  tt.style.left = tx + 'px';
+  tt.style.top  = ty + 'px';
+}
+
+function hideLessonsTooltip() {
+  var tt = document.getElementById('lessons-tooltip');
+  if (tt) tt.style.display = 'none';
 }
 
 function renderLessonsLearned() {
@@ -3517,8 +3610,8 @@ function renderLessonsLearned() {
   }
   if (!tags.length) tags = ['#messup'];
 
-  var byMonth = {};
-  var txnList = [];
+  var byMonth     = {};
+  var byMonthTxns = {};
 
   for (var mkey in d.regTxns) {
     var monthData = d.regTxns[mkey] || {};
@@ -3535,17 +3628,19 @@ function renderLessonsLearned() {
           if (!matched) continue;
           var net = (txn.outflow || 0) - (txn.inflow || 0);
           byMonth[mkey] = (byMonth[mkey] || 0) + net;
-          txnList.push({ month: mkey, date: txn.date, payee: txn.payee, memo: txn.memo, amount: net, category: cat });
+          if (!byMonthTxns[mkey]) byMonthTxns[mkey] = [];
+          byMonthTxns[mkey].push({ date: txn.date, payee: txn.payee, memo: txn.memo, amount: net, category: cat });
         }
       }
     }
   }
+  lessonsMonthTxns = byMonthTxns;
 
   var keys = Object.keys(byMonth).sort();
 
   if (!keys.length) {
     var tagDisp = tags.map(function(t) { return '"' + t + '"'; }).join(' or ');
-    tableEl.innerHTML = '<tr><td colspan="5" style="padding:20px;color:#aaa;font-size:13px;text-align:center">'
+    tableEl.innerHTML = '<tr><td style="padding:20px;color:#aaa;font-size:13px;text-align:center">'
       + 'No transactions found with ' + tagDisp + ' in the memo.</td></tr>';
     if (chartWrap) chartWrap.style.display = 'none';
     if (totalLbl) totalLbl.textContent = '';
@@ -3554,31 +3649,36 @@ function renderLessonsLearned() {
 
   if (chartWrap) chartWrap.style.display = '';
 
+  // All-time total
   var grandTotal = 0;
   for (var ki = 0; ki < keys.length; ki++) grandTotal += byMonth[keys[ki]];
   if (totalLbl) {
     totalLbl.textContent = '— $' + grandTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' all time';
   }
 
-  drawLessonsChart(keys, byMonth);
-
-  txnList.sort(function(a, b) { return a.month > b.month ? -1 : a.month < b.month ? 1 : 0; });
-
-  var html = '<thead><tr><th>Date</th><th>Payee</th><th>Category</th><th>Memo</th>'
-    + '<th style="text-align:right">Amount</th></tr></thead><tbody>';
-  for (var ri = 0; ri < txnList.length; ri++) {
-    var row = txnList[ri];
-    var amt = '$' + row.amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-    html += '<tr>'
-      + '<td>' + escAttr(row.date || '') + '</td>'
-      + '<td>' + escAttr(row.payee || '') + '</td>'
-      + '<td>' + escAttr(row.category || '') + '</td>'
-      + '<td>' + escAttr(row.memo || '') + '</td>'
-      + '<td>' + amt + '</td>'
-      + '</tr>';
+  // Year summary table (current year + 4 prior)
+  var curYear = new Date().getFullYear();
+  var byYear  = {};
+  for (var ky = 0; ky < keys.length; ky++) {
+    var yr = parseInt(keys[ky].slice(0, 4), 10);
+    byYear[yr] = (byYear[yr] || 0) + byMonth[keys[ky]];
   }
-  html += '</tbody>';
-  tableEl.innerHTML = html;
+  var yearHtml = '<thead><tr>';
+  for (var yi = curYear - 4; yi <= curYear; yi++) {
+    var thStyle = yi === curYear ? 'text-align:right;color:#c62828' : 'text-align:right';
+    yearHtml += '<th style="' + thStyle + '">' + yi + '</th>';
+  }
+  yearHtml += '</tr></thead><tbody><tr>';
+  for (var yi2 = curYear - 4; yi2 <= curYear; yi2++) {
+    var yTot    = byYear[yi2] || 0;
+    var yStr    = yTot > 0 ? '$' + yTot.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '—';
+    var tdStyle = yi2 === curYear ? 'text-align:right;color:#c62828' : 'text-align:right;color:#555';
+    yearHtml += '<td style="' + tdStyle + '">' + yStr + '</td>';
+  }
+  yearHtml += '</tr></tbody>';
+  tableEl.innerHTML = yearHtml;
+
+  drawLessonsChart(keys, byMonth, -1);
 }
 
 function renderHome() {
@@ -4893,6 +4993,37 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   wireChartTooltip(document.getElementById('lw-canvas'), function() { return lwChartState; });
   wireChartTooltip(document.getElementById('nw-canvas'), function() { return nwChartState; });
+
+  // Lessons Learned bar hover
+  (function() {
+    var lessonsCanvas = document.getElementById('lessons-canvas');
+    var hoveredIdx = -1;
+    lessonsCanvas.addEventListener('mousemove', function(e) {
+      var s = lessonsChartState;
+      if (!s || s.n === 0) { hideLessonsTooltip(); return; }
+      var rect = lessonsCanvas.getBoundingClientRect();
+      var mx   = e.clientX - rect.left;
+      var best = 0, bestDist = Infinity;
+      for (var i = 0; i < s.n; i++) {
+        var cx = s.L_PAD + (i + 0.5) * s.groupW;
+        var d  = Math.abs(mx - cx);
+        if (d < bestDist) { bestDist = d; best = i; }
+      }
+      if (best !== hoveredIdx) {
+        hoveredIdx = best;
+        drawLessonsChart(s.keys, s.byMonth, hoveredIdx);
+      }
+      showLessonsTooltip(e.clientX, e.clientY, best);
+    });
+    lessonsCanvas.addEventListener('mouseleave', function() {
+      if (hoveredIdx !== -1) {
+        hoveredIdx = -1;
+        var s = lessonsChartState;
+        if (s) drawLessonsChart(s.keys, s.byMonth, -1);
+      }
+      hideLessonsTooltip();
+    });
+  })();
 
   // Detail pane close buttons
   document.getElementById('pane-close-btn').addEventListener('click', closeDetailPane);
