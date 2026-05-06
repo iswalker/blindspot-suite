@@ -2596,6 +2596,8 @@ var homeTrendBreakdown = [];
 var homeTrendHistory   = [];
 var lessonsChartState  = null;
 var lessonsMonthTxns   = {};
+var lessonsCatChartState  = null;
+var lessonsYearChartState = null;
 var cfSparklineKeys    = [];
 
 var LW_MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -3693,7 +3695,7 @@ function drawLessonsChart(keys, byMonth, byMonthTxns, hoveredIdx) {
   lessonsChartState = { keys: keys, byMonth: byMonth, byMonthTxns: byMonthTxns, n: n, groupW: groupW, L_PAD: L_PAD };
 }
 
-function drawLessonsYearChart(byYear, byYearCount, curYear, projYE) {
+function drawLessonsYearChart(byYear, byYearCount, byYearTxns, curYear, projYE) {
   var canvas = document.getElementById('lessons-year-canvas');
   if (!canvas) return;
   var years = [];
@@ -3782,6 +3784,8 @@ function drawLessonsYearChart(byYear, byYearCount, curYear, projYE) {
     ctx.textBaseline = 'top';
     ctx.fillText(String(yr), cx, H - B_PAD + 4);
   }
+
+  lessonsYearChartState = { years: years, byYearTxns: byYearTxns, n: n, groupW: groupW, L_PAD: L_PAD };
 }
 
 function drawLessonsCategoryChart(filteredTxns) {
@@ -3795,10 +3799,13 @@ function drawLessonsCategoryChart(filteredTxns) {
   if (wrap) wrap.style.display = '';
 
   // Aggregate by category, descending
-  var byCat = {};
+  var byCat = {}, byCatCount = {}, byCatTxns = {};
   for (var i = 0; i < filteredTxns.length; i++) {
     var cat = filteredTxns[i].category || 'Uncategorized';
-    byCat[cat] = (byCat[cat] || 0) + filteredTxns[i].amount;
+    byCat[cat]      = (byCat[cat]      || 0) + filteredTxns[i].amount;
+    byCatCount[cat] = (byCatCount[cat] || 0) + 1;
+    if (!byCatTxns[cat]) byCatTxns[cat] = [];
+    byCatTxns[cat].push(filteredTxns[i]);
   }
   var cats = Object.keys(byCat).sort(function(a, b) { return byCat[b] - byCat[a]; });
   var n = cats.length;
@@ -3871,20 +3878,18 @@ function drawLessonsCategoryChart(filteredTxns) {
     ctx.font         = '11px system-ui, sans-serif';
     ctx.textAlign    = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(fmtAmt(val) + '  ' + pct, L_PAD + bw + 6, mid);
+    var cnt = byCatCount[c] || 0;
+    ctx.fillText(fmtAmt(val) + '  ' + pct + ' (' + cnt + ')', L_PAD + bw + 6, mid);
   }
+
+  lessonsCatChartState = { cats: cats, byCatTxns: byCatTxns, n: n, T_PAD: T_PAD, BAR_H: BAR_H, GAP: GAP };
 }
 
-function showLessonsTooltip(clientX, clientY, idx) {
+function buildAndShowLessonsTt(clientX, clientY, title, txns) {
   var tt = document.getElementById('lessons-tooltip');
-  if (!tt || !lessonsChartState) return;
-  var key    = lessonsChartState.keys[idx];
-  var txns   = lessonsMonthTxns[key] || [];
-  var pp     = key.split('-');
-  var monthLbl = LW_MONTH_SHORT[parseInt(pp[1], 10) - 1] + ' ' + pp[0];
-
+  if (!tt) return;
   var sorted = txns.slice().sort(function(a, b) { return b.amount - a.amount; });
-  var html = '<div class="lessons-tt-month">' + monthLbl + '</div>';
+  var html = '<div class="lessons-tt-month">' + escAttr(title) + '</div>';
   var total = 0;
   for (var i = 0; i < sorted.length; i++) {
     var t      = sorted[i];
@@ -3903,18 +3908,38 @@ function showLessonsTooltip(clientX, clientY, idx) {
     html += '<div class="lessons-tt-total"><span>Total</span><span style="color:#c62828">' + totStr + '</span></div>';
   }
   tt.innerHTML = html;
-
   var vw = window.innerWidth, vh = window.innerHeight;
   tt.style.display = 'block';
   var tw = tt.offsetWidth, th2 = tt.offsetHeight;
-  var tx = clientX + 14;
-  var ty = clientY - th2 / 2;
+  var tx = clientX + 14, ty = clientY - th2 / 2;
   if (tx + tw > vw - 8) tx = clientX - tw - 14;
   if (ty < 8) ty = 8;
   if (ty + th2 > vh - 8) ty = vh - th2 - 8;
   tt.style.left = tx + 'px';
   tt.style.top  = ty + 'px';
 }
+
+function showLessonsTooltip(clientX, clientY, idx) {
+  if (!lessonsChartState) return;
+  var key = lessonsChartState.keys[idx];
+  var pp  = key.split('-');
+  buildAndShowLessonsTt(clientX, clientY,
+    LW_MONTH_SHORT[parseInt(pp[1], 10) - 1] + ' ' + pp[0],
+    lessonsMonthTxns[key] || []);
+}
+
+function showLessonsCatTooltip(clientX, clientY, catIdx) {
+  if (!lessonsCatChartState) return;
+  var cat = lessonsCatChartState.cats[catIdx];
+  buildAndShowLessonsTt(clientX, clientY, cat, lessonsCatChartState.byCatTxns[cat] || []);
+}
+
+function showLessonsYearTooltip(clientX, clientY, yearIdx) {
+  if (!lessonsYearChartState) return;
+  var yr = lessonsYearChartState.years[yearIdx];
+  buildAndShowLessonsTt(clientX, clientY, String(yr), lessonsYearChartState.byYearTxns[yr] || []);
+}
+
 
 function hideLessonsTooltip() {
   var tt = document.getElementById('lessons-tooltip');
@@ -4019,14 +4044,17 @@ function renderLessonsLearned() {
   if (chartWrap)    chartWrap.style.display = '';
   if (yearChartWrap) yearChartWrap.style.display = '';
 
-  // Year totals + counts (always all-time, for the year bar chart)
+  // Year totals + counts + txns (always all-time, for the year bar chart)
   var curYear   = new Date().getFullYear();
   var curMonth  = new Date().getMonth(); // 0-indexed
-  var byYear = {}, byYearCount = {};
+  var byYear = {}, byYearCount = {}, byYearTxns = {};
   for (var ky = 0; ky < allKeys.length; ky++) {
     var yr = parseInt(allKeys[ky].slice(0, 4), 10);
     byYear[yr]      = (byYear[yr]      || 0) + byMonth[allKeys[ky]];
     byYearCount[yr] = (byYearCount[yr] || 0) + (byMonthTxns[allKeys[ky]] || []).length;
+    var mTxns = byMonthTxns[allKeys[ky]] || [];
+    if (!byYearTxns[yr]) byYearTxns[yr] = [];
+    for (var mti = 0; mti < mTxns.length; mti++) byYearTxns[yr].push(mTxns[mti]);
   }
 
   // Projected year-end for current year (3-month avg × remaining months)
@@ -4062,7 +4090,7 @@ function renderLessonsLearned() {
   }
 
   drawLessonsChart(keys, byMonth, byMonthTxns, -1);
-  drawLessonsYearChart(byYear, byYearCount, curYear, projYE);
+  drawLessonsYearChart(byYear, byYearCount, byYearTxns, curYear, projYE);
   drawLessonsCategoryChart(filteredTxns);
 
   // Transaction table for the filtered period, sorted largest outflow first
@@ -5515,6 +5543,45 @@ document.addEventListener('DOMContentLoaded', function() {
       }
       hideLessonsTooltip();
     });
+  })();
+
+  // Lessons category breakdown hover
+  (function() {
+    var catCanvas = document.getElementById('lessons-cat-canvas');
+    if (!catCanvas) return;
+    catCanvas.addEventListener('mousemove', function(e) {
+      var s = lessonsCatChartState;
+      if (!s || !s.n) { hideLessonsTooltip(); return; }
+      var rect = catCanvas.getBoundingClientRect();
+      var my   = e.clientY - rect.top;
+      var rowH = s.BAR_H + s.GAP;
+      var idx  = Math.floor((my - s.T_PAD) / rowH);
+      if (idx < 0 || idx >= s.n || my > s.T_PAD + idx * rowH + s.BAR_H) {
+        hideLessonsTooltip(); return;
+      }
+      showLessonsCatTooltip(e.clientX, e.clientY, idx);
+    });
+    catCanvas.addEventListener('mouseleave', hideLessonsTooltip);
+  })();
+
+  // Lessons year chart hover
+  (function() {
+    var yearCanvas = document.getElementById('lessons-year-canvas');
+    if (!yearCanvas) return;
+    yearCanvas.addEventListener('mousemove', function(e) {
+      var s = lessonsYearChartState;
+      if (!s || !s.n) { hideLessonsTooltip(); return; }
+      var rect = yearCanvas.getBoundingClientRect();
+      var mx   = e.clientX - rect.left;
+      var best = 0, bestDist = Infinity;
+      for (var i = 0; i < s.n; i++) {
+        var cx = s.L_PAD + (i + 0.5) * s.groupW;
+        var d  = Math.abs(mx - cx);
+        if (d < bestDist) { bestDist = d; best = i; }
+      }
+      showLessonsYearTooltip(e.clientX, e.clientY, best);
+    });
+    yearCanvas.addEventListener('mouseleave', hideLessonsTooltip);
   })();
 
   // Detail pane close buttons
