@@ -515,15 +515,15 @@ td.cell-active {
 .tab-btn.tab-active { background: #fff; color: #222; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
 .tab-btn:hover:not(.tab-active) { background: rgba(255,255,255,.5); color: #333; }
 
-/* ---- LW / NW controls (shared) ---- */
-#lw-range-wrap, #nw-range-wrap { display: flex; align-items: center; gap: 8px; }
-#lw-range-group, #nw-range-group {
+/* ---- LW / NW / Lessons controls (shared) ---- */
+#lw-range-wrap, #nw-range-wrap, #lessons-range-wrap { display: flex; align-items: center; gap: 8px; }
+#lw-range-group, #nw-range-group, #lessons-range-group {
   display: flex; align-items: center; gap: 8px;
   font-size: 13px; color: #555;
   background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 5px 12px;
 }
-#lw-range-group label, #nw-range-group label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-#lw-range-group select, #nw-range-group select {
+#lw-range-group label, #nw-range-group label, #lessons-range-group label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+#lw-range-group select, #nw-range-group select, #lessons-range-group select {
   font-size: 13px; border: 1px solid #ccc; border-radius: 4px;
   padding: 3px 6px; background: #fafafa; cursor: pointer;
 }
@@ -743,18 +743,19 @@ td.hbt-num:last-child { width: 13%; }
 #lw-table tr:last-child td { border-bottom: none; }
 #lw-table tr:hover td { background: #fafaf7; }
 
-/* ---- Lessons Learned table ---- */
-#lessons-table { border-collapse: collapse; width: 100%; }
-#lessons-table th {
-  text-align: left; font-size: 11px; font-weight: 600; color: #333;
-  letter-spacing: .06em; padding: 10px 20px; border-bottom: 1px solid #e4e4e0;
-  background: #fff; white-space: nowrap;
+/* ---- Lessons metrics row ---- */
+#lessons-summary-row { display: flex; gap: 16px; margin-bottom: 14px; }
+.lessons-metric-card {
+  background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  padding: 14px 20px; min-width: 160px;
 }
-#lessons-table th:last-child { text-align: right; }
-#lessons-table td { padding: 10px 20px; font-size: 13px; border-bottom: 1px solid #f0f0ec; }
-#lessons-table td:last-child { text-align: right; white-space: nowrap; }
-#lessons-table tr:last-child td { border-bottom: none; }
-#lessons-table tr:hover td { background: #fafaf7; }
+.lessons-metric-label { font-size: 11px; font-weight: 600; color: #888; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 4px; }
+.lessons-metric-value { font-size: 24px; font-weight: 700; color: #c62828; }
+
+/* ---- Lessons side-by-side charts row ---- */
+#lessons-charts-row { display: flex; gap: 16px; align-items: stretch; margin-bottom: 14px; }
+#lessons-chart-wrap { flex: 3; min-width: 0; margin-bottom: 0; }
+#lessons-year-chart-wrap { flex: 1; min-width: 120px; margin-bottom: 0; }
 
 /* ---- Lessons transaction table ---- */
 #lessons-txn-table { border-collapse: collapse; width: 100%; }
@@ -956,20 +957,31 @@ td.hbt-num:last-child { width: 13%; }
   <div id="lessons-panel" style="display:none">
     <div class="panel-hdr">
       <h1>Lessons Learned</h1>
-      <span id="lessons-total-label" style="font-size:14px;color:#c62828;font-weight:500;margin-left:4px"></span>
-      <div id="lessons-range-wrap" style="margin-left:auto;display:flex;align-items:center;gap:8px">
-        <div id="lessons-range-group" style="display:flex;align-items:center;gap:6px;font-size:13px">
+      <div id="lessons-range-wrap">
+        <div id="lessons-range-group">
           <label>From <select id="lessons-from-sel"></select></label>
           <span>&#8594;</span>
           <label>To <select id="lessons-to-sel"></select></label>
         </div>
       </div>
     </div>
-    <div class="lw-table-wrap">
-      <table id="lessons-table"></table>
+    <div id="lessons-summary-row">
+      <div class="lessons-metric-card">
+        <div class="lessons-metric-label">Total</div>
+        <div class="lessons-metric-value" id="lessons-total-val">—</div>
+      </div>
+      <div class="lessons-metric-card">
+        <div class="lessons-metric-label">Median / Month</div>
+        <div class="lessons-metric-value" id="lessons-median-val">—</div>
+      </div>
     </div>
-    <div class="lw-chart-wrap" id="lessons-chart-wrap">
-      <canvas id="lessons-canvas"></canvas>
+    <div id="lessons-charts-row">
+      <div class="lw-chart-wrap" id="lessons-chart-wrap">
+        <canvas id="lessons-canvas"></canvas>
+      </div>
+      <div class="lw-chart-wrap" id="lessons-year-chart-wrap">
+        <canvas id="lessons-year-canvas"></canvas>
+      </div>
     </div>
     <div class="lw-table-wrap">
       <table id="lessons-txn-table"></table>
@@ -3463,7 +3475,7 @@ function drawRecovSparkline(canvas, points) {
   }
 }
 
-function drawLessonsChart(keys, byMonth, hoveredIdx) {
+function drawLessonsChart(keys, byMonth, byMonthTxns, hoveredIdx) {
   if (hoveredIdx === undefined) hoveredIdx = -1;
   var canvas = document.getElementById('lessons-canvas');
   if (!canvas || !keys.length) return;
@@ -3533,12 +3545,13 @@ function drawLessonsChart(keys, byMonth, hoveredIdx) {
     ctx.fillStyle = bi === hoveredIdx ? '#e53935' : '#c62828';
     ctx.fillRect(bx, by, BAR_W, barH);
 
-    // Value label above bar
+    // Value label above bar (with count)
+    var cnt = (byMonthTxns[keys[bi]] || []).length;
     ctx.fillStyle    = '#333';
     ctx.font         = '10px system-ui, sans-serif';
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'bottom';
-    ctx.fillText(fmtTick(val), cx, by - 2);
+    ctx.fillText(fmtTick(val) + (cnt ? ' (' + cnt + ')' : ''), cx, by - 2);
 
     // X-axis label
     var lbl = parseInt(keys[bi].slice(5), 10) + '/' + keys[bi].slice(2, 4);
@@ -3567,7 +3580,75 @@ function drawLessonsChart(keys, byMonth, hoveredIdx) {
     ctx.fillText('Avg ' + fmtTick(avgV), totalW - R_PAD - 2, avgY - 4);
   }
 
-  lessonsChartState = { keys: keys, byMonth: byMonth, n: n, groupW: groupW, L_PAD: L_PAD };
+  lessonsChartState = { keys: keys, byMonth: byMonth, byMonthTxns: byMonthTxns, n: n, groupW: groupW, L_PAD: L_PAD };
+}
+
+function drawLessonsYearChart(byYear, curYear) {
+  var canvas = document.getElementById('lessons-year-canvas');
+  if (!canvas) return;
+  var years = [];
+  for (var y = curYear - 4; y <= curYear; y++) { if (byYear[y] !== undefined) years.push(y); }
+  if (!years.length) return;
+
+  var dpr = window.devicePixelRatio || 1;
+  var L_PAD = 0, R_PAD = 12, T_PAD = 22, B_PAD = 28;
+  var H = 210;
+
+  var containerW = canvas.parentElement ? canvas.parentElement.clientWidth : 160;
+  if (containerW < 80) containerW = 160;
+  var totalW = containerW;
+
+  canvas.width        = Math.round(totalW * dpr);
+  canvas.height       = Math.round(H * dpr);
+  canvas.style.width  = totalW + 'px';
+  canvas.style.height = H + 'px';
+
+  var ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, totalW, H);
+
+  var n = years.length;
+  var maxV = 0;
+  for (var i = 0; i < n; i++) maxV = Math.max(maxV, byYear[years[i]] || 0);
+  if (maxV === 0) maxV = 1;
+
+  var chartH  = H - T_PAD - B_PAD;
+  var available = totalW - L_PAD - R_PAD;
+  var groupW  = available / n;
+  var BAR_W   = Math.max(6, Math.min(28, Math.floor(groupW * 0.6)));
+
+  function yPos(v) { return T_PAD + chartH * (1 - v / maxV); }
+  function fmtShort(v) {
+    if (v >= 10000) return '$' + (v / 1000).toFixed(0) + 'k';
+    if (v >= 1000)  return '$' + (v / 1000).toFixed(1) + 'k';
+    return '$' + v.toFixed(0);
+  }
+
+  for (var bi = 0; bi < n; bi++) {
+    var yr  = years[bi];
+    var val = byYear[yr] || 0;
+    var cx  = L_PAD + (bi + 0.5) * groupW;
+    var bx  = Math.round(cx - BAR_W / 2);
+    var by  = yPos(val);
+    var barH = chartH * (val / maxV);
+
+    ctx.fillStyle = yr === curYear ? '#e53935' : '#c62828';
+    ctx.fillRect(bx, by, BAR_W, barH);
+
+    // Value label above bar
+    ctx.fillStyle    = '#333';
+    ctx.font         = '9px system-ui, sans-serif';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(fmtShort(val), cx, by - 2);
+
+    // X-axis year label
+    ctx.fillStyle    = yr === curYear ? '#333' : '#999';
+    ctx.font         = '9px system-ui, sans-serif';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(String(yr), cx, H - B_PAD + 4);
+  }
 }
 
 function showLessonsTooltip(clientX, clientY, idx) {
@@ -3638,16 +3719,18 @@ function populateLessonsRangeFilter(allKeys) {
 
 function renderLessonsLearned() {
   var d          = state.data;
-  var tableEl    = document.getElementById('lessons-table');
   var txnTableEl = document.getElementById('lessons-txn-table');
   var chartWrap  = document.getElementById('lessons-chart-wrap');
-  var totalLbl   = document.getElementById('lessons-total-label');
+  var yearChartWrap = document.getElementById('lessons-year-chart-wrap');
+  var totalValEl = document.getElementById('lessons-total-val');
+  var medianValEl = document.getElementById('lessons-median-val');
 
   if (!d || !d.regTxns) {
-    if (tableEl)    tableEl.innerHTML    = '<tr><td style="padding:20px;color:#aaa;font-size:13px">No transaction data loaded.</td></tr>';
-    if (txnTableEl) txnTableEl.innerHTML = '';
-    if (chartWrap)  chartWrap.style.display = 'none';
-    if (totalLbl)   totalLbl.textContent = '';
+    if (txnTableEl)   txnTableEl.innerHTML = '';
+    if (chartWrap)    chartWrap.style.display = 'none';
+    if (yearChartWrap) yearChartWrap.style.display = 'none';
+    if (totalValEl)  totalValEl.textContent = '—';
+    if (medianValEl) medianValEl.textContent = '—';
     return;
   }
 
@@ -3691,10 +3774,11 @@ function renderLessonsLearned() {
 
   if (!allKeys.length) {
     var tagDisp = tags.map(function(t) { return '"' + t + '"'; }).join(' or ');
-    if (tableEl)    tableEl.innerHTML    = '<tr><td style="padding:20px;color:#aaa;font-size:13px;text-align:center">No transactions found with ' + tagDisp + ' in the memo.</td></tr>';
-    if (txnTableEl) txnTableEl.innerHTML = '';
-    if (chartWrap)  chartWrap.style.display = 'none';
-    if (totalLbl)   totalLbl.textContent = '';
+    if (txnTableEl)   txnTableEl.innerHTML = '<tr><td style="padding:20px;color:#aaa;font-size:13px;text-align:center">No transactions found with ' + tagDisp + ' in the memo.</td></tr>';
+    if (chartWrap)    chartWrap.style.display = 'none';
+    if (yearChartWrap) yearChartWrap.style.display = 'none';
+    if (totalValEl)  totalValEl.textContent = '—';
+    if (medianValEl) medianValEl.textContent = '—';
     return;
   }
 
@@ -3705,56 +3789,40 @@ function renderLessonsLearned() {
   var keys = allKeys.filter(function(k) { return k >= state.lessonsFromKey && k <= state.lessonsToKey; });
   if (!keys.length) keys = allKeys;
 
-  if (chartWrap) chartWrap.style.display = '';
+  if (chartWrap)    chartWrap.style.display = '';
+  if (yearChartWrap) yearChartWrap.style.display = '';
 
-  // Year summary (always uses all-time data regardless of filter)
+  // Year totals (always all-time, for the year bar chart)
   var curYear  = new Date().getFullYear();
-  var curMonth = new Date().getMonth(); // 0-indexed
-  var remaining = 11 - curMonth;       // months left after the current one
   var byYear = {};
   for (var ky = 0; ky < allKeys.length; ky++) {
     var yr = parseInt(allKeys[ky].slice(0, 4), 10);
     byYear[yr] = (byYear[yr] || 0) + byMonth[allKeys[ky]];
   }
 
-  // Projected year-end: average of last 3 months × remaining months
-  var last3 = allKeys.slice(-3);
-  var sum3 = 0;
-  for (var li = 0; li < last3.length; li++) sum3 += byMonth[last3[li]] || 0;
-  var avg3   = last3.length ? sum3 / last3.length : 0;
-  var ytdAmt = byYear[curYear] || 0;
-  var projYE = ytdAmt + avg3 * remaining;
-
-  // All-time grand total
-  var grandTotal = 0;
-  for (var ki = 0; ki < allKeys.length; ki++) grandTotal += byMonth[allKeys[ki]];
-  if (totalLbl) {
-    totalLbl.textContent = '— $' + grandTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' all time';
+  // Filtered total (respects date range selector)
+  var filteredTotal = 0;
+  for (var ki = 0; ki < keys.length; ki++) filteredTotal += byMonth[keys[ki]];
+  if (totalValEl) {
+    totalValEl.textContent = '$' + filteredTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
   }
 
-  // Year summary table
-  var yearHtml = '<thead><tr>';
-  for (var yi = curYear - 4; yi <= curYear; yi++) {
-    var thTxt   = yi === curYear ? yi + ' YTD' : String(yi);
-    var thStyle = yi === curYear ? 'text-align:right;color:#c62828' : 'text-align:right';
-    yearHtml += '<th style="' + thStyle + '">' + thTxt + '</th>';
+  // Median monthly amount across filtered range
+  if (medianValEl) {
+    var amounts = [];
+    for (var mi = 0; mi < keys.length; mi++) amounts.push(byMonth[keys[mi]] || 0);
+    amounts.sort(function(a, b) { return a - b; });
+    var mid = Math.floor(amounts.length / 2);
+    var median = amounts.length % 2 === 0
+      ? (amounts[mid - 1] + amounts[mid]) / 2
+      : amounts[mid];
+    medianValEl.textContent = amounts.length
+      ? '$' + median.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})
+      : '—';
   }
-  yearHtml += '</tr></thead><tbody><tr>';
-  for (var yi2 = curYear - 4; yi2 <= curYear; yi2++) {
-    var yTot    = byYear[yi2] || 0;
-    var yStr    = yTot > 0 ? '$' + yTot.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '—';
-    var tdStyle = yi2 === curYear ? 'text-align:right;color:#c62828' : 'text-align:right;color:#555';
-    var projHtml = '';
-    if (yi2 === curYear && projYE > ytdAmt) {
-      projHtml = '<div style="font-size:11px;color:#888;margin-top:3px">'
-        + '$' + projYE.toLocaleString('en-US', {maximumFractionDigits: 0}) + ' proj. yr-end</div>';
-    }
-    yearHtml += '<td style="' + tdStyle + '">' + yStr + projHtml + '</td>';
-  }
-  yearHtml += '</tr></tbody>';
-  if (tableEl) tableEl.innerHTML = yearHtml;
 
-  drawLessonsChart(keys, byMonth, -1);
+  drawLessonsChart(keys, byMonth, byMonthTxns, -1);
+  drawLessonsYearChart(byYear, curYear);
 
   // Transaction table for the filtered period, sorted largest outflow first
   if (txnTableEl) {
@@ -5140,7 +5208,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
       if (best !== hoveredIdx) {
         hoveredIdx = best;
-        drawLessonsChart(s.keys, s.byMonth, hoveredIdx);
+        drawLessonsChart(s.keys, s.byMonth, s.byMonthTxns, hoveredIdx);
       }
       showLessonsTooltip(e.clientX, e.clientY, best);
     });
@@ -5148,7 +5216,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (hoveredIdx !== -1) {
         hoveredIdx = -1;
         var s = lessonsChartState;
-        if (s) drawLessonsChart(s.keys, s.byMonth, -1);
+        if (s) drawLessonsChart(s.keys, s.byMonth, s.byMonthTxns, -1);
       }
       hideLessonsTooltip();
     });
