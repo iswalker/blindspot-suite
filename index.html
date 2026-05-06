@@ -659,6 +659,15 @@ td.hbt-num:last-child { width: 13%; }
   pointer-events: none; z-index: 200; width: 320px;
 }
 
+/* ---- Cash Flow average sparkline tooltip ---- */
+#cf-sparkline-tooltip {
+  position: fixed; display: none;
+  background: #fff; border-radius: 8px; padding: 12px 16px;
+  box-shadow: 0 4px 18px rgba(0,0,0,.15);
+  pointer-events: none; z-index: 200; width: 340px;
+}
+.cf-sp-hdr { font-size: 11px; font-weight: 700; color: #bbb; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 6px; }
+
 /* ---- LW / NW summary card ---- */
 #lw-summary-card, #nw-summary-card {
   background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
@@ -1096,6 +1105,12 @@ td.hbt-num:last-child { width: 13%; }
   <canvas id="home-trend-sparkline" width="288" height="110" style="display:block;width:288px;height:110px"></canvas>
 </div>
 
+<!-- Cash Flow average sparkline tooltip -->
+<div id="cf-sparkline-tooltip">
+  <div class="cf-sp-hdr" id="cf-sp-label"></div>
+  <canvas id="cf-sp-canvas" style="display:block"></canvas>
+</div>
+
 <!-- Detail pane -->
 <div id="detail-pane">
   <div class="pane-hdr">
@@ -1370,7 +1385,8 @@ function valCellsNet(vals, avg, pctRef, keys) {
   }
   var sdNet = stdDev(vals);
   var sdNoteNet = sdNet > 0 ? '<span class="avg-note">(±$' + Math.round(sdNet).toLocaleString('en-US') + ')</span>' : '';
-  h += '<td class="avg-col">' + avgPctStr + sdNoteNet + fmtShadedPill(avg, avgBg) + '</td>';
+  var spAttrNet = vals.length >= 2 ? ' data-sp-vals="' + escAttr(JSON.stringify(vals)) + '"' : '';
+  h += '<td class="avg-col"' + spAttrNet + '>' + avgPctStr + sdNoteNet + fmtShadedPill(avg, avgBg) + '</td>';
   return h;
 }
 
@@ -2236,6 +2252,7 @@ function renderTable(opts) {
   if (!opts.tableId) closeDetailPane();
   var d = state.data;
   var keys = opts.keys || d.allKeys.filter(function(k) { return k >= state.fromKey && k <= state.toKey; });
+  cfSparklineKeys = keys;
 
   if (keys.length === 0) {
     document.getElementById(tableId).innerHTML =
@@ -2355,11 +2372,14 @@ function renderTable(opts) {
     var autoSd = stdDev(vals);
     var noteStr = avgNote || (autoSd > 0 ? '±$' + Math.round(autoSd).toLocaleString('en-US') : '');
     var avgNoteSuffix = noteStr ? '<span class="avg-note">(' + noteStr + ')</span>' : '';
+    var spAttr = vals.length >= 2
+      ? ' data-sp-vals="' + escAttr(JSON.stringify(vals)) + '"' + (neg ? ' data-sp-neg="1"' : '')
+      : '';
     if (shading) {
       var avgBg = avg !== 0 ? heatColor3(avg, rowLo, rowAvg, rowHi, neg) : '';
-      h += '<td class="avg-col">' + avgPctStr + avgNoteSuffix + fmtShadedPill(avgV, avgBg) + '</td>';
+      h += '<td class="avg-col"' + spAttr + '>' + avgPctStr + avgNoteSuffix + fmtShadedPill(avgV, avgBg) + '</td>';
     } else {
-      h += '<td class="avg-col">' + avgPctStr + avgNoteSuffix + fmtMoney(avgV) + '</td>';
+      h += '<td class="avg-col"' + spAttr + '>' + avgPctStr + avgNoteSuffix + fmtMoney(avgV) + '</td>';
     }
     return h;
   }
@@ -2576,6 +2596,7 @@ var homeTrendBreakdown = [];
 var homeTrendHistory   = [];
 var lessonsChartState  = null;
 var lessonsMonthTxns   = {};
+var cfSparklineKeys    = [];
 
 var LW_MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -3475,6 +3496,92 @@ function drawRecovSparkline(canvas, points) {
     var ds   = points[idx].date;
     var lbl  = parseInt(ds.slice(5, 7), 10) + '/' + parseInt(ds.slice(8, 10), 10);
     ctx.fillText(lbl, xp(idx), H - 4);
+  }
+}
+
+function drawCfSparkline(canvas, vals, keys, neg) {
+  if (!canvas || !vals || vals.length < 2) return;
+  var displayed = vals.map(function(v) { return neg ? -v : v; });
+  var dpr = window.devicePixelRatio || 1;
+  var W = 308, H = 120;
+  canvas.width  = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+
+  var ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  var minV = Math.min.apply(null, displayed);
+  var maxV = Math.max.apply(null, displayed);
+  var range = maxV - minV;
+  if (range === 0) range = Math.abs(maxV) || 1;
+  minV = minV - range * 0.15;
+  maxV = maxV + range * 0.15;
+  range = maxV - minV;
+
+  var pL = 8, pR = 52, pT = 10, pB = 22;
+  var cW = W - pL - pR, cH = H - pT - pB;
+  var n  = displayed.length;
+
+  function xp(i) { return pL + (i / (n - 1)) * cW; }
+  function yp(v) { return pT + (1 - (v - minV) / range) * cH; }
+  function fmtV(v) {
+    if (Math.abs(v) >= 10000) return '$' + (v / 1000).toFixed(0) + 'k';
+    if (Math.abs(v) >= 1000)  return '$' + (v / 1000).toFixed(1) + 'k';
+    return '$' + v.toFixed(0);
+  }
+
+  // Zero baseline when chart spans positive and negative
+  if (minV < 0 && maxV > 0) {
+    var zy = yp(0);
+    ctx.strokeStyle = '#e8e8e4'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pL, zy); ctx.lineTo(W - pR, zy); ctx.stroke();
+  }
+
+  // Line
+  ctx.beginPath();
+  ctx.moveTo(xp(0), yp(displayed[0]));
+  for (var i = 1; i < n; i++) ctx.lineTo(xp(i), yp(displayed[i]));
+  ctx.strokeStyle = '#d97706'; ctx.lineWidth = 2; ctx.lineJoin = 'round';
+  ctx.stroke();
+
+  // All data-point dots (small grey)
+  for (var di = 0; di < n; di++) {
+    ctx.beginPath(); ctx.arc(xp(di), yp(displayed[di]), 2, 0, 2 * Math.PI);
+    ctx.fillStyle = '#ddd'; ctx.fill();
+  }
+
+  // First dot + label (grey)
+  var x0 = xp(0), y0 = yp(displayed[0]);
+  ctx.beginPath(); ctx.arc(x0, y0, 3, 0, 2 * Math.PI);
+  ctx.fillStyle = '#888'; ctx.fill();
+  ctx.fillStyle = '#888'; ctx.font = '10px system-ui, sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+  ctx.fillText(fmtV(displayed[0]), x0 + 4, y0 - 2);
+
+  // Last dot + label (amber)
+  var lastX = xp(n - 1), lastY = yp(displayed[n - 1]);
+  ctx.beginPath(); ctx.arc(lastX, lastY, 3.5, 0, 2 * Math.PI);
+  ctx.fillStyle = '#d97706'; ctx.fill();
+  ctx.fillStyle = '#d97706'; ctx.font = 'bold 11px system-ui, sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText(fmtV(displayed[n - 1]), lastX + 6, lastY);
+
+  // X-axis month labels (first, middle(s), last)
+  ctx.fillStyle = '#bbb'; ctx.font = '9px system-ui, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  var labelIdxs = [0];
+  var step = Math.max(1, Math.floor((n - 1) / 3));
+  for (var li = step; li < n - 1; li += step) labelIdxs.push(li);
+  labelIdxs.push(n - 1);
+  for (var lj = 0; lj < labelIdxs.length; lj++) {
+    var idx = labelIdxs[lj];
+    if (idx < keys.length) {
+      var k = keys[idx];
+      ctx.fillText(parseInt(k.slice(5), 10) + '/' + k.slice(2, 4), xp(idx), H - 4);
+    }
   }
 }
 
@@ -5178,6 +5285,61 @@ document.addEventListener('DOMContentLoaded', function() {
       if (idx !== null) toggleGroup(parseInt(idx, 10));
     }
   });
+
+  // Cash Flow average column sparkline tooltip
+  (function() {
+    var mainTbl  = document.getElementById('main-table');
+    var cfTt     = document.getElementById('cf-sparkline-tooltip');
+    var cfLabel  = document.getElementById('cf-sp-label');
+    var cfCanvas = document.getElementById('cf-sp-canvas');
+    if (!mainTbl || !cfTt) return;
+
+    var activeTd = null;
+
+    function positionCfTt(e) {
+      var ttW = cfTt.offsetWidth || 340, ttH = cfTt.offsetHeight || 150;
+      var vw = window.innerWidth, vh = window.innerHeight;
+      var left = e.clientX + 14, top = e.clientY - 20;
+      if (left + ttW > vw - 8) left = e.clientX - ttW - 14;
+      if (top + ttH > vh - 8)  top  = vh - ttH - 8;
+      if (top < 8) top = 8;
+      cfTt.style.left = left + 'px';
+      cfTt.style.top  = top  + 'px';
+    }
+
+    mainTbl.addEventListener('mouseover', function(e) {
+      var el = e.target, td = null;
+      while (el && el !== mainTbl) {
+        if (el.tagName === 'TD' && el.className.indexOf('avg-col') !== -1 && el.getAttribute('data-sp-vals')) {
+          td = el; break;
+        }
+        el = el.parentElement;
+      }
+      if (td !== activeTd) {
+        activeTd = td;
+        if (td) {
+          var tr    = td.parentElement;
+          var label = (tr && tr.cells[0]) ? tr.cells[0].textContent.trim() : '';
+          var vals  = JSON.parse(td.getAttribute('data-sp-vals'));
+          var neg   = td.getAttribute('data-sp-neg') === '1';
+          if (cfLabel)  cfLabel.textContent = label;
+          drawCfSparkline(cfCanvas, vals, cfSparklineKeys, neg);
+          cfTt.style.display = 'block';
+        } else {
+          cfTt.style.display = 'none';
+        }
+      }
+      if (activeTd) positionCfTt(e);
+    });
+    mainTbl.addEventListener('mousemove', function(e) {
+      if (activeTd) positionCfTt(e);
+    });
+    mainTbl.addEventListener('mouseleave', function() {
+      activeTd = null;
+      cfTt.style.display = 'none';
+    });
+  })();
+
   // home-budget-wrap: no clickable detail cells (budget view, not transaction drilldown)
 
   // Recoverable Costs hover tooltip
