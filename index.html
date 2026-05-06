@@ -971,7 +971,7 @@ td.hbt-num:last-child { width: 13%; }
         <div class="lessons-metric-value" id="lessons-total-val">—</div>
       </div>
       <div class="lessons-metric-card">
-        <div class="lessons-metric-label">Median / Month</div>
+        <div class="lessons-metric-label">Median Amount</div>
         <div class="lessons-metric-value" id="lessons-median-val">—</div>
       </div>
     </div>
@@ -3583,7 +3583,7 @@ function drawLessonsChart(keys, byMonth, byMonthTxns, hoveredIdx) {
   lessonsChartState = { keys: keys, byMonth: byMonth, byMonthTxns: byMonthTxns, n: n, groupW: groupW, L_PAD: L_PAD };
 }
 
-function drawLessonsYearChart(byYear, curYear) {
+function drawLessonsYearChart(byYear, byYearCount, curYear, projYE) {
   var canvas = document.getElementById('lessons-year-canvas');
   if (!canvas) return;
   var years = [];
@@ -3591,7 +3591,7 @@ function drawLessonsYearChart(byYear, curYear) {
   if (!years.length) return;
 
   var dpr = window.devicePixelRatio || 1;
-  var L_PAD = 0, R_PAD = 12, T_PAD = 22, B_PAD = 28;
+  var L_PAD = 0, R_PAD = 12, T_PAD = 28, B_PAD = 28;
   var H = 210;
 
   var containerW = canvas.parentElement ? canvas.parentElement.clientWidth : 160;
@@ -3608,14 +3608,19 @@ function drawLessonsYearChart(byYear, curYear) {
   ctx.clearRect(0, 0, totalW, H);
 
   var n = years.length;
+  // Scale must accommodate projected year-end for current year
   var maxV = 0;
-  for (var i = 0; i < n; i++) maxV = Math.max(maxV, byYear[years[i]] || 0);
+  for (var i = 0; i < n; i++) {
+    var v = byYear[years[i]] || 0;
+    if (years[i] === curYear) v = Math.max(v, projYE);
+    maxV = Math.max(maxV, v);
+  }
   if (maxV === 0) maxV = 1;
 
-  var chartH  = H - T_PAD - B_PAD;
+  var chartH    = H - T_PAD - B_PAD;
   var available = totalW - L_PAD - R_PAD;
-  var groupW  = available / n;
-  var BAR_W   = Math.max(6, Math.min(28, Math.floor(groupW * 0.6)));
+  var groupW    = available / n;
+  var BAR_W     = Math.max(6, Math.min(28, Math.floor(groupW * 0.6)));
 
   function yPos(v) { return T_PAD + chartH * (1 - v / maxV); }
   function fmtShort(v) {
@@ -3625,22 +3630,40 @@ function drawLessonsYearChart(byYear, curYear) {
   }
 
   for (var bi = 0; bi < n; bi++) {
-    var yr  = years[bi];
-    var val = byYear[yr] || 0;
-    var cx  = L_PAD + (bi + 0.5) * groupW;
-    var bx  = Math.round(cx - BAR_W / 2);
-    var by  = yPos(val);
+    var yr   = years[bi];
+    var val  = byYear[yr] || 0;
+    var cnt  = byYearCount[yr] || 0;
+    var cx   = L_PAD + (bi + 0.5) * groupW;
+    var bx   = Math.round(cx - BAR_W / 2);
+    var byY  = yPos(val);
     var barH = chartH * (val / maxV);
 
-    ctx.fillStyle = yr === curYear ? '#e53935' : '#c62828';
-    ctx.fillRect(bx, by, BAR_W, barH);
+    // Projected stacked segment for current year (lighter red, drawn first / behind)
+    if (yr === curYear && projYE > val) {
+      var projTop  = yPos(projYE);
+      var projSegH = byY - projTop; // height of the projected portion
+      ctx.fillStyle = '#ffcdd2';
+      ctx.fillRect(bx, projTop, BAR_W, projSegH);
 
-    // Value label above bar
+      // Projected total label at top of projected portion
+      ctx.fillStyle    = '#e57373';
+      ctx.font         = '9px system-ui, sans-serif';
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(fmtShort(projYE) + ' proj', cx, projTop - 2);
+    }
+
+    // Actual bar
+    ctx.fillStyle = yr === curYear ? '#e53935' : '#c62828';
+    ctx.fillRect(bx, byY, BAR_W, barH);
+
+    // Actual value label (with count)
+    var labelY = (yr === curYear && projYE > val) ? byY - 1 : byY - 2;
     ctx.fillStyle    = '#333';
     ctx.font         = '9px system-ui, sans-serif';
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'bottom';
-    ctx.fillText(fmtShort(val), cx, by - 2);
+    ctx.fillText(fmtShort(val) + ' (' + cnt + ')', cx, labelY);
 
     // X-axis year label
     ctx.fillStyle    = yr === curYear ? '#333' : '#999';
@@ -3792,41 +3815,53 @@ function renderLessonsLearned() {
   if (chartWrap)    chartWrap.style.display = '';
   if (yearChartWrap) yearChartWrap.style.display = '';
 
-  // Year totals (always all-time, for the year bar chart)
-  var curYear  = new Date().getFullYear();
-  var byYear = {};
+  // Year totals + counts (always all-time, for the year bar chart)
+  var curYear   = new Date().getFullYear();
+  var curMonth  = new Date().getMonth(); // 0-indexed
+  var byYear = {}, byYearCount = {};
   for (var ky = 0; ky < allKeys.length; ky++) {
     var yr = parseInt(allKeys[ky].slice(0, 4), 10);
-    byYear[yr] = (byYear[yr] || 0) + byMonth[allKeys[ky]];
+    byYear[yr]      = (byYear[yr]      || 0) + byMonth[allKeys[ky]];
+    byYearCount[yr] = (byYearCount[yr] || 0) + (byMonthTxns[allKeys[ky]] || []).length;
   }
 
-  // Filtered total (respects date range selector)
+  // Projected year-end for current year (3-month avg × remaining months)
+  var last3Keys = allKeys.slice(-3);
+  var sum3 = 0;
+  for (var li = 0; li < last3Keys.length; li++) sum3 += byMonth[last3Keys[li]] || 0;
+  var avg3    = last3Keys.length ? sum3 / last3Keys.length : 0;
+  var ytdAmt  = byYear[curYear] || 0;
+  var remaining = 11 - curMonth;
+  var projYE  = remaining > 0 ? ytdAmt + avg3 * remaining : ytdAmt;
+
+  // Filtered txns (reused for Total count, Median, and the transaction table)
+  var filteredTxns = allTxnList.filter(function(t) { return t.month >= state.lessonsFromKey && t.month <= state.lessonsToKey; });
+
+  // Filtered total with transaction count
   var filteredTotal = 0;
   for (var ki = 0; ki < keys.length; ki++) filteredTotal += byMonth[keys[ki]];
   if (totalValEl) {
-    totalValEl.textContent = '$' + filteredTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    totalValEl.textContent = '$' + filteredTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})
+      + ' (' + filteredTxns.length + ')';
   }
 
-  // Median monthly amount across filtered range
+  // Median individual transaction amount across filtered range
   if (medianValEl) {
-    var amounts = [];
-    for (var mi = 0; mi < keys.length; mi++) amounts.push(byMonth[keys[mi]] || 0);
-    amounts.sort(function(a, b) { return a - b; });
-    var mid = Math.floor(amounts.length / 2);
-    var median = amounts.length % 2 === 0
-      ? (amounts[mid - 1] + amounts[mid]) / 2
-      : amounts[mid];
-    medianValEl.textContent = amounts.length
+    var txnAmts = filteredTxns.map(function(t) { return t.amount; }).sort(function(a, b) { return a - b; });
+    var mid = Math.floor(txnAmts.length / 2);
+    var median = txnAmts.length % 2 === 0
+      ? (txnAmts[mid - 1] + txnAmts[mid]) / 2
+      : txnAmts[mid];
+    medianValEl.textContent = txnAmts.length
       ? '$' + median.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})
       : '—';
   }
 
   drawLessonsChart(keys, byMonth, byMonthTxns, -1);
-  drawLessonsYearChart(byYear, curYear);
+  drawLessonsYearChart(byYear, byYearCount, curYear, projYE);
 
   // Transaction table for the filtered period, sorted largest outflow first
   if (txnTableEl) {
-    var filteredTxns = allTxnList.filter(function(t) { return t.month >= state.lessonsFromKey && t.month <= state.lessonsToKey; });
     filteredTxns.sort(function(a, b) { return b.amount - a.amount; });
     var txnHtml = '<thead><tr>'
       + '<th style="text-align:center;width:1%;white-space:nowrap">Date</th>'
