@@ -516,14 +516,14 @@ td.cell-active {
 .tab-btn:hover:not(.tab-active) { background: rgba(255,255,255,.5); color: #333; }
 
 /* ---- LW / NW / Lessons controls (shared) ---- */
-#lw-range-wrap, #nw-range-wrap, #lessons-range-wrap { display: flex; align-items: center; gap: 8px; }
-#lw-range-group, #nw-range-group, #lessons-range-group {
+#lw-range-wrap, #nw-range-wrap, #lessons-range-wrap, #leverage-range-wrap { display: flex; align-items: center; gap: 8px; }
+#lw-range-group, #nw-range-group, #lessons-range-group, #leverage-range-group {
   display: flex; align-items: center; gap: 8px;
   font-size: 13px; color: #555;
   background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 5px 12px;
 }
-#lw-range-group label, #nw-range-group label, #lessons-range-group label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-#lw-range-group select, #nw-range-group select, #lessons-range-group select {
+#lw-range-group label, #nw-range-group label, #lessons-range-group label, #leverage-range-group label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+#lw-range-group select, #nw-range-group select, #lessons-range-group select, #leverage-range-group select {
   font-size: 13px; border: 1px solid #ccc; border-radius: 4px;
   padding: 3px 6px; background: #fafafa; cursor: pointer;
 }
@@ -545,6 +545,7 @@ td.cell-active {
 #lw-panel { display: none; }
 #nw-panel { display: none; }
 #home-panel { display: none; }
+#leverage-panel { display: none; }
 
 /* ---- Home tab layout ---- */
 .home-body { display: flex; gap: 24px; align-items: flex-start; }
@@ -766,6 +767,13 @@ td.hbt-num:last-child { width: 13%; }
 #lessons-chart-wrap { flex: 3; min-width: 0; margin-bottom: 0; }
 #lessons-year-chart-wrap { flex: 1; min-width: 120px; margin-bottom: 0; }
 
+/* ---- Leverage metrics / layout (mirrors Lessons, blue accent) ---- */
+#leverage-summary-row { display: flex; gap: 16px; margin-bottom: 14px; }
+.leverage-metric-value { font-size: 24px; font-weight: 700; color: #1565c0; }
+#leverage-charts-row { display: flex; gap: 16px; align-items: stretch; margin-bottom: 14px; }
+#leverage-chart-wrap { flex: 3; min-width: 0; margin-bottom: 0; }
+#leverage-year-chart-wrap { flex: 1; min-width: 120px; margin-bottom: 0; }
+
 /* ---- Lessons transaction table ---- */
 #lessons-txn-table { border-collapse: collapse; width: 100%; }
 #lessons-txn-table th {
@@ -778,6 +786,19 @@ td.hbt-num:last-child { width: 13%; }
 #lessons-txn-table td:last-child { text-align: right; white-space: nowrap; }
 #lessons-txn-table tr:last-child td { border-bottom: none; }
 #lessons-txn-table tr:hover td { background: #fafaf7; }
+
+/* ---- Leverage transaction table ---- */
+#leverage-txn-table { border-collapse: collapse; width: 100%; }
+#leverage-txn-table th {
+  text-align: left; font-size: 11px; font-weight: 600; color: #333;
+  letter-spacing: .06em; padding: 10px 20px; border-bottom: 1px solid #e4e4e0;
+  background: #fff; white-space: nowrap;
+}
+#leverage-txn-table th:last-child { text-align: right; }
+#leverage-txn-table td { padding: 10px 20px; font-size: 13px; border-bottom: 1px solid #f0f0ec; }
+#leverage-txn-table td:last-child { text-align: right; white-space: nowrap; }
+#leverage-txn-table tr:last-child td { border-bottom: none; }
+#leverage-txn-table tr:hover td { background: #f5f8ff; }
 
 /* ---- Lessons Learned tooltip ---- */
 #lessons-tooltip {
@@ -865,6 +886,7 @@ td.hbt-num:last-child { width: 13%; }
       <button class="tab-btn" data-tab="lw">Liquid Accounts</button>
       <button class="tab-btn" data-tab="nw">Net Worth</button>
       <button class="tab-btn" data-tab="lessons">Lessons Learned</button>
+      <button class="tab-btn" data-tab="leverage">Leverage</button>
     </div>
     <div id="controls-bar">
       <span id="cache-label"></span>
@@ -992,6 +1014,9 @@ td.hbt-num:last-child { width: 13%; }
         <canvas id="lessons-year-canvas"></canvas>
       </div>
     </div>
+    <div class="lw-chart-wrap" id="lessons-payee-chart-wrap">
+      <canvas id="lessons-payee-canvas"></canvas>
+    </div>
     <div class="lw-chart-wrap" id="lessons-cat-chart-wrap">
       <canvas id="lessons-cat-canvas"></canvas>
     </div>
@@ -1000,6 +1025,45 @@ td.hbt-num:last-child { width: 13%; }
     </div>
   </div>
   <div id="lessons-tooltip"></div>
+  <div id="leverage-panel" style="display:none">
+    <div class="panel-hdr">
+      <h1>Leverage</h1>
+      <div id="leverage-range-wrap">
+        <div id="leverage-range-group">
+          <label>From <select id="leverage-from-sel"></select></label>
+          <span>&#8594;</span>
+          <label>To <select id="leverage-to-sel"></select></label>
+        </div>
+      </div>
+    </div>
+    <div id="leverage-summary-row">
+      <div class="lessons-metric-card">
+        <div class="lessons-metric-label">Total</div>
+        <div class="leverage-metric-value" id="leverage-total-val">—</div>
+      </div>
+      <div class="lessons-metric-card">
+        <div class="lessons-metric-label">Median Amount</div>
+        <div class="leverage-metric-value" id="leverage-median-val">—</div>
+      </div>
+    </div>
+    <div id="leverage-charts-row">
+      <div class="lw-chart-wrap" id="leverage-chart-wrap">
+        <canvas id="leverage-canvas"></canvas>
+      </div>
+      <div class="lw-chart-wrap" id="leverage-year-chart-wrap">
+        <canvas id="leverage-year-canvas"></canvas>
+      </div>
+    </div>
+    <div class="lw-chart-wrap" id="leverage-payee-chart-wrap">
+      <canvas id="leverage-payee-canvas"></canvas>
+    </div>
+    <div class="lw-chart-wrap" id="leverage-cat-chart-wrap">
+      <canvas id="leverage-cat-canvas"></canvas>
+    </div>
+    <div class="lw-table-wrap">
+      <table id="leverage-txn-table"></table>
+    </div>
+  </div>
   <div id="home-panel">
     <div class="panel-hdr">
       <h1>Current Month</h1>
@@ -1191,6 +1255,8 @@ var state = {
   nwSelectedAccounts:  parseJsonLS('sel-nw-accts')    || {},
   lessonsFromKey:      localStorage.getItem('sel-lessons-from') || null,
   lessonsToKey:        localStorage.getItem('sel-lessons-to')   || null,
+  leverageFromKey:     localStorage.getItem('sel-leverage-from') || null,
+  leverageToKey:       localStorage.getItem('sel-leverage-to')   || null,
   rowShading:          localStorage.getItem('row-shading') !== '0',
   catSortMode:         localStorage.getItem('cat-sort') || 'ynab',
   showTotalExp:        localStorage.getItem('show-total-exp') === '1',
@@ -2210,10 +2276,17 @@ function refreshYnab() {
     btn.textContent = '↻ Refresh';
   })
   .catch(function(e) {
-    document.getElementById('cache-label').textContent =
-      'Refresh failed: ' + (e && e.message || 'Unknown error');
-    btn.disabled = false;
-    btn.textContent = '↻ Refresh';
+    var msg = (e && e.message) || 'Unknown error';
+    if (msg.toLowerCase().indexOf('unauthorized') !== -1 || msg.indexOf('401') !== -1) {
+      localStorage.removeItem('ynab-api-key');
+      btn.disabled = false;
+      btn.textContent = '↻ Refresh';
+      showUpload();
+    } else {
+      document.getElementById('cache-label').textContent = 'Refresh failed: ' + msg;
+      btn.disabled = false;
+      btn.textContent = '↻ Refresh';
+    }
   });
 }
 
@@ -2597,7 +2670,13 @@ var homeTrendHistory   = [];
 var lessonsChartState  = null;
 var lessonsMonthTxns   = {};
 var lessonsCatChartState  = null;
-var lessonsYearChartState = null;
+var lessonsYearChartState  = null;
+var lessonsPayeeChartState = null;
+var leverageChartState     = null;
+var leverageMonthTxns      = {};
+var leverageCatChartState  = null;
+var leverageYearChartState = null;
+var leveragePayeeChartState = null;
 var cfSparklineKeys    = [];
 
 var LW_MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -2936,15 +3015,17 @@ function switchTab(tab) {
   for (var i = 0; i < btns.length; i++) {
     btns[i].classList.toggle('tab-active', btns[i].getAttribute('data-tab') === tab);
   }
-  document.getElementById('home-panel').style.display   = tab === 'home'   ? 'block' : 'none';
-  document.getElementById('margin-panel').style.display = tab === 'margin' ? 'block' : 'none';
-  document.getElementById('lw-panel').style.display     = tab === 'lw'     ? 'block' : 'none';
-  document.getElementById('nw-panel').style.display      = tab === 'nw'      ? 'block' : 'none';
-  document.getElementById('lessons-panel').style.display = tab === 'lessons' ? 'block' : 'none';
-  if (tab === 'home') renderHome();
-  if (tab === 'lw') renderLiquidWorth();
-  if (tab === 'nw') renderNetWorth();
-  if (tab === 'lessons') renderLessonsLearned();
+  document.getElementById('home-panel').style.display     = tab === 'home'     ? 'block' : 'none';
+  document.getElementById('margin-panel').style.display   = tab === 'margin'   ? 'block' : 'none';
+  document.getElementById('lw-panel').style.display       = tab === 'lw'       ? 'block' : 'none';
+  document.getElementById('nw-panel').style.display       = tab === 'nw'       ? 'block' : 'none';
+  document.getElementById('lessons-panel').style.display  = tab === 'lessons'  ? 'block' : 'none';
+  document.getElementById('leverage-panel').style.display = tab === 'leverage' ? 'block' : 'none';
+  if (tab === 'home')     renderHome();
+  if (tab === 'lw')       renderLiquidWorth();
+  if (tab === 'nw')       renderNetWorth();
+  if (tab === 'lessons')  renderLessonsLearned();
+  if (tab === 'leverage') renderLeverage();
 }
 
 function acctBalanceAt(acctId, monthKey) {
@@ -3788,28 +3869,217 @@ function drawLessonsYearChart(byYear, byYearCount, byYearTxns, curYear, projYE) 
   lessonsYearChartState = { years: years, byYearTxns: byYearTxns, n: n, groupW: groupW, L_PAD: L_PAD };
 }
 
-function drawLessonsCategoryChart(filteredTxns) {
-  var canvas = document.getElementById('lessons-cat-canvas');
-  var wrap   = document.getElementById('lessons-cat-chart-wrap');
+function drawLeverageChart(keys, byMonth, byMonthTxns, hoveredIdx) {
+  if (hoveredIdx === undefined) hoveredIdx = -1;
+  var canvas = document.getElementById('leverage-canvas');
+  if (!canvas || !keys.length) return;
+  var n     = keys.length;
+  var dpr   = window.devicePixelRatio || 1;
+  var L_PAD = 58, R_PAD = 16, T_PAD = 22, B_PAD = 28;
+  var H     = 210;
+
+  var containerW = canvas.parentElement ? canvas.parentElement.clientWidth - 32 : 600;
+  if (containerW < 100) containerW = 600;
+  var totalW    = containerW;
+  var available = totalW - L_PAD - R_PAD;
+  var BAR_W     = Math.max(6, Math.min(40, Math.floor(available / n * 0.55)));
+  var groupW    = available / n;
+
+  canvas.width        = Math.round(totalW * dpr);
+  canvas.height       = Math.round(H * dpr);
+  canvas.style.width  = totalW + 'px';
+  canvas.style.height = H + 'px';
+
+  var ctx    = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, totalW, H);
+
+  var chartH = H - T_PAD - B_PAD;
+  var maxV   = 0;
+  for (var i = 0; i < n; i++) maxV = Math.max(maxV, byMonth[keys[i]] || 0);
+  if (maxV === 0) maxV = 1;
+
+  var rawStep = maxV / 4;
+  var mag     = Math.pow(10, Math.floor(Math.log(rawStep) / Math.LN10));
+  var step    = Math.ceil(rawStep / mag) * mag;
+  var niceMax = Math.ceil(maxV / step) * step;
+  var nTicks  = Math.round(niceMax / step);
+
+  var sumV = 0;
+  for (var ai = 0; ai < n; ai++) sumV += byMonth[keys[ai]] || 0;
+  var avgV = n > 0 ? sumV / n : 0;
+
+  function yPos(v) { return T_PAD + chartH * (1 - v / niceMax); }
+  function fmtTick(v) {
+    if (v >= 10000) return '$' + (v / 1000).toFixed(0) + 'k';
+    if (v >= 1000)  return '$' + (v / 1000).toFixed(1) + 'k';
+    return '$' + v.toFixed(0);
+  }
+
+  ctx.lineWidth = 1;
+  for (var ti = 0; ti <= nTicks; ti++) {
+    var v = ti * step, y = yPos(v);
+    ctx.strokeStyle = '#e8e8e4';
+    ctx.beginPath(); ctx.moveTo(L_PAD, y); ctx.lineTo(totalW - R_PAD, y); ctx.stroke();
+    ctx.fillStyle = '#999'; ctx.font = '10px system-ui, sans-serif';
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillText(fmtTick(v), L_PAD - 4, y);
+  }
+
+  for (var bi = 0; bi < n; bi++) {
+    var val  = byMonth[keys[bi]] || 0;
+    var cx   = L_PAD + (bi + 0.5) * groupW;
+    var bx   = Math.round(cx - BAR_W / 2);
+    var barH = chartH * (val / niceMax);
+    var by   = yPos(val);
+
+    ctx.fillStyle = bi === hoveredIdx ? '#1e88e5' : '#1565c0';
+    ctx.fillRect(bx, by, BAR_W, barH);
+
+    var cnt = (byMonthTxns[keys[bi]] || []).length;
+    ctx.fillStyle    = '#333';
+    ctx.font         = '10px system-ui, sans-serif';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(fmtTick(val) + (cnt ? ' (' + cnt + ')' : ''), cx, by - 2);
+
+    var lbl = parseInt(keys[bi].slice(5), 10) + '/' + keys[bi].slice(2, 4);
+    ctx.fillStyle    = bi === hoveredIdx ? '#333' : '#999';
+    ctx.font         = '9px system-ui, sans-serif';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(lbl, cx, H - B_PAD + 4);
+  }
+
+  if (avgV > 0) {
+    var avgY = yPos(avgV);
+    ctx.strokeStyle = '#1565c0';
+    ctx.lineWidth   = 0.5;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(L_PAD, avgY);
+    ctx.lineTo(totalW - R_PAD, avgY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle    = '#1565c0';
+    ctx.font         = '12px system-ui, -apple-system, sans-serif';
+    ctx.textAlign    = 'right';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText('Avg ' + fmtTick(avgV), totalW - R_PAD - 2, avgY - 4);
+  }
+
+  leverageChartState = { keys: keys, byMonth: byMonth, byMonthTxns: byMonthTxns, n: n, groupW: groupW, L_PAD: L_PAD };
+}
+
+function drawLeverageYearChart(byYear, byYearCount, byYearTxns, curYear, projYE) {
+  var canvas = document.getElementById('leverage-year-canvas');
   if (!canvas) return;
+  var years = [];
+  for (var y = curYear - 4; y <= curYear; y++) { if (byYear[y] !== undefined) years.push(y); }
+  if (!years.length) return;
+
+  var dpr = window.devicePixelRatio || 1;
+  var L_PAD = 0, R_PAD = 12, T_PAD = 28, B_PAD = 28;
+  var H = 210;
+
+  var containerW = canvas.parentElement ? canvas.parentElement.clientWidth : 160;
+  if (containerW < 80) containerW = 160;
+  var totalW = containerW;
+
+  canvas.width        = Math.round(totalW * dpr);
+  canvas.height       = Math.round(H * dpr);
+  canvas.style.width  = totalW + 'px';
+  canvas.style.height = H + 'px';
+
+  var ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, totalW, H);
+
+  var n = years.length;
+  var maxV = 0;
+  for (var i = 0; i < n; i++) {
+    var v = byYear[years[i]] || 0;
+    if (years[i] === curYear) v = Math.max(v, projYE);
+    maxV = Math.max(maxV, v);
+  }
+  if (maxV === 0) maxV = 1;
+
+  var chartH    = H - T_PAD - B_PAD;
+  var available = totalW - L_PAD - R_PAD;
+  var groupW    = available / n;
+  var BAR_W     = Math.max(6, Math.min(28, Math.floor(groupW * 0.6)));
+
+  function yPos(v) { return T_PAD + chartH * (1 - v / maxV); }
+  function fmtShort(v) {
+    if (v >= 10000) return '$' + (v / 1000).toFixed(0) + 'k';
+    if (v >= 1000)  return '$' + (v / 1000).toFixed(1) + 'k';
+    return '$' + v.toFixed(0);
+  }
+
+  for (var bi = 0; bi < n; bi++) {
+    var yr   = years[bi];
+    var val  = byYear[yr] || 0;
+    var cnt  = byYearCount[yr] || 0;
+    var cx   = L_PAD + (bi + 0.5) * groupW;
+    var bx   = Math.round(cx - BAR_W / 2);
+    var byY  = yPos(val);
+    var barH = chartH * (val / maxV);
+
+    if (yr === curYear && projYE > val) {
+      var projTop  = yPos(projYE);
+      var projSegH = byY - projTop;
+      ctx.fillStyle = '#bbdefb';
+      ctx.fillRect(bx, projTop, BAR_W, projSegH);
+      ctx.fillStyle    = '#64b5f6';
+      ctx.font         = '9px system-ui, sans-serif';
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(fmtShort(projYE) + ' proj', cx, projTop - 2);
+    }
+
+    ctx.fillStyle = yr === curYear ? '#1e88e5' : '#1565c0';
+    ctx.fillRect(bx, byY, BAR_W, barH);
+
+    var labelY = (yr === curYear && projYE > val) ? byY - 1 : byY - 2;
+    ctx.fillStyle    = '#333';
+    ctx.font         = '9px system-ui, sans-serif';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(fmtShort(val) + ' (' + cnt + ')', cx, labelY);
+
+    ctx.fillStyle    = yr === curYear ? '#333' : '#999';
+    ctx.font         = '9px system-ui, sans-serif';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(String(yr), cx, H - B_PAD + 4);
+  }
+
+  leverageYearChartState = { years: years, byYearTxns: byYearTxns, n: n, groupW: groupW, L_PAD: L_PAD };
+}
+
+function drawHorizBreakdown(canvasId, wrapId, filteredTxns, field, heading, barColor) {
+  var canvas = document.getElementById(canvasId);
+  var wrap   = document.getElementById(wrapId);
+  if (!canvas) return null;
   if (!filteredTxns || !filteredTxns.length) {
     if (wrap) wrap.style.display = 'none';
-    return;
+    return null;
   }
   if (wrap) wrap.style.display = '';
 
-  // Aggregate by category, descending
-  var byCat = {}, byCatCount = {}, byCatTxns = {};
+  var byItem = {}, byItemCount = {}, byItemTxns = {};
   for (var i = 0; i < filteredTxns.length; i++) {
-    var cat = filteredTxns[i].category || 'Uncategorized';
-    byCat[cat]      = (byCat[cat]      || 0) + filteredTxns[i].amount;
-    byCatCount[cat] = (byCatCount[cat] || 0) + 1;
-    if (!byCatTxns[cat]) byCatTxns[cat] = [];
-    byCatTxns[cat].push(filteredTxns[i]);
+    var item = (field === 'payee'
+      ? (filteredTxns[i].payee || 'Unknown Payee')
+      : (filteredTxns[i].category || 'Uncategorized'));
+    byItem[item]      = (byItem[item]      || 0) + filteredTxns[i].amount;
+    byItemCount[item] = (byItemCount[item] || 0) + 1;
+    if (!byItemTxns[item]) byItemTxns[item] = [];
+    byItemTxns[item].push(filteredTxns[i]);
   }
-  var cats = Object.keys(byCat).sort(function(a, b) { return byCat[b] - byCat[a]; });
-  var n = cats.length;
-  if (!n) return;
+  var items = Object.keys(byItem).sort(function(a, b) { return byItem[b] - byItem[a]; });
+  var n = items.length;
+  if (!n) return null;
 
   var dpr    = window.devicePixelRatio || 1;
   var L_PAD  = 140, R_PAD = 90, T_PAD = 28, B_PAD = 8;
@@ -3830,16 +4100,15 @@ function drawLessonsCategoryChart(filteredTxns) {
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, totalW, H);
 
-  // Section heading
   ctx.fillStyle    = '#bbb';
   ctx.font         = '700 10px system-ui, sans-serif';
   ctx.textAlign    = 'left';
   ctx.textBaseline = 'top';
-  ctx.fillText('CATEGORY BREAKDOWN', L_PAD, 8);
+  ctx.fillText(heading, L_PAD, 8);
 
-  var maxV  = byCat[cats[0]] || 1;
+  var maxV  = byItem[items[0]] || 1;
   var total = 0;
-  for (var j = 0; j < n; j++) total += byCat[cats[j]];
+  for (var j = 0; j < n; j++) total += byItem[items[j]];
 
   function fmtAmt(v) {
     if (v >= 10000) return '$' + (v / 1000).toFixed(0) + 'k';
@@ -3848,41 +4117,54 @@ function drawLessonsCategoryChart(filteredTxns) {
   }
 
   for (var bi = 0; bi < n; bi++) {
-    var c   = cats[bi];
-    var val = byCat[c];
+    var c   = items[bi];
+    var val = byItem[c];
     var by  = T_PAD + bi * (BAR_H + GAP);
     var bw  = chartW * (val / maxV);
     var pct = total > 0 ? (val / total * 100).toFixed(0) + '%' : '';
     var mid = by + BAR_H / 2;
 
-    // Bar
-    ctx.fillStyle = '#c62828';
+    ctx.fillStyle = barColor;
     ctx.fillRect(L_PAD, by, bw, BAR_H);
 
-    // Category label (right-aligned, truncated to fit)
     ctx.fillStyle    = '#555';
     ctx.font         = '11px system-ui, sans-serif';
     ctx.textAlign    = 'right';
     ctx.textBaseline = 'middle';
     var labelX   = L_PAD - 8;
-    var maxW     = L_PAD - 12;
+    var maxLW    = L_PAD - 12;
     var label    = c;
-    while (label.length > 1 && ctx.measureText(label).width > maxW) {
+    while (label.length > 1 && ctx.measureText(label).width > maxLW) {
       label = label.slice(0, -1);
     }
     if (label !== c) label = label.slice(0, -1) + '…';
     ctx.fillText(label, labelX, mid);
 
-    // Value + % label right of bar
     ctx.fillStyle    = '#333';
     ctx.font         = '11px system-ui, sans-serif';
     ctx.textAlign    = 'left';
     ctx.textBaseline = 'middle';
-    var cnt = byCatCount[c] || 0;
+    var cnt = byItemCount[c] || 0;
     ctx.fillText(fmtAmt(val) + '  ' + pct + ' (' + cnt + ')', L_PAD + bw + 6, mid);
   }
 
-  lessonsCatChartState = { cats: cats, byCatTxns: byCatTxns, n: n, T_PAD: T_PAD, BAR_H: BAR_H, GAP: GAP };
+  return { items: items, byItemTxns: byItemTxns, n: n, T_PAD: T_PAD, BAR_H: BAR_H, GAP: GAP };
+}
+
+function drawLessonsCategoryChart(filteredTxns) {
+  lessonsCatChartState = drawHorizBreakdown('lessons-cat-canvas', 'lessons-cat-chart-wrap', filteredTxns, 'category', 'CATEGORY BREAKDOWN', '#c62828');
+}
+
+function drawLessonsPayeeChart(filteredTxns) {
+  lessonsPayeeChartState = drawHorizBreakdown('lessons-payee-canvas', 'lessons-payee-chart-wrap', filteredTxns, 'payee', 'PAYEE BREAKDOWN', '#c62828');
+}
+
+function drawLeverageCategoryChart(filteredTxns) {
+  leverageCatChartState = drawHorizBreakdown('leverage-cat-canvas', 'leverage-cat-chart-wrap', filteredTxns, 'category', 'CATEGORY BREAKDOWN', '#1565c0');
+}
+
+function drawLeveragePayeeChart(filteredTxns) {
+  leveragePayeeChartState = drawHorizBreakdown('leverage-payee-canvas', 'leverage-payee-chart-wrap', filteredTxns, 'payee', 'PAYEE BREAKDOWN', '#1565c0');
 }
 
 function buildAndShowLessonsTt(clientX, clientY, title, txns) {
@@ -3929,8 +4211,14 @@ function showLessonsTooltip(clientX, clientY, idx) {
 
 function showLessonsCatTooltip(clientX, clientY, catIdx) {
   if (!lessonsCatChartState) return;
-  var cat = lessonsCatChartState.cats[catIdx];
-  buildAndShowLessonsTt(clientX, clientY, cat, lessonsCatChartState.byCatTxns[cat] || []);
+  var item = lessonsCatChartState.items[catIdx];
+  buildAndShowLessonsTt(clientX, clientY, item, lessonsCatChartState.byItemTxns[item] || []);
+}
+
+function showLessonsPayeeTooltip(clientX, clientY, idx) {
+  if (!lessonsPayeeChartState) return;
+  var item = lessonsPayeeChartState.items[idx];
+  buildAndShowLessonsTt(clientX, clientY, item, lessonsPayeeChartState.byItemTxns[item] || []);
 }
 
 function showLessonsYearTooltip(clientX, clientY, yearIdx) {
@@ -3967,20 +4255,22 @@ function populateLessonsRangeFilter(allKeys) {
 
 function renderLessonsLearned() {
   var d          = state.data;
-  var txnTableEl   = document.getElementById('lessons-txn-table');
-  var chartWrap    = document.getElementById('lessons-chart-wrap');
+  var txnTableEl    = document.getElementById('lessons-txn-table');
+  var chartWrap     = document.getElementById('lessons-chart-wrap');
   var yearChartWrap = document.getElementById('lessons-year-chart-wrap');
-  var catChartWrap = document.getElementById('lessons-cat-chart-wrap');
-  var totalValEl   = document.getElementById('lessons-total-val');
-  var medianValEl  = document.getElementById('lessons-median-val');
+  var catChartWrap  = document.getElementById('lessons-cat-chart-wrap');
+  var payeeChartWrap = document.getElementById('lessons-payee-chart-wrap');
+  var totalValEl    = document.getElementById('lessons-total-val');
+  var medianValEl   = document.getElementById('lessons-median-val');
 
   if (!d || !d.regTxns) {
-    if (txnTableEl)   txnTableEl.innerHTML = '';
-    if (chartWrap)    chartWrap.style.display = 'none';
+    if (txnTableEl)    txnTableEl.innerHTML = '';
+    if (chartWrap)     chartWrap.style.display = 'none';
     if (yearChartWrap) yearChartWrap.style.display = 'none';
-    if (catChartWrap) catChartWrap.style.display = 'none';
-    if (totalValEl)  totalValEl.textContent = '—';
-    if (medianValEl) medianValEl.textContent = '—';
+    if (catChartWrap)  catChartWrap.style.display = 'none';
+    if (payeeChartWrap) payeeChartWrap.style.display = 'none';
+    if (totalValEl)   totalValEl.textContent = '—';
+    if (medianValEl)  medianValEl.textContent = '—';
     return;
   }
 
@@ -4024,12 +4314,13 @@ function renderLessonsLearned() {
 
   if (!allKeys.length) {
     var tagDisp = tags.map(function(t) { return '"' + t + '"'; }).join(' or ');
-    if (txnTableEl)   txnTableEl.innerHTML = '<tr><td style="padding:20px;color:#aaa;font-size:13px;text-align:center">No transactions found with ' + tagDisp + ' in the memo.</td></tr>';
-    if (chartWrap)    chartWrap.style.display = 'none';
+    if (txnTableEl)    txnTableEl.innerHTML = '<tr><td style="padding:20px;color:#aaa;font-size:13px;text-align:center">No transactions found with ' + tagDisp + ' in the memo.</td></tr>';
+    if (chartWrap)     chartWrap.style.display = 'none';
     if (yearChartWrap) yearChartWrap.style.display = 'none';
-    if (catChartWrap) catChartWrap.style.display = 'none';
-    if (totalValEl)  totalValEl.textContent = '—';
-    if (medianValEl) medianValEl.textContent = '—';
+    if (catChartWrap)  catChartWrap.style.display = 'none';
+    if (payeeChartWrap) payeeChartWrap.style.display = 'none';
+    if (totalValEl)   totalValEl.textContent = '—';
+    if (medianValEl)  medianValEl.textContent = '—';
     return;
   }
 
@@ -4090,9 +4381,206 @@ function renderLessonsLearned() {
 
   drawLessonsChart(keys, byMonth, byMonthTxns, -1);
   drawLessonsYearChart(byYear, byYearCount, byYearTxns, curYear, projYE);
+  drawLessonsPayeeChart(filteredTxns);
   drawLessonsCategoryChart(filteredTxns);
 
   // Transaction table for the filtered period, sorted largest outflow first
+  if (txnTableEl) {
+    filteredTxns.sort(function(a, b) { return b.amount - a.amount; });
+    var txnHtml = '<thead><tr>'
+      + '<th style="text-align:center;width:1%;white-space:nowrap">Date</th>'
+      + '<th style="text-align:left">Payee</th>'
+      + '<th style="text-align:left">Memo</th>'
+      + '<th style="text-align:left">Category</th>'
+      + '<th style="text-align:right;width:1%;white-space:nowrap">Amount</th>'
+      + '</tr></thead><tbody>';
+    for (var ri = 0; ri < filteredTxns.length; ri++) {
+      var row = filteredTxns[ri];
+      var amt = '$' + row.amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      txnHtml += '<tr>'
+        + '<td style="text-align:center;white-space:nowrap">' + escAttr(row.date || '') + '</td>'
+        + '<td style="text-align:left">' + escAttr(row.payee || '') + '</td>'
+        + '<td style="text-align:left;white-space:normal">' + escAttr(row.memo || '') + '</td>'
+        + '<td style="text-align:left">' + escAttr(row.category || '') + '</td>'
+        + '<td style="text-align:right;white-space:nowrap">' + amt + '</td>'
+        + '</tr>';
+    }
+    txnHtml += '</tbody>';
+    txnTableEl.innerHTML = txnHtml;
+  }
+}
+
+function showLeverageTooltip(clientX, clientY, idx) {
+  if (!leverageChartState) return;
+  var key = leverageChartState.keys[idx];
+  var pp  = key.split('-');
+  buildAndShowLessonsTt(clientX, clientY,
+    LW_MONTH_SHORT[parseInt(pp[1], 10) - 1] + ' ' + pp[0],
+    leverageMonthTxns[key] || []);
+}
+
+function showLeverageCatTooltip(clientX, clientY, catIdx) {
+  if (!leverageCatChartState) return;
+  var item = leverageCatChartState.items[catIdx];
+  buildAndShowLessonsTt(clientX, clientY, item, leverageCatChartState.byItemTxns[item] || []);
+}
+
+function showLeverageYearTooltip(clientX, clientY, yearIdx) {
+  if (!leverageYearChartState) return;
+  var yr = leverageYearChartState.years[yearIdx];
+  buildAndShowLessonsTt(clientX, clientY, String(yr), leverageYearChartState.byYearTxns[yr] || []);
+}
+
+function showLeveragePayeeTooltip(clientX, clientY, idx) {
+  if (!leveragePayeeChartState) return;
+  var item = leveragePayeeChartState.items[idx];
+  buildAndShowLessonsTt(clientX, clientY, item, leveragePayeeChartState.byItemTxns[item] || []);
+}
+
+function populateLeverageRangeFilter(allKeys) {
+  var fromSel = document.getElementById('leverage-from-sel');
+  var toSel   = document.getElementById('leverage-to-sel');
+  if (!fromSel || !toSel || !allKeys.length) return;
+  fromSel.innerHTML = '';
+  toSel.innerHTML   = '';
+  for (var i = 0; i < allKeys.length; i++) {
+    var o1 = document.createElement('option'); o1.value = allKeys[i]; o1.textContent = keyLabel(allKeys[i]);
+    var o2 = document.createElement('option'); o2.value = allKeys[i]; o2.textContent = keyLabel(allKeys[i]);
+    fromSel.appendChild(o1);
+    toSel.appendChild(o2);
+  }
+  var defaultFrom = allKeys[0];
+  var defaultTo   = allKeys[allKeys.length - 1];
+  fromSel.value         = state.leverageFromKey && allKeys.indexOf(state.leverageFromKey) !== -1 ? state.leverageFromKey : defaultFrom;
+  toSel.value           = state.leverageToKey   && allKeys.indexOf(state.leverageToKey)   !== -1 ? state.leverageToKey   : defaultTo;
+  state.leverageFromKey = fromSel.value;
+  state.leverageToKey   = toSel.value;
+}
+
+function renderLeverage() {
+  var d = state.data;
+  var txnTableEl     = document.getElementById('leverage-txn-table');
+  var chartWrap      = document.getElementById('leverage-chart-wrap');
+  var yearChartWrap  = document.getElementById('leverage-year-chart-wrap');
+  var catChartWrap   = document.getElementById('leverage-cat-chart-wrap');
+  var payeeChartWrap = document.getElementById('leverage-payee-chart-wrap');
+  var totalValEl     = document.getElementById('leverage-total-val');
+  var medianValEl    = document.getElementById('leverage-median-val');
+
+  if (!d || !d.regTxns) {
+    if (txnTableEl)    txnTableEl.innerHTML = '';
+    if (chartWrap)     chartWrap.style.display = 'none';
+    if (yearChartWrap) yearChartWrap.style.display = 'none';
+    if (catChartWrap)  catChartWrap.style.display = 'none';
+    if (payeeChartWrap) payeeChartWrap.style.display = 'none';
+    if (totalValEl)   totalValEl.textContent = '—';
+    if (medianValEl)  medianValEl.textContent = '—';
+    return;
+  }
+
+  // Default tags; config can override via usedFor === 'Leverage'
+  var tags = [];
+  for (var ci = 0; ci < (state.catConfig || []).length; ci++) {
+    var cfg = state.catConfig[ci];
+    if (cfg.usedFor === 'Leverage' && cfg.id) tags.push(cfg.id.toLowerCase());
+  }
+  if (!tags.length) tags = ['#product', '#member', '#promo'];
+
+  var byMonth     = {};
+  var byMonthTxns = {};
+  var allTxnList  = [];
+
+  for (var mkey in d.regTxns) {
+    var monthData = d.regTxns[mkey] || {};
+    for (var grp in monthData) {
+      for (var cat in monthData[grp]) {
+        var txns = monthData[grp][cat] || [];
+        for (var ti = 0; ti < txns.length; ti++) {
+          var txn  = txns[ti];
+          var memo = (txn.memo || '').toLowerCase();
+          var matched = false;
+          for (var tgi = 0; tgi < tags.length; tgi++) {
+            if (memo.indexOf(tags[tgi]) !== -1) { matched = true; break; }
+          }
+          if (!matched) continue;
+          var net = (txn.outflow || 0) - (txn.inflow || 0);
+          byMonth[mkey] = (byMonth[mkey] || 0) + net;
+          if (!byMonthTxns[mkey]) byMonthTxns[mkey] = [];
+          byMonthTxns[mkey].push({ date: txn.date, payee: txn.payee, memo: txn.memo, amount: net, category: cat });
+          allTxnList.push({ month: mkey, date: txn.date, payee: txn.payee, memo: txn.memo, amount: net, category: cat });
+        }
+      }
+    }
+  }
+  leverageMonthTxns = byMonthTxns;
+
+  var allKeys = Object.keys(byMonth).sort();
+
+  if (!allKeys.length) {
+    var tagDisp = tags.map(function(t) { return '"' + t + '"'; }).join(' or ');
+    if (txnTableEl)    txnTableEl.innerHTML = '<tr><td style="padding:20px;color:#aaa;font-size:13px;text-align:center">No transactions found with ' + tagDisp + ' in the memo.</td></tr>';
+    if (chartWrap)     chartWrap.style.display = 'none';
+    if (yearChartWrap) yearChartWrap.style.display = 'none';
+    if (catChartWrap)  catChartWrap.style.display = 'none';
+    if (payeeChartWrap) payeeChartWrap.style.display = 'none';
+    if (totalValEl)   totalValEl.textContent = '—';
+    if (medianValEl)  medianValEl.textContent = '—';
+    return;
+  }
+
+  populateLeverageRangeFilter(allKeys);
+
+  var keys = allKeys.filter(function(k) { return k >= state.leverageFromKey && k <= state.leverageToKey; });
+  if (!keys.length) keys = allKeys;
+
+  if (chartWrap)     chartWrap.style.display = '';
+  if (yearChartWrap) yearChartWrap.style.display = '';
+
+  var curYear  = new Date().getFullYear();
+  var curMonth = new Date().getMonth();
+  var byYear = {}, byYearCount = {}, byYearTxns = {};
+  for (var ky = 0; ky < allKeys.length; ky++) {
+    var yr = parseInt(allKeys[ky].slice(0, 4), 10);
+    byYear[yr]      = (byYear[yr]      || 0) + byMonth[allKeys[ky]];
+    byYearCount[yr] = (byYearCount[yr] || 0) + (byMonthTxns[allKeys[ky]] || []).length;
+    var mTxns = byMonthTxns[allKeys[ky]] || [];
+    if (!byYearTxns[yr]) byYearTxns[yr] = [];
+    for (var mti = 0; mti < mTxns.length; mti++) byYearTxns[yr].push(mTxns[mti]);
+  }
+
+  var last3Keys = allKeys.slice(-3);
+  var sum3 = 0;
+  for (var li = 0; li < last3Keys.length; li++) sum3 += byMonth[last3Keys[li]] || 0;
+  var avg3      = last3Keys.length ? sum3 / last3Keys.length : 0;
+  var ytdAmt    = byYear[curYear] || 0;
+  var remaining = 11 - curMonth;
+  var projYE    = remaining > 0 ? ytdAmt + avg3 * remaining : ytdAmt;
+
+  var filteredTxns = allTxnList.filter(function(t) { return t.month >= state.leverageFromKey && t.month <= state.leverageToKey; });
+
+  var filteredTotal = 0;
+  for (var ki = 0; ki < keys.length; ki++) filteredTotal += byMonth[keys[ki]];
+  if (totalValEl) {
+    totalValEl.textContent = '$' + filteredTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})
+      + ' (' + filteredTxns.length + ')';
+  }
+
+  if (medianValEl) {
+    var txnAmts = filteredTxns.map(function(t) { return t.amount; }).sort(function(a, b) { return a - b; });
+    var mid = Math.floor(txnAmts.length / 2);
+    var median = txnAmts.length % 2 === 0
+      ? (txnAmts[mid - 1] + txnAmts[mid]) / 2
+      : txnAmts[mid];
+    medianValEl.textContent = txnAmts.length
+      ? '$' + median.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})
+      : '—';
+  }
+
+  drawLeverageChart(keys, byMonth, byMonthTxns, -1);
+  drawLeverageYearChart(byYear, byYearCount, byYearTxns, curYear, projYE);
+  drawLeveragePayeeChart(filteredTxns);
+  drawLeverageCategoryChart(filteredTxns);
+
   if (txnTableEl) {
     filteredTxns.sort(function(a, b) { return b.amount - a.amount; });
     var txnHtml = '<thead><tr>'
@@ -4888,11 +5376,12 @@ function showReport() {
   for (var ti3 = 0; ti3 < btns.length; ti3++) {
     btns[ti3].classList.toggle('tab-active', btns[ti3].getAttribute('data-tab') === tab);
   }
-  document.getElementById('home-panel').style.display    = tab === 'home'    ? 'block' : 'none';
-  document.getElementById('margin-panel').style.display  = tab === 'margin'  ? 'block' : 'none';
-  document.getElementById('lw-panel').style.display      = tab === 'lw'      ? 'block' : 'none';
-  document.getElementById('nw-panel').style.display      = tab === 'nw'      ? 'block' : 'none';
-  document.getElementById('lessons-panel').style.display = tab === 'lessons' ? 'block' : 'none';
+  document.getElementById('home-panel').style.display     = tab === 'home'     ? 'block' : 'none';
+  document.getElementById('margin-panel').style.display   = tab === 'margin'   ? 'block' : 'none';
+  document.getElementById('lw-panel').style.display       = tab === 'lw'       ? 'block' : 'none';
+  document.getElementById('nw-panel').style.display       = tab === 'nw'       ? 'block' : 'none';
+  document.getElementById('lessons-panel').style.display  = tab === 'lessons'  ? 'block' : 'none';
+  document.getElementById('leverage-panel').style.display = tab === 'leverage' ? 'block' : 'none';
 
   // Sync row-shading toggle state
   document.body.classList.toggle('shading-mode', state.rowShading);
@@ -4910,10 +5399,11 @@ function showReport() {
   populateNwRangeFilter();
   populateNwAccountFilter();
   populateHomeAccountFilter();
-  if (tab === 'home') renderHome();
-  if (tab === 'lw') renderLiquidWorth();
-  if (tab === 'nw') renderNetWorth();
-  if (tab === 'lessons') renderLessonsLearned();
+  if (tab === 'home')     renderHome();
+  if (tab === 'lw')       renderLiquidWorth();
+  if (tab === 'nw')       renderNetWorth();
+  if (tab === 'lessons')  renderLessonsLearned();
+  if (tab === 'leverage') renderLeverage();
 
   var hasYnab = !!(localStorage.getItem('ynab-api-key') && localStorage.getItem('ynab-budget-id'));
   document.getElementById('refresh-btn').style.display = hasYnab ? '' : 'none';
@@ -5143,9 +5633,11 @@ document.addEventListener('DOMContentLoaded', function() {
     state.homeSelectedAccounts = {};
     state.lessonsFromKey     = null;
     state.lessonsToKey       = null;
+    state.leverageFromKey    = null;
+    state.leverageToKey      = null;
     ['sel-from','sel-to','sel-accts','sel-lw-from','sel-lw-to','sel-lw-accts',
      'sel-nw-from','sel-nw-to','sel-nw-accts','sel-home-accts','sel-tab',
-     'sel-lessons-from','sel-lessons-to'].forEach(function(k) {
+     'sel-lessons-from','sel-lessons-to','sel-leverage-from','sel-leverage-to'].forEach(function(k) {
       localStorage.removeItem(k);
     });
     showUpload();
@@ -5288,6 +5780,28 @@ document.addEventListener('DOMContentLoaded', function() {
       localStorage.setItem('sel-lessons-from', state.lessonsFromKey);
     }
     renderLessonsLearned();
+  });
+
+  // Leverage range filter
+  document.getElementById('leverage-from-sel').addEventListener('change', function() {
+    state.leverageFromKey = this.value;
+    localStorage.setItem('sel-leverage-from', state.leverageFromKey);
+    if (state.leverageFromKey > state.leverageToKey) {
+      state.leverageToKey = state.leverageFromKey;
+      document.getElementById('leverage-to-sel').value = state.leverageToKey;
+      localStorage.setItem('sel-leverage-to', state.leverageToKey);
+    }
+    renderLeverage();
+  });
+  document.getElementById('leverage-to-sel').addEventListener('change', function() {
+    state.leverageToKey = this.value;
+    localStorage.setItem('sel-leverage-to', state.leverageToKey);
+    if (state.leverageToKey < state.leverageFromKey) {
+      state.leverageFromKey = state.leverageToKey;
+      document.getElementById('leverage-from-sel').value = state.leverageFromKey;
+      localStorage.setItem('sel-leverage-from', state.leverageFromKey);
+    }
+    renderLeverage();
   });
 
   // YNAB connect / load-budget button
@@ -5581,6 +6095,115 @@ document.addEventListener('DOMContentLoaded', function() {
       showLessonsYearTooltip(e.clientX, e.clientY, best);
     });
     yearCanvas.addEventListener('mouseleave', hideLessonsTooltip);
+  })();
+
+  // Lessons payee breakdown hover
+  (function() {
+    var payeeCanvas = document.getElementById('lessons-payee-canvas');
+    if (!payeeCanvas) return;
+    payeeCanvas.addEventListener('mousemove', function(e) {
+      var s = lessonsPayeeChartState;
+      if (!s || !s.n) { hideLessonsTooltip(); return; }
+      var rect = payeeCanvas.getBoundingClientRect();
+      var my   = e.clientY - rect.top;
+      var rowH = s.BAR_H + s.GAP;
+      var idx  = Math.floor((my - s.T_PAD) / rowH);
+      if (idx < 0 || idx >= s.n || my > s.T_PAD + idx * rowH + s.BAR_H) {
+        hideLessonsTooltip(); return;
+      }
+      showLessonsPayeeTooltip(e.clientX, e.clientY, idx);
+    });
+    payeeCanvas.addEventListener('mouseleave', hideLessonsTooltip);
+  })();
+
+  // Leverage month chart hover
+  (function() {
+    var leverageCanvas = document.getElementById('leverage-canvas');
+    if (!leverageCanvas) return;
+    var hoveredIdx = -1;
+    leverageCanvas.addEventListener('mousemove', function(e) {
+      var s = leverageChartState;
+      if (!s || s.n === 0) { hideLessonsTooltip(); return; }
+      var rect = leverageCanvas.getBoundingClientRect();
+      var mx   = e.clientX - rect.left;
+      var best = 0, bestDist = Infinity;
+      for (var i = 0; i < s.n; i++) {
+        var cx = s.L_PAD + (i + 0.5) * s.groupW;
+        var d  = Math.abs(mx - cx);
+        if (d < bestDist) { bestDist = d; best = i; }
+      }
+      if (best !== hoveredIdx) {
+        hoveredIdx = best;
+        drawLeverageChart(s.keys, s.byMonth, s.byMonthTxns, hoveredIdx);
+      }
+      showLeverageTooltip(e.clientX, e.clientY, best);
+    });
+    leverageCanvas.addEventListener('mouseleave', function() {
+      if (hoveredIdx !== -1) {
+        hoveredIdx = -1;
+        var s = leverageChartState;
+        if (s) drawLeverageChart(s.keys, s.byMonth, s.byMonthTxns, -1);
+      }
+      hideLessonsTooltip();
+    });
+  })();
+
+  // Leverage category breakdown hover
+  (function() {
+    var catCanvas = document.getElementById('leverage-cat-canvas');
+    if (!catCanvas) return;
+    catCanvas.addEventListener('mousemove', function(e) {
+      var s = leverageCatChartState;
+      if (!s || !s.n) { hideLessonsTooltip(); return; }
+      var rect = catCanvas.getBoundingClientRect();
+      var my   = e.clientY - rect.top;
+      var rowH = s.BAR_H + s.GAP;
+      var idx  = Math.floor((my - s.T_PAD) / rowH);
+      if (idx < 0 || idx >= s.n || my > s.T_PAD + idx * rowH + s.BAR_H) {
+        hideLessonsTooltip(); return;
+      }
+      showLeverageCatTooltip(e.clientX, e.clientY, idx);
+    });
+    catCanvas.addEventListener('mouseleave', hideLessonsTooltip);
+  })();
+
+  // Leverage year chart hover
+  (function() {
+    var yearCanvas = document.getElementById('leverage-year-canvas');
+    if (!yearCanvas) return;
+    yearCanvas.addEventListener('mousemove', function(e) {
+      var s = leverageYearChartState;
+      if (!s || !s.n) { hideLessonsTooltip(); return; }
+      var rect = yearCanvas.getBoundingClientRect();
+      var mx   = e.clientX - rect.left;
+      var best = 0, bestDist = Infinity;
+      for (var i = 0; i < s.n; i++) {
+        var cx = s.L_PAD + (i + 0.5) * s.groupW;
+        var d  = Math.abs(mx - cx);
+        if (d < bestDist) { bestDist = d; best = i; }
+      }
+      showLeverageYearTooltip(e.clientX, e.clientY, best);
+    });
+    yearCanvas.addEventListener('mouseleave', hideLessonsTooltip);
+  })();
+
+  // Leverage payee breakdown hover
+  (function() {
+    var payeeCanvas = document.getElementById('leverage-payee-canvas');
+    if (!payeeCanvas) return;
+    payeeCanvas.addEventListener('mousemove', function(e) {
+      var s = leveragePayeeChartState;
+      if (!s || !s.n) { hideLessonsTooltip(); return; }
+      var rect = payeeCanvas.getBoundingClientRect();
+      var my   = e.clientY - rect.top;
+      var rowH = s.BAR_H + s.GAP;
+      var idx  = Math.floor((my - s.T_PAD) / rowH);
+      if (idx < 0 || idx >= s.n || my > s.T_PAD + idx * rowH + s.BAR_H) {
+        hideLessonsTooltip(); return;
+      }
+      showLeveragePayeeTooltip(e.clientX, e.clientY, idx);
+    });
+    payeeCanvas.addEventListener('mouseleave', hideLessonsTooltip);
   })();
 
   // Detail pane close buttons
