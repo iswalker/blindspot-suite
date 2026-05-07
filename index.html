@@ -4503,7 +4503,7 @@ function renderLeverage() {
             if (memo.indexOf(tags[tgi]) !== -1) { matched = true; break; }
           }
           if (!matched) continue;
-          var net = (txn.outflow || 0) - (txn.inflow || 0);
+          var net = (txn.inflow || 0) - (txn.outflow || 0);
           byMonth[mkey] = (byMonth[mkey] || 0) + net;
           if (!byMonthTxns[mkey]) byMonthTxns[mkey] = [];
           byMonthTxns[mkey].push({ date: txn.date, payee: txn.payee, memo: txn.memo, amount: net, category: cat });
