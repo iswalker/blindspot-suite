@@ -784,7 +784,7 @@ td.hbt-num:last-child { width: 13%; }
   position: fixed; display: none;
   background: #fff; border-radius: 8px; padding: 10px 14px;
   box-shadow: 0 4px 18px rgba(0,0,0,.15);
-  pointer-events: none; z-index: 200; min-width: 220px; max-width: 320px;
+  pointer-events: none; z-index: 200; min-width: 220px; max-width: 650px;
 }
 .lessons-tt-month { font-size: 11px; font-weight: 700; color: #bbb; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 7px; }
 .lessons-tt-row { display: flex; justify-content: space-between; gap: 14px; margin-bottom: 4px; }
@@ -3908,13 +3908,12 @@ function buildAndShowLessonsTt(clientX, clientY, title, txns) {
     html += '<div class="lessons-tt-total"><span>Total</span><span style="color:#c62828">' + totStr + '</span></div>';
   }
   tt.innerHTML = html;
-  var vw = window.innerWidth, vh = window.innerHeight;
+  var vw = window.innerWidth;
   tt.style.display = 'block';
-  var tw = tt.offsetWidth, th2 = tt.offsetHeight;
-  var tx = clientX + 14, ty = clientY - th2 / 2;
+  var tw = tt.offsetWidth;
+  var tx = clientX + 14, ty = clientY - 10;
   if (tx + tw > vw - 8) tx = clientX - tw - 14;
   if (ty < 8) ty = 8;
-  if (ty + th2 > vh - 8) ty = vh - th2 - 8;
   tt.style.left = tx + 'px';
   tt.style.top  = ty + 'px';
 }
