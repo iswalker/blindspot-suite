@@ -3911,7 +3911,7 @@ function buildAndShowLessonsTt(clientX, clientY, title, txns) {
   var vw = window.innerWidth;
   tt.style.display = 'block';
   var tw = tt.offsetWidth;
-  var tx = clientX + 14, ty = clientY - 10;
+  var tx = clientX + 14, ty = clientY - tt.offsetHeight / 2;
   if (tx + tw > vw - 8) tx = clientX - tw - 14;
   if (ty < 8) ty = 8;
   tt.style.left = tx + 'px';
