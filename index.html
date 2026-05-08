@@ -516,14 +516,14 @@ td.cell-active {
 .tab-btn:hover:not(.tab-active) { background: rgba(255,255,255,.5); color: #333; }
 
 /* ---- LW / NW / Lessons controls (shared) ---- */
-#lw-range-wrap, #nw-range-wrap, #lessons-range-wrap, #leverage-range-wrap { display: flex; align-items: center; gap: 8px; }
-#lw-range-group, #nw-range-group, #lessons-range-group, #leverage-range-group {
+#lw-range-wrap, #nw-range-wrap, #lessons-range-wrap, #leverage-range-wrap, #acct-history-range-wrap { display: flex; align-items: center; gap: 8px; }
+#lw-range-group, #nw-range-group, #lessons-range-group, #leverage-range-group, #acct-history-range-group {
   display: flex; align-items: center; gap: 8px;
   font-size: 13px; color: #555;
   background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 5px 12px;
 }
-#lw-range-group label, #nw-range-group label, #lessons-range-group label, #leverage-range-group label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-#lw-range-group select, #nw-range-group select, #lessons-range-group select, #leverage-range-group select {
+#lw-range-group label, #nw-range-group label, #lessons-range-group label, #leverage-range-group label, #acct-history-range-group label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+#lw-range-group select, #nw-range-group select, #lessons-range-group select, #leverage-range-group select, #acct-history-range-group select {
   font-size: 13px; border: 1px solid #ccc; border-radius: 4px;
   padding: 3px 6px; background: #fafafa; cursor: pointer;
 }
@@ -1091,6 +1091,13 @@ td.hbt-num:last-child { width: 13%; }
   <div id="acct-history-panel" style="display:none">
     <div class="panel-hdr">
       <h1>Account History</h1>
+      <div id="acct-history-range-wrap">
+        <div id="acct-history-range-group">
+          <label>From <select id="acct-history-from-sel"></select></label>
+          <span>&#8594;</span>
+          <label>To <select id="acct-history-to-sel"></select></label>
+        </div>
+      </div>
       <div id="acct-history-acct-wrap">
         <div id="acct-history-acct-group">
           <label>Account <select id="acct-history-sel"></select></label>
@@ -1295,7 +1302,9 @@ var state = {
   lessonsToKey:        localStorage.getItem('sel-lessons-to')   || null,
   leverageFromKey:     localStorage.getItem('sel-leverage-from') || null,
   leverageToKey:       localStorage.getItem('sel-leverage-to')   || null,
-  acctHistoryId:       localStorage.getItem('sel-acct-history-id') || null,
+  acctHistoryId:       localStorage.getItem('sel-acct-history-id')   || null,
+  acctHistoryFromKey:  localStorage.getItem('sel-acct-history-from') || null,
+  acctHistoryToKey:    localStorage.getItem('sel-acct-history-to')   || null,
   rowShading:          localStorage.getItem('row-shading') !== '0',
   catSortMode:         localStorage.getItem('cat-sort') || 'ynab',
   showTotalExp:        localStorage.getItem('show-total-exp') === '1',
@@ -4707,6 +4716,30 @@ function generateMonthRange(from, to) {
   return result;
 }
 
+function populateAcctHistoryRangeFilter(availKeys) {
+  var fromSel = document.getElementById('acct-history-from-sel');
+  var toSel   = document.getElementById('acct-history-to-sel');
+  if (!fromSel || !toSel) return;
+  fromSel.innerHTML = '';
+  toSel.innerHTML   = '';
+  for (var i = 0; i < availKeys.length; i++) {
+    var o1 = document.createElement('option'); o1.value = availKeys[i]; o1.textContent = keyLabel(availKeys[i]);
+    var o2 = document.createElement('option'); o2.value = availKeys[i]; o2.textContent = keyLabel(availKeys[i]);
+    fromSel.appendChild(o1);
+    toSel.appendChild(o2);
+  }
+  var defaultFrom = availKeys[0];
+  var defaultTo   = availKeys[availKeys.length - 1];
+  fromSel.value = state.acctHistoryFromKey && availKeys.indexOf(state.acctHistoryFromKey) !== -1
+    ? state.acctHistoryFromKey : defaultFrom;
+  toSel.value   = state.acctHistoryToKey   && availKeys.indexOf(state.acctHistoryToKey)   !== -1
+    ? state.acctHistoryToKey   : defaultTo;
+  state.acctHistoryFromKey = fromSel.value;
+  state.acctHistoryToKey   = toSel.value;
+  localStorage.setItem('sel-acct-history-from', state.acctHistoryFromKey);
+  localStorage.setItem('sel-acct-history-to',   state.acctHistoryToKey);
+}
+
 function populateAcctHistoryFilter() {
   var d = state.data;
   if (!d || !d.allAccountsInfo) return [];
@@ -4915,11 +4948,13 @@ function renderAccountHistory() {
   var allK = lwAllKeys();
   if (!allK.length) return;
 
-  var todayKey = dtKey(new Date());
-  var from = allK[0];
-  var to   = allK[allK.length - 1];
-  if (to > todayKey) to = todayKey;
-  var keys = generateMonthRange(from, to);
+  var todayKey   = dtKey(new Date());
+  var availKeys  = allK.filter(function(k) { return k <= todayKey; });
+  if (!availKeys.length) return;
+
+  populateAcctHistoryRangeFilter(availKeys);
+
+  var keys = generateMonthRange(state.acctHistoryFromKey, state.acctHistoryToKey);
 
   var values = [];
   for (var i = 0; i < keys.length; i++) {
@@ -5961,10 +5996,12 @@ document.addEventListener('DOMContentLoaded', function() {
     state.leverageFromKey    = null;
     state.leverageToKey      = null;
     state.acctHistoryId      = null;
+    state.acctHistoryFromKey = null;
+    state.acctHistoryToKey   = null;
     ['sel-from','sel-to','sel-accts','sel-lw-from','sel-lw-to','sel-lw-accts',
      'sel-nw-from','sel-nw-to','sel-nw-accts','sel-home-accts','sel-tab',
      'sel-lessons-from','sel-lessons-to','sel-leverage-from','sel-leverage-to',
-     'sel-acct-history-id'].forEach(function(k) {
+     'sel-acct-history-id','sel-acct-history-from','sel-acct-history-to'].forEach(function(k) {
       localStorage.removeItem(k);
     });
     showUpload();
@@ -6129,6 +6166,28 @@ document.addEventListener('DOMContentLoaded', function() {
       localStorage.setItem('sel-leverage-from', state.leverageFromKey);
     }
     renderLeverage();
+  });
+
+  // Account History range filter
+  document.getElementById('acct-history-from-sel').addEventListener('change', function() {
+    state.acctHistoryFromKey = this.value;
+    localStorage.setItem('sel-acct-history-from', state.acctHistoryFromKey);
+    if (state.acctHistoryFromKey > state.acctHistoryToKey) {
+      state.acctHistoryToKey = state.acctHistoryFromKey;
+      document.getElementById('acct-history-to-sel').value = state.acctHistoryToKey;
+      localStorage.setItem('sel-acct-history-to', state.acctHistoryToKey);
+    }
+    renderAccountHistory();
+  });
+  document.getElementById('acct-history-to-sel').addEventListener('change', function() {
+    state.acctHistoryToKey = this.value;
+    localStorage.setItem('sel-acct-history-to', state.acctHistoryToKey);
+    if (state.acctHistoryToKey < state.acctHistoryFromKey) {
+      state.acctHistoryFromKey = state.acctHistoryToKey;
+      document.getElementById('acct-history-from-sel').value = state.acctHistoryFromKey;
+      localStorage.setItem('sel-acct-history-from', state.acctHistoryFromKey);
+    }
+    renderAccountHistory();
   });
 
   // Account History account selector
