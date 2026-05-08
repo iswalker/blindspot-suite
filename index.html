@@ -2725,7 +2725,8 @@ var leverageMonthTxns      = {};
 var leverageCatChartState  = null;
 var leverageYearChartState = null;
 var leveragePayeeChartState = null;
-var acctHistoryChartState   = null;
+var acctHistoryChartState    = null;
+var acctHistoryLastAcctId    = null;
 var cfSparklineKeys    = [];
 
 var LW_MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -4716,7 +4717,7 @@ function generateMonthRange(from, to) {
   return result;
 }
 
-function populateAcctHistoryRangeFilter(availKeys) {
+function populateAcctHistoryRangeFilter(availKeys, defaultFrom) {
   var fromSel = document.getElementById('acct-history-from-sel');
   var toSel   = document.getElementById('acct-history-to-sel');
   if (!fromSel || !toSel) return;
@@ -4728,7 +4729,7 @@ function populateAcctHistoryRangeFilter(availKeys) {
     fromSel.appendChild(o1);
     toSel.appendChild(o2);
   }
-  var defaultFrom = availKeys[0];
+  defaultFrom = defaultFrom || availKeys[0];
   var defaultTo   = availKeys[availKeys.length - 1];
   fromSel.value = state.acctHistoryFromKey && availKeys.indexOf(state.acctHistoryFromKey) !== -1
     ? state.acctHistoryFromKey : defaultFrom;
@@ -4945,6 +4946,12 @@ function renderAccountHistory() {
   var acctId = state.acctHistoryId;
   if (!acctId) return;
 
+  if (acctId !== acctHistoryLastAcctId) {
+    state.acctHistoryFromKey = null;
+    localStorage.removeItem('sel-acct-history-from');
+  }
+  acctHistoryLastAcctId = acctId;
+
   var allK = lwAllKeys();
   if (!allK.length) return;
 
@@ -4952,7 +4959,11 @@ function renderAccountHistory() {
   var availKeys  = allK.filter(function(k) { return k <= todayKey; });
   if (!availKeys.length) return;
 
-  populateAcctHistoryRangeFilter(availKeys);
+  var firstNonZero = availKeys[0];
+  for (var fi = 0; fi < availKeys.length; fi++) {
+    if (acctBalanceAt(acctId, availKeys[fi]) !== 0) { firstNonZero = availKeys[fi]; break; }
+  }
+  populateAcctHistoryRangeFilter(availKeys, firstNonZero);
 
   var keys = generateMonthRange(state.acctHistoryFromKey, state.acctHistoryToKey);
 
@@ -6194,6 +6205,8 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('acct-history-sel').addEventListener('change', function() {
     state.acctHistoryId = this.value;
     localStorage.setItem('sel-acct-history-id', state.acctHistoryId);
+    state.acctHistoryFromKey = null;
+    localStorage.removeItem('sel-acct-history-from');
     renderAccountHistory();
   });
 
