@@ -3425,24 +3425,29 @@ function computeRecovHistory(d, curKey, days, trendItems) {
     return p[2] + '-' + pad2(parseInt(p[0], 10)) + '-' + pad2(parseInt(p[1], 10));
   }
 
-  // Build per-category lookup: currentAvail and avgDaily
+  // Only need currentAvail per category; avgDaily will be recomputed per historical day
   var catInfo = {};
   for (var i = 0; i < trendItems.length; i++) {
     var item = trendItems[i];
-    catInfo[item.name] = { currentAvail: item.actual, avgDaily: item.avgDaily };
+    catInfo[item.name] = { currentAvail: item.actual };
   }
 
   var today    = new Date();
   var todayStr = toDS(today);
-  var cutoff   = new Date(today);
-  cutoff.setDate(cutoff.getDate() - days);
-  var cutoffStr   = toDS(cutoff);
-  var cutoffMonth = cutoffStr.slice(0, 7);
 
-  // Collect net spending per category per ISO date
-  var txnsByCatDate = {};
+  // Previous month — needed to reconstruct the 30-day spend window for early days of this month
+  var prevDate   = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  var prevMonth  = prevDate.getFullYear() + '-' + pad2(prevDate.getMonth() + 1);
+  var daysInPrev = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+  var monthStart = toDS(new Date(today.getFullYear(), today.getMonth(), 1));
+
+  // Collect daily current-month spending per category (for availD reconstruction + curActD)
+  // and total previous-month spending per category (for avgDaily on early days)
+  var txnsByCatDate = {};  // [cat][iso] = net spend
+  var prevActByCat  = {};  // [cat] = total prev-month net spend
+
   for (var mkey in d.regTxns) {
-    if (mkey < cutoffMonth) continue;
+    if (mkey < prevMonth) continue;
     var monthData = d.regTxns[mkey] || {};
     for (var grp in monthData) {
       for (var cat in monthData[grp]) {
@@ -3452,18 +3457,24 @@ function computeRecovHistory(d, curKey, days, trendItems) {
           var txn = txns[ti];
           if (!txn.date) continue;
           var iso = dispToISO(txn.date);
-          if (!iso || iso < cutoffStr || iso > todayStr) continue;
+          if (!iso) continue;
           var net = (txn.outflow || 0) - (txn.inflow || 0);
-          if (!txnsByCatDate[cat]) txnsByCatDate[cat] = {};
-          txnsByCatDate[cat][iso] = (txnsByCatDate[cat][iso] || 0) + net;
+          if (mkey === prevMonth) {
+            prevActByCat[cat] = (prevActByCat[cat] || 0) + net;
+          } else if (iso >= monthStart && iso <= todayStr) {
+            if (!txnsByCatDate[cat]) txnsByCatDate[cat] = {};
+            txnsByCatDate[cat][iso] = (txnsByCatDate[cat][iso] || 0) + net;
+          }
         }
       }
     }
   }
 
-  // For each historical day D, compute what trendTotal would have been:
-  //   avail_D[cat] = currentAvail[cat] + spending that happened AFTER D
-  //   trendD = sum(max(0, avail_D[cat] + avgDaily[cat] * daysRemainingInMonth_D))
+  // For each historical day D:
+  //   availD  = currentAvail + spending that occurred AFTER D (reconstructs balance as of D)
+  //   avgDailyD = 30-day spend rate ending on D, same formula as the live metric uses today
+  //   projD   = availD + avgDailyD * daysRemainingInMonth_D
+  // Using a day-specific avgDailyD (not today's) makes historical points stable.
   var points = [];
   for (var di = 0; di <= days; di++) {
     var dt = new Date(today);
@@ -3471,10 +3482,13 @@ function computeRecovHistory(d, curKey, days, trendItems) {
     var dStr = toDS(dt);
     var lastDay = new Date(dt.getFullYear(), dt.getMonth() + 1, 0).getDate();
     var daysRemainingD = lastDay - dt.getDate();
+    var daysFromPrevD  = Math.max(0, 30 - dt.getDate());
 
     var trendD = 0;
     for (var cname in catInfo) {
       var ci = catInfo[cname];
+
+      // Reconstruct available balance on day D
       var spendAfter = 0;
       if (txnsByCatDate[cname]) {
         for (var ds in txnsByCatDate[cname]) {
@@ -3482,7 +3496,19 @@ function computeRecovHistory(d, curKey, days, trendItems) {
         }
       }
       var availD = ci.currentAvail + spendAfter;
-      var projD  = availD + ci.avgDaily * daysRemainingD;
+
+      // Reconstruct the 30-day avg daily spend as it stood on day D
+      var curActD = 0;
+      if (txnsByCatDate[cname]) {
+        for (var ds2 in txnsByCatDate[cname]) {
+          if (ds2 <= dStr) curActD += txnsByCatDate[cname][ds2];
+        }
+      }
+      var prevActD  = prevActByCat[cname] || 0;
+      var spend30D  = curActD + (daysFromPrevD > 0 ? prevActD * daysFromPrevD / daysInPrev : 0);
+      var avgDailyD = spend30D / 30;
+
+      var projD = availD + avgDailyD * daysRemainingD;
       if (projD > 0) trendD += projD;
     }
     points.push({ date: dStr, value: Math.max(0, trendD) });
