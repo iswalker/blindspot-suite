@@ -4914,7 +4914,8 @@ function showAcctHistoryTooltip(clientX, clientY, idx) {
   var pp  = s.keys[idx].split('-');
   var mo  = MONTH_ABBR[parseInt(pp[1], 10) - 1] + ' ' + pp[0];
   var val = s.values[idx];
-  var balStr = (val < 0 ? '-' : '') + '$' + Math.abs(val).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  var rounded = Math.round(val * 100) / 100;
+  var balStr = (rounded < 0 ? '-' : '') + '$' + Math.abs(rounded).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
   tt.innerHTML = '<div class="ahtt-month">' + mo + '</div>'
                + '<div class="ahtt-balance">' + balStr + '</div>';
   tt.style.display = 'block';
@@ -4961,7 +4962,7 @@ function renderAccountHistory() {
 
   var firstNonZero = availKeys[0];
   for (var fi = 0; fi < availKeys.length; fi++) {
-    if (acctBalanceAt(acctId, availKeys[fi]) !== 0) { firstNonZero = availKeys[fi]; break; }
+    if (Math.round(acctBalanceAt(acctId, availKeys[fi]) * 100) !== 0) { firstNonZero = availKeys[fi]; break; }
   }
   populateAcctHistoryRangeFilter(availKeys, firstNonZero);
 
