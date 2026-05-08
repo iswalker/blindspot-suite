@@ -547,6 +547,7 @@ td.cell-active {
 #home-panel { display: none; }
 #leverage-panel { display: none; }
 #acct-history-panel { display: none; }
+#reconcile-panel { display: none; }
 
 /* ---- Account History ---- */
 #acct-history-acct-wrap { display: flex; align-items: center; gap: 8px; }
@@ -569,6 +570,48 @@ td.cell-active {
 }
 .ahtt-month   { font-size: 11px; font-weight: 700; color: #bbb; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 4px; }
 .ahtt-balance { font-size: 15px; font-weight: 700; color: #4285f4; }
+
+/* ---- Reconcile tab ---- */
+#reconcile-acct-wrap { display: flex; align-items: center; gap: 8px; }
+#reconcile-acct-group {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: #555;
+  background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 5px 12px;
+}
+#reconcile-acct-group label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+#reconcile-acct-group select {
+  font-size: 13px; border: 1px solid #ccc; border-radius: 4px;
+  padding: 3px 6px; background: #fafafa; cursor: pointer; min-width: 200px;
+}
+#reconcile-upload-btn {
+  padding: 6px 14px; background: #4285f4; color: #fff; border: none; border-radius: 6px;
+  font-size: 13px; cursor: pointer; font-weight: 500; white-space: nowrap;
+}
+#reconcile-upload-btn:hover { background: #3367d6; }
+#reconcile-status { padding: 12px 20px 4px; font-size: 14px; min-height: 36px; }
+.rec-ok   { color: #2e7d32; font-weight: 600; }
+.rec-warn { color: #b45309; font-weight: 600; }
+.rec-err  { color: #c62828; font-weight: 600; }
+#reconcile-tables-wrap { display: flex; gap: 20px; padding: 8px 20px 24px; }
+.reconcile-side { flex: 1; min-width: 0; }
+.reconcile-side-hdr {
+  font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase;
+  letter-spacing: .07em; padding: 6px 0 8px; border-bottom: 2px solid #e8e8e8;
+}
+#reconcile-ynab-table, #reconcile-csv-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+#reconcile-ynab-table th, #reconcile-csv-table th {
+  text-align: left; padding: 6px 8px; font-size: 11px; color: #aaa; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid #eee; white-space: nowrap;
+}
+#reconcile-ynab-table td, #reconcile-csv-table td {
+  padding: 5px 8px; border-bottom: 1px solid #f5f5f5; vertical-align: top;
+}
+#reconcile-ynab-table tr.rec-suspect td, #reconcile-csv-table tr.rec-suspect td { background: #fff8e1; }
+.rec-payee { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #333; }
+.rec-memo  { color: #aaa; font-size: 11px; }
+.rec-amt   { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rec-neg   { color: #c62828; }
+.rec-pos   { color: #2e7d32; }
 
 /* ---- Home tab layout ---- */
 .home-body { display: flex; gap: 24px; align-items: flex-start; }
@@ -911,6 +954,7 @@ td.hbt-num:last-child { width: 13%; }
       <button class="tab-btn" data-tab="lessons">Lessons Learned</button>
       <button class="tab-btn" data-tab="leverage">Leverage</button>
       <button class="tab-btn" data-tab="acct-history">Account History</button>
+      <button class="tab-btn" data-tab="reconcile">Reconcile</button>
     </div>
     <div id="controls-bar">
       <span id="cache-label"></span>
@@ -1109,6 +1153,31 @@ td.hbt-num:last-child { width: 13%; }
     </div>
   </div>
   <div id="acct-history-tooltip"></div>
+  <div id="reconcile-panel" style="display:none">
+    <div class="panel-hdr">
+      <h1>Reconcile</h1>
+      <div id="reconcile-acct-wrap">
+        <div id="reconcile-acct-group">
+          <label>Account <select id="reconcile-acct-sel"></select></label>
+        </div>
+      </div>
+      <input type="file" id="reconcile-csv-input" accept=".csv" style="display:none">
+      <button id="reconcile-upload-btn">&#8679; Upload CSV</button>
+    </div>
+    <div id="reconcile-status"></div>
+    <div id="reconcile-results" style="display:none">
+      <div id="reconcile-tables-wrap">
+        <div class="reconcile-side">
+          <div class="reconcile-side-hdr">YNAB</div>
+          <table id="reconcile-ynab-table"></table>
+        </div>
+        <div class="reconcile-side">
+          <div class="reconcile-side-hdr">Bank / CSV</div>
+          <table id="reconcile-csv-table"></table>
+        </div>
+      </div>
+    </div>
+  </div>
   <div id="home-panel">
     <div class="panel-hdr">
       <h1>Current Month</h1>
@@ -1305,6 +1374,7 @@ var state = {
   acctHistoryId:       localStorage.getItem('sel-acct-history-id')   || null,
   acctHistoryFromKey:  localStorage.getItem('sel-acct-history-from') || null,
   acctHistoryToKey:    localStorage.getItem('sel-acct-history-to')   || null,
+  reconcileAcctId:     localStorage.getItem('sel-reconcile-acct')    || null,
   rowShading:          localStorage.getItem('row-shading') !== '0',
   catSortMode:         localStorage.getItem('cat-sort') || 'ynab',
   showTotalExp:        localStorage.getItem('show-total-exp') === '1',
@@ -1975,6 +2045,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
   .then(function(data) {
     var txns    = data.transactions || [];
     var acctTxns = {};
+    var acctTxnsList = {};
     for (var ti = 0; ti < txns.length; ti++) {
       var t = txns[ti];
       // Track top-level amount per account per month for balance reconstruction
@@ -1982,6 +2053,15 @@ function fetchYnabData(apiKey, budgetId, opts) {
         var tKey2 = t.date.slice(0, 7);
         if (!acctTxns[t.account_id]) acctTxns[t.account_id] = {};
         acctTxns[t.account_id][tKey2] = (acctTxns[t.account_id][tKey2] || 0) + (t.amount || 0) / 1000;
+        if (!t.deleted) {
+          if (!acctTxnsList[t.account_id]) acctTxnsList[t.account_id] = [];
+          acctTxnsList[t.account_id].push({
+            date:   t.date,
+            amount: (t.amount || 0) / 1000,
+            payee:  t.payee_name || '',
+            memo:   t.memo || ''
+          });
+        }
       }
       var subs = (t.subtransactions && t.subtransactions.length)
         ? t.subtransactions.map(function(st) {
@@ -2137,7 +2217,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
                groupPivot: groupPivot, catPivot: catPivot, activeCats: activeCats,
                regTxns: regTxns, allAccounts: allAccounts,
                allAccountsInfo: allAccountsInfo, lwAccounts: lwAccounts,
-               nwAccounts: nwAccounts, acctTxns: acctTxns,
+               nwAccounts: nwAccounts, acctTxns: acctTxns, acctTxnsList: acctTxnsList,
                pendingTxns: pendingTxns,
                upcomingRenewals: upcomingRenewals,
                catActivityPivot: catActivityPivot, catAvailPivot: catAvailPivot,
@@ -2727,6 +2807,7 @@ var leverageYearChartState = null;
 var leveragePayeeChartState = null;
 var acctHistoryChartState    = null;
 var acctHistoryLastAcctId    = null;
+var reconcileCSVTxns         = null;
 var cfSparklineKeys    = [];
 
 var LW_MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -3072,12 +3153,14 @@ function switchTab(tab) {
   document.getElementById('lessons-panel').style.display  = tab === 'lessons'  ? 'block' : 'none';
   document.getElementById('leverage-panel').style.display     = tab === 'leverage'     ? 'block' : 'none';
   document.getElementById('acct-history-panel').style.display = tab === 'acct-history' ? 'block' : 'none';
+  document.getElementById('reconcile-panel').style.display    = tab === 'reconcile'     ? 'block' : 'none';
   if (tab === 'home')         renderHome();
   if (tab === 'lw')           renderLiquidWorth();
   if (tab === 'nw')           renderNetWorth();
   if (tab === 'lessons')      renderLessonsLearned();
   if (tab === 'leverage')     renderLeverage();
   if (tab === 'acct-history') renderAccountHistory();
+  if (tab === 'reconcile')    renderReconcile();
 }
 
 function acctBalanceAt(acctId, monthKey) {
@@ -4981,6 +5064,221 @@ function renderAccountHistory() {
   drawAcctHistoryChart(keys, values, null);
 }
 
+// ---- Reconcile ----
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function parseCSVLine(line) {
+  var fields = [], inQ = false, field = '';
+  for (var i = 0; i < line.length; i++) {
+    var c = line[i];
+    if (c === '"') {
+      if (inQ && line[i + 1] === '"') { field += '"'; i++; }
+      else inQ = !inQ;
+    } else if (c === ',' && !inQ) { fields.push(field.trim()); field = ''; }
+    else field += c;
+  }
+  fields.push(field.trim());
+  return fields;
+}
+
+function parseCSVDate(str) {
+  str = (str || '').trim().replace(/^["']|["']$/g, '');
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+  var m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) return m[3] + '-' + (m[1].length < 2 ? '0' : '') + m[1] + '-' + (m[2].length < 2 ? '0' : '') + m[2];
+  m = str.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (m) return m[3] + '-' + (m[1].length < 2 ? '0' : '') + m[1] + '-' + (m[2].length < 2 ? '0' : '') + m[2];
+  return null;
+}
+
+function parseCSVAmount(str) {
+  if (str === null || str === undefined) return null;
+  str = String(str).trim().replace(/[$,\s]/g, '');
+  if (!str) return null;
+  var neg = false;
+  if (str.charAt(0) === '(') { neg = true; str = str.slice(1).replace(')', ''); }
+  else if (str.charAt(0) === '-') { neg = true; str = str.slice(1); }
+  var n = parseFloat(str);
+  return isNaN(n) ? null : (neg ? -n : n);
+}
+
+function detectCSVColumns(headers) {
+  function idx(keys) {
+    // Exact-match pass then contains-pass
+    for (var pass = 0; pass < 2; pass++) {
+      for (var k = 0; k < keys.length; k++) {
+        for (var j = 0; j < headers.length; j++) {
+          var h = headers[j].toLowerCase().replace(/[^a-z]/g, '');
+          if (pass === 0 ? h === keys[k] : h.indexOf(keys[k]) !== -1) return j;
+        }
+      }
+    }
+    return -1;
+  }
+  return {
+    date:   idx(['transactiondate','transdate','date','postdate','posteddate','settledate']),
+    amount: idx(['amount']),
+    debit:  idx(['debitamount','debit','withdrawal','withdrawalamount']),
+    credit: idx(['creditamount','credit','deposit','depositamount']),
+    desc:   idx(['description','payee','merchant','memo','details','name','narrative','origdesc'])
+  };
+}
+
+function processCSVRows(allRows) {
+  if (allRows.length < 2) return { error: 'CSV has no data rows.' };
+  var headers = allRows[0];
+  var cols = detectCSVColumns(headers);
+  if (cols.date === -1) return { error: 'Could not detect a date column. Expected "Date", "Transaction Date", or similar.' };
+  var hasAmt = cols.amount !== -1, hasDC = cols.debit !== -1 || cols.credit !== -1;
+  if (!hasAmt && !hasDC) return { error: 'Could not detect an amount column. Expected "Amount", "Debit"/"Credit", or similar.' };
+  var txns = [];
+  for (var i = 1; i < allRows.length; i++) {
+    var row = allRows[i];
+    if (!row || row.every(function(c) { return !c.trim(); })) continue;
+    var dateStr = parseCSVDate(row[cols.date] || '');
+    if (!dateStr) continue;
+    var amount;
+    if (hasAmt) {
+      amount = parseCSVAmount(row[cols.amount]);
+    } else {
+      var deb = cols.debit  !== -1 ? parseCSVAmount(row[cols.debit])  : null;
+      var cre = cols.credit !== -1 ? parseCSVAmount(row[cols.credit]) : null;
+      if (cre !== null && cre !== 0) amount = Math.abs(cre);
+      else if (deb !== null && deb !== 0) amount = -Math.abs(deb);
+      else amount = 0;
+    }
+    if (amount === null) continue;
+    var desc = cols.desc !== -1 ? (row[cols.desc] || '').trim() : '';
+    txns.push({ date: dateStr, amount: amount, desc: desc });
+  }
+  if (!txns.length) return { error: 'No valid transactions found in CSV.' };
+  return { txns: txns };
+}
+
+function dateStrToDays(s) {
+  var p = s.split('-');
+  return Math.floor(new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10)).getTime() / 86400000);
+}
+
+function reconcileTxns(ynabTxns, csvTxns) {
+  var ynabUsed = [], csvUsed = [];
+  for (var i = 0; i < ynabTxns.length; i++) ynabUsed.push(false);
+  for (var j = 0; j < csvTxns.length;  j++) csvUsed.push(false);
+  for (var yi = 0; yi < ynabTxns.length; yi++) {
+    var y = ynabTxns[yi];
+    var yAmt  = Math.round(y.amount * 100);
+    var yDays = dateStrToDays(y.date);
+    var bestDist = 4, bestIdx = -1;
+    for (var ci = 0; ci < csvTxns.length; ci++) {
+      if (csvUsed[ci]) continue;
+      if (Math.round(csvTxns[ci].amount * 100) !== yAmt) continue;
+      var dist = Math.abs(yDays - dateStrToDays(csvTxns[ci].date));
+      if (dist < bestDist) { bestDist = dist; bestIdx = ci; }
+    }
+    if (bestIdx !== -1) { ynabUsed[yi] = true; csvUsed[bestIdx] = true; }
+  }
+  var ys = {}, cs = {};
+  for (var yi2 = 0; yi2 < ynabTxns.length; yi2++) { if (!ynabUsed[yi2]) ys[yi2] = true; }
+  for (var ci2 = 0; ci2 < csvTxns.length;  ci2++) { if (!csvUsed[ci2])  cs[ci2] = true; }
+  return { ynabSuspect: ys, csvSuspect: cs };
+}
+
+function fmtRecAmt(n) {
+  var r = Math.round(n * 100) / 100;
+  return (r < 0 ? '-' : '') + '$' + Math.abs(r).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function buildRecTable(txns, suspectMap, isYnab) {
+  var h = '<thead><tr><th>Date</th><th>' + (isYnab ? 'Payee' : 'Description') + '</th><th style="text-align:right">Amount</th></tr></thead><tbody>';
+  for (var i = 0; i < txns.length; i++) {
+    var t = txns[i];
+    var dp = t.date.split('-');
+    var dateLbl = MONTH_ABBR[parseInt(dp[1], 10) - 1] + ' ' + dp[2] + ', ' + dp[0];
+    var descHtml = isYnab
+      ? escHtml(t.payee) + (t.memo ? '<span class="rec-memo"> &middot; ' + escHtml(t.memo) + '</span>' : '')
+      : escHtml(t.desc || '');
+    h += '<tr class="' + (suspectMap[i] ? 'rec-suspect' : '') + '">'
+       + '<td style="white-space:nowrap">' + dateLbl + '</td>'
+       + '<td class="rec-payee">' + descHtml + '</td>'
+       + '<td class="rec-amt ' + (t.amount < 0 ? 'rec-neg' : 'rec-pos') + '">' + fmtRecAmt(t.amount) + '</td>'
+       + '</tr>';
+  }
+  return h + '</tbody>';
+}
+
+function runReconcile() {
+  var d = state.data;
+  var acctId = state.reconcileAcctId;
+  var csvTxns = reconcileCSVTxns;
+  var statusEl = document.getElementById('reconcile-status');
+  var resultsEl = document.getElementById('reconcile-results');
+  if (!d || !acctId || !csvTxns || !csvTxns.length) { resultsEl.style.display = 'none'; return; }
+
+  var ynabAll = (d.acctTxnsList || {})[acctId] || [];
+  var dates   = csvTxns.map(function(t) { return t.date; }).sort();
+  var minDate = dates[0], maxDate = dates[dates.length - 1];
+
+  var ynabFiltered = ynabAll.filter(function(t) { return t.date >= minDate && t.date <= maxDate; });
+
+  function sortFn(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : a.amount - b.amount; }
+  ynabFiltered = ynabFiltered.slice().sort(sortFn);
+  var csvSorted = csvTxns.slice().sort(sortFn);
+
+  var res = reconcileTxns(ynabFiltered, csvSorted);
+  var ysc = Object.keys(res.ynabSuspect).length;
+  var csc = Object.keys(res.csvSuspect).length;
+  var total = ysc + csc;
+
+  var dp1 = minDate.split('-'), dp2 = maxDate.split('-');
+  var rangeLbl = MONTH_ABBR[parseInt(dp1[1],10)-1] + ' ' + parseInt(dp1[2],10) + ', ' + dp1[0]
+               + ' – '
+               + MONTH_ABBR[parseInt(dp2[1],10)-1] + ' ' + parseInt(dp2[2],10) + ', ' + dp2[0];
+
+  var acctName = (d.allAccountsInfo[acctId] || {}).name || '';
+
+  if (total === 0) {
+    statusEl.innerHTML = '<span class="rec-ok">&#10003; All ' + ynabFiltered.length + ' YNAB transactions match the ' + csvSorted.length + ' CSV transactions (' + rangeLbl + ', ' + escHtml(acctName) + ').</span>';
+    resultsEl.style.display = 'none';
+    return;
+  }
+  statusEl.innerHTML = '<span class="rec-warn">&#9888; ' + total + ' suspect transaction' + (total === 1 ? '' : 's')
+    + ': ' + ysc + ' unmatched in YNAB, ' + csc + ' unmatched in CSV &mdash; ' + rangeLbl + ' &mdash; ' + escHtml(acctName) + '.</span>';
+
+  document.getElementById('reconcile-ynab-table').innerHTML = buildRecTable(ynabFiltered, res.ynabSuspect, true);
+  document.getElementById('reconcile-csv-table').innerHTML  = buildRecTable(csvSorted,    res.csvSuspect,  false);
+  resultsEl.style.display = '';
+}
+
+function renderReconcile() {
+  var d = state.data;
+  if (!d || !d.allAccountsInfo) return;
+  var sel = document.getElementById('reconcile-acct-sel');
+  if (!sel) return;
+  var accounts = [];
+  for (var id in d.allAccountsInfo) {
+    var info = d.allAccountsInfo[id];
+    if (!info.closed && info.name.indexOf('~') === -1) accounts.push({ id: id, name: info.name });
+  }
+  accounts.sort(function(a, b) { return a.name.localeCompare(b.name); });
+  sel.innerHTML = '';
+  for (var i = 0; i < accounts.length; i++) {
+    var opt = document.createElement('option');
+    opt.value = accounts[i].id; opt.textContent = accounts[i].name;
+    sel.appendChild(opt);
+  }
+  if (state.reconcileAcctId && sel.querySelector('option[value="' + state.reconcileAcctId + '"]')) {
+    sel.value = state.reconcileAcctId;
+  } else if (accounts.length) {
+    sel.value = accounts[0].id;
+    state.reconcileAcctId = sel.value;
+    localStorage.setItem('sel-reconcile-acct', state.reconcileAcctId);
+  }
+  if (reconcileCSVTxns) runReconcile();
+}
+
 function renderHome() {
   var d = state.data;
   if (!d) return;
@@ -5758,6 +6056,7 @@ function showReport() {
   document.getElementById('lessons-panel').style.display  = tab === 'lessons'  ? 'block' : 'none';
   document.getElementById('leverage-panel').style.display     = tab === 'leverage'     ? 'block' : 'none';
   document.getElementById('acct-history-panel').style.display = tab === 'acct-history' ? 'block' : 'none';
+  document.getElementById('reconcile-panel').style.display    = tab === 'reconcile'     ? 'block' : 'none';
 
   // Sync row-shading toggle state
   document.body.classList.toggle('shading-mode', state.rowShading);
@@ -5781,6 +6080,7 @@ function showReport() {
   if (tab === 'lessons')      renderLessonsLearned();
   if (tab === 'leverage')     renderLeverage();
   if (tab === 'acct-history') renderAccountHistory();
+  if (tab === 'reconcile')    renderReconcile();
 
   var hasYnab = !!(localStorage.getItem('ynab-api-key') && localStorage.getItem('ynab-budget-id'));
   document.getElementById('refresh-btn').style.display = hasYnab ? '' : 'none';
@@ -6214,6 +6514,43 @@ document.addEventListener('DOMContentLoaded', function() {
     state.acctHistoryFromKey = null;
     localStorage.removeItem('sel-acct-history-from');
     renderAccountHistory();
+  });
+
+  // Reconcile
+  document.getElementById('reconcile-upload-btn').addEventListener('click', function() {
+    document.getElementById('reconcile-csv-input').click();
+  });
+  document.getElementById('reconcile-csv-input').addEventListener('change', function() {
+    var file = this.files && this.files[0];
+    if (!file) return;
+    var statusEl = document.getElementById('reconcile-status');
+    statusEl.innerHTML = '<span style="color:#888">Parsing ' + escHtml(file.name) + '…</span>';
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      var text = ev.target.result;
+      var lines = text.split(/\r?\n/);
+      var allRows = [];
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].trim();
+        if (line) allRows.push(parseCSVLine(line));
+      }
+      var res = processCSVRows(allRows);
+      if (res.error) {
+        statusEl.innerHTML = '<span class="rec-err">&#9888; ' + escHtml(res.error) + '</span>';
+        document.getElementById('reconcile-results').style.display = 'none';
+        reconcileCSVTxns = null;
+        return;
+      }
+      reconcileCSVTxns = res.txns;
+      runReconcile();
+    };
+    reader.readAsText(file);
+    this.value = '';
+  });
+  document.getElementById('reconcile-acct-sel').addEventListener('change', function() {
+    state.reconcileAcctId = this.value;
+    localStorage.setItem('sel-reconcile-acct', state.reconcileAcctId);
+    if (reconcileCSVTxns) runReconcile();
   });
 
   // YNAB connect / load-budget button
