@@ -3475,11 +3475,26 @@ function computeRecovHistory(d, curKey, days, trendItems) {
   //   avgDailyD = 30-day spend rate ending on D, same formula as the live metric uses today
   //   projD   = availD + avgDailyD * daysRemainingInMonth_D
   // Using a day-specific avgDailyD (not today's) makes historical points stable.
+  //
+  // For today's final point we bypass reconstruction entirely and sum trendItems[i].projected
+  // directly — the same values that produced the header metric — so the last dot always
+  // aligns exactly with what is shown on the page.
+  var todayTotal = 0;
+  for (var tii = 0; tii < trendItems.length; tii++) {
+    if (trendItems[tii].projected > 0) todayTotal += trendItems[tii].projected;
+  }
+
   var points = [];
   for (var di = 0; di <= days; di++) {
     var dt = new Date(today);
     dt.setDate(dt.getDate() - (days - di));
     var dStr = toDS(dt);
+
+    if (di === days) {
+      points.push({ date: dStr, value: todayTotal });
+      continue;
+    }
+
     var lastDay = new Date(dt.getFullYear(), dt.getMonth() + 1, 0).getDate();
     var daysRemainingD = lastDay - dt.getDate();
     var daysFromPrevD  = Math.max(0, 30 - dt.getDate());
