@@ -4915,8 +4915,10 @@ function renderAccountHistory() {
   var allK = lwAllKeys();
   if (!allK.length) return;
 
+  var todayKey = dtKey(new Date());
   var from = allK[0];
   var to   = allK[allK.length - 1];
+  if (to > todayKey) to = todayKey;
   var keys = generateMonthRange(from, to);
 
   var values = [];
