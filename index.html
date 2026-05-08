@@ -546,6 +546,29 @@ td.cell-active {
 #nw-panel { display: none; }
 #home-panel { display: none; }
 #leverage-panel { display: none; }
+#acct-history-panel { display: none; }
+
+/* ---- Account History ---- */
+#acct-history-acct-wrap { display: flex; align-items: center; gap: 8px; }
+#acct-history-acct-group {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: #555;
+  background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 5px 12px;
+}
+#acct-history-acct-group label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+#acct-history-acct-group select {
+  font-size: 13px; border: 1px solid #ccc; border-radius: 4px;
+  padding: 3px 6px; background: #fafafa; cursor: pointer; min-width: 180px;
+}
+#acct-history-chart-wrap { margin-bottom: 0; }
+#acct-history-tooltip {
+  position: fixed; display: none;
+  background: #fff; border-radius: 8px; padding: 10px 14px;
+  box-shadow: 0 4px 18px rgba(0,0,0,.15);
+  pointer-events: none; z-index: 200; min-width: 160px;
+}
+.ahtt-month   { font-size: 11px; font-weight: 700; color: #bbb; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 4px; }
+.ahtt-balance { font-size: 15px; font-weight: 700; color: #4285f4; }
 
 /* ---- Home tab layout ---- */
 .home-body { display: flex; gap: 24px; align-items: flex-start; }
@@ -887,6 +910,7 @@ td.hbt-num:last-child { width: 13%; }
       <button class="tab-btn" data-tab="nw">Net Worth</button>
       <button class="tab-btn" data-tab="lessons">Lessons Learned</button>
       <button class="tab-btn" data-tab="leverage">Leverage</button>
+      <button class="tab-btn" data-tab="acct-history">Account History</button>
     </div>
     <div id="controls-bar">
       <span id="cache-label"></span>
@@ -1064,6 +1088,20 @@ td.hbt-num:last-child { width: 13%; }
       <table id="leverage-txn-table"></table>
     </div>
   </div>
+  <div id="acct-history-panel" style="display:none">
+    <div class="panel-hdr">
+      <h1>Account History</h1>
+      <div id="acct-history-acct-wrap">
+        <div id="acct-history-acct-group">
+          <label>Account <select id="acct-history-sel"></select></label>
+        </div>
+      </div>
+    </div>
+    <div class="lw-chart-wrap" id="acct-history-chart-wrap">
+      <canvas id="acct-history-canvas"></canvas>
+    </div>
+  </div>
+  <div id="acct-history-tooltip"></div>
   <div id="home-panel">
     <div class="panel-hdr">
       <h1>Current Month</h1>
@@ -1257,6 +1295,7 @@ var state = {
   lessonsToKey:        localStorage.getItem('sel-lessons-to')   || null,
   leverageFromKey:     localStorage.getItem('sel-leverage-from') || null,
   leverageToKey:       localStorage.getItem('sel-leverage-to')   || null,
+  acctHistoryId:       localStorage.getItem('sel-acct-history-id') || null,
   rowShading:          localStorage.getItem('row-shading') !== '0',
   catSortMode:         localStorage.getItem('cat-sort') || 'ynab',
   showTotalExp:        localStorage.getItem('show-total-exp') === '1',
@@ -2677,6 +2716,7 @@ var leverageMonthTxns      = {};
 var leverageCatChartState  = null;
 var leverageYearChartState = null;
 var leveragePayeeChartState = null;
+var acctHistoryChartState   = null;
 var cfSparklineKeys    = [];
 
 var LW_MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -3020,12 +3060,14 @@ function switchTab(tab) {
   document.getElementById('lw-panel').style.display       = tab === 'lw'       ? 'block' : 'none';
   document.getElementById('nw-panel').style.display       = tab === 'nw'       ? 'block' : 'none';
   document.getElementById('lessons-panel').style.display  = tab === 'lessons'  ? 'block' : 'none';
-  document.getElementById('leverage-panel').style.display = tab === 'leverage' ? 'block' : 'none';
-  if (tab === 'home')     renderHome();
-  if (tab === 'lw')       renderLiquidWorth();
-  if (tab === 'nw')       renderNetWorth();
-  if (tab === 'lessons')  renderLessonsLearned();
-  if (tab === 'leverage') renderLeverage();
+  document.getElementById('leverage-panel').style.display     = tab === 'leverage'     ? 'block' : 'none';
+  document.getElementById('acct-history-panel').style.display = tab === 'acct-history' ? 'block' : 'none';
+  if (tab === 'home')         renderHome();
+  if (tab === 'lw')           renderLiquidWorth();
+  if (tab === 'nw')           renderNetWorth();
+  if (tab === 'lessons')      renderLessonsLearned();
+  if (tab === 'leverage')     renderLeverage();
+  if (tab === 'acct-history') renderAccountHistory();
 }
 
 function acctBalanceAt(acctId, monthKey) {
@@ -4648,6 +4690,243 @@ function renderLeverage() {
   }
 }
 
+// ============================================================
+// ACCOUNT HISTORY TAB
+// ============================================================
+
+function generateMonthRange(from, to) {
+  var result = [];
+  var cur = from;
+  while (cur <= to) {
+    result.push(cur);
+    var p = cur.split('-');
+    var y = parseInt(p[0], 10), m = parseInt(p[1], 10) + 1;
+    if (m > 12) { m = 1; y++; }
+    cur = y + '-' + (m < 10 ? '0' + m : '' + m);
+  }
+  return result;
+}
+
+function populateAcctHistoryFilter() {
+  var d = state.data;
+  if (!d || !d.allAccountsInfo) return [];
+  var sel = document.getElementById('acct-history-sel');
+  if (!sel) return [];
+  var trackingAccts = [];
+  for (var id in d.allAccountsInfo) {
+    var info = d.allAccountsInfo[id];
+    if (info.on_budget === false && !info.closed && info.name.indexOf('~') === -1) {
+      trackingAccts.push({ id: id, name: info.name });
+    }
+  }
+  trackingAccts.sort(function(a, b) { return a.name.localeCompare(b.name); });
+  sel.innerHTML = '';
+  for (var i = 0; i < trackingAccts.length; i++) {
+    var opt = document.createElement('option');
+    opt.value       = trackingAccts[i].id;
+    opt.textContent = trackingAccts[i].name;
+    sel.appendChild(opt);
+  }
+  if (state.acctHistoryId && sel.querySelector('option[value="' + state.acctHistoryId + '"]')) {
+    sel.value = state.acctHistoryId;
+  } else if (trackingAccts.length > 0) {
+    sel.value           = trackingAccts[0].id;
+    state.acctHistoryId = sel.value;
+    localStorage.setItem('sel-acct-history-id', state.acctHistoryId);
+  }
+  return trackingAccts;
+}
+
+function fmtBalLabel(v) {
+  var abs = Math.abs(v);
+  var s;
+  if (abs >= 1000000)     s = '$' + (abs / 1000000).toFixed(abs % 1000000 === 0 ? 0 : 1) + 'M';
+  else if (abs >= 10000)  s = '$' + Math.round(abs / 1000) + 'k';
+  else if (abs >= 1000)   s = '$' + (abs / 1000).toFixed(1) + 'k';
+  else                    s = '$' + abs.toFixed(0);
+  return v < 0 ? '-' + s : s;
+}
+
+function drawAcctHistoryChart(keys, values, hoveredIdx) {
+  var canvas = document.getElementById('acct-history-canvas');
+  var wrap   = document.getElementById('acct-history-chart-wrap');
+  if (!canvas || !wrap || !keys.length) return;
+
+  var dpr    = window.devicePixelRatio || 1;
+  var totalW = wrap.clientWidth || 800;
+  var n      = keys.length;
+
+  var L_PAD = 68, R_PAD = 20, T_PAD = 24, B_PAD = 40;
+  var plotW  = totalW - L_PAD - R_PAD;
+  var plotH  = 240;
+  var totalH = T_PAD + plotH + B_PAD;
+
+  canvas.style.width  = totalW + 'px';
+  canvas.style.height = totalH + 'px';
+  canvas.width        = totalW * dpr;
+  canvas.height       = totalH * dpr;
+
+  var ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, totalW, totalH);
+
+  // Compute y range
+  var minV = Infinity, maxV = -Infinity;
+  for (var i = 0; i < n; i++) {
+    if (values[i] < minV) minV = values[i];
+    if (values[i] > maxV) maxV = values[i];
+  }
+  if (minV === maxV) { minV -= 1000; maxV += 1000; }
+  var vRange = maxV - minV;
+  var yLo = minV - vRange * 0.08;
+  var yHi = maxV + vRange * 0.08;
+  if (yLo === yHi) { yLo -= 1; yHi += 1; }
+
+  // Nice y-axis ticks
+  function niceStep(range, tgt) {
+    var raw  = range / tgt;
+    var mag  = Math.pow(10, Math.floor(Math.log10(raw)));
+    var norm = raw / mag;
+    return (norm < 2 ? 1 : norm < 5 ? 2 : 5) * mag;
+  }
+  var step   = niceStep(yHi - yLo, 5);
+  var yStart = Math.floor(yLo / step) * step;
+  var yTicks = [];
+  for (var tv = yStart; tv <= yHi + step * 0.01; tv += step) yTicks.push(tv);
+
+  function xAt(i) { return L_PAD + (n <= 1 ? plotW / 2 : i * plotW / (n - 1)); }
+  function yAt(v) { return T_PAD + plotH - (v - yLo) / (yHi - yLo) * plotH; }
+
+  // Background
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, totalW, totalH);
+
+  // Grid lines + y labels
+  ctx.font      = '11px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.textAlign = 'right';
+  for (var ti = 0; ti < yTicks.length; ti++) {
+    var tv2 = yTicks[ti];
+    if (tv2 < yLo - step * 0.1 || tv2 > yHi + step * 0.1) continue;
+    var ty = yAt(tv2);
+    ctx.strokeStyle = '#f0f0f0';
+    ctx.lineWidth   = 1;
+    ctx.beginPath(); ctx.moveTo(L_PAD, ty); ctx.lineTo(L_PAD + plotW, ty); ctx.stroke();
+    ctx.fillStyle = '#aaa';
+    ctx.fillText(fmtBalLabel(tv2), L_PAD - 6, ty + 4);
+  }
+
+  // X-axis month labels — skip to avoid crowding
+  var xLabelStep = Math.max(1, Math.ceil(n / 14));
+  ctx.textAlign  = 'center';
+  ctx.fillStyle  = '#aaa';
+  ctx.font       = '11px -apple-system, BlinkMacSystemFont, sans-serif';
+  for (var xi = 0; xi < n; xi += xLabelStep) {
+    var pp  = keys[xi].split('-');
+    var lbl = MONTH_ABBR[parseInt(pp[1], 10) - 1] + ' \'' + pp[0].slice(2);
+    ctx.fillText(lbl, xAt(xi), T_PAD + plotH + 16);
+  }
+
+  // Gradient fill
+  var grad = ctx.createLinearGradient(0, T_PAD, 0, T_PAD + plotH);
+  grad.addColorStop(0, 'rgba(66,133,244,0.22)');
+  grad.addColorStop(1, 'rgba(66,133,244,0.02)');
+  ctx.beginPath();
+  ctx.moveTo(xAt(0), T_PAD + plotH);
+  ctx.lineTo(xAt(0), yAt(values[0]));
+  for (var li = 1; li < n; li++) ctx.lineTo(xAt(li), yAt(values[li]));
+  ctx.lineTo(xAt(n - 1), T_PAD + plotH);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  ctx.moveTo(xAt(0), yAt(values[0]));
+  for (var pi = 1; pi < n; pi++) ctx.lineTo(xAt(pi), yAt(values[pi]));
+  ctx.strokeStyle = '#4285f4';
+  ctx.lineWidth   = 2;
+  ctx.lineJoin    = 'round';
+  ctx.stroke();
+
+  // Hover crosshair + dot
+  if (hoveredIdx !== null && hoveredIdx >= 0 && hoveredIdx < n) {
+    var hx = xAt(hoveredIdx);
+    var hy = yAt(values[hoveredIdx]);
+    ctx.strokeStyle = 'rgba(66,133,244,0.35)';
+    ctx.lineWidth   = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(hx, T_PAD); ctx.lineTo(hx, T_PAD + plotH); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.arc(hx, hy, 5, 0, 2 * Math.PI);
+    ctx.fillStyle   = '#4285f4';
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth   = 2;
+    ctx.stroke();
+  }
+
+  acctHistoryChartState = {
+    keys: keys, values: values, n: n,
+    L_PAD: L_PAD, plotW: plotW, T_PAD: T_PAD, plotH: plotH
+  };
+}
+
+function showAcctHistoryTooltip(clientX, clientY, idx) {
+  var s = acctHistoryChartState;
+  if (!s || idx < 0 || idx >= s.n) return;
+  var tt = document.getElementById('acct-history-tooltip');
+  if (!tt) return;
+  var pp  = s.keys[idx].split('-');
+  var mo  = MONTH_ABBR[parseInt(pp[1], 10) - 1] + ' ' + pp[0];
+  var val = s.values[idx];
+  var balStr = (val < 0 ? '-' : '') + '$' + Math.abs(val).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  tt.innerHTML = '<div class="ahtt-month">' + mo + '</div>'
+               + '<div class="ahtt-balance">' + balStr + '</div>';
+  tt.style.display = 'block';
+  var vw = window.innerWidth, vh = window.innerHeight;
+  var tw = tt.offsetWidth + 4, th = tt.offsetHeight + 4;
+  var tx = clientX + 14, ty = clientY - 14;
+  if (tx + tw > vw) tx = clientX - tw - 4;
+  if (ty + th > vh) ty = vh - th - 4;
+  tt.style.left = tx + 'px';
+  tt.style.top  = ty + 'px';
+}
+
+function hideAcctHistoryTooltip() {
+  var tt = document.getElementById('acct-history-tooltip');
+  if (tt) tt.style.display = 'none';
+}
+
+function renderAccountHistory() {
+  var d        = state.data;
+  var chartWrap = document.getElementById('acct-history-chart-wrap');
+  if (!d || !d.allAccountsInfo || !d.acctTxns) {
+    if (chartWrap) chartWrap.style.display = 'none';
+    return;
+  }
+  if (chartWrap) chartWrap.style.display = '';
+
+  populateAcctHistoryFilter();
+
+  var acctId = state.acctHistoryId;
+  if (!acctId) return;
+
+  var allK = lwAllKeys();
+  if (!allK.length) return;
+
+  var from = allK[0];
+  var to   = allK[allK.length - 1];
+  var keys = generateMonthRange(from, to);
+
+  var values = [];
+  for (var i = 0; i < keys.length; i++) {
+    values.push(acctBalanceAt(acctId, keys[i]));
+  }
+
+  drawAcctHistoryChart(keys, values, null);
+}
+
 function renderHome() {
   var d = state.data;
   if (!d) return;
@@ -5423,7 +5702,8 @@ function showReport() {
   document.getElementById('lw-panel').style.display       = tab === 'lw'       ? 'block' : 'none';
   document.getElementById('nw-panel').style.display       = tab === 'nw'       ? 'block' : 'none';
   document.getElementById('lessons-panel').style.display  = tab === 'lessons'  ? 'block' : 'none';
-  document.getElementById('leverage-panel').style.display = tab === 'leverage' ? 'block' : 'none';
+  document.getElementById('leverage-panel').style.display     = tab === 'leverage'     ? 'block' : 'none';
+  document.getElementById('acct-history-panel').style.display = tab === 'acct-history' ? 'block' : 'none';
 
   // Sync row-shading toggle state
   document.body.classList.toggle('shading-mode', state.rowShading);
@@ -5444,8 +5724,9 @@ function showReport() {
   if (tab === 'home')     renderHome();
   if (tab === 'lw')       renderLiquidWorth();
   if (tab === 'nw')       renderNetWorth();
-  if (tab === 'lessons')  renderLessonsLearned();
-  if (tab === 'leverage') renderLeverage();
+  if (tab === 'lessons')      renderLessonsLearned();
+  if (tab === 'leverage')     renderLeverage();
+  if (tab === 'acct-history') renderAccountHistory();
 
   var hasYnab = !!(localStorage.getItem('ynab-api-key') && localStorage.getItem('ynab-budget-id'));
   document.getElementById('refresh-btn').style.display = hasYnab ? '' : 'none';
@@ -5677,9 +5958,11 @@ document.addEventListener('DOMContentLoaded', function() {
     state.lessonsToKey       = null;
     state.leverageFromKey    = null;
     state.leverageToKey      = null;
+    state.acctHistoryId      = null;
     ['sel-from','sel-to','sel-accts','sel-lw-from','sel-lw-to','sel-lw-accts',
      'sel-nw-from','sel-nw-to','sel-nw-accts','sel-home-accts','sel-tab',
-     'sel-lessons-from','sel-lessons-to','sel-leverage-from','sel-leverage-to'].forEach(function(k) {
+     'sel-lessons-from','sel-lessons-to','sel-leverage-from','sel-leverage-to',
+     'sel-acct-history-id'].forEach(function(k) {
       localStorage.removeItem(k);
     });
     showUpload();
@@ -5844,6 +6127,13 @@ document.addEventListener('DOMContentLoaded', function() {
       localStorage.setItem('sel-leverage-from', state.leverageFromKey);
     }
     renderLeverage();
+  });
+
+  // Account History account selector
+  document.getElementById('acct-history-sel').addEventListener('change', function() {
+    state.acctHistoryId = this.value;
+    localStorage.setItem('sel-acct-history-id', state.acctHistoryId);
+    renderAccountHistory();
   });
 
   // YNAB connect / load-budget button
@@ -6246,6 +6536,32 @@ document.addEventListener('DOMContentLoaded', function() {
       showLeveragePayeeTooltip(e.clientX, e.clientY, idx);
     });
     payeeCanvas.addEventListener('mouseleave', hideLessonsTooltip);
+  })();
+
+  // Account History chart hover
+  (function() {
+    var ahCanvas = document.getElementById('acct-history-canvas');
+    if (!ahCanvas) return;
+    ahCanvas.addEventListener('mousemove', function(e) {
+      var s = acctHistoryChartState;
+      if (!s || !s.n) { hideAcctHistoryTooltip(); return; }
+      var rect = ahCanvas.getBoundingClientRect();
+      var mx   = e.clientX - rect.left;
+      if (mx < s.L_PAD || mx > s.L_PAD + s.plotW) { hideAcctHistoryTooltip(); return; }
+      var best = 0, bestDist = Infinity;
+      for (var i = 0; i < s.n; i++) {
+        var cx   = s.L_PAD + (s.n <= 1 ? s.plotW / 2 : i * s.plotW / (s.n - 1));
+        var dist = Math.abs(mx - cx);
+        if (dist < bestDist) { bestDist = dist; best = i; }
+      }
+      drawAcctHistoryChart(s.keys, s.values, best);
+      showAcctHistoryTooltip(e.clientX, e.clientY, best);
+    });
+    ahCanvas.addEventListener('mouseleave', function() {
+      var s = acctHistoryChartState;
+      if (s) drawAcctHistoryChart(s.keys, s.values, null);
+      hideAcctHistoryTooltip();
+    });
   })();
 
   // Detail pane close buttons
