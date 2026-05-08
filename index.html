@@ -2725,7 +2725,8 @@ var leverageMonthTxns      = {};
 var leverageCatChartState  = null;
 var leverageYearChartState = null;
 var leveragePayeeChartState = null;
-var acctHistoryChartState   = null;
+var acctHistoryChartState    = null;
+var acctHistoryLastAcctId    = null;
 var cfSparklineKeys    = [];
 
 var LW_MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -4944,6 +4945,12 @@ function renderAccountHistory() {
 
   var acctId = state.acctHistoryId;
   if (!acctId) return;
+
+  if (acctId !== acctHistoryLastAcctId) {
+    state.acctHistoryFromKey = null;
+    localStorage.removeItem('sel-acct-history-from');
+  }
+  acctHistoryLastAcctId = acctId;
 
   var allK = lwAllKeys();
   if (!allK.length) return;
