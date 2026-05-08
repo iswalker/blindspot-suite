@@ -4867,7 +4867,10 @@ function drawAcctHistoryChart(keys, values, hoveredIdx) {
   ctx.beginPath();
   ctx.moveTo(xAt(0), T_PAD + plotH);
   ctx.lineTo(xAt(0), yAt(values[0]));
-  for (var li = 1; li < n; li++) ctx.lineTo(xAt(li), yAt(values[li]));
+  for (var li = 1; li < n; li++) {
+    ctx.lineTo(xAt(li), yAt(values[li - 1]));
+    ctx.lineTo(xAt(li), yAt(values[li]));
+  }
   ctx.lineTo(xAt(n - 1), T_PAD + plotH);
   ctx.closePath();
   ctx.fillStyle = grad;
@@ -4876,10 +4879,12 @@ function drawAcctHistoryChart(keys, values, hoveredIdx) {
   // Line
   ctx.beginPath();
   ctx.moveTo(xAt(0), yAt(values[0]));
-  for (var pi = 1; pi < n; pi++) ctx.lineTo(xAt(pi), yAt(values[pi]));
+  for (var pi = 1; pi < n; pi++) {
+    ctx.lineTo(xAt(pi), yAt(values[pi - 1]));
+    ctx.lineTo(xAt(pi), yAt(values[pi]));
+  }
   ctx.strokeStyle = '#4285f4';
   ctx.lineWidth   = 2;
-  ctx.lineJoin    = 'round';
   ctx.stroke();
 
   // Hover crosshair + dot
@@ -6623,12 +6628,7 @@ document.addEventListener('DOMContentLoaded', function() {
       var rect = ahCanvas.getBoundingClientRect();
       var mx   = e.clientX - rect.left;
       if (mx < s.L_PAD || mx > s.L_PAD + s.plotW) { hideAcctHistoryTooltip(); return; }
-      var best = 0, bestDist = Infinity;
-      for (var i = 0; i < s.n; i++) {
-        var cx   = s.L_PAD + (s.n <= 1 ? s.plotW / 2 : i * s.plotW / (s.n - 1));
-        var dist = Math.abs(mx - cx);
-        if (dist < bestDist) { bestDist = dist; best = i; }
-      }
+      var best = s.n <= 1 ? 0 : Math.min(s.n - 1, Math.max(0, Math.floor((mx - s.L_PAD) * (s.n - 1) / s.plotW)));
       drawAcctHistoryChart(s.keys, s.values, best);
       showAcctHistoryTooltip(e.clientX, e.clientY, best);
     });
