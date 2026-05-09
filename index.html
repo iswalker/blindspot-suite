@@ -591,6 +591,7 @@ td.cell-active {
 #reconcile-status { padding: 12px 20px 4px; font-size: 14px; min-height: 36px; }
 .rec-ok   { color: #2e7d32; font-weight: 600; }
 .rec-warn { color: #b45309; font-weight: 600; }
+.rec-note { margin-top: 6px; font-size: 0.85em; color: #666; }
 .rec-err  { color: #c62828; font-weight: 600; }
 #reconcile-tables-wrap { padding: 4px 20px 24px; overflow-x: auto; }
 #reconcile-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
@@ -5335,7 +5336,8 @@ function runReconcile() {
     return;
   }
   statusEl.innerHTML = '<span class="rec-warn">&#9888; ' + total + ' suspect transaction' + (total === 1 ? '' : 's')
-    + ': ' + ysc + ' unmatched in YNAB, ' + csc + ' unmatched in CSV &mdash; ' + rangeLbl + ' &mdash; ' + escHtml(acctName) + '.</span>';
+    + ': ' + ysc + ' unmatched in YNAB, ' + csc + ' unmatched in CSV &mdash; ' + rangeLbl + ' &mdash; ' + escHtml(acctName) + '.</span>'
+    + '<div class="rec-note">Note that transactions are fuzzy-matched within 3 days, so some items close to boundary dates may be flagged for review but are safe to ignore.</div>';
 
   document.getElementById('reconcile-table').innerHTML = buildRecGroupedTable(ynabFiltered, csvSorted, res.ynabSuspect, res.csvSuspect);
   resultsEl.style.display = '';
