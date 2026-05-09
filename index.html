@@ -163,6 +163,29 @@ body {
   white-space: nowrap;
 }
 #expand-all-btn:hover, #collapse-all-btn:hover { background: #f0f0f0; }
+#gdrive-picker-modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; }
+#gdrive-picker-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.35); }
+#gdrive-picker-panel {
+  position: relative; background: #fff; border-radius: 14px;
+  width: 440px; max-width: 92vw; max-height: 68vh;
+  display: flex; flex-direction: column; box-shadow: 0 8px 40px rgba(0,0,0,.22); overflow: hidden;
+}
+#gdrive-picker-hdr {
+  display: flex; align-items: center; gap: 10px; padding: 16px 20px;
+  border-bottom: 1px solid #eee; flex-shrink: 0;
+}
+#gdrive-picker-hdr span { flex: 1; font-size: 15px; font-weight: 600; color: #333; }
+#gdrive-picker-close { background: none; border: none; font-size: 18px; cursor: pointer; color: #999; line-height: 1; padding: 2px 4px; }
+#gdrive-picker-close:hover { color: #333; }
+#gdrive-picker-list { overflow-y: auto; flex: 1; padding: 6px 0; }
+.gdrive-sheet-item {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 12px 20px; background: none; border: none; cursor: pointer; text-align: left;
+}
+.gdrive-sheet-item:hover { background: #f5f7fb; }
+.gdrive-sheet-name { flex: 1; font-size: 14px; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gdrive-sheet-date { font-size: 12px; color: #aaa; white-space: nowrap; }
+#gdrive-picker-msg { padding: 28px 20px; text-align: center; font-size: 14px; color: #888; }
 .config-picker-wrap { position: relative; display: inline-flex; align-items: center; }
 .config-picker-btn {
   padding: 6px 12px; background: #fff; border: 1px solid #ccc; border-radius: 5px;
@@ -1038,6 +1061,23 @@ td.hbt-num:last-child { width: 13%; }
   </div>
   <button id="render-btn" disabled>Build Report</button>
   <div id="error-msg"></div>
+</div>
+
+<!-- Google Drive sheet picker modal -->
+<div id="gdrive-picker-modal" style="display:none">
+  <div id="gdrive-picker-backdrop"></div>
+  <div id="gdrive-picker-panel">
+    <div id="gdrive-picker-hdr">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+        <path fill="#0F9D58" d="M29 3H9C7.3 3 6 4.3 6 6v36c0 1.7 1.3 3 3 3h30c1.7 0 3-1.3 3-3V15L29 3z"/>
+        <path fill="#87CEAC" d="M29 3v12h12z"/>
+        <path fill="#fff" d="M14 24h20v2H14zm0 4h20v2H14zm0 4h14v2H14z"/>
+      </svg>
+      <span>Choose a Google Sheet</span>
+      <button id="gdrive-picker-close">&#10005;</button>
+    </div>
+    <div id="gdrive-picker-list"><div id="gdrive-picker-msg">Loading…</div></div>
+  </div>
 </div>
 
 <!-- Report -->
@@ -2449,26 +2489,82 @@ function fetchConfigFromGoogleSheet(token) {
   });
 }
 
-function startGoogleOAuth() {
+function openGoogleSheetsFlow() {
+  var token = localStorage.getItem('google-access-token');
+  if (token) { showDrivePicker(token); return; }
   if (!GOOGLE_CLIENT_ID) {
-    alert('GOOGLE_CLIENT_ID is not set in the source.\n\nCreate an OAuth 2.0 Web Client ID at console.cloud.google.com, enable the Google Sheets API, then paste the client ID into the GOOGLE_CLIENT_ID constant near the top of the script.');
+    alert('GOOGLE_CLIENT_ID is not set in the source.');
     return;
   }
-  var urlInput = document.getElementById('gsheet-url');
-  var url = (urlInput ? urlInput.value.trim() : '') || localStorage.getItem('google-sheet-url') || '';
-  if (!extractSheetId(url)) {
-    alert('Please paste a valid Google Sheet URL first.');
-    return;
-  }
-  localStorage.setItem('google-sheet-url', url);
   var redirectUri = window.location.origin + window.location.pathname;
   window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth'
     + '?client_id='    + encodeURIComponent(GOOGLE_CLIENT_ID)
     + '&redirect_uri=' + encodeURIComponent(redirectUri)
     + '&response_type=token'
-    + '&scope='        + encodeURIComponent('https://www.googleapis.com/auth/spreadsheets.readonly')
+    + '&scope='        + encodeURIComponent('https://www.googleapis.com/auth/spreadsheets.readonly https://www.googleapis.com/auth/drive.metadata.readonly')
     + '&state=google-config';
 }
+
+function showDrivePicker(token) {
+  var modal = document.getElementById('gdrive-picker-modal');
+  var list  = document.getElementById('gdrive-picker-list');
+  list.innerHTML = '<div id="gdrive-picker-msg">Loading your Google Sheets…</div>';
+  modal.style.display = '';
+  fetch(
+    'https://www.googleapis.com/drive/v3/files'
+    + '?q=' + encodeURIComponent("mimeType='application/vnd.google-apps.spreadsheet' and trashed=false")
+    + '&fields=' + encodeURIComponent('files(id,name,modifiedTime)')
+    + '&orderBy=modifiedTime+desc&pageSize=50',
+    { headers: { Authorization: 'Bearer ' + token } }
+  ).then(function(r) {
+    if (r.status === 401 || r.status === 403) {
+      localStorage.removeItem('google-access-token');
+      throw new Error('Session expired or missing Drive permission — click Google Sheet again to re-link.');
+    }
+    return r.json();
+  }).then(function(data) {
+    list.innerHTML = '';
+    var files = data.files || [];
+    if (!files.length) {
+      list.innerHTML = '<div id="gdrive-picker-msg">No Google Sheets found in your Drive.</div>';
+      return;
+    }
+    files.forEach(function(f) {
+      var btn = document.createElement('button');
+      btn.className = 'gdrive-sheet-item';
+      var date = f.modifiedTime ? new Date(f.modifiedTime).toLocaleDateString() : '';
+      btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 48 48" style="flex-shrink:0">'
+        + '<path fill="#0F9D58" d="M29 3H9C7.3 3 6 4.3 6 6v36c0 1.7 1.3 3 3 3h30c1.7 0 3-1.3 3-3V15L29 3z"/>'
+        + '<path fill="#87CEAC" d="M29 3v12h12z"/>'
+        + '<path fill="#fff" d="M14 24h20v2H14zm0 4h20v2H14zm0 4h14v2H14z"/></svg>'
+        + '<span class="gdrive-sheet-name">' + escHtml(f.name) + '</span>'
+        + '<span class="gdrive-sheet-date">' + escHtml(date) + '</span>';
+      btn.addEventListener('click', function() {
+        var url = 'https://docs.google.com/spreadsheets/d/' + f.id;
+        localStorage.setItem('google-sheet-url', url);
+        var urlInput = document.getElementById('gsheet-url');
+        if (urlInput) urlInput.value = url;
+        modal.style.display = 'none';
+        var statusEl = document.getElementById('gsheet-status') || document.getElementById('cache-label');
+        if (statusEl) statusEl.textContent = 'Loading “' + f.name + '”…';
+        fetchConfigFromGoogleSheet(token)
+          .then(function(cfg) {
+            var msg = '“' + f.name + '” loaded (' + cfg.length + ' rules)';
+            if (statusEl) { statusEl.textContent = msg; statusEl.className = 'file-status ok'; }
+            if (state.data) renderHome(); else showUpload();
+          })
+          .catch(function(e) {
+            if (statusEl) { statusEl.textContent = 'Load failed: ' + (e && e.message || e); statusEl.className = 'file-status'; }
+          });
+      });
+      list.appendChild(btn);
+    });
+  }).catch(function(e) {
+    list.innerHTML = '<div id="gdrive-picker-msg" style="color:#c62828">&#9888; ' + escHtml(e.message || String(e)) + '</div>';
+  });
+}
+
+function startGoogleOAuth() { openGoogleSheetsFlow(); }
 
 function refreshGoogleSheetConfig() {
   var token = localStorage.getItem('google-access-token');
@@ -6563,9 +6659,8 @@ function init() {
   // Google OAuth just completed — fetch the sheet config then show upload so the user can sign into YNAB
   if (oauthSource === 'google') {
     var gToken = localStorage.getItem('google-access-token');
-    fetchConfigFromGoogleSheet(gToken)
-      .catch(function() {})
-      .then(function() { showUpload(); });
+    showUpload();
+    showDrivePicker(gToken);
     return;
   }
 
@@ -6782,20 +6877,7 @@ document.addEventListener('DOMContentLoaded', function() {
   });
   document.getElementById('config-gsheet-item').addEventListener('click', function() {
     configPickerMenu.style.display = 'none';
-    var token = localStorage.getItem('google-access-token');
-    var sheetId = extractSheetId(localStorage.getItem('google-sheet-url') || '');
-    var cacheLabel = document.getElementById('cache-label');
-    if (token && sheetId) {
-      cacheLabel.textContent = 'Refreshing from Google Sheet…';
-      fetchConfigFromGoogleSheet(token).then(function(cfg) {
-        cacheLabel.textContent = 'Sheet config refreshed (' + cfg.length + ' rules)';
-        if (state.data) renderHome();
-      }).catch(function(e) {
-        cacheLabel.textContent = 'Sheet refresh failed: ' + (e && e.message || e);
-      });
-    } else {
-      cacheLabel.textContent = 'No Google Sheet linked — use ← Reload Files to connect one.';
-    }
+    openGoogleSheetsFlow();
   });
   document.getElementById('config-reload-item').addEventListener('click', function() {
     configPickerMenu.style.display = 'none';
@@ -6810,7 +6892,7 @@ document.addEventListener('DOMContentLoaded', function() {
   });
   document.getElementById('upload-gdrive-item').addEventListener('click', function() {
     uploadConfigMenu.style.display = 'none';
-    document.getElementById('upload-config-sub').style.display = '';
+    openGoogleSheetsFlow();
   });
   document.getElementById('upload-localfile-item').addEventListener('click', function() {
     uploadConfigMenu.style.display = 'none';
@@ -6821,8 +6903,16 @@ document.addEventListener('DOMContentLoaded', function() {
     uploadConfigMenu.style.display = 'none';
   });
 
+  // Google Drive picker modal close
+  document.getElementById('gdrive-picker-close').addEventListener('click', function() {
+    document.getElementById('gdrive-picker-modal').style.display = 'none';
+  });
+  document.getElementById('gdrive-picker-backdrop').addEventListener('click', function() {
+    document.getElementById('gdrive-picker-modal').style.display = 'none';
+  });
+
   // Google Sheet link button (upload panel)
-  document.getElementById('gsheet-btn').addEventListener('click', startGoogleOAuth);
+  document.getElementById('gsheet-btn').addEventListener('click', openGoogleSheetsFlow);
   document.getElementById('config-reload-file').addEventListener('change', function() {
     var f = this.files[0]; if (!f) return;
     var r = new FileReader();
