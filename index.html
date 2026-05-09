@@ -1776,10 +1776,10 @@ function parseConfigCsv(text) {
   var result = [];
   for (var i = 0; i < rows.length; i++) {
     var r       = rows[i];
-    var id      = (r['ID']       || '').trim();
+    var id      = (r['ID']       || r['Text']   || '').trim();
     var type    = (r['Type']     || '').trim();
-    var usedFor = (r['Used For'] || '').trim();
-    var section = (r['Section']  || '').trim();
+    var usedFor = (r['Used For'] || r['Metric'] || '').trim();
+    var section = (r['Section']  || r['Group']  || '').trim();
     var unit    = (r['Unit']     || '').trim();
     // Target-type rows may omit ID; all others require one
     if (!id && (type !== 'Target' || !usedFor)) continue;
