@@ -572,54 +572,46 @@ td.cell-active {
 .ahtt-balance { font-size: 15px; font-weight: 700; color: #4285f4; }
 
 /* ---- Reconcile tab ---- */
-#reconcile-acct-wrap { display: flex; align-items: center; gap: 8px; }
-#reconcile-acct-group {
+#reconcile-acct-group, #plaid-acct-group {
   display: flex; align-items: center; gap: 8px;
   font-size: 13px; color: #555;
   background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 5px 12px;
 }
-#reconcile-acct-group label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-#reconcile-acct-group select {
+#reconcile-acct-group label, #plaid-acct-group label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+#reconcile-acct-group select, #plaid-acct-group select {
   font-size: 13px; border: 1px solid #ccc; border-radius: 4px;
   padding: 3px 6px; background: #fafafa; cursor: pointer; min-width: 200px;
 }
+.rec-vs-lbl, .rec-or-lbl { font-size: 13px; color: #aaa; }
+#plaid-acct-remove-btn {
+  padding: 4px 8px; background: none; border: 1px solid #ccc; border-radius: 4px;
+  font-size: 12px; cursor: pointer; color: #999; line-height: 1;
+}
+#plaid-acct-remove-btn:hover { border-color: #c62828; color: #c62828; }
 #reconcile-upload-btn {
   padding: 6px 14px; background: #4285f4; color: #fff; border: none; border-radius: 6px;
   font-size: 13px; cursor: pointer; font-weight: 500; white-space: nowrap;
 }
 #reconcile-upload-btn:hover { background: #3367d6; }
-#reconcile-status { padding: 12px 20px 4px; font-size: 14px; min-height: 36px; }
-.rec-ok   { color: #2e7d32; font-weight: 600; }
-.rec-warn { color: #b45309; font-weight: 600; }
-.rec-note { margin-top: 6px; font-size: 0.85em; color: #666; }
-#plaid-section { border-top: 1px solid #e8e8e8; }
-#plaid-section .panel-hdr { border-bottom: none; }
+#plaid-mgmt-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 8px 20px; background: #fafafa; border-bottom: 1px solid #eee; font-size: 13px;
+}
+#plaid-mgmt-row label { display: flex; align-items: center; gap: 6px; color: #555; }
 #plaid-secret-input {
   font-size: 13px; border: 1px solid #ccc; border-radius: 6px;
-  padding: 5px 10px; width: 220px; background: #fafafa;
+  padding: 5px 10px; width: 200px; background: #fff;
 }
 #plaid-connect-btn {
   padding: 6px 14px; background: #00b274; color: #fff; border: none; border-radius: 6px;
   font-size: 13px; cursor: pointer; font-weight: 500; white-space: nowrap;
 }
 #plaid-connect-btn:hover { background: #009960; }
-#plaid-connections { padding: 8px 20px 0; display: flex; flex-wrap: wrap; gap: 8px; }
-.plaid-conn-item {
-  display: flex; align-items: center; gap: 8px;
-  background: #f5f5f5; border: 1px solid #ddd; border-radius: 6px;
-  padding: 6px 10px; font-size: 13px;
-}
-.plaid-conn-name { color: #333; font-weight: 500; }
-.plaid-conn-load { padding: 3px 10px; background: #4285f4; color: #fff; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; }
-.plaid-conn-load:hover { background: #3367d6; }
-.plaid-conn-remove { padding: 3px 8px; background: none; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; cursor: pointer; color: #888; }
-.plaid-conn-remove:hover { border-color: #c62828; color: #c62828; }
-#plaid-status-msg { font-size: 13px; color: #555; padding: 6px 20px 2px; min-height: 24px; }
-#plaid-txns { padding: 0 20px 20px; }
-#plaid-txns table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
-#plaid-txns th { text-align: left; padding: 4px 8px; border-bottom: 1px solid #ddd; color: #666; font-weight: 600; }
-#plaid-txns td { padding: 4px 8px; border-bottom: 1px solid #f0f0f0; }
-#plaid-txns .plaid-acct-label { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+#plaid-status-msg { font-size: 13px; color: #555; }
+#reconcile-status { padding: 12px 20px 4px; font-size: 14px; min-height: 36px; }
+.rec-ok   { color: #2e7d32; font-weight: 600; }
+.rec-warn { color: #b45309; font-weight: 600; }
+.rec-note { margin-top: 6px; font-size: 0.85em; color: #666; }
 .rec-err  { color: #c62828; font-weight: 600; }
 #reconcile-tables-wrap { padding: 4px 20px 24px; overflow-x: auto; }
 #reconcile-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
@@ -1191,13 +1183,22 @@ td.hbt-num:last-child { width: 13%; }
   <div id="reconcile-panel" style="display:none">
     <div class="panel-hdr">
       <h1>Reconcile</h1>
-      <div id="reconcile-acct-wrap">
-        <div id="reconcile-acct-group">
-          <label>Account <select id="reconcile-acct-sel"></select></label>
-        </div>
+      <div id="reconcile-acct-group">
+        <label>YNAB Account <select id="reconcile-acct-sel"></select></label>
       </div>
+      <span class="rec-vs-lbl">vs.</span>
+      <div id="plaid-acct-group">
+        <label>Plaid Account <select id="plaid-acct-sel"><option value="">&#8212; none &#8212;</option></select></label>
+      </div>
+      <button id="plaid-acct-remove-btn" title="Remove selected Plaid connection" style="display:none">&#10005;</button>
+      <span class="rec-or-lbl">or</span>
       <input type="file" id="reconcile-csv-input" accept=".csv" style="display:none">
       <button id="reconcile-upload-btn">&#8679; Upload CSV</button>
+    </div>
+    <div id="plaid-mgmt-row">
+      <label>Plaid secret key <input type="password" id="plaid-secret-input" placeholder="Enter secret key"></label>
+      <button id="plaid-connect-btn">+ Connect New Account</button>
+      <span id="plaid-status-msg"></span>
     </div>
     <div id="reconcile-status"></div>
     <div id="reconcile-results" style="display:none">
@@ -1210,19 +1211,6 @@ td.hbt-num:last-child { width: 13%; }
           </colgroup>
         </table>
       </div>
-    </div>
-    <div id="plaid-section">
-      <div class="panel-hdr">
-        <h1>Plaid</h1>
-        <label style="font-size:13px;color:#555;display:flex;align-items:center;gap:6px;">
-          Secret&nbsp;key
-          <input type="password" id="plaid-secret-input" placeholder="Enter Plaid secret key">
-        </label>
-        <button id="plaid-connect-btn">+ Connect New Account</button>
-      </div>
-      <div id="plaid-connections"></div>
-      <div id="plaid-status-msg"></div>
-      <div id="plaid-txns"></div>
     </div>
   </div>
   <div id="home-panel">
@@ -5441,35 +5429,35 @@ function savePlaidConnection(conn) {
 function removePlaidConnection(id) {
   var conns = getPlaidConnections().filter(function(c) { return c.id !== id; });
   localStorage.setItem(PLAID_STORAGE_KEY, JSON.stringify(conns));
+  reconcileCSVTxns = null;
   renderPlaidConnections();
+  document.getElementById('reconcile-status').innerHTML = '';
+  document.getElementById('reconcile-results').style.display = 'none';
+  document.getElementById('plaid-status-msg').textContent = '';
 }
 
 function renderPlaidConnections() {
-  var el = document.getElementById('plaid-connections');
-  if (!el) return;
+  var sel = document.getElementById('plaid-acct-sel');
+  if (!sel) return;
+  var prev = sel.value;
   var conns = getPlaidConnections();
-  if (!conns.length) { el.innerHTML = ''; return; }
-  el.innerHTML = conns.map(function(c) {
-    return '<div class="plaid-conn-item">'
-      + '<span class="plaid-conn-name">' + escHtml(c.name) + '</span>'
-      + '<button class="plaid-conn-load" data-token="' + escHtml(c.accessToken) + '">Load</button>'
-      + '<button class="plaid-conn-remove" data-id="' + escHtml(c.id) + '" title="Remove">&#10005;</button>'
-      + '</div>';
-  }).join('');
-  el.querySelectorAll('.plaid-conn-load').forEach(function(btn) {
-    btn.addEventListener('click', function() { loadPlaidConnection(btn.dataset.token); });
+  sel.innerHTML = '<option value="">— none —</option>';
+  conns.forEach(function(c) {
+    var opt = document.createElement('option');
+    opt.value = c.accessToken;
+    opt.dataset.connId = c.id;
+    opt.textContent = c.name;
+    sel.appendChild(opt);
   });
-  el.querySelectorAll('.plaid-conn-remove').forEach(function(btn) {
-    btn.addEventListener('click', function() { removePlaidConnection(btn.dataset.id); });
-  });
+  if (prev) sel.value = prev;
+  var removeBtn = document.getElementById('plaid-acct-remove-btn');
+  if (removeBtn) removeBtn.style.display = sel.value ? '' : 'none';
 }
 
 function loadPlaidConnection(accessToken) {
   var secret = document.getElementById('plaid-secret-input').value.trim();
   var statusEl = document.getElementById('plaid-status-msg');
-  var txnsEl   = document.getElementById('plaid-txns');
   if (!secret) { statusEl.textContent = 'Please enter your Plaid secret key.'; return; }
-  txnsEl.innerHTML = '';
   statusEl.textContent = 'Fetching accounts…';
   plaidPost('/accounts/get', { client_id: PLAID_CLIENT_ID, secret: secret, access_token: accessToken })
     .then(function(data) {
@@ -5488,14 +5476,18 @@ function loadPlaidConnection(accessToken) {
       var maxAttempts = 6, attempt = 0;
       function fetchWithRetry() {
         attempt++;
-        statusEl.textContent = 'Fetching transactions for "' + acct.name + '"'
+        statusEl.textContent = 'Fetching transactions for “' + acct.name + '”'
           + (attempt > 1 ? ' (attempt ' + attempt + '/' + maxAttempts + ')…' : '…');
         return plaidPost('/transactions/get', txnPayload).then(function(txnData) {
           if (txnData.error_code === 'PRODUCT_NOT_READY' && attempt < maxAttempts)
             return new Promise(function(res) { setTimeout(res, 4000); }).then(fetchWithRetry);
           if (txnData.error_code) throw new Error(txnData.error_message || txnData.error_code);
+          // Negate Plaid amounts: Plaid positive = debit (outflow), YNAB negative = outflow
+          reconcileCSVTxns = (txnData.transactions || []).map(function(t) {
+            return { date: t.date, amount: -t.amount, desc: t.name || '' };
+          });
           statusEl.textContent = '';
-          renderPlaidTransactions(acct.name, txnData.transactions);
+          runReconcile();
         });
       }
       return fetchWithRetry();
@@ -5521,30 +5513,10 @@ function loadPlaidScript() {
   });
 }
 
-function renderPlaidTransactions(acctName, txns) {
-  var el = document.getElementById('plaid-txns');
-  if (!txns || !txns.length) {
-    el.innerHTML = '<p style="color:#666;font-size:13px;">No transactions found in the last 90 days.</p>';
-    return;
-  }
-  var rows = txns.map(function(t) {
-    var r = Math.round(t.amount * 100) / 100;
-    var amtStr = (r < 0 ? '-' : '') + '$' + Math.abs(r).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    var color = t.amount > 0 ? '#b00020' : '#2e7d32';
-    return '<tr><td>' + escHtml(t.date) + '</td>'
-      + '<td style="text-align:left">' + escHtml(t.name || '') + '</td>'
-      + '<td style="text-align:right;color:' + color + '">' + amtStr + '</td></tr>';
-  }).join('');
-  el.innerHTML = '<div class="plaid-acct-label">' + escHtml(acctName) + ' &mdash; Last 90 days</div>'
-    + '<table><thead><tr><th>Date</th><th>Description</th><th style="text-align:right">Amount</th></tr></thead>'
-    + '<tbody>' + rows + '</tbody></table>';
-}
-
 function connectPlaid() {
   var secret = document.getElementById('plaid-secret-input').value.trim();
   var statusEl = document.getElementById('plaid-status-msg');
   if (!secret) { statusEl.textContent = 'Please enter your Plaid secret key.'; return; }
-  document.getElementById('plaid-txns').innerHTML = '';
   statusEl.textContent = 'Loading Plaid Link…';
 
   loadPlaidScript().then(function() {
@@ -5582,12 +5554,12 @@ function connectPlaid() {
     }).then(function(acctData) {
       if (acctData.error_code) throw new Error(acctData.error_message || acctData.error_code);
       var names = (acctData.accounts || []).map(function(a) { return a.name; }).join(', ') || 'Account';
-      savePlaidConnection({
-        id: 'pc_' + Date.now(),
-        accessToken: accessToken,
-        name: names
-      });
+      savePlaidConnection({ id: 'pc_' + Date.now(), accessToken: accessToken, name: names });
       renderPlaidConnections();
+      var plaidSel = document.getElementById('plaid-acct-sel');
+      if (plaidSel) plaidSel.value = accessToken;
+      var removeBtn = document.getElementById('plaid-acct-remove-btn');
+      if (removeBtn) removeBtn.style.display = '';
       loadPlaidConnection(accessToken);
     });
   }).catch(function(err) {
@@ -6871,6 +6843,24 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   document.getElementById('plaid-connect-btn').addEventListener('click', connectPlaid);
+  document.getElementById('plaid-acct-sel').addEventListener('change', function() {
+    var token = this.value;
+    var removeBtn = document.getElementById('plaid-acct-remove-btn');
+    removeBtn.style.display = token ? '' : 'none';
+    if (token) {
+      reconcileCSVTxns = null;
+      loadPlaidConnection(token);
+    } else {
+      document.getElementById('reconcile-status').innerHTML = '';
+      document.getElementById('reconcile-results').style.display = 'none';
+      document.getElementById('plaid-status-msg').textContent = '';
+    }
+  });
+  document.getElementById('plaid-acct-remove-btn').addEventListener('click', function() {
+    var sel = document.getElementById('plaid-acct-sel');
+    var opt = sel.options[sel.selectedIndex];
+    if (opt && opt.dataset && opt.dataset.connId) removePlaidConnection(opt.dataset.connId);
+  });
 
   // YNAB connect / load-budget button
   document.getElementById('api-connect-btn').addEventListener('click', function() {
