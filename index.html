@@ -5305,7 +5305,13 @@ function runReconcile() {
   var dates   = csvTxns.map(function(t) { return t.date; }).sort();
   var minDate = dates[0], maxDate = dates[dates.length - 1];
 
-  var ynabFiltered = ynabAll.filter(function(t) { return t.date >= minDate && t.date <= maxDate; });
+  // Expand by 3 days so YNAB transactions just outside the CSV window can still match.
+  var minDays = dateStrToDays(minDate) - 3;
+  var maxDays = dateStrToDays(maxDate) + 3;
+  var ynabFiltered = ynabAll.filter(function(t) {
+    var d = dateStrToDays(t.date);
+    return d >= minDays && d <= maxDays;
+  });
 
   function sortFn(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : a.amount - b.amount; }
   ynabFiltered = ynabFiltered.slice().sort(sortFn);
