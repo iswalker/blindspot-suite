@@ -5169,26 +5169,43 @@ function dateStrToDays(s) {
 }
 
 function reconcileTxns(ynabTxns, csvTxns) {
-  var ynabUsed = [], csvUsed = [];
-  for (var i = 0; i < ynabTxns.length; i++) ynabUsed.push(false);
-  for (var j = 0; j < csvTxns.length;  j++) csvUsed.push(false);
+  // Phase 1: group by absolute amount
+  var groups = {};
   for (var yi = 0; yi < ynabTxns.length; yi++) {
-    var y = ynabTxns[yi];
-    var yAmt  = Math.abs(Math.round(y.amount * 100));  // match by magnitude
-    var yDays = dateStrToDays(y.date);
-    var bestDist = 4, bestIdx = -1;
-    for (var ci = 0; ci < csvTxns.length; ci++) {
-      if (csvUsed[ci]) continue;
-      if (Math.abs(Math.round(csvTxns[ci].amount * 100)) !== yAmt) continue;
-      var dist = Math.abs(yDays - dateStrToDays(csvTxns[ci].date));
-      if (dist < bestDist) { bestDist = dist; bestIdx = ci; }
-    }
-    if (bestIdx !== -1) { ynabUsed[yi] = true; csvUsed[bestIdx] = true; }
+    var yk = Math.abs(Math.round(ynabTxns[yi].amount * 100));
+    if (!groups[yk]) groups[yk] = { yIdxs: [], cIdxs: [] };
+    groups[yk].yIdxs.push(yi);
   }
-  var ys = {}, cs = {};
-  for (var yi2 = 0; yi2 < ynabTxns.length; yi2++) { if (!ynabUsed[yi2]) ys[yi2] = true; }
-  for (var ci2 = 0; ci2 < csvTxns.length;  ci2++) { if (!csvUsed[ci2])  cs[ci2] = true; }
-  return { ynabSuspect: ys, csvSuspect: cs };
+  for (var ci = 0; ci < csvTxns.length; ci++) {
+    var ck = Math.abs(Math.round(csvTxns[ci].amount * 100));
+    if (!groups[ck]) groups[ck] = { yIdxs: [], cIdxs: [] };
+    groups[ck].cIdxs.push(ci);
+  }
+  // Phase 2: within groups where counts differ, flag unmatched rows via ±3-day window
+  var ynabSuspect = {}, csvSuspect = {};
+  for (var k in groups) {
+    var g = groups[k];
+    if (g.yIdxs.length === g.cIdxs.length) continue; // counts match → all good
+    var yUsed = {}, cUsed = {};
+    for (var gi = 0; gi < g.yIdxs.length; gi++) {
+      var yIdx = g.yIdxs[gi];
+      var yDays = dateStrToDays(ynabTxns[yIdx].date);
+      var bestDist = 4, bestCi = -1;
+      for (var gj = 0; gj < g.cIdxs.length; gj++) {
+        if (cUsed[gj]) continue;
+        var dist = Math.abs(yDays - dateStrToDays(csvTxns[g.cIdxs[gj]].date));
+        if (dist < bestDist) { bestDist = dist; bestCi = gj; }
+      }
+      if (bestCi !== -1) { yUsed[gi] = true; cUsed[bestCi] = true; }
+    }
+    for (var gi2 = 0; gi2 < g.yIdxs.length; gi2++) {
+      if (!yUsed[gi2]) ynabSuspect[g.yIdxs[gi2]] = true;
+    }
+    for (var gj2 = 0; gj2 < g.cIdxs.length; gj2++) {
+      if (!cUsed[gj2]) csvSuspect[g.cIdxs[gj2]] = true;
+    }
+  }
+  return { ynabSuspect: ynabSuspect, csvSuspect: csvSuspect };
 }
 
 function fmtRecAmt(n) {
