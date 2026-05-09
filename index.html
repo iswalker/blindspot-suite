@@ -604,6 +604,22 @@ td.cell-active {
 }
 #plaid-acct-remove-btn:hover { border-color: #c62828; color: #c62828; }
 #plaid-acct-rename-btn:hover { border-color: #4285f4; color: #4285f4; }
+#plaid-acct-sel-wrap { display: flex; align-items: center; gap: 6px; }
+#plaid-rename-row { display: flex; align-items: center; gap: 6px; }
+#plaid-rename-input {
+  font-size: 13px; border: 1px solid #4285f4; border-radius: 4px;
+  padding: 3px 8px; width: 200px; outline: none;
+}
+#plaid-rename-save-btn {
+  padding: 4px 10px; background: #1a73e8; color: #fff; border: none;
+  border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: 600;
+}
+#plaid-rename-save-btn:hover { background: #1557b0; }
+#plaid-rename-cancel-btn {
+  padding: 4px 8px; background: none; border: 1px solid #ccc;
+  border-radius: 4px; font-size: 13px; cursor: pointer; color: #666;
+}
+#plaid-rename-cancel-btn:hover { border-color: #999; }
 #reconcile-upload-btn {
   padding: 6px 14px; background: #4285f4; color: #fff; border: none; border-radius: 6px;
   font-size: 13px; cursor: pointer; font-weight: 500; white-space: nowrap;
@@ -1207,9 +1223,16 @@ td.hbt-num:last-child { width: 13%; }
       <span class="rec-vs-lbl">vs.</span>
       <div id="plaid-acct-group">
         <div class="plaid-acct-top">
-          <label>Plaid Account <select id="plaid-acct-sel"><option value="">&#8212; none &#8212;</option></select></label>
-          <button id="plaid-acct-remove-btn" title="Remove selected Plaid connection" style="display:none">&#10005;</button>
-          <button id="plaid-acct-rename-btn" title="Rename this connection" style="display:none">&#9998; Rename</button>
+          <div id="plaid-acct-sel-wrap">
+            <label>Plaid Account <select id="plaid-acct-sel"><option value="">&#8212; none &#8212;</option></select></label>
+            <button id="plaid-acct-remove-btn" title="Remove selected Plaid connection" style="display:none">&#10005;</button>
+            <button id="plaid-acct-rename-btn" title="Rename this connection" style="display:none">&#9998; Rename</button>
+          </div>
+          <div id="plaid-rename-row" style="display:none">
+            <input type="text" id="plaid-rename-input" placeholder="Account name">
+            <button id="plaid-rename-save-btn">&#10003;</button>
+            <button id="plaid-rename-cancel-btn">&#10005;</button>
+          </div>
         </div>
         <div class="plaid-acct-mgmt">
           <label>Plaid secret key <input type="password" id="plaid-secret-input" placeholder="Enter secret key"></label>
@@ -6921,14 +6944,35 @@ document.addEventListener('DOMContentLoaded', function() {
     var opt = sel.options[sel.selectedIndex];
     if (opt && opt.value) removePlaidConnection(opt.value);
   });
-  document.getElementById('plaid-acct-rename-btn').addEventListener('click', function() {
+  function openPlaidRename() {
     var sel = document.getElementById('plaid-acct-sel');
     var opt = sel.options[sel.selectedIndex];
     if (!opt || !opt.value) return;
-    var newName = prompt('Rename this Plaid connection:', opt.textContent);
-    if (newName && newName.trim() && newName.trim() !== opt.textContent) {
-      renamePlaidConnection(opt.value, newName.trim());
+    var input = document.getElementById('plaid-rename-input');
+    input.value = opt.textContent;
+    document.getElementById('plaid-acct-sel-wrap').style.display = 'none';
+    document.getElementById('plaid-rename-row').style.display = '';
+    input.focus();
+    input.select();
+  }
+  function closePlaidRename(save) {
+    if (save) {
+      var sel = document.getElementById('plaid-acct-sel');
+      var opt = sel.options[sel.selectedIndex];
+      var newName = document.getElementById('plaid-rename-input').value.trim();
+      if (opt && opt.value && newName && newName !== opt.textContent) {
+        renamePlaidConnection(opt.value, newName);
+      }
     }
+    document.getElementById('plaid-rename-row').style.display = 'none';
+    document.getElementById('plaid-acct-sel-wrap').style.display = '';
+  }
+  document.getElementById('plaid-acct-rename-btn').addEventListener('click', openPlaidRename);
+  document.getElementById('plaid-rename-save-btn').addEventListener('click', function() { closePlaidRename(true); });
+  document.getElementById('plaid-rename-cancel-btn').addEventListener('click', function() { closePlaidRename(false); });
+  document.getElementById('plaid-rename-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') closePlaidRename(true);
+    if (e.key === 'Escape') closePlaidRename(false);
   });
   document.getElementById('reconcile-go-btn').addEventListener('click', function() {
     var plaidSel = document.getElementById('plaid-acct-sel');
