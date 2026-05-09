@@ -573,10 +573,13 @@ td.cell-active {
 
 /* ---- Reconcile tab ---- */
 #reconcile-acct-group, #plaid-acct-group {
-  display: flex; align-items: center; gap: 8px;
   font-size: 13px; color: #555;
   background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 5px 12px;
 }
+#reconcile-acct-group { display: flex; align-items: center; gap: 8px; }
+#plaid-acct-group { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.plaid-acct-top { display: flex; align-items: center; gap: 6px; }
+.plaid-acct-mgmt { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 #reconcile-acct-group label, #plaid-acct-group label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 #reconcile-acct-group select, #plaid-acct-group select {
   font-size: 13px; border: 1px solid #ccc; border-radius: 4px;
@@ -593,11 +596,11 @@ td.cell-active {
   font-size: 13px; cursor: pointer; font-weight: 500; white-space: nowrap;
 }
 #reconcile-upload-btn:hover { background: #3367d6; }
-#plaid-mgmt-row {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  padding: 8px 20px; background: #fafafa; border-bottom: 1px solid #eee; font-size: 13px;
+#reconcile-go-btn {
+  padding: 6px 16px; background: #1a73e8; color: #fff; border: none; border-radius: 6px;
+  font-size: 13px; cursor: pointer; font-weight: 600; white-space: nowrap;
 }
-#plaid-mgmt-row label { display: flex; align-items: center; gap: 6px; color: #555; }
+#reconcile-go-btn:hover { background: #1557b0; }
 #plaid-secret-input {
   font-size: 13px; border: 1px solid #ccc; border-radius: 6px;
   padding: 5px 10px; width: 200px; background: #fff;
@@ -1188,24 +1191,27 @@ td.hbt-num:last-child { width: 13%; }
       </div>
       <span class="rec-vs-lbl">vs.</span>
       <div id="plaid-acct-group">
-        <label>Plaid Account <select id="plaid-acct-sel"><option value="">&#8212; none &#8212;</option></select></label>
+        <div class="plaid-acct-top">
+          <label>Plaid Account <select id="plaid-acct-sel"><option value="">&#8212; none &#8212;</option></select></label>
+          <button id="plaid-acct-remove-btn" title="Remove selected Plaid connection" style="display:none">&#10005;</button>
+        </div>
+        <div class="plaid-acct-mgmt">
+          <label>Plaid secret key <input type="password" id="plaid-secret-input" placeholder="Enter secret key"></label>
+          <button id="plaid-connect-btn">+ Connect New Account</button>
+          <span id="plaid-status-msg"></span>
+        </div>
       </div>
-      <button id="plaid-acct-remove-btn" title="Remove selected Plaid connection" style="display:none">&#10005;</button>
       <span class="rec-or-lbl">or</span>
       <input type="file" id="reconcile-csv-input" accept=".csv" style="display:none">
       <button id="reconcile-upload-btn">&#8679; Upload CSV</button>
-    </div>
-    <div id="plaid-mgmt-row">
-      <label>Plaid secret key <input type="password" id="plaid-secret-input" placeholder="Enter secret key"></label>
-      <button id="plaid-connect-btn">+ Connect New Account</button>
-      <span id="plaid-status-msg"></span>
+      <button id="reconcile-go-btn">Reconcile &#9654;</button>
     </div>
     <div id="reconcile-status"></div>
     <div id="reconcile-results" style="display:none">
       <div id="reconcile-tables-wrap">
         <table id="reconcile-table">
           <colgroup>
-            <col style="width:104px"><col><col style="width:90px">
+            <col style="width:104px"><col><col><col style="width:90px">
             <col style="width:20px">
             <col style="width:104px"><col><col style="width:90px">
           </colgroup>
@@ -5272,10 +5278,10 @@ function buildRecGroupedTable(ynabTxns, csvTxns, ynabSuspect, csvSuspect) {
 
   var h = '<thead>'
     + '<tr class="rec-side-hdr">'
-    + '<th colspan="3">YNAB</th><th class="rec-div-col"></th><th colspan="3">Bank / CSV</th>'
+    + '<th colspan="4">YNAB</th><th class="rec-div-col"></th><th colspan="3">Bank / CSV</th>'
     + '</tr>'
     + '<tr class="rec-col-hdr">'
-    + '<th>Date</th><th>Payee</th><th class="rec-amt-hdr">Amount</th>'
+    + '<th>Date</th><th>Payee</th><th>Memo</th><th class="rec-amt-hdr">Amount</th>'
     + '<th class="rec-div-col"></th>'
     + '<th>Date</th><th>Description</th><th class="rec-amt-hdr">Amount</th>'
     + '</tr></thead><tbody>';
@@ -5289,7 +5295,7 @@ function buildRecGroupedTable(ynabTxns, csvTxns, ynabSuspect, csvSuspect) {
     var k = keys[ki];
     var g = groups[k];
     var dollars = fmtRecAmt(+k / 100);
-    h += '<tr class="rec-group-hdr"><td colspan="7">'
+    h += '<tr class="rec-group-hdr"><td colspan="8">'
        + dollars
        + '<span class="rec-ghdr-counts">(' + g.ynab.length + ' YNAB / ' + g.csv.length + ' CSV)</span>'
        + '</td></tr>';
@@ -5301,12 +5307,12 @@ function buildRecGroupedTable(ynabTxns, csvTxns, ynabSuspect, csvSuspect) {
       h += '<tr>';
       if (ye) {
         var ysusp = ye.suspect ? ' rec-suspect' : '';
-        var yDesc = escHtml(ye.txn.payee) + (ye.txn.memo ? '<span class="rec-memo"> &middot; ' + escHtml(ye.txn.memo) + '</span>' : '');
         h += '<td class="' + ysusp + '" style="white-space:nowrap">' + dateLbl(ye.txn.date) + '</td>'
-           + '<td class="rec-payee' + ysusp + '">' + yDesc + '</td>'
+           + '<td class="rec-payee' + ysusp + '">' + escHtml(ye.txn.payee) + '</td>'
+           + '<td class="rec-memo' + ysusp + '">' + escHtml(ye.txn.memo || '') + '</td>'
            + '<td class="rec-amt ' + (ye.txn.amount < 0 ? 'rec-neg' : 'rec-pos') + ysusp + '">' + fmtRecAmt(ye.txn.amount) + '</td>';
       } else {
-        h += '<td></td><td></td><td></td>';
+        h += '<td></td><td></td><td></td><td></td>';
       }
       h += '<td class="rec-div-col"></td>';
       if (ce) {
@@ -6846,7 +6852,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
       }
       reconcileCSVTxns = res.txns;
-      runReconcile();
+      statusEl.innerHTML = '<span style="color:#4285f4">CSV loaded (' + res.txns.length + ' transactions) — click Reconcile to compare.</span>';
     };
     reader.readAsText(file);
     this.value = '';
@@ -6854,19 +6860,15 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('reconcile-acct-sel').addEventListener('change', function() {
     state.reconcileAcctId = this.value;
     localStorage.setItem('sel-reconcile-acct', state.reconcileAcctId);
-    if (reconcileCSVTxns) runReconcile();
   });
 
   document.getElementById('plaid-connect-btn').addEventListener('click', connectPlaid);
   document.getElementById('plaid-acct-sel').addEventListener('change', function() {
     var opt = this.options[this.selectedIndex];
     var id = opt ? opt.value : '';
-    var removeBtn = document.getElementById('plaid-acct-remove-btn');
-    removeBtn.style.display = id ? '' : 'none';
-    if (id) {
+    document.getElementById('plaid-acct-remove-btn').style.display = id ? '' : 'none';
+    if (!id) {
       reconcileCSVTxns = null;
-      loadPlaidConnection(opt.dataset.accessToken, opt.dataset.accountId, opt.textContent);
-    } else {
       document.getElementById('reconcile-status').innerHTML = '';
       document.getElementById('reconcile-results').style.display = 'none';
       document.getElementById('plaid-status-msg').textContent = '';
@@ -6876,6 +6878,16 @@ document.addEventListener('DOMContentLoaded', function() {
     var sel = document.getElementById('plaid-acct-sel');
     var opt = sel.options[sel.selectedIndex];
     if (opt && opt.value) removePlaidConnection(opt.value);
+  });
+  document.getElementById('reconcile-go-btn').addEventListener('click', function() {
+    var plaidSel = document.getElementById('plaid-acct-sel');
+    var opt = plaidSel.options[plaidSel.selectedIndex];
+    if (opt && opt.value) {
+      reconcileCSVTxns = null;
+      loadPlaidConnection(opt.dataset.accessToken, opt.dataset.accountId, opt.textContent);
+    } else {
+      runReconcile();
+    }
   });
 
   // YNAB connect / load-budget button
