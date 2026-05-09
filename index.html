@@ -2524,9 +2524,15 @@ function showDrivePicker(token) {
           .then(function(cfg) {
             var msg = '”' + f.name + '” loaded (' + cfg.length + ' rules)';
             if (statusEl) { statusEl.textContent = msg; statusEl.className = 'file-status ok'; }
-            var cfgStatus = document.getElementById('config-status');
-            if (cfgStatus) { cfgStatus.textContent = f.name + ' (' + cfg.length + ' rules)'; cfgStatus.className = 'file-status ok'; }
-            if (state.data) renderHome(); else showUpload();
+            if (state.data) {
+              renderHome();
+            } else {
+              showUpload();
+              // showUpload() resets config-status and clears state.configText — restore both
+              state.configText = localStorage.getItem('cat-config-csv') || '';
+              var cfgStatus = document.getElementById('config-status');
+              if (cfgStatus) { cfgStatus.textContent = f.name + ' (' + cfg.length + ' rules)'; cfgStatus.className = 'file-status ok'; }
+            }
           })
           .catch(function(e) {
             if (statusEl) { statusEl.textContent = 'Load failed: ' + (e && e.message || e); statusEl.className = 'file-status'; }
