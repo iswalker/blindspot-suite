@@ -2567,8 +2567,10 @@ function handleOAuthCallback() {
   if (!hash || hash.indexOf('access_token') === -1) return null;
   var params = {};
   hash.replace(/^#/, '').split('&').forEach(function(pair) {
-    var kv = pair.split('=');
-    params[decodeURIComponent(kv[0])] = decodeURIComponent(kv[1] || '');
+    var eq = pair.indexOf('=');
+    if (eq !== -1) {
+      params[decodeURIComponent(pair.slice(0, eq))] = decodeURIComponent(pair.slice(eq + 1));
+    }
   });
   if (!params.access_token) return null;
   history.replaceState(null, '', window.location.pathname + window.location.search);
