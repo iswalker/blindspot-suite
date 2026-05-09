@@ -5310,13 +5310,13 @@ function runReconcile() {
   var dates   = csvTxns.map(function(t) { return t.date; }).sort();
   var minDate = dates[0], maxDate = dates[dates.length - 1];
 
-  // Expand by 3 days so YNAB transactions just outside the CSV window can still match.
-  // YNAB dates are always >= bank dates, so never look before the CSV start.
-  // Still pad the end by 3 days to catch YNAB entries posted slightly later.
+  // Include YNAB ±3 days around the CSV window so edge transactions can match.
+  // Pre-start YNAB entries may absorb a bank-side match but are never flagged suspect.
+  var minDays = dateStrToDays(minDate) - 3;
   var maxDays = dateStrToDays(maxDate) + 3;
   var ynabFiltered = ynabAll.filter(function(t) {
     var d = dateStrToDays(t.date);
-    return t.date >= minDate && d <= maxDays;
+    return d >= minDays && d <= maxDays;
   });
 
   function sortFn(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : a.amount - b.amount; }
@@ -5324,6 +5324,11 @@ function runReconcile() {
   var csvSorted = csvTxns.slice().sort(sortFn);
 
   var res = reconcileTxns(ynabFiltered, csvSorted);
+  // YNAB transactions before the CSV start date helped with matching but should
+  // never appear as suspects — they're outside the statement period being reviewed.
+  for (var pi = 0; pi < ynabFiltered.length; pi++) {
+    if (ynabFiltered[pi].date < minDate) delete res.ynabSuspect[pi];
+  }
   var ysc = Object.keys(res.ynabSuspect).length;
   var csc = Object.keys(res.csvSuspect).length;
   var total = ysc + csc;
