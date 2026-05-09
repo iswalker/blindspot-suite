@@ -5190,16 +5190,20 @@ function reconcileTxns(ynabTxns, csvTxns) {
     var g = groups[k];
     if (g.yIdxs.length === g.cIdxs.length) continue; // counts match → all good
     var yUsed = {}, cUsed = {};
-    for (var gi = 0; gi < g.yIdxs.length; gi++) {
-      var yIdx = g.yIdxs[gi];
-      var yDays = dateStrToDays(ynabTxns[yIdx].date);
-      var bestDist = 4, bestCi = -1;
-      for (var gj = 0; gj < g.cIdxs.length; gj++) {
-        if (cUsed[gj]) continue;
-        var dist = Math.abs(yDays - dateStrToDays(csvTxns[g.cIdxs[gj]].date));
-        if (dist < bestDist) { bestDist = dist; bestCi = gj; }
+    // Match by increasing distance (0→3) so exact matches are claimed before
+    // looser ones, preventing a close-but-wrong pairing from displacing an exact match.
+    for (var d = 0; d <= 3; d++) {
+      for (var gi = 0; gi < g.yIdxs.length; gi++) {
+        if (yUsed[gi]) continue;
+        var yIdx = g.yIdxs[gi];
+        var yDays = dateStrToDays(ynabTxns[yIdx].date);
+        for (var gj = 0; gj < g.cIdxs.length; gj++) {
+          if (cUsed[gj]) continue;
+          if (Math.abs(yDays - dateStrToDays(csvTxns[g.cIdxs[gj]].date)) === d) {
+            yUsed[gi] = true; cUsed[gj] = true; break;
+          }
+        }
       }
-      if (bestCi !== -1) { yUsed[gi] = true; cUsed[bestCi] = true; }
     }
     for (var gi2 = 0; gi2 < g.yIdxs.length; gi2++) {
       if (!yUsed[gi2]) ynabSuspect[g.yIdxs[gi2]] = true;
