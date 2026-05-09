@@ -603,6 +603,17 @@ td.cell-active {
   font-size: 13px; cursor: pointer; font-weight: 500; white-space: nowrap;
 }
 #plaid-connect-btn:hover { background: #009960; }
+#plaid-connections { padding: 8px 20px 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.plaid-conn-item {
+  display: flex; align-items: center; gap: 8px;
+  background: #f5f5f5; border: 1px solid #ddd; border-radius: 6px;
+  padding: 6px 10px; font-size: 13px;
+}
+.plaid-conn-name { color: #333; font-weight: 500; }
+.plaid-conn-load { padding: 3px 10px; background: #4285f4; color: #fff; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; }
+.plaid-conn-load:hover { background: #3367d6; }
+.plaid-conn-remove { padding: 3px 8px; background: none; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; cursor: pointer; color: #888; }
+.plaid-conn-remove:hover { border-color: #c62828; color: #c62828; }
 #plaid-status-msg { font-size: 13px; color: #555; padding: 6px 20px 2px; min-height: 24px; }
 #plaid-txns { padding: 0 20px 20px; }
 #plaid-txns table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
@@ -1207,8 +1218,9 @@ td.hbt-num:last-child { width: 13%; }
           Secret&nbsp;key
           <input type="password" id="plaid-secret-input" placeholder="Enter Plaid secret key">
         </label>
-        <button id="plaid-connect-btn">&#128274; Connect Plaid</button>
+        <button id="plaid-connect-btn">+ Connect New Account</button>
       </div>
+      <div id="plaid-connections"></div>
       <div id="plaid-status-msg"></div>
       <div id="plaid-txns"></div>
     </div>
@@ -2846,6 +2858,7 @@ var acctHistoryChartState    = null;
 var acctHistoryLastAcctId    = null;
 var reconcileCSVTxns         = null;
 var PLAID_CLIENT_ID          = '69fe8a6def2ece000e2425f0';
+var PLAID_STORAGE_KEY        = 'plaid-connections';
 var cfSparklineKeys    = [];
 
 var LW_MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -5412,6 +5425,81 @@ function renderReconcile() {
     localStorage.setItem('sel-reconcile-acct', state.reconcileAcctId);
   }
   if (reconcileCSVTxns) runReconcile();
+  renderPlaidConnections();
+}
+
+function getPlaidConnections() {
+  try { return JSON.parse(localStorage.getItem(PLAID_STORAGE_KEY) || '[]'); } catch(e) { return []; }
+}
+
+function savePlaidConnection(conn) {
+  var conns = getPlaidConnections();
+  conns.push(conn);
+  localStorage.setItem(PLAID_STORAGE_KEY, JSON.stringify(conns));
+}
+
+function removePlaidConnection(id) {
+  var conns = getPlaidConnections().filter(function(c) { return c.id !== id; });
+  localStorage.setItem(PLAID_STORAGE_KEY, JSON.stringify(conns));
+  renderPlaidConnections();
+}
+
+function renderPlaidConnections() {
+  var el = document.getElementById('plaid-connections');
+  if (!el) return;
+  var conns = getPlaidConnections();
+  if (!conns.length) { el.innerHTML = ''; return; }
+  el.innerHTML = conns.map(function(c) {
+    return '<div class="plaid-conn-item">'
+      + '<span class="plaid-conn-name">' + escHtml(c.name) + '</span>'
+      + '<button class="plaid-conn-load" data-token="' + escHtml(c.accessToken) + '">Load</button>'
+      + '<button class="plaid-conn-remove" data-id="' + escHtml(c.id) + '" title="Remove">&#10005;</button>'
+      + '</div>';
+  }).join('');
+  el.querySelectorAll('.plaid-conn-load').forEach(function(btn) {
+    btn.addEventListener('click', function() { loadPlaidConnection(btn.dataset.token); });
+  });
+  el.querySelectorAll('.plaid-conn-remove').forEach(function(btn) {
+    btn.addEventListener('click', function() { removePlaidConnection(btn.dataset.id); });
+  });
+}
+
+function loadPlaidConnection(accessToken) {
+  var secret = document.getElementById('plaid-secret-input').value.trim();
+  var statusEl = document.getElementById('plaid-status-msg');
+  var txnsEl   = document.getElementById('plaid-txns');
+  if (!secret) { statusEl.textContent = 'Please enter your Plaid secret key.'; return; }
+  txnsEl.innerHTML = '';
+  statusEl.textContent = 'Fetching accounts…';
+  plaidPost('/accounts/get', { client_id: PLAID_CLIENT_ID, secret: secret, access_token: accessToken })
+    .then(function(data) {
+      if (data.error_code) throw new Error(data.error_message || data.error_code);
+      if (!data.accounts || !data.accounts.length) throw new Error('No accounts found');
+      var acct = data.accounts[0];
+      var today = new Date();
+      var endDate   = today.toISOString().slice(0, 10);
+      var startDt   = new Date(today); startDt.setMonth(startDt.getMonth() - 3);
+      var startDate = startDt.toISOString().slice(0, 10);
+      var txnPayload = {
+        client_id: PLAID_CLIENT_ID, secret: secret, access_token: accessToken,
+        start_date: startDate, end_date: endDate,
+        options: { account_ids: [acct.account_id], count: 100 }
+      };
+      var maxAttempts = 6, attempt = 0;
+      function fetchWithRetry() {
+        attempt++;
+        statusEl.textContent = 'Fetching transactions for "' + acct.name + '"'
+          + (attempt > 1 ? ' (attempt ' + attempt + '/' + maxAttempts + ')…' : '…');
+        return plaidPost('/transactions/get', txnPayload).then(function(txnData) {
+          if (txnData.error_code === 'PRODUCT_NOT_READY' && attempt < maxAttempts)
+            return new Promise(function(res) { setTimeout(res, 4000); }).then(fetchWithRetry);
+          if (txnData.error_code) throw new Error(txnData.error_message || txnData.error_code);
+          statusEl.textContent = '';
+          renderPlaidTransactions(acct.name, txnData.transactions);
+        });
+      }
+      return fetchWithRetry();
+    }).catch(function(err) { statusEl.textContent = '⚠ ' + err.message; });
 }
 
 function plaidPost(endpoint, body) {
@@ -5455,84 +5543,52 @@ function renderPlaidTransactions(acctName, txns) {
 function connectPlaid() {
   var secret = document.getElementById('plaid-secret-input').value.trim();
   var statusEl = document.getElementById('plaid-status-msg');
-  var txnsEl   = document.getElementById('plaid-txns');
   if (!secret) { statusEl.textContent = 'Please enter your Plaid secret key.'; return; }
-  txnsEl.innerHTML = '';
+  document.getElementById('plaid-txns').innerHTML = '';
   statusEl.textContent = 'Loading Plaid Link…';
 
   loadPlaidScript().then(function() {
     statusEl.textContent = 'Creating link token…';
     return plaidPost('/link/token/create', {
-      client_id: PLAID_CLIENT_ID,
-      secret: secret,
-      client_name: 'Finance Suite',
-      products: ['transactions'],
-      country_codes: ['US'],
-      language: 'en',
+      client_id: PLAID_CLIENT_ID, secret: secret,
+      client_name: 'Finance Suite', products: ['transactions'],
+      country_codes: ['US'], language: 'en',
       user: { client_user_id: 'finance-suite-user' }
     });
   }).then(function(data) {
     if (data.error_code) throw new Error(data.error_message || data.error_code);
-    var linkToken = data.link_token;
     statusEl.textContent = 'Opening Plaid Link…';
     return new Promise(function(resolve, reject) {
       var handler = window.Plaid.create({
-        token: linkToken,
-        onSuccess: function(publicToken) { resolve({ publicToken: publicToken, secret: secret }); },
+        token: data.link_token,
+        onSuccess: function(publicToken) { resolve(publicToken); },
         onExit: function(err) {
-          if (err) reject(new Error(err.display_message || err.error_message || 'Plaid Link error'));
-          else reject(new Error('cancelled'));
+          reject(new Error(err ? (err.display_message || err.error_message || 'Plaid Link error') : 'cancelled'));
         }
       });
       handler.open();
     });
-  }).then(function(result) {
+  }).then(function(publicToken) {
     statusEl.textContent = 'Exchanging token…';
     return plaidPost('/item/public_token/exchange', {
-      client_id: PLAID_CLIENT_ID,
-      secret: result.secret,
-      public_token: result.publicToken
-    }).then(function(data) {
-      if (data.error_code) throw new Error(data.error_message || data.error_code);
-      return { accessToken: data.access_token, secret: result.secret };
+      client_id: PLAID_CLIENT_ID, secret: secret, public_token: publicToken
     });
-  }).then(function(result) {
-    statusEl.textContent = 'Fetching accounts…';
+  }).then(function(data) {
+    if (data.error_code) throw new Error(data.error_message || data.error_code);
+    var accessToken = data.access_token;
+    statusEl.textContent = 'Saving connection…';
     return plaidPost('/accounts/get', {
-      client_id: PLAID_CLIENT_ID,
-      secret: result.secret,
-      access_token: result.accessToken
-    }).then(function(data) {
-      if (data.error_code) throw new Error(data.error_message || data.error_code);
-      if (!data.accounts || !data.accounts.length) throw new Error('No accounts found');
-      var acct = data.accounts[0];
-      var today = new Date();
-      var endDate  = today.toISOString().slice(0, 10);
-      var startDt  = new Date(today); startDt.setMonth(startDt.getMonth() - 3);
-      var startDate = startDt.toISOString().slice(0, 10);
-      var txnPayload = {
-        client_id: PLAID_CLIENT_ID,
-        secret: result.secret,
-        access_token: result.accessToken,
-        start_date: startDate,
-        end_date: endDate,
-        options: { account_ids: [acct.account_id], count: 100 }
-      };
-      var maxAttempts = 6, attempt = 0;
-      function fetchWithRetry() {
-        attempt++;
-        statusEl.textContent = 'Fetching transactions for “' + acct.name + '”'
-          + (attempt > 1 ? ' (attempt ' + attempt + '/' + maxAttempts + ')…' : '…');
-        return plaidPost('/transactions/get', txnPayload).then(function(txnData) {
-          if (txnData.error_code === 'PRODUCT_NOT_READY' && attempt < maxAttempts) {
-            return new Promise(function(res) { setTimeout(res, 4000); }).then(fetchWithRetry);
-          }
-          if (txnData.error_code) throw new Error(txnData.error_message || txnData.error_code);
-          statusEl.textContent = '';
-          renderPlaidTransactions(acct.name, txnData.transactions);
-        });
-      }
-      return fetchWithRetry();
+      client_id: PLAID_CLIENT_ID, secret: secret, access_token: accessToken
+    }).then(function(acctData) {
+      if (acctData.error_code) throw new Error(acctData.error_message || acctData.error_code);
+      var names = (acctData.accounts || []).map(function(a) { return a.name; }).join(', ') || 'Account';
+      savePlaidConnection({
+        id: 'pc_' + Date.now(),
+        accessToken: accessToken,
+        name: names
+      });
+      renderPlaidConnections();
+      loadPlaidConnection(accessToken);
     });
   }).catch(function(err) {
     if (err.message !== 'cancelled') statusEl.textContent = '⚠ ' + err.message;
