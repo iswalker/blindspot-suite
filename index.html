@@ -592,6 +592,11 @@ td.cell-active {
   font-size: 13px; border: 1px solid #ccc; border-radius: 4px;
   padding: 3px 6px; background: #fafafa; cursor: pointer; min-width: 200px;
 }
+#reconcile-acct-sel { width: 230px; }
+#rec-controls-row {
+  display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 8px;
+}
 .rec-vs-lbl, .rec-or-lbl { font-size: 13px; color: #aaa; }
 #plaid-acct-remove-btn {
   padding: 4px 8px; background: none; border: 1px solid #ccc; border-radius: 4px;
@@ -644,7 +649,7 @@ td.cell-active {
 .rec-div-col { width: 20px !important; padding: 0 !important; background: #e8eaf0; border: none !important; }
 .rec-suspect { background: #fff8e1 !important; }
 .rec-payee { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #333; }
-.rec-memo  { color: #aaa; font-size: 11px; }
+.rec-memo  { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #333; }
 .rec-amt   { text-align: right !important; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .rec-neg   { color: #c62828; }
 .rec-pos   { color: #2e7d32; }
@@ -1193,6 +1198,8 @@ td.hbt-num:last-child { width: 13%; }
   <div id="reconcile-panel" style="display:none">
     <div class="panel-hdr">
       <h1>Reconcile</h1>
+    </div>
+    <div id="rec-controls-row">
       <div id="reconcile-acct-group">
         <label>YNAB Account <select id="reconcile-acct-sel"></select></label>
       </div>
@@ -1205,7 +1212,6 @@ td.hbt-num:last-child { width: 13%; }
         <div class="plaid-acct-mgmt">
           <label>Plaid secret key <input type="password" id="plaid-secret-input" placeholder="Enter secret key"></label>
           <button id="plaid-connect-btn">+ Connect New Account</button>
-          <span id="plaid-status-msg"></span>
         </div>
         <div class="plaid-acct-dates">
           <label>Date range
@@ -1219,6 +1225,7 @@ td.hbt-num:last-child { width: 13%; }
       <input type="file" id="reconcile-csv-input" accept=".csv" style="display:none">
       <button id="reconcile-upload-btn">&#8679; Upload CSV</button>
       <button id="reconcile-go-btn">Reconcile &#9654;</button>
+      <span id="plaid-status-msg"></span>
     </div>
     <div id="reconcile-status"></div>
     <div id="reconcile-results" style="display:none">
