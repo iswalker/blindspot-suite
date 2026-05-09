@@ -1,4 +1,4 @@
-const PLAID_BASE = 'https://sandbox.plaid.com';
+const PLAID_BASE = 'https://production.plaid.com';
 
 const ALLOWED_ENDPOINTS = new Set([
   '/link/token/create',
