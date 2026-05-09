@@ -5169,12 +5169,12 @@ function reconcileTxns(ynabTxns, csvTxns) {
   for (var j = 0; j < csvTxns.length;  j++) csvUsed.push(false);
   for (var yi = 0; yi < ynabTxns.length; yi++) {
     var y = ynabTxns[yi];
-    var yAmt  = Math.round(y.amount * 100);
+    var yAmt  = Math.abs(Math.round(y.amount * 100));  // match by magnitude
     var yDays = dateStrToDays(y.date);
     var bestDist = 4, bestIdx = -1;
     for (var ci = 0; ci < csvTxns.length; ci++) {
       if (csvUsed[ci]) continue;
-      if (Math.round(csvTxns[ci].amount * 100) !== yAmt) continue;
+      if (Math.abs(Math.round(csvTxns[ci].amount * 100)) !== yAmt) continue;
       var dist = Math.abs(yDays - dateStrToDays(csvTxns[ci].date));
       if (dist < bestDist) { bestDist = dist; bestIdx = ci; }
     }
@@ -5217,7 +5217,13 @@ function runReconcile() {
   var resultsEl = document.getElementById('reconcile-results');
   if (!d || !acctId || !csvTxns || !csvTxns.length) { resultsEl.style.display = 'none'; return; }
 
-  var ynabAll = (d.acctTxnsList || {})[acctId] || [];
+  if (!d.acctTxnsList) {
+    statusEl.innerHTML = '<span class="rec-warn">&#9888; Transaction detail not available in cached data &mdash; please click <strong>&#8635; Refresh</strong> to reload from YNAB, then re-upload your CSV.</span>';
+    resultsEl.style.display = 'none';
+    return;
+  }
+
+  var ynabAll = d.acctTxnsList[acctId] || [];
   var dates   = csvTxns.map(function(t) { return t.date; }).sort();
   var minDate = dates[0], maxDate = dates[dates.length - 1];
 
