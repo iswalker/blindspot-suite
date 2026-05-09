@@ -5441,11 +5441,12 @@ function renderPlaidConnections() {
   if (!sel) return;
   var prev = sel.value;
   var conns = getPlaidConnections();
-  sel.innerHTML = '<option value="">— none —</option>';
+  sel.innerHTML = '<option value=””>— none —</option>';
   conns.forEach(function(c) {
     var opt = document.createElement('option');
-    opt.value = c.accessToken;
-    opt.dataset.connId = c.id;
+    opt.value = c.id;
+    opt.dataset.accessToken = c.accessToken;
+    opt.dataset.accountId   = c.accountId || '';
     opt.textContent = c.name;
     sel.appendChild(opt);
   });
@@ -5454,44 +5455,46 @@ function renderPlaidConnections() {
   if (removeBtn) removeBtn.style.display = sel.value ? '' : 'none';
 }
 
-function loadPlaidConnection(accessToken) {
+function loadPlaidConnection(accessToken, accountId, acctName) {
   var secret = document.getElementById('plaid-secret-input').value.trim();
   var statusEl = document.getElementById('plaid-status-msg');
   if (!secret) { statusEl.textContent = 'Please enter your Plaid secret key.'; return; }
-  statusEl.textContent = 'Fetching accounts…';
-  plaidPost('/accounts/get', { client_id: PLAID_CLIENT_ID, secret: secret, access_token: accessToken })
-    .then(function(data) {
-      if (data.error_code) throw new Error(data.error_message || data.error_code);
-      if (!data.accounts || !data.accounts.length) throw new Error('No accounts found');
-      var acct = data.accounts[0];
-      var today = new Date();
-      var endDate   = today.toISOString().slice(0, 10);
-      var startDt   = new Date(today); startDt.setMonth(startDt.getMonth() - 3);
-      var startDate = startDt.toISOString().slice(0, 10);
-      var txnPayload = {
-        client_id: PLAID_CLIENT_ID, secret: secret, access_token: accessToken,
-        start_date: startDate, end_date: endDate,
-        options: { account_ids: [acct.account_id], count: 100 }
-      };
-      var maxAttempts = 6, attempt = 0;
-      function fetchWithRetry() {
-        attempt++;
-        statusEl.textContent = 'Fetching transactions for “' + acct.name + '”'
-          + (attempt > 1 ? ' (attempt ' + attempt + '/' + maxAttempts + ')…' : '…');
-        return plaidPost('/transactions/get', txnPayload).then(function(txnData) {
-          if (txnData.error_code === 'PRODUCT_NOT_READY' && attempt < maxAttempts)
-            return new Promise(function(res) { setTimeout(res, 4000); }).then(fetchWithRetry);
-          if (txnData.error_code) throw new Error(txnData.error_message || txnData.error_code);
-          // Negate Plaid amounts: Plaid positive = debit (outflow), YNAB negative = outflow
-          reconcileCSVTxns = (txnData.transactions || []).map(function(t) {
-            return { date: t.date, amount: -t.amount, desc: t.name || '' };
-          });
-          statusEl.textContent = '';
-          runReconcile();
-        });
-      }
-      return fetchWithRetry();
-    }).catch(function(err) { statusEl.textContent = '⚠ ' + err.message; });
+  // Legacy connections without accountId: fetch accounts first then recurse
+  if (!accountId) {
+    statusEl.textContent = 'Fetching accounts…';
+    return plaidPost('/accounts/get', { client_id: PLAID_CLIENT_ID, secret: secret, access_token: accessToken })
+      .then(function(data) {
+        if (data.error_code) throw new Error(data.error_message || data.error_code);
+        if (!data.accounts || !data.accounts.length) throw new Error('No accounts found');
+        loadPlaidConnection(accessToken, data.accounts[0].account_id, data.accounts[0].name);
+      }).catch(function(err) { statusEl.textContent = '⚠ ' + err.message; });
+  }
+  var today = new Date();
+  var endDate   = today.toISOString().slice(0, 10);
+  var startDt   = new Date(today); startDt.setMonth(startDt.getMonth() - 3);
+  var startDate = startDt.toISOString().slice(0, 10);
+  var txnPayload = {
+    client_id: PLAID_CLIENT_ID, secret: secret, access_token: accessToken,
+    start_date: startDate, end_date: endDate,
+    options: { account_ids: [accountId], count: 100 }
+  };
+  var maxAttempts = 6, attempt = 0;
+  function fetchWithRetry() {
+    attempt++;
+    statusEl.textContent = 'Fetching transactions for “' + (acctName || accountId) + '”'
+      + (attempt > 1 ? ' (attempt ' + attempt + '/' + maxAttempts + ')…' : '…');
+    return plaidPost('/transactions/get', txnPayload).then(function(txnData) {
+      if (txnData.error_code === 'PRODUCT_NOT_READY' && attempt < maxAttempts)
+        return new Promise(function(res) { setTimeout(res, 4000); }).then(fetchWithRetry);
+      if (txnData.error_code) throw new Error(txnData.error_message || txnData.error_code);
+      reconcileCSVTxns = (txnData.transactions || []).map(function(t) {
+        return { date: t.date, amount: -t.amount, desc: t.name || '' };
+      });
+      statusEl.textContent = '';
+      runReconcile();
+    });
+  }
+  return fetchWithRetry().catch(function(err) { statusEl.textContent = '⚠ ' + err.message; });
 }
 
 function plaidPost(endpoint, body) {
@@ -5553,14 +5556,26 @@ function connectPlaid() {
       client_id: PLAID_CLIENT_ID, secret: secret, access_token: accessToken
     }).then(function(acctData) {
       if (acctData.error_code) throw new Error(acctData.error_message || acctData.error_code);
-      var names = (acctData.accounts || []).map(function(a) { return a.name; }).join(', ') || 'Account';
-      savePlaidConnection({ id: 'pc_' + Date.now(), accessToken: accessToken, name: names });
+      var accounts = acctData.accounts || [];
+      if (!accounts.length) throw new Error('No accounts found');
+      accounts.forEach(function(a, i) {
+        savePlaidConnection({
+          id: 'pc_' + Date.now() + '_' + i,
+          accessToken: accessToken,
+          accountId: a.account_id,
+          name: a.name
+        });
+      });
       renderPlaidConnections();
-      var plaidSel = document.getElementById('plaid-acct-sel');
-      if (plaidSel) plaidSel.value = accessToken;
-      var removeBtn = document.getElementById('plaid-acct-remove-btn');
-      if (removeBtn) removeBtn.style.display = '';
-      loadPlaidConnection(accessToken);
+      var conns = getPlaidConnections();
+      var firstNew = conns[conns.length - accounts.length];
+      if (firstNew) {
+        var plaidSel = document.getElementById('plaid-acct-sel');
+        if (plaidSel) plaidSel.value = firstNew.id;
+        var removeBtn = document.getElementById('plaid-acct-remove-btn');
+        if (removeBtn) removeBtn.style.display = '';
+        loadPlaidConnection(firstNew.accessToken, firstNew.accountId, firstNew.name);
+      }
     });
   }).catch(function(err) {
     if (err.message !== 'cancelled') statusEl.textContent = '⚠ ' + err.message;
@@ -6844,12 +6859,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
   document.getElementById('plaid-connect-btn').addEventListener('click', connectPlaid);
   document.getElementById('plaid-acct-sel').addEventListener('change', function() {
-    var token = this.value;
+    var opt = this.options[this.selectedIndex];
+    var id = opt ? opt.value : '';
     var removeBtn = document.getElementById('plaid-acct-remove-btn');
-    removeBtn.style.display = token ? '' : 'none';
-    if (token) {
+    removeBtn.style.display = id ? '' : 'none';
+    if (id) {
       reconcileCSVTxns = null;
-      loadPlaidConnection(token);
+      loadPlaidConnection(opt.dataset.accessToken, opt.dataset.accountId, opt.textContent);
     } else {
       document.getElementById('reconcile-status').innerHTML = '';
       document.getElementById('reconcile-results').style.display = 'none';
@@ -6859,7 +6875,7 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('plaid-acct-remove-btn').addEventListener('click', function() {
     var sel = document.getElementById('plaid-acct-sel');
     var opt = sel.options[sel.selectedIndex];
-    if (opt && opt.dataset && opt.dataset.connId) removePlaidConnection(opt.dataset.connId);
+    if (opt && opt.value) removePlaidConnection(opt.value);
   });
 
   // YNAB connect / load-budget button
