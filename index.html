@@ -5203,27 +5203,27 @@ function dateStrToDays(s) {
 }
 
 function reconcileTxns(ynabTxns, csvTxns) {
-  // Phase 1: group by absolute amount
+  // Phase 1: group by signed amount (cents) — $330 and -$330 are separate groups
   var groups = {};
   for (var yi = 0; yi < ynabTxns.length; yi++) {
-    var yk = Math.abs(Math.round(ynabTxns[yi].amount * 100));
+    var yk = Math.round(ynabTxns[yi].amount * 100);
     if (!groups[yk]) groups[yk] = { yIdxs: [], cIdxs: [] };
     groups[yk].yIdxs.push(yi);
   }
   for (var ci = 0; ci < csvTxns.length; ci++) {
-    var ck = Math.abs(Math.round(csvTxns[ci].amount * 100));
+    var ck = Math.round(csvTxns[ci].amount * 100);
     if (!groups[ck]) groups[ck] = { yIdxs: [], cIdxs: [] };
     groups[ck].cIdxs.push(ci);
   }
-  // Phase 2: within groups where counts differ, flag unmatched rows via ±3-day window
+  // Phase 2: within groups where counts differ, flag unmatched rows via ±5-day window
   var ynabSuspect = {}, csvSuspect = {};
   for (var k in groups) {
     var g = groups[k];
     if (g.yIdxs.length === g.cIdxs.length) continue; // counts match → all good
     var yUsed = {}, cUsed = {};
-    // Match by increasing distance (0→3) so exact matches are claimed before
+    // Match by increasing distance (0→5) so exact matches are claimed before
     // looser ones, preventing a close-but-wrong pairing from displacing an exact match.
-    for (var d = 0; d <= 3; d++) {
+    for (var d = 0; d <= 5; d++) {
       for (var gi = 0; gi < g.yIdxs.length; gi++) {
         if (yUsed[gi]) continue;
         var yIdx = g.yIdxs[gi];
@@ -5252,15 +5252,15 @@ function fmtRecAmt(n) {
 }
 
 function buildRecGroupedTable(ynabTxns, csvTxns, ynabSuspect, csvSuspect) {
-  // Group transactions by absolute amount (in cents)
+  // Group transactions by signed amount (cents) — $330 and -$330 are separate groups
   var groups = {};
   for (var yi = 0; yi < ynabTxns.length; yi++) {
-    var yk = Math.abs(Math.round(ynabTxns[yi].amount * 100));
+    var yk = Math.round(ynabTxns[yi].amount * 100);
     if (!groups[yk]) groups[yk] = { ynab: [], csv: [] };
     groups[yk].ynab.push({ txn: ynabTxns[yi], suspect: !!ynabSuspect[yi] });
   }
   for (var ci = 0; ci < csvTxns.length; ci++) {
-    var ck = Math.abs(Math.round(csvTxns[ci].amount * 100));
+    var ck = Math.round(csvTxns[ci].amount * 100);
     if (!groups[ck]) groups[ck] = { ynab: [], csv: [] };
     groups[ck].csv.push({ txn: csvTxns[ci], suspect: !!csvSuspect[ci] });
   }
@@ -5288,7 +5288,7 @@ function buildRecGroupedTable(ynabTxns, csvTxns, ynabSuspect, csvSuspect) {
   for (var ki = 0; ki < keys.length; ki++) {
     var k = keys[ki];
     var g = groups[k];
-    var dollars = '$' + (+k / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    var dollars = fmtRecAmt(+k / 100);
     h += '<tr class="rec-group-hdr"><td colspan="7">'
        + dollars
        + '<span class="rec-ghdr-counts">(' + g.ynab.length + ' YNAB / ' + g.csv.length + ' CSV)</span>'
@@ -5341,10 +5341,10 @@ function runReconcile() {
   var dates   = csvTxns.map(function(t) { return t.date; }).sort();
   var minDate = dates[0], maxDate = dates[dates.length - 1];
 
-  // Include YNAB ±3 days around the CSV window so edge transactions can match.
+  // Include YNAB ±5 days around the CSV window so edge transactions can match.
   // Pre-start YNAB entries may absorb a bank-side match but are never flagged suspect.
-  var minDays = dateStrToDays(minDate) - 3;
-  var maxDays = dateStrToDays(maxDate) + 3;
+  var minDays = dateStrToDays(minDate) - 5;
+  var maxDays = dateStrToDays(maxDate) + 5;
   var ynabFiltered = ynabAll.filter(function(t) {
     var d = dateStrToDays(t.date);
     return d >= minDays && d <= maxDays;
@@ -5382,7 +5382,7 @@ function runReconcile() {
   }
   statusEl.innerHTML = '<span class="rec-warn">&#9888; ' + total + ' suspect transaction' + (total === 1 ? '' : 's')
     + ': ' + ysc + ' unmatched in YNAB, ' + csc + ' unmatched in CSV &mdash; ' + rangeLbl + ' &mdash; ' + escHtml(acctName) + '.</span>'
-    + '<div class="rec-note">Note that transactions are fuzzy-matched within 3 days, so some items close to boundary dates may be flagged for review but are safe to ignore.</div>';
+    + '<div class="rec-note">Note that transactions are fuzzy-matched within 5 days, so some items close to boundary dates may be flagged for review but are safe to ignore.</div>';
 
   document.getElementById('reconcile-table').innerHTML = buildRecGroupedTable(ynabFiltered, csvSorted, res.ynabSuspect, res.csvSuspect);
   resultsEl.style.display = '';
