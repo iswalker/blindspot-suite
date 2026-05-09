@@ -152,7 +152,7 @@ body {
   white-space: nowrap;
 }
 #back-btn:hover { background: #f0f0f0; }
-#config-reload-btn, #gsheet-refresh-btn, #expand-all-btn, #collapse-all-btn {
+#expand-all-btn, #collapse-all-btn {
   padding: 6px 14px;
   background: #fff;
   border: 1px solid #ccc;
@@ -162,7 +162,27 @@ body {
   color: #555;
   white-space: nowrap;
 }
-#config-reload-btn:hover, #gsheet-refresh-btn:hover, #expand-all-btn:hover, #collapse-all-btn:hover { background: #f0f0f0; }
+#expand-all-btn:hover, #collapse-all-btn:hover { background: #f0f0f0; }
+.config-picker-wrap { position: relative; display: inline-flex; align-items: center; }
+.config-picker-btn {
+  padding: 6px 12px; background: #fff; border: 1px solid #ccc; border-radius: 5px;
+  font-size: 12px; cursor: pointer; color: #555; white-space: nowrap; display: flex; align-items: center; gap: 5px;
+}
+.config-picker-btn:hover { background: #f0f0f0; }
+.config-picker-menu {
+  position: absolute; top: calc(100% + 5px); right: 0; z-index: 300;
+  background: #fff; border: 1px solid #dde; border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.13); min-width: 200px; padding: 5px 0; overflow: hidden;
+}
+.config-picker-item {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 11px 18px; background: none; border: none; border-bottom: 1px solid #f0f0f0;
+  font-size: 14px; color: #333; cursor: pointer; text-align: left; white-space: nowrap;
+}
+.config-picker-item:last-child { border-bottom: none; }
+.config-picker-item:hover { background: #f5f7fb; }
+#upload-config-sub { margin-top: 10px; }
+#upload-config-sub .file-row { margin-bottom: 8px; }
 #refresh-btn {
   padding: 6px 14px;
   background: #fff;
@@ -955,25 +975,43 @@ td.hbt-num:last-child { width: 13%; }
 <div id="upload-panel">
   <h2>Blindspot Suite</h2>
   <p>Load your Config first, then choose how to import data.</p>
-  <div class="file-row">
-    <label for="config-file">Config CSV</label>
-    <input type="file" id="config-file" accept=".csv">
-    <span class="file-status" id="config-status">not loaded</span>
+  <div class="config-picker-wrap">
+    <button class="config-picker-btn" id="upload-config-btn">&#8679; Load Config &#9660;</button>
+    <div class="config-picker-menu" id="upload-config-menu" style="display:none">
+      <button class="config-picker-item" id="upload-gdrive-item">
+        <svg width="18" height="18" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+          <path fill="#0F9D58" d="M29 3H9C7.3 3 6 4.3 6 6v36c0 1.7 1.3 3 3 3h30c1.7 0 3-1.3 3-3V15L29 3z"/>
+          <path fill="#87CEAC" d="M29 3v12h12z"/>
+          <path fill="#fff" d="M14 24h20v2H14zm0 4h20v2H14zm0 4h14v2H14z"/>
+        </svg>
+        Google Sheet
+      </button>
+      <button class="config-picker-item" id="upload-localfile-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="#555" stroke-width="2" stroke-linejoin="round"/>
+          <polyline points="14,2 14,8 20,8" stroke="#555" stroke-width="2" stroke-linejoin="round"/>
+        </svg>
+        Local File (CSV)
+      </button>
+    </div>
   </div>
-  <div class="or-divider">or pull from Google Sheet</div>
-  <div class="file-row">
-    <label for="gsheet-url">Sheet URL</label>
-    <input type="text" id="gsheet-url" placeholder="https://docs.google.com/spreadsheets/d/…" autocomplete="off">
+  <span class="file-status" id="config-status">not loaded</span>
+  <input type="file" id="config-file" accept=".csv" style="display:none">
+  <div id="upload-config-sub" style="display:none">
+    <div class="file-row">
+      <label for="gsheet-url">Sheet URL</label>
+      <input type="text" id="gsheet-url" placeholder="https://docs.google.com/spreadsheets/d/…" autocomplete="off">
+    </div>
+    <button id="gsheet-btn">
+      <svg width="16" height="16" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <path fill="#0F9D58" d="M29 3H9C7.3 3 6 4.3 6 6v36c0 1.7 1.3 3 3 3h30c1.7 0 3-1.3 3-3V15L29 3z"/>
+        <path fill="#87CEAC" d="M29 3v12h12z"/>
+        <path fill="#fff" d="M14 24h20v2H14zm0 4h20v2H14zm0 4h14v2H14z"/>
+      </svg>
+      Link Google Account
+    </button>
+    <span class="file-status" id="gsheet-status"></span>
   </div>
-  <button id="gsheet-btn">
-    <svg width="16" height="16" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-      <path fill="#0F9D58" d="M29 3H9C7.3 3 6 4.3 6 6v36c0 1.7 1.3 3 3 3h30c1.7 0 3-1.3 3-3V15L29 3z"/>
-      <path fill="#87CEAC" d="M29 3v12h12z"/>
-      <path fill="#fff" d="M14 24h20v2H14zm0 4h20v2H14zm0 4h14v2H14z"/>
-    </svg>
-    Link Google Account
-  </button>
-  <span class="file-status" id="gsheet-status"></span>
   <div class="or-divider">sign in with YNAB</div>
   <button id="oauth-btn">Sign in with YNAB</button>
   <div class="or-divider">or connect via API key</div>
@@ -1019,8 +1057,26 @@ td.hbt-num:last-child { width: 13%; }
       <span id="cache-label"></span>
       <button id="refresh-btn" style="display:none">&#8635; Refresh</button>
       <input type="file" id="config-reload-file" accept=".csv" style="display:none">
-      <button id="config-reload-btn" title="Re-upload Config.csv">&#8679; Config</button>
-      <button id="gsheet-refresh-btn" title="Refresh config from Google Sheet" style="display:none">&#8635; Sheet</button>
+      <div class="config-picker-wrap">
+        <button class="config-picker-btn" id="config-picker-btn">&#8679; Config &#9660;</button>
+        <div class="config-picker-menu" id="config-picker-menu" style="display:none">
+          <button class="config-picker-item" id="config-gsheet-item">
+            <svg width="16" height="16" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+              <path fill="#0F9D58" d="M29 3H9C7.3 3 6 4.3 6 6v36c0 1.7 1.3 3 3 3h30c1.7 0 3-1.3 3-3V15L29 3z"/>
+              <path fill="#87CEAC" d="M29 3v12h12z"/>
+              <path fill="#fff" d="M14 24h20v2H14zm0 4h20v2H14zm0 4h14v2H14z"/>
+            </svg>
+            Google Sheet
+          </button>
+          <button class="config-picker-item" id="config-reload-item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="#555" stroke-width="2" stroke-linejoin="round"/>
+              <polyline points="14,2 14,8 20,8" stroke="#555" stroke-width="2" stroke-linejoin="round"/>
+            </svg>
+            Upload CSV
+          </button>
+        </div>
+      </div>
       <button id="back-btn">&#8592; Reload Files</button>
     </div>
   </div>
@@ -6451,7 +6507,6 @@ function showReport() {
   var hasYnab = !!(localStorage.getItem('ynab-api-key') && localStorage.getItem('ynab-budget-id'));
   document.getElementById('refresh-btn').style.display = hasYnab ? '' : 'none';
   var hasGSheet = !!(localStorage.getItem('google-access-token') && extractSheetId(localStorage.getItem('google-sheet-url') || ''));
-  document.getElementById('gsheet-refresh-btn').style.display = hasGSheet ? '' : 'none';
   if (state.loadedAt) {
     var d = new Date(state.loadedAt);
     document.getElementById('cache-label').textContent =
@@ -6719,26 +6774,51 @@ document.addEventListener('DOMContentLoaded', function() {
   // Refresh from YNAB
   document.getElementById('refresh-btn').addEventListener('click', refreshYnab);
 
-  // Config re-upload button (available in report view without full reload)
-  document.getElementById('config-reload-btn').addEventListener('click', function() {
+  // Top bar Config picker
+  var configPickerMenu = document.getElementById('config-picker-menu');
+  document.getElementById('config-picker-btn').addEventListener('click', function(e) {
+    e.stopPropagation();
+    configPickerMenu.style.display = configPickerMenu.style.display === 'none' ? '' : 'none';
+  });
+  document.getElementById('config-gsheet-item').addEventListener('click', function() {
+    configPickerMenu.style.display = 'none';
+    var token = localStorage.getItem('google-access-token');
+    var sheetId = extractSheetId(localStorage.getItem('google-sheet-url') || '');
+    var cacheLabel = document.getElementById('cache-label');
+    if (token && sheetId) {
+      cacheLabel.textContent = 'Refreshing from Google Sheet…';
+      fetchConfigFromGoogleSheet(token).then(function(cfg) {
+        cacheLabel.textContent = 'Sheet config refreshed (' + cfg.length + ' rules)';
+        if (state.data) renderHome();
+      }).catch(function(e) {
+        cacheLabel.textContent = 'Sheet refresh failed: ' + (e && e.message || e);
+      });
+    } else {
+      cacheLabel.textContent = 'No Google Sheet linked — use ← Reload Files to connect one.';
+    }
+  });
+  document.getElementById('config-reload-item').addEventListener('click', function() {
+    configPickerMenu.style.display = 'none';
     document.getElementById('config-reload-file').click();
   });
 
-  // Google Sheet refresh (report controls bar)
-  var gSheetRefreshBtn = document.getElementById('gsheet-refresh-btn');
-  if (localStorage.getItem('google-access-token') && extractSheetId(localStorage.getItem('google-sheet-url') || '')) {
-    gSheetRefreshBtn.style.display = '';
-  }
-  gSheetRefreshBtn.addEventListener('click', function() {
-    var cacheLabel = document.getElementById('cache-label');
-    cacheLabel.textContent = 'Refreshing from Google Sheet…';
-    var token = localStorage.getItem('google-access-token');
-    fetchConfigFromGoogleSheet(token).then(function(cfg) {
-      cacheLabel.textContent = 'Sheet config refreshed (' + cfg.length + ' rules)';
-      if (state.data) renderHome();
-    }).catch(function(e) {
-      cacheLabel.textContent = 'Sheet refresh failed: ' + (e && e.message || e);
-    });
+  // Upload panel Config picker
+  var uploadConfigMenu = document.getElementById('upload-config-menu');
+  document.getElementById('upload-config-btn').addEventListener('click', function(e) {
+    e.stopPropagation();
+    uploadConfigMenu.style.display = uploadConfigMenu.style.display === 'none' ? '' : 'none';
+  });
+  document.getElementById('upload-gdrive-item').addEventListener('click', function() {
+    uploadConfigMenu.style.display = 'none';
+    document.getElementById('upload-config-sub').style.display = '';
+  });
+  document.getElementById('upload-localfile-item').addEventListener('click', function() {
+    uploadConfigMenu.style.display = 'none';
+    document.getElementById('config-file').click();
+  });
+  document.addEventListener('click', function() {
+    configPickerMenu.style.display = 'none';
+    uploadConfigMenu.style.display = 'none';
   });
 
   // Google Sheet link button (upload panel)
