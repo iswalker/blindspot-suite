@@ -592,26 +592,32 @@ td.cell-active {
 .rec-ok   { color: #2e7d32; font-weight: 600; }
 .rec-warn { color: #b45309; font-weight: 600; }
 .rec-err  { color: #c62828; font-weight: 600; }
-#reconcile-tables-wrap { display: flex; gap: 20px; padding: 8px 20px 24px; }
-.reconcile-side { flex: 1; min-width: 0; }
-.reconcile-side-hdr {
-  font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase;
-  letter-spacing: .07em; padding: 6px 0 8px; border-bottom: 2px solid #e8e8e8;
+#reconcile-tables-wrap { padding: 4px 20px 24px; overflow-x: auto; }
+#reconcile-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+#reconcile-table .rec-side-hdr th {
+  font-size: 11px; font-weight: 700; color: #777; text-transform: uppercase;
+  letter-spacing: .07em; padding: 7px 8px 6px; background: #f5f7fa;
+  border-bottom: 2px solid #dde; text-align: left;
 }
-#reconcile-ynab-table, #reconcile-csv-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-#reconcile-ynab-table th, #reconcile-csv-table th {
-  text-align: left; padding: 6px 8px; font-size: 11px; color: #aaa; font-weight: 600;
+#reconcile-table .rec-side-hdr th.rec-amt-hdr { text-align: right; }
+#reconcile-table .rec-col-hdr th {
+  text-align: left; padding: 5px 8px; font-size: 10px; color: #bbb; font-weight: 600;
   text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid #eee; white-space: nowrap;
 }
-#reconcile-ynab-table td, #reconcile-csv-table td {
-  padding: 5px 8px; border-bottom: 1px solid #f5f5f5; vertical-align: top;
+#reconcile-table .rec-col-hdr th.rec-amt-hdr { text-align: right; }
+#reconcile-table td { padding: 5px 8px; border-bottom: 1px solid #f5f5f5; vertical-align: middle; text-align: left; }
+.rec-group-hdr td {
+  background: #f0f2f5; font-weight: 700; font-size: 13px; color: #333;
+  padding: 7px 10px; border-top: 2px solid #dde; border-bottom: 1px solid #dde;
 }
-#reconcile-ynab-table tr.rec-suspect td, #reconcile-csv-table tr.rec-suspect td { background: #fff8e1; }
-.rec-payee { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #333; }
+.rec-div-col { width: 20px !important; padding: 0 !important; background: #e8eaf0; border: none !important; }
+.rec-suspect { background: #fff8e1 !important; }
+.rec-payee { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #333; }
 .rec-memo  { color: #aaa; font-size: 11px; }
-.rec-amt   { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rec-amt   { text-align: right !important; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .rec-neg   { color: #c62828; }
 .rec-pos   { color: #2e7d32; }
+.rec-ghdr-counts { font-weight: 400; color: #999; font-size: 12px; margin-left: 4px; }
 
 /* ---- Home tab layout ---- */
 .home-body { display: flex; gap: 24px; align-items: flex-start; }
@@ -1167,14 +1173,13 @@ td.hbt-num:last-child { width: 13%; }
     <div id="reconcile-status"></div>
     <div id="reconcile-results" style="display:none">
       <div id="reconcile-tables-wrap">
-        <div class="reconcile-side">
-          <div class="reconcile-side-hdr">YNAB</div>
-          <table id="reconcile-ynab-table"></table>
-        </div>
-        <div class="reconcile-side">
-          <div class="reconcile-side-hdr">Bank / CSV</div>
-          <table id="reconcile-csv-table"></table>
-        </div>
+        <table id="reconcile-table">
+          <colgroup>
+            <col style="width:104px"><col><col style="width:90px">
+            <col style="width:20px">
+            <col style="width:104px"><col><col style="width:90px">
+          </colgroup>
+        </table>
       </div>
     </div>
   </div>
@@ -5191,20 +5196,74 @@ function fmtRecAmt(n) {
   return (r < 0 ? '-' : '') + '$' + Math.abs(r).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function buildRecTable(txns, suspectMap, isYnab) {
-  var h = '<thead><tr><th>Date</th><th>' + (isYnab ? 'Payee' : 'Description') + '</th><th style="text-align:right">Amount</th></tr></thead><tbody>';
-  for (var i = 0; i < txns.length; i++) {
-    var t = txns[i];
-    var dp = t.date.split('-');
-    var dateLbl = MONTH_ABBR[parseInt(dp[1], 10) - 1] + ' ' + dp[2] + ', ' + dp[0];
-    var descHtml = isYnab
-      ? escHtml(t.payee) + (t.memo ? '<span class="rec-memo"> &middot; ' + escHtml(t.memo) + '</span>' : '')
-      : escHtml(t.desc || '');
-    h += '<tr class="' + (suspectMap[i] ? 'rec-suspect' : '') + '">'
-       + '<td style="white-space:nowrap">' + dateLbl + '</td>'
-       + '<td class="rec-payee">' + descHtml + '</td>'
-       + '<td class="rec-amt ' + (t.amount < 0 ? 'rec-neg' : 'rec-pos') + '">' + fmtRecAmt(t.amount) + '</td>'
-       + '</tr>';
+function buildRecGroupedTable(ynabTxns, csvTxns, ynabSuspect, csvSuspect) {
+  // Group transactions by absolute amount (in cents)
+  var groups = {};
+  for (var yi = 0; yi < ynabTxns.length; yi++) {
+    var yk = Math.abs(Math.round(ynabTxns[yi].amount * 100));
+    if (!groups[yk]) groups[yk] = { ynab: [], csv: [] };
+    groups[yk].ynab.push({ txn: ynabTxns[yi], suspect: !!ynabSuspect[yi] });
+  }
+  for (var ci = 0; ci < csvTxns.length; ci++) {
+    var ck = Math.abs(Math.round(csvTxns[ci].amount * 100));
+    if (!groups[ck]) groups[ck] = { ynab: [], csv: [] };
+    groups[ck].csv.push({ txn: csvTxns[ci], suspect: !!csvSuspect[ci] });
+  }
+  // Only show groups with at least one suspect on either side
+  var keys = Object.keys(groups).filter(function(k) {
+    var g = groups[k];
+    return g.ynab.some(function(e) { return e.suspect; }) || g.csv.some(function(e) { return e.suspect; });
+  }).sort(function(a, b) { return +a - +b; });
+
+  var h = '<thead>'
+    + '<tr class="rec-side-hdr">'
+    + '<th colspan="3">YNAB</th><th class="rec-div-col"></th><th colspan="3">Bank / CSV</th>'
+    + '</tr>'
+    + '<tr class="rec-col-hdr">'
+    + '<th>Date</th><th>Payee</th><th class="rec-amt-hdr">Amount</th>'
+    + '<th class="rec-div-col"></th>'
+    + '<th>Date</th><th>Description</th><th class="rec-amt-hdr">Amount</th>'
+    + '</tr></thead><tbody>';
+
+  function dateLbl(d) {
+    var p = d.split('-');
+    return MONTH_ABBR[parseInt(p[1], 10) - 1] + ' ' + parseInt(p[2], 10) + ', ' + p[0];
+  }
+
+  for (var ki = 0; ki < keys.length; ki++) {
+    var k = keys[ki];
+    var g = groups[k];
+    var dollars = '$' + (+k / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    h += '<tr class="rec-group-hdr"><td colspan="7">'
+       + dollars
+       + '<span class="rec-ghdr-counts">(' + g.ynab.length + ' YNAB / ' + g.csv.length + ' CSV)</span>'
+       + '</td></tr>';
+
+    var rows = Math.max(g.ynab.length, g.csv.length);
+    for (var ri = 0; ri < rows; ri++) {
+      var ye = ri < g.ynab.length ? g.ynab[ri] : null;
+      var ce = ri < g.csv.length  ? g.csv[ri]  : null;
+      h += '<tr>';
+      if (ye) {
+        var ysusp = ye.suspect ? ' rec-suspect' : '';
+        var yDesc = escHtml(ye.txn.payee) + (ye.txn.memo ? '<span class="rec-memo"> &middot; ' + escHtml(ye.txn.memo) + '</span>' : '');
+        h += '<td class="' + ysusp + '" style="white-space:nowrap">' + dateLbl(ye.txn.date) + '</td>'
+           + '<td class="rec-payee' + ysusp + '">' + yDesc + '</td>'
+           + '<td class="rec-amt ' + (ye.txn.amount < 0 ? 'rec-neg' : 'rec-pos') + ysusp + '">' + fmtRecAmt(ye.txn.amount) + '</td>';
+      } else {
+        h += '<td></td><td></td><td></td>';
+      }
+      h += '<td class="rec-div-col"></td>';
+      if (ce) {
+        var csusp = ce.suspect ? ' rec-suspect' : '';
+        h += '<td class="' + csusp + '" style="white-space:nowrap">' + dateLbl(ce.txn.date) + '</td>'
+           + '<td class="rec-payee' + csusp + '">' + escHtml(ce.txn.desc || '') + '</td>'
+           + '<td class="rec-amt ' + (ce.txn.amount < 0 ? 'rec-neg' : 'rec-pos') + csusp + '">' + fmtRecAmt(ce.txn.amount) + '</td>';
+      } else {
+        h += '<td></td><td></td><td></td>';
+      }
+      h += '</tr>';
+    }
   }
   return h + '</tbody>';
 }
@@ -5253,8 +5312,7 @@ function runReconcile() {
   statusEl.innerHTML = '<span class="rec-warn">&#9888; ' + total + ' suspect transaction' + (total === 1 ? '' : 's')
     + ': ' + ysc + ' unmatched in YNAB, ' + csc + ' unmatched in CSV &mdash; ' + rangeLbl + ' &mdash; ' + escHtml(acctName) + '.</span>';
 
-  document.getElementById('reconcile-ynab-table').innerHTML = buildRecTable(ynabFiltered, res.ynabSuspect, true);
-  document.getElementById('reconcile-csv-table').innerHTML  = buildRecTable(csvSorted,    res.csvSuspect,  false);
+  document.getElementById('reconcile-table').innerHTML = buildRecGroupedTable(ynabFiltered, csvSorted, res.ynabSuspect, res.csvSuspect);
   resultsEl.style.display = '';
 }
 
