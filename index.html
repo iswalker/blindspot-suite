@@ -2846,7 +2846,6 @@ var acctHistoryChartState    = null;
 var acctHistoryLastAcctId    = null;
 var reconcileCSVTxns         = null;
 var PLAID_CLIENT_ID          = '69fe8a6def2ece000e2425f0';
-var PLAID_BASE               = 'https://sandbox.plaid.com';
 var cfSparklineKeys    = [];
 
 var LW_MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -5416,10 +5415,10 @@ function renderReconcile() {
 }
 
 function plaidPost(endpoint, body) {
-  return fetch(PLAID_BASE + endpoint, {
+  return fetch('/api/plaid', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
+    body: JSON.stringify({ endpoint: endpoint, payload: body })
   }).then(function(r) { return r.json(); });
 }
 
