@@ -5328,6 +5328,10 @@ function runReconcile() {
   // never appear as suspects — they're outside the statement period being reviewed.
   for (var pi = 0; pi < ynabFiltered.length; pi++) {
     if (ynabFiltered[pi].date < minDate) delete res.ynabSuspect[pi];
+    if (Math.round(ynabFiltered[pi].amount * 100) === 0) delete res.ynabSuspect[pi];
+  }
+  for (var qi = 0; qi < csvSorted.length; qi++) {
+    if (Math.round(csvSorted[qi].amount * 100) === 0) delete res.csvSuspect[qi];
   }
   var ysc = Object.keys(res.ynabSuspect).length;
   var csc = Object.keys(res.csvSuspect).length;
