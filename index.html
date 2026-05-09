@@ -580,6 +580,13 @@ td.cell-active {
 #plaid-acct-group { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 .plaid-acct-top { display: flex; align-items: center; gap: 6px; }
 .plaid-acct-mgmt { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.plaid-acct-dates { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #555; }
+.plaid-acct-dates label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.plaid-acct-dates input[type="date"] {
+  font-size: 13px; border: 1px solid #ccc; border-radius: 4px;
+  padding: 3px 6px; background: #fafafa; cursor: pointer; color: #333;
+}
+.plaid-date-sep { color: #aaa; }
 #reconcile-acct-group label, #plaid-acct-group label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 #reconcile-acct-group select, #plaid-acct-group select {
   font-size: 13px; border: 1px solid #ccc; border-radius: 4px;
@@ -1199,6 +1206,13 @@ td.hbt-num:last-child { width: 13%; }
           <label>Plaid secret key <input type="password" id="plaid-secret-input" placeholder="Enter secret key"></label>
           <button id="plaid-connect-btn">+ Connect New Account</button>
           <span id="plaid-status-msg"></span>
+        </div>
+        <div class="plaid-acct-dates">
+          <label>Date range
+            <input type="date" id="plaid-start-date">
+            <span class="plaid-date-sep">&#8211;</span>
+            <input type="date" id="plaid-end-date">
+          </label>
         </div>
       </div>
       <span class="rec-or-lbl">or</span>
@@ -5475,10 +5489,8 @@ function loadPlaidConnection(accessToken, accountId, acctName) {
         loadPlaidConnection(accessToken, data.accounts[0].account_id, data.accounts[0].name);
       }).catch(function(err) { statusEl.textContent = '⚠ ' + err.message; });
   }
-  var today = new Date();
-  var endDate   = today.toISOString().slice(0, 10);
-  var startDt   = new Date(today); startDt.setMonth(startDt.getMonth() - 3);
-  var startDate = startDt.toISOString().slice(0, 10);
+  var startDate = document.getElementById('plaid-start-date').value;
+  var endDate   = document.getElementById('plaid-end-date').value;
   var txnPayload = {
     client_id: PLAID_CLIENT_ID, secret: secret, access_token: accessToken,
     start_date: startDate, end_date: endDate,
@@ -6826,7 +6838,15 @@ document.addEventListener('DOMContentLoaded', function() {
     renderAccountHistory();
   });
 
-  // Reconcile
+  // Reconcile — default Plaid date range: start of month 5 months ago → today
+  (function() {
+    var today = new Date();
+    var endVal = today.toISOString().slice(0, 10);
+    var startDt = new Date(today.getFullYear(), today.getMonth() - 5, 1);
+    var startVal = startDt.toISOString().slice(0, 10);
+    document.getElementById('plaid-start-date').value = startVal;
+    document.getElementById('plaid-end-date').value   = endVal;
+  })();
   document.getElementById('reconcile-upload-btn').addEventListener('click', function() {
     document.getElementById('reconcile-csv-input').click();
   });
