@@ -5506,23 +5506,33 @@ function connectPlaid() {
       if (data.error_code) throw new Error(data.error_message || data.error_code);
       if (!data.accounts || !data.accounts.length) throw new Error('No accounts found');
       var acct = data.accounts[0];
-      statusEl.textContent = 'Fetching transactions for “' + acct.name + '”…';
       var today = new Date();
       var endDate  = today.toISOString().slice(0, 10);
       var startDt  = new Date(today); startDt.setMonth(startDt.getMonth() - 3);
       var startDate = startDt.toISOString().slice(0, 10);
-      return plaidPost('/transactions/get', {
+      var txnPayload = {
         client_id: PLAID_CLIENT_ID,
         secret: result.secret,
         access_token: result.accessToken,
         start_date: startDate,
         end_date: endDate,
         options: { account_ids: [acct.account_id], count: 100 }
-      }).then(function(txnData) {
-        if (txnData.error_code) throw new Error(txnData.error_message || txnData.error_code);
-        statusEl.textContent = '';
-        renderPlaidTransactions(acct.name, txnData.transactions);
-      });
+      };
+      var maxAttempts = 6, attempt = 0;
+      function fetchWithRetry() {
+        attempt++;
+        statusEl.textContent = 'Fetching transactions for “' + acct.name + '”'
+          + (attempt > 1 ? ' (attempt ' + attempt + '/' + maxAttempts + ')…' : '…');
+        return plaidPost('/transactions/get', txnPayload).then(function(txnData) {
+          if (txnData.error_code === 'PRODUCT_NOT_READY' && attempt < maxAttempts) {
+            return new Promise(function(res) { setTimeout(res, 4000); }).then(fetchWithRetry);
+          }
+          if (txnData.error_code) throw new Error(txnData.error_message || txnData.error_code);
+          statusEl.textContent = '';
+          renderPlaidTransactions(acct.name, txnData.transactions);
+        });
+      }
+      return fetchWithRetry();
     });
   }).catch(function(err) {
     if (err.message !== 'cancelled') statusEl.textContent = '⚠ ' + err.message;
