@@ -2060,6 +2060,8 @@ function fetchYnabData(apiKey, budgetId, opts) {
         acctTxns[t.account_id][tKey2] = (acctTxns[t.account_id][tKey2] || 0) + (t.amount || 0) / 1000;
         if (!t.deleted) {
           if (!acctTxnsList[t.account_id]) acctTxnsList[t.account_id] = [];
+          // Always use parent transaction amount (t.amount = total, e.g. $139 for a $77+$62 split).
+          // Sub-transactions are expanded below only for category/spend analysis, not stored here.
           acctTxnsList[t.account_id].push({
             date:   t.date,
             amount: (t.amount || 0) / 1000,
