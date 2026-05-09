@@ -2522,8 +2522,10 @@ function showDrivePicker(token) {
         if (statusEl) statusEl.textContent = 'Loading “' + f.name + '”…';
         fetchConfigFromGoogleSheet(token)
           .then(function(cfg) {
-            var msg = '“' + f.name + '” loaded (' + cfg.length + ' rules)';
+            var msg = '”' + f.name + '” loaded (' + cfg.length + ' rules)';
             if (statusEl) { statusEl.textContent = msg; statusEl.className = 'file-status ok'; }
+            var cfgStatus = document.getElementById('config-status');
+            if (cfgStatus) { cfgStatus.textContent = f.name + ' (' + cfg.length + ' rules)'; cfgStatus.className = 'file-status ok'; }
             if (state.data) renderHome(); else showUpload();
           })
           .catch(function(e) {
