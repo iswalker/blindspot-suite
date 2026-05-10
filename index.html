@@ -4934,6 +4934,10 @@ function fetchLeveragePosData(secret) {
     if (statusEl) statusEl.textContent = 'No "Presidential Checking" connection found';
     return;
   }
+  if (!presConn.accessToken) {
+    if (statusEl) statusEl.textContent = '⚠ Stored connection is missing its access token — try reconnecting in the Reconcile panel.';
+    return;
+  }
   if (fetchBtn) fetchBtn.disabled = true;
   if (statusEl) statusEl.textContent = 'Fetching…';
 
