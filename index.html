@@ -926,8 +926,23 @@ td.hbt-num:last-child { width: 13%; }
 #lessons-year-chart-wrap { flex: 1; min-width: 120px; margin-bottom: 0; }
 
 /* ---- Leverage metrics / layout (mirrors Lessons, blue accent) ---- */
-#leverage-summary-row { display: flex; gap: 16px; margin-bottom: 14px; }
+#leverage-summary-row { display: flex; gap: 16px; margin-bottom: 14px; align-items: flex-start; }
+#leverage-metrics-left { display: flex; gap: 16px; flex-shrink: 0; }
 .leverage-metric-value { font-size: 24px; font-weight: 700; color: #1565c0; }
+#leverage-pos-widget { flex: 1; min-width: 260px; background: #fff; border: 1px solid #e8e8e4; border-radius: 10px; padding: 12px 16px; }
+#leverage-pos-hdr { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+#leverage-pos-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #888; flex: 1; white-space: nowrap; }
+#leverage-pos-secret { font-size: 12px; padding: 4px 8px; border: 1px solid #ddd; border-radius: 5px; width: 130px; }
+#leverage-pos-fetch-btn { font-size: 12px; padding: 4px 10px; background: #1565c0; color: #fff; border: none; border-radius: 5px; cursor: pointer; white-space: nowrap; }
+#leverage-pos-fetch-btn:hover { background: #0d47a1; }
+#leverage-pos-status { font-size: 11px; color: #888; }
+#leverage-pos-table { border-collapse: collapse; width: 100%; }
+#leverage-pos-table th { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #aaa; padding: 4px 8px; text-align: left; border-bottom: 1px solid #eee; }
+#leverage-pos-table th:last-child { text-align: right; }
+#leverage-pos-table td { font-size: 13px; padding: 5px 8px; border-bottom: 1px solid #f5f5f0; color: #333; }
+#leverage-pos-table td:last-child { text-align: right; font-weight: 600; color: #1565c0; }
+#leverage-pos-table tr:last-child td { border-bottom: none; }
+#leverage-pos-empty { font-size: 12px; color: #bbb; padding: 8px 0; }
 #leverage-charts-row { display: flex; gap: 16px; align-items: stretch; margin-bottom: 14px; }
 #leverage-chart-wrap { flex: 3; min-width: 0; margin-bottom: 0; }
 #leverage-year-chart-wrap { flex: 1; min-width: 120px; margin-bottom: 0; }
@@ -1235,13 +1250,26 @@ td.hbt-num:last-child { width: 13%; }
       </div>
     </div>
     <div id="leverage-summary-row">
-      <div class="lessons-metric-card">
-        <div class="lessons-metric-label">Total</div>
-        <div class="leverage-metric-value" id="leverage-total-val">—</div>
+      <div id="leverage-metrics-left">
+        <div class="lessons-metric-card">
+          <div class="lessons-metric-label">Total</div>
+          <div class="leverage-metric-value" id="leverage-total-val">—</div>
+        </div>
+        <div class="lessons-metric-card">
+          <div class="lessons-metric-label">Median Amount</div>
+          <div class="leverage-metric-value" id="leverage-median-val">—</div>
+        </div>
       </div>
-      <div class="lessons-metric-card">
-        <div class="lessons-metric-label">Median Amount</div>
-        <div class="leverage-metric-value" id="leverage-median-val">—</div>
+      <div id="leverage-pos-widget">
+        <div id="leverage-pos-hdr">
+          <span id="leverage-pos-title">POS Withdrawals</span>
+          <input type="password" id="leverage-pos-secret" placeholder="Plaid secret key">
+          <button id="leverage-pos-fetch-btn">Fetch &#9654;</button>
+          <span id="leverage-pos-status"></span>
+        </div>
+        <table id="leverage-pos-table">
+          <tr><td colspan="2" id="leverage-pos-empty">Enter secret key and click Fetch</td></tr>
+        </table>
       </div>
     </div>
     <div id="leverage-charts-row">
@@ -3026,6 +3054,7 @@ var lessonsYearChartState  = null;
 var lessonsPayeeChartState = null;
 var leverageChartState     = null;
 var leverageMonthTxns      = {};
+var leveragePosData        = null; // [{month:'2025-11',count:N}, ...]
 var leverageCatChartState  = null;
 var leverageYearChartState = null;
 var leveragePayeeChartState = null;
@@ -4860,6 +4889,106 @@ function populateLeverageRangeFilter(allKeys) {
   state.leverageToKey   = toSel.value;
 }
 
+function renderLeveragePosWidget() {
+  var tbl    = document.getElementById('leverage-pos-table');
+  var status = document.getElementById('leverage-pos-status');
+  if (!tbl) return;
+  if (!leveragePosData) {
+    // Find the Presidential Checking connection to show its name
+    var conns = getPlaidConnections();
+    var presConn = null;
+    for (var i = 0; i < conns.length; i++) {
+      if ((conns[i].name || '').toLowerCase().indexOf('presidential') !== -1) { presConn = conns[i]; break; }
+    }
+    if (!presConn) {
+      tbl.innerHTML = '<tr><td colspan="2" id="leverage-pos-empty">No "Presidential Checking" Plaid connection found</td></tr>';
+    }
+    return;
+  }
+  var html = '<thead><tr><th>Month</th><th>Count</th></tr></thead><tbody>';
+  if (!leveragePosData.length) {
+    html += '<tr><td colspan="2" id="leverage-pos-empty">No POS Withdrawal transactions found</td></tr>';
+  } else {
+    for (var j = 0; j < leveragePosData.length; j++) {
+      var row = leveragePosData[j];
+      var parts = row.month.split('-');
+      var label = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1)
+        .toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+      html += '<tr><td>' + escHtml(label) + '</td><td>' + row.count + '</td></tr>';
+    }
+  }
+  html += '</tbody>';
+  tbl.innerHTML = html;
+  if (status) status.textContent = '';
+}
+
+function fetchLeveragePosData(secret) {
+  var statusEl = document.getElementById('leverage-pos-status');
+  var fetchBtn = document.getElementById('leverage-pos-fetch-btn');
+  var conns = getPlaidConnections();
+  var presConn = null;
+  for (var i = 0; i < conns.length; i++) {
+    if ((conns[i].name || '').toLowerCase().indexOf('presidential') !== -1) { presConn = conns[i]; break; }
+  }
+  if (!presConn) {
+    if (statusEl) statusEl.textContent = 'No "Presidential Checking" connection found';
+    return;
+  }
+  if (fetchBtn) fetchBtn.disabled = true;
+  if (statusEl) statusEl.textContent = 'Fetching…';
+
+  // Last 6 complete calendar months + current month
+  var now    = new Date();
+  var endD   = new Date(now.getFullYear(), now.getMonth() + 1, 0); // last day of current month
+  var startD = new Date(now.getFullYear(), now.getMonth() - 5, 1); // first day 5 months back
+  function fmt(d) {
+    var mm = String(d.getMonth() + 1).padStart(2, '0');
+    var dd = String(d.getDate()).padStart(2, '0');
+    return d.getFullYear() + '-' + mm + '-' + dd;
+  }
+
+  var payload = {
+    client_id: PLAID_CLIENT_ID, secret: secret,
+    access_token: presConn.accessToken,
+    start_date: fmt(startD), end_date: fmt(endD),
+    options: { count: 500 }
+  };
+  if (presConn.accountId) payload.options.account_ids = [presConn.accountId];
+
+  var attempt = 0, maxAttempts = 5;
+  function tryFetch() {
+    attempt++;
+    plaidPost('/transactions/get', payload).then(function(data) {
+      if (data.error_code === 'PRODUCT_NOT_READY' && attempt < maxAttempts) {
+        if (statusEl) statusEl.textContent = 'Waiting for Plaid… (' + attempt + ')';
+        return new Promise(function(res) { setTimeout(res, 3000); }).then(tryFetch);
+      }
+      if (data.error_code) throw new Error(data.error_message || data.error_code);
+      var txns = data.transactions || [];
+      var counts = {};
+      // Pre-populate all 6 months with 0
+      for (var m = 0; m < 6; m++) {
+        var d2 = new Date(now.getFullYear(), now.getMonth() - 5 + m, 1);
+        var key = d2.getFullYear() + '-' + String(d2.getMonth() + 1).padStart(2, '0');
+        counts[key] = 0;
+      }
+      for (var ti = 0; ti < txns.length; ti++) {
+        var name = txns[ti].name || '';
+        if (name.toLowerCase().indexOf('point of sale withdrawal') === -1) continue;
+        var monthKey = txns[ti].date.substring(0, 7);
+        if (counts.hasOwnProperty(monthKey)) counts[monthKey]++;
+      }
+      leveragePosData = Object.keys(counts).sort().map(function(k) { return { month: k, count: counts[k] }; });
+      renderLeveragePosWidget();
+      if (fetchBtn) fetchBtn.disabled = false;
+    }).catch(function(e) {
+      if (statusEl) statusEl.textContent = '⚠ ' + (e && e.message || String(e));
+      if (fetchBtn) fetchBtn.disabled = false;
+    });
+  }
+  tryFetch();
+}
+
 function renderLeverage() {
   var d = state.data;
   var txnTableEl     = document.getElementById('leverage-txn-table');
@@ -5007,6 +5136,8 @@ function renderLeverage() {
     txnHtml += '</tbody>';
     txnTableEl.innerHTML = txnHtml;
   }
+
+  renderLeveragePosWidget();
 }
 
 // ============================================================
@@ -6985,6 +7116,15 @@ document.addEventListener('DOMContentLoaded', function() {
       localStorage.setItem('sel-leverage-from', state.leverageFromKey);
     }
     renderLeverage();
+  });
+
+  document.getElementById('leverage-pos-fetch-btn').addEventListener('click', function() {
+    var secret = document.getElementById('leverage-pos-secret').value.trim();
+    if (!secret) {
+      document.getElementById('leverage-pos-status').textContent = 'Enter Plaid secret key first.';
+      return;
+    }
+    fetchLeveragePosData(secret);
   });
 
   // Account History range filter
