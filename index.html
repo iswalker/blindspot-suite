@@ -838,11 +838,29 @@ td.hbt-num:last-child { width: 13%; }
   background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
   padding: 20px 24px 18px; flex: 1; min-width: 180px;
 }
-.nw-driver-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.nw-driver-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; cursor: default; border-radius: 5px; padding: 2px 4px; margin-left: -4px; }
 .nw-driver-row:last-child { margin-bottom: 0; }
-.nw-driver-label { font-size: 14px; min-width: 130px; }
-.nw-driver-amt { font-size: 15px; font-weight: 600; }
-.nw-driver-pct { font-size: 13px; font-weight: 600; }
+.nw-driver-row:hover { background: #f5f7fb; }
+.nw-driver-overall { font-weight: 700; padding-bottom: 8px; margin-bottom: 8px !important; border-bottom: 1px solid #eee; }
+.nw-driver-label { font-size: 14px; min-width: 130px; flex: 1; }
+.nw-driver-overall .nw-driver-label { font-size: 15px; }
+.nw-driver-vals { display: flex; align-items: baseline; gap: 8px; flex-shrink: 0; }
+.nw-driver-amt { font-size: 15px; font-weight: 600; white-space: nowrap; }
+.nw-driver-pct { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.nw-driver-avg { font-size: 12px; color: #888; white-space: nowrap; min-width: 90px; text-align: right; }
+.nw-driver-sep { width: 1px; background: #eee; align-self: stretch; margin: 0 2px; }
+/* Driver row tooltip */
+#nw-driver-tt {
+  position: fixed; display: none; background: #fff; border: 1px solid #e0e0e0;
+  border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.12);
+  padding: 10px 14px; z-index: 400; min-width: 200px; max-width: 300px;
+  pointer-events: none;
+}
+.nw-tt-hdr { font-size: 11px; font-weight: 700; color: #aaa; letter-spacing: .07em; text-transform: uppercase; margin-bottom: 8px; }
+.nw-tt-row { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; margin-bottom: 4px; }
+.nw-tt-row:last-child { margin-bottom: 0; }
+.nw-tt-name { color: #444; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px; }
+.nw-tt-amt { font-weight: 600; white-space: nowrap; flex-shrink: 0; }
 .lw-nw-label { font-size: 12px; color: #333; margin-bottom: 2px; }
 .lw-nw-value { font-size: 28px; font-weight: 700; color: #222; margin-bottom: 14px; }
 .lw-stats { display: flex; gap: 36px; flex-wrap: wrap; align-items: flex-start; }
@@ -896,7 +914,7 @@ td.hbt-num:last-child { width: 13%; }
 /* ---- LW table ---- */
 .lw-table-wrap {
   background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
-  overflow: hidden; margin-bottom: 24px;
+  overflow-x: auto; margin-bottom: 24px;
 }
 #lw-table { border-collapse: collapse; width: 100%; }
 #lw-table th {
@@ -906,10 +924,20 @@ td.hbt-num:last-child { width: 13%; }
 }
 #lw-table th:nth-child(2), #lw-table th:last-child { text-align: right; }
 #lw-table td { padding: 10px 20px; font-size: 13px; border-bottom: 1px solid #f0f0ec; }
-#lw-table td:nth-child(2) { text-align: right; font-weight: 500; }
+#lw-table td:nth-child(2) { text-align: right; font-weight: 500; white-space: nowrap; }
 #lw-table td:last-child { text-align: right; white-space: nowrap; }
 #lw-table tr:last-child td { border-bottom: none; }
 #lw-table tr:hover td { background: #fafaf7; }
+/* NW table shares the same style pattern */
+#nw-table { border-collapse: collapse; width: 100%; }
+#nw-table th { text-align: left; font-size: 11px; font-weight: 600; color: #333; letter-spacing: .06em; padding: 10px 20px; border-bottom: 1px solid #e4e4e0; background: #fff; white-space: nowrap; }
+#nw-table th:nth-child(2), #nw-table th:last-child { text-align: right; }
+#nw-table td { padding: 10px 20px; font-size: 13px; border-bottom: 1px solid #f0f0ec; white-space: nowrap; }
+#nw-table td:first-child { white-space: normal; }
+#nw-table td:nth-child(2) { text-align: right; font-weight: 500; }
+#nw-table td:last-child { text-align: right; }
+#nw-table tr:last-child td { border-bottom: none; }
+#nw-table tr:hover td { background: #fafaf7; }
 
 /* ---- Lessons metrics row ---- */
 #lessons-summary-row { display: flex; gap: 16px; margin-bottom: 14px; }
@@ -926,8 +954,23 @@ td.hbt-num:last-child { width: 13%; }
 #lessons-year-chart-wrap { flex: 1; min-width: 120px; margin-bottom: 0; }
 
 /* ---- Leverage metrics / layout (mirrors Lessons, blue accent) ---- */
-#leverage-summary-row { display: flex; gap: 16px; margin-bottom: 14px; }
+#leverage-summary-row { display: flex; gap: 16px; margin-bottom: 14px; align-items: flex-start; }
+#leverage-metrics-left { display: flex; gap: 16px; flex-shrink: 0; }
 .leverage-metric-value { font-size: 24px; font-weight: 700; color: #1565c0; }
+#leverage-pos-widget { flex: 1; min-width: 260px; background: #fff; border: 1px solid #e8e8e4; border-radius: 10px; padding: 12px 16px; }
+#leverage-pos-hdr { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+#leverage-pos-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #888; flex: 1; white-space: nowrap; }
+#leverage-pos-secret { font-size: 12px; padding: 4px 8px; border: 1px solid #ddd; border-radius: 5px; width: 130px; }
+#leverage-pos-fetch-btn { font-size: 12px; padding: 4px 10px; background: #1565c0; color: #fff; border: none; border-radius: 5px; cursor: pointer; white-space: nowrap; }
+#leverage-pos-fetch-btn:hover { background: #0d47a1; }
+#leverage-pos-status { font-size: 11px; color: #888; }
+#leverage-pos-table { border-collapse: collapse; width: 100%; }
+#leverage-pos-table th { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #aaa; padding: 4px 8px; text-align: left; border-bottom: 1px solid #eee; }
+#leverage-pos-table th:last-child { text-align: right; }
+#leverage-pos-table td { font-size: 13px; padding: 5px 8px; border-bottom: 1px solid #f5f5f0; color: #333; }
+#leverage-pos-table td:last-child { text-align: right; font-weight: 600; color: #1565c0; }
+#leverage-pos-table tr:last-child td { border-bottom: none; }
+#leverage-pos-empty { font-size: 12px; color: #bbb; padding: 8px 0; }
 #leverage-charts-row { display: flex; gap: 16px; align-items: stretch; margin-bottom: 14px; }
 #leverage-chart-wrap { flex: 3; min-width: 0; margin-bottom: 0; }
 #leverage-year-chart-wrap { flex: 1; min-width: 120px; margin-bottom: 0; }
@@ -972,6 +1015,85 @@ td.hbt-num:last-child { width: 13%; }
 .lessons-tt-amt  { font-size: 12px; font-weight: 600; color: #c62828; white-space: nowrap; }
 .lessons-tt-total { border-top: 1px solid #eee; margin-top: 7px; padding-top: 7px;
   display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; }
+@media (max-width: 820px) {
+  body { padding: 10px 12px; }
+
+  /* Tab nav becomes horizontally scrollable */
+  #tab-nav { overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; }
+  #tab-nav::-webkit-scrollbar { display: none; }
+  .tab-btn { padding: 6px 14px; font-size: 13px; flex-shrink: 0; }
+
+  /* Panel headers: tighten and allow wrapping */
+  .panel-hdr { gap: 8px 12px; }
+  .panel-hdr h1 { font-size: 22px; }
+
+  /* Current Month metric row: 2-up grid on mobile, hide algebra operators */
+  .home-metric-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: stretch; }
+  .home-metric-row > div[style*="flex:1"] { display: none; }
+  .home-metric-op { display: none; }
+  .home-metric-card { padding: 10px 12px; min-width: 0; }
+  .home-metric-label { font-size: 10px; }
+  .home-metric-sub { font-size: 11px; }
+  .home-metric-value { font-size: 18px; }
+  .home-metric-value.na { font-size: 14px; }
+
+  /* Current Month body stacks; pending side becomes full width */
+  .home-body { flex-direction: column; gap: 16px; }
+  .home-pending-side { width: 100%; }
+  .home-table-side { width: 100%; }
+
+  /* All summary metric rows wrap on mobile */
+  #lessons-summary-row,
+  #leverage-summary-row,
+  #nw-summary-row { flex-wrap: wrap; gap: 10px; }
+  #leverage-metrics-left { flex-wrap: wrap; gap: 10px; flex: 1 1 100%; }
+  #leverage-pos-widget { flex: 1 1 100%; min-width: 0; }
+  .lessons-metric-card { min-width: 0; flex: 1 1 calc(50% - 6px); padding: 10px 14px; }
+  #lw-summary-card, #nw-summary-card { min-width: 0; flex: 1 1 100%; }
+
+  /* Chart wraps: tighten padding so canvases use full width */
+  .lw-chart-wrap { padding: 10px 8px 10px 0; }
+
+  /* Charts row (Leverage etc.) stacks */
+  #leverage-charts-row { flex-direction: column; }
+  #leverage-chart-wrap, #leverage-year-chart-wrap { flex: 1 1 100%; }
+
+  /* Tables: allow horizontal scroll within the rounded card */
+  .lw-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  #lw-table th, #lw-table td { padding: 8px 10px; font-size: 12px; }
+  #lessons-txn-table th, #lessons-txn-table td,
+  #leverage-txn-table th, #leverage-txn-table td { padding: 8px 10px; font-size: 12px; }
+
+  /* Reconcile controls stack */
+  #rec-controls-row { flex-direction: column; align-items: stretch; gap: 10px; }
+  .rec-vs-lbl, .rec-or-lbl { text-align: center; }
+  #reconcile-acct-group, #plaid-acct-group { width: 100%; }
+  #reconcile-acct-group select, #plaid-acct-group select { width: 100%; min-width: 0; }
+  .plaid-acct-mgmt { flex-direction: column; align-items: stretch; }
+  .plaid-acct-mgmt label { width: 100%; }
+  #plaid-secret-input { width: 100%; }
+
+  /* POS widget header wraps cleanly */
+  #leverage-pos-hdr { flex-direction: column; align-items: stretch; }
+  #leverage-pos-secret { width: 100%; }
+  #leverage-pos-fetch-btn { width: 100%; }
+
+  /* Drive picker modal sized for phones */
+  #gdrive-picker-panel { width: 96vw; max-height: 80vh; }
+
+  /* Range filter wraps */
+  #lw-range-wrap, #nw-range-wrap, #lessons-range-wrap,
+  #leverage-range-wrap, #acct-history-range-wrap { flex-wrap: wrap; }
+}
+
+@media (max-width: 480px) {
+  body { padding: 8px 8px; }
+  .panel-hdr h1 { font-size: 19px; }
+  .home-metric-row { grid-template-columns: 1fr; }
+  .lessons-metric-card { flex: 1 1 100%; }
+  .home-metric-value { font-size: 20px; }
+}
+
 @media print {
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
@@ -1054,6 +1176,9 @@ td.hbt-num:last-child { width: 13%; }
     <div id="gdrive-picker-list"><div id="gdrive-picker-msg">Loading…</div></div>
   </div>
 </div>
+
+<!-- NW driver row tooltip -->
+<div id="nw-driver-tt"></div>
 
 <!-- Report -->
 <div id="report">
@@ -1235,13 +1360,26 @@ td.hbt-num:last-child { width: 13%; }
       </div>
     </div>
     <div id="leverage-summary-row">
-      <div class="lessons-metric-card">
-        <div class="lessons-metric-label">Total</div>
-        <div class="leverage-metric-value" id="leverage-total-val">—</div>
+      <div id="leverage-metrics-left">
+        <div class="lessons-metric-card">
+          <div class="lessons-metric-label">Total</div>
+          <div class="leverage-metric-value" id="leverage-total-val">—</div>
+        </div>
+        <div class="lessons-metric-card">
+          <div class="lessons-metric-label">Median Amount</div>
+          <div class="leverage-metric-value" id="leverage-median-val">—</div>
+        </div>
       </div>
-      <div class="lessons-metric-card">
-        <div class="lessons-metric-label">Median Amount</div>
-        <div class="leverage-metric-value" id="leverage-median-val">—</div>
+      <div id="leverage-pos-widget">
+        <div id="leverage-pos-hdr">
+          <span id="leverage-pos-title">POS Withdrawals</span>
+          <input type="password" id="leverage-pos-secret" placeholder="Plaid secret key">
+          <button id="leverage-pos-fetch-btn">Fetch &#9654;</button>
+          <span id="leverage-pos-status"></span>
+        </div>
+        <table id="leverage-pos-table">
+          <tr><td colspan="2" id="leverage-pos-empty">Enter secret key and click Fetch</td></tr>
+        </table>
       </div>
     </div>
     <div id="leverage-charts-row">
@@ -3014,8 +3152,9 @@ function renderTable(opts) {
 // DETAIL PANE
 // ============================================================
 var activeCell   = null;
-var lwChartState       = null;
-var nwChartState       = null;
+var lwChartState          = null;
+var nwChartState          = null;
+var nwDriverTooltipData   = null; // { overall:[{name,delta}], house:[], invest:[], savings:[] }
 var homeRecovBreakdown = [];
 var homeTrendBreakdown = [];
 var homeTrendHistory   = [];
@@ -3026,6 +3165,7 @@ var lessonsYearChartState  = null;
 var lessonsPayeeChartState = null;
 var leverageChartState     = null;
 var leverageMonthTxns      = {};
+var leveragePosData        = null; // [{month:'2025-11',count:N}, ...]
 var leverageCatChartState  = null;
 var leverageYearChartState = null;
 var leveragePayeeChartState = null;
@@ -3515,8 +3655,10 @@ function renderLiquidWorth() {
     ? changeAmt / Math.abs(netVals[0]) * 100 : null;
 
   renderLwSummary(netVals[lastIdx], assetVals[lastIdx], debtVals[lastIdx], changeAmt, changePct);
-  drawLwChart(keys, assetVals, debtVals, netVals, -1, 'lw-canvas', accts);
   renderLwTable(keys, netVals);
+  (function(k, a, d, n, ac) {
+    requestAnimationFrame(function() { drawLwChart(k, a, d, n, -1, 'lw-canvas', ac); });
+  })(keys, assetVals, debtVals, netVals, accts);
 }
 
 function populateNwRangeFilter() {
@@ -3641,29 +3783,53 @@ function renderNetWorth() {
         bktEnd[bkt]   += acctBalanceAt(accts[bi].id, keys[lastIdx]);
       }
       var bktDelta = {
+        overall: changeAmt,
         house:   bktEnd.house   - bktStart.house,
         invest:  bktEnd.invest  - bktStart.invest,
         savings: bktEnd.savings - bktStart.savings
       };
-      var driverRows = [
-        { label: 'House', key: 'house' },
-        { label: 'Investments', key: 'invest' },
-        { label: 'Savings / Debt Payoff', key: 'savings' }
-      ];
-      var dHtml = '<div class="lw-nw-label">Change Driven By</div>';
-      for (var di = 0; di < driverRows.length; di++) {
-        var dr   = driverRows[di];
-        var dAmt = bktDelta[dr.key];
-        var dPct = changeAmt ? dAmt / Math.abs(changeAmt) * 100 : 0;
-        var cls  = dAmt >= 0 ? 'lw-change-up' : 'lw-change-dn';
-        var sign = dAmt >= 0 ? '+' : '';
+      var nMonths = keys.length - 1; // intervals between data points
+
+      // Per-account deltas for tooltip
+      var bktAccts = { overall: [], house: [], invest: [], savings: [] };
+      for (var bi2 = 0; bi2 < accts.length; bi2++) {
+        var a2   = accts[bi2];
+        var aDelta = acctBalanceAt(a2.id, keys[lastIdx]) - acctBalanceAt(a2.id, keys[0]);
+        if (aDelta === 0) continue;
+        var aBkt = classifyNwAcct(a2);
+        bktAccts[aBkt].push({ name: a2.name, delta: aDelta });
+        bktAccts.overall.push({ name: a2.name, delta: aDelta });
+      }
+      // Sort each bucket by absolute delta descending
+      for (var bk in bktAccts) {
+        bktAccts[bk].sort(function(a, b) { return Math.abs(b.delta) - Math.abs(a.delta); });
+      }
+      nwDriverTooltipData = bktAccts;
+
+      function driverRow(label, key, isOverall) {
+        var dAmt  = bktDelta[key];
+        var dPct  = (changeAmt && key !== 'overall') ? dAmt / Math.abs(changeAmt) * 100 : null;
+        var dAvg  = nMonths > 0 ? dAmt / nMonths : 0;
+        var cls   = dAmt >= 0 ? 'lw-change-up' : 'lw-change-dn';
+        var sign  = dAmt >= 0 ? '+' : '';
         var arrow = dAmt >= 0 ? '&#8593;' : '&#8595;';
-        dHtml += '<div class="nw-driver-row">'
-          + '<span class="nw-driver-label">' + dr.label + '</span>'
+        var avgSign = dAvg >= 0 ? '+' : '';
+        var avgCls  = dAvg >= 0 ? 'lw-change-up' : 'lw-change-dn';
+        return '<div class="nw-driver-row' + (isOverall ? ' nw-driver-overall' : '') + '" data-bucket="' + key + '">'
+          + '<span class="nw-driver-label">' + label + '</span>'
+          + '<span class="nw-driver-vals">'
           + '<span class="nw-driver-amt ' + cls + '">' + arrow + ' ' + sign + fmtAbs(dAmt) + '</span>'
-          + '<span class="nw-driver-pct ' + cls + '">' + sign + dPct.toFixed(1) + '%</span>'
+          + (dPct !== null ? '<span class="nw-driver-pct ' + cls + '">' + sign + dPct.toFixed(1) + '%</span>' : '')
+          + '<span class="nw-driver-sep"></span>'
+          + '<span class="nw-driver-avg ' + avgCls + '">' + avgSign + fmtAbs(dAvg) + '/mo</span>'
+          + '</span>'
           + '</div>';
       }
+
+      var dHtml = driverRow('Overall', 'overall', true)
+        + driverRow('House', 'house', false)
+        + driverRow('Investments', 'invest', false)
+        + driverRow('Savings / Debt Payoff', 'savings', false);
       driverCard.innerHTML = dHtml;
       driverCard.style.display = '';
     } else {
@@ -3671,8 +3837,10 @@ function renderNetWorth() {
     }
   }
 
-  drawLwChart(keys, assetVals, debtVals, netVals, -1, 'nw-canvas', accts);
   renderLwTable(keys, netVals, 'nw-table');
+  (function(k, a, d, n, ac) {
+    requestAnimationFrame(function() { drawLwChart(k, a, d, n, -1, 'nw-canvas', ac); });
+  })(keys, assetVals, debtVals, netVals, accts);
 }
 
 function renderLwSummary(nw, assets, debts, changeAmt, changePct, targetId) {
@@ -3688,6 +3856,7 @@ function renderLwSummary(nw, assets, debts, changeAmt, changePct, targetId) {
       changeStr += '<span class="lw-change-pct ' + cls + '">' + sign + changePct.toFixed(1) + '%</span>';
     }
   }
+  var isNwCard = (targetId === 'nw-summary-card');
   document.getElementById(targetId).innerHTML =
     '<div class="lw-nw-label">Net Worth</div>'
   + '<div class="lw-nw-value">' + (nw < 0 ? '-' : '') + fmtAbs(nw) + '</div>'
@@ -3696,7 +3865,7 @@ function renderLwSummary(nw, assets, debts, changeAmt, changePct, targetId) {
   +   '<div class="lw-stat-value">' + fmtAbs(assets) + '</div></div>'
   + '<div class="lw-stat"><div class="lw-stat-label"><span class="lw-stat-dot red"></span> Debts</div>'
   +   '<div class="lw-stat-value neg">-' + fmtAbs(Math.abs(debts)) + '</div></div>'
-  + (changeStr
+  + (!isNwCard && changeStr
     ? '<div class="lw-stat"><div class="lw-stat-label">Change in Net Worth</div>'
     +   '<div>' + changeStr + '</div></div>'
     : '')
@@ -4782,10 +4951,12 @@ function renderLessonsLearned() {
       : '—';
   }
 
-  drawLessonsChart(keys, byMonth, byMonthTxns, -1);
-  drawLessonsYearChart(byYear, byYearCount, byYearTxns, curYear, projYE);
-  drawLessonsPayeeChart(filteredTxns);
-  drawLessonsCategoryChart(filteredTxns);
+  requestAnimationFrame(function() {
+    drawLessonsChart(keys, byMonth, byMonthTxns, -1);
+    drawLessonsYearChart(byYear, byYearCount, byYearTxns, curYear, projYE);
+    drawLessonsPayeeChart(filteredTxns);
+    drawLessonsCategoryChart(filteredTxns);
+  });
 
   // Transaction table for the filtered period, sorted largest outflow first
   if (txnTableEl) {
@@ -4858,6 +5029,110 @@ function populateLeverageRangeFilter(allKeys) {
   toSel.value           = state.leverageToKey   && allKeys.indexOf(state.leverageToKey)   !== -1 ? state.leverageToKey   : defaultTo;
   state.leverageFromKey = fromSel.value;
   state.leverageToKey   = toSel.value;
+}
+
+function renderLeveragePosWidget() {
+  var tbl    = document.getElementById('leverage-pos-table');
+  var status = document.getElementById('leverage-pos-status');
+  if (!tbl) return;
+  if (!leveragePosData) {
+    // Find the Presidential Checking connection to show its name
+    var conns = getPlaidConnections();
+    var presConn = null;
+    for (var i = 0; i < conns.length; i++) {
+      if ((conns[i].name || '').toLowerCase().indexOf('presidential') !== -1) { presConn = conns[i]; break; }
+    }
+    if (!presConn) {
+      tbl.innerHTML = '<tr><td colspan="2" id="leverage-pos-empty">No "Presidential Checking" Plaid connection found</td></tr>';
+    }
+    return;
+  }
+  var html = '<thead><tr><th>Month</th><th>Count</th></tr></thead><tbody>';
+  if (!leveragePosData.length) {
+    html += '<tr><td colspan="2" id="leverage-pos-empty">No POS Withdrawal transactions found</td></tr>';
+  } else {
+    for (var j = 0; j < leveragePosData.length; j++) {
+      var row = leveragePosData[j];
+      var parts = row.month.split('-');
+      var label = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1)
+        .toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+      html += '<tr><td>' + escHtml(label) + '</td><td>' + row.count + '</td></tr>';
+    }
+  }
+  html += '</tbody>';
+  tbl.innerHTML = html;
+  if (status) status.textContent = '';
+}
+
+function fetchLeveragePosData(secret) {
+  var statusEl = document.getElementById('leverage-pos-status');
+  var fetchBtn = document.getElementById('leverage-pos-fetch-btn');
+  var conns = getPlaidConnections();
+  var presConn = null;
+  for (var i = 0; i < conns.length; i++) {
+    if ((conns[i].name || '').toLowerCase().indexOf('presidential') !== -1) { presConn = conns[i]; break; }
+  }
+  if (!presConn) {
+    if (statusEl) statusEl.textContent = 'No "Presidential Checking" connection found';
+    return;
+  }
+  if (!presConn.accessToken) {
+    if (statusEl) statusEl.textContent = '⚠ Stored connection is missing its access token — try reconnecting in the Reconcile panel.';
+    return;
+  }
+  if (fetchBtn) fetchBtn.disabled = true;
+  if (statusEl) statusEl.textContent = 'Fetching…';
+
+  // Last 6 complete calendar months + current month
+  var now    = new Date();
+  var endD   = new Date(now.getFullYear(), now.getMonth() + 1, 0); // last day of current month
+  var startD = new Date(now.getFullYear(), now.getMonth() - 5, 1); // first day 5 months back
+  function fmt(d) {
+    var mm = String(d.getMonth() + 1).padStart(2, '0');
+    var dd = String(d.getDate()).padStart(2, '0');
+    return d.getFullYear() + '-' + mm + '-' + dd;
+  }
+
+  var payload = {
+    client_id: PLAID_CLIENT_ID, secret: secret,
+    access_token: presConn.accessToken,
+    start_date: fmt(startD), end_date: fmt(endD),
+    options: { count: 500 }
+  };
+  if (presConn.accountId) payload.options.account_ids = [presConn.accountId];
+
+  var attempt = 0, maxAttempts = 5;
+  function tryFetch() {
+    attempt++;
+    plaidPost('/transactions/get', payload).then(function(data) {
+      if (data.error_code === 'PRODUCT_NOT_READY' && attempt < maxAttempts) {
+        if (statusEl) statusEl.textContent = 'Waiting for Plaid… (' + attempt + ')';
+        return new Promise(function(res) { setTimeout(res, 3000); }).then(tryFetch);
+      }
+      if (data.error_code) throw new Error(data.error_message || data.error_code);
+      var txns = data.transactions || [];
+      var counts = {};
+      // Pre-populate all 6 months with 0
+      for (var m = 0; m < 6; m++) {
+        var d2 = new Date(now.getFullYear(), now.getMonth() - 5 + m, 1);
+        var key = d2.getFullYear() + '-' + String(d2.getMonth() + 1).padStart(2, '0');
+        counts[key] = 0;
+      }
+      for (var ti = 0; ti < txns.length; ti++) {
+        var name = txns[ti].name || '';
+        if (name.toLowerCase().indexOf('point of sale withdrawal') === -1) continue;
+        var monthKey = txns[ti].date.substring(0, 7);
+        if (counts.hasOwnProperty(monthKey)) counts[monthKey]++;
+      }
+      leveragePosData = Object.keys(counts).sort().map(function(k) { return { month: k, count: counts[k] }; });
+      renderLeveragePosWidget();
+      if (fetchBtn) fetchBtn.disabled = false;
+    }).catch(function(e) {
+      if (statusEl) statusEl.textContent = '⚠ ' + (e && e.message || String(e));
+      if (fetchBtn) fetchBtn.disabled = false;
+    });
+  }
+  tryFetch();
 }
 
 function renderLeverage() {
@@ -4979,10 +5254,12 @@ function renderLeverage() {
       : '—';
   }
 
-  drawLeverageChart(keys, byMonth, byMonthTxns, -1);
-  drawLeverageYearChart(byYear, byYearCount, byYearTxns, curYear, projYE);
-  drawLeveragePayeeChart(filteredTxns);
-  drawLeverageCategoryChart(filteredTxns);
+  requestAnimationFrame(function() {
+    drawLeverageChart(keys, byMonth, byMonthTxns, -1);
+    drawLeverageYearChart(byYear, byYearCount, byYearTxns, curYear, projYE);
+    drawLeveragePayeeChart(filteredTxns);
+    drawLeverageCategoryChart(filteredTxns);
+  });
 
   if (txnTableEl) {
     filteredTxns.sort(function(a, b) { return b.amount - a.amount; });
@@ -5007,6 +5284,8 @@ function renderLeverage() {
     txnHtml += '</tbody>';
     txnTableEl.innerHTML = txnHtml;
   }
+
+  renderLeveragePosWidget();
 }
 
 // ============================================================
@@ -6987,6 +7266,15 @@ document.addEventListener('DOMContentLoaded', function() {
     renderLeverage();
   });
 
+  document.getElementById('leverage-pos-fetch-btn').addEventListener('click', function() {
+    var secret = document.getElementById('leverage-pos-secret').value.trim();
+    if (!secret) {
+      document.getElementById('leverage-pos-status').textContent = 'Enter Plaid secret key first.';
+      return;
+    }
+    fetchLeveragePosData(secret);
+  });
+
   // Account History range filter
   document.getElementById('acct-history-from-sel').addEventListener('change', function() {
     state.acctHistoryFromKey = this.value;
@@ -7343,6 +7631,61 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   wireChartTooltip(document.getElementById('lw-canvas'), function() { return lwChartState; });
   wireChartTooltip(document.getElementById('nw-canvas'), function() { return nwChartState; });
+
+  // NW driver row hover tooltip
+  (function() {
+    var tt  = document.getElementById('nw-driver-tt');
+    var panel = document.getElementById('nw-driver-card');
+    if (!tt || !panel) return;
+    var LABELS = { overall: 'All Accounts', house: 'House', invest: 'Investments', savings: 'Savings / Debt Payoff' };
+    function showTt(row, e) {
+      if (!nwDriverTooltipData) return;
+      var bkt = row.getAttribute('data-bucket');
+      var accts = nwDriverTooltipData[bkt];
+      if (!accts || !accts.length) { tt.style.display = 'none'; return; }
+      var html = '<div class="nw-tt-hdr">' + escHtml(LABELS[bkt] || bkt) + '</div>';
+      var shown = accts.slice(0, 8);
+      for (var i = 0; i < shown.length; i++) {
+        var a  = shown[i];
+        var cls = a.delta >= 0 ? 'lw-change-up' : 'lw-change-dn';
+        var sign = a.delta >= 0 ? '+' : '';
+        html += '<div class="nw-tt-row">'
+          + '<span class="nw-tt-name">' + escHtml(a.name) + '</span>'
+          + '<span class="nw-tt-amt ' + cls + '">' + sign + fmtAbs(a.delta) + '</span>'
+          + '</div>';
+      }
+      if (accts.length > 8) html += '<div style="font-size:11px;color:#bbb;margin-top:4px">+ ' + (accts.length - 8) + ' more</div>';
+      tt.innerHTML = html;
+      tt.style.display = 'block';
+      positionTt(e);
+    }
+    function positionTt(e) {
+      var x = e.clientX + 14, y = e.clientY - 10;
+      if (x + 310 > window.innerWidth)  x = e.clientX - 320;
+      if (y + tt.offsetHeight > window.innerHeight) y = window.innerHeight - tt.offsetHeight - 8;
+      tt.style.left = x + 'px'; tt.style.top = y + 'px';
+    }
+    panel.addEventListener('mouseover', function(e) {
+      var row = e.target.closest ? e.target.closest('.nw-driver-row') : null;
+      if (row) showTt(row, e);
+    });
+    panel.addEventListener('mousemove', function(e) {
+      if (tt.style.display !== 'none') positionTt(e);
+    });
+    panel.addEventListener('mouseout', function(e) {
+      if (!e.relatedTarget || !panel.contains(e.relatedTarget)) tt.style.display = 'none';
+    });
+  })();
+
+  // Redraw the active tab on window resize so charts & tables reflow on mobile/rotation
+  var resizeTimer = null;
+  var lastW = window.innerWidth;
+  window.addEventListener('resize', function() {
+    if (Math.abs(window.innerWidth - lastW) < 20) return;
+    lastW = window.innerWidth;
+    if (resizeTimer) clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function() { if (state.activeTab) switchTab(state.activeTab); }, 150);
+  });
 
   // Lessons Learned bar hover
   (function() {
