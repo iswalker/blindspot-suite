@@ -896,7 +896,7 @@ td.hbt-num:last-child { width: 13%; }
 /* ---- LW table ---- */
 .lw-table-wrap {
   background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
-  overflow: hidden; margin-bottom: 24px;
+  overflow-x: auto; margin-bottom: 24px;
 }
 #lw-table { border-collapse: collapse; width: 100%; }
 #lw-table th {
@@ -3623,8 +3623,10 @@ function renderLiquidWorth() {
     ? changeAmt / Math.abs(netVals[0]) * 100 : null;
 
   renderLwSummary(netVals[lastIdx], assetVals[lastIdx], debtVals[lastIdx], changeAmt, changePct);
-  drawLwChart(keys, assetVals, debtVals, netVals, -1, 'lw-canvas', accts);
   renderLwTable(keys, netVals);
+  (function(k, a, d, n, ac) {
+    requestAnimationFrame(function() { drawLwChart(k, a, d, n, -1, 'lw-canvas', ac); });
+  })(keys, assetVals, debtVals, netVals, accts);
 }
 
 function populateNwRangeFilter() {
@@ -3779,8 +3781,10 @@ function renderNetWorth() {
     }
   }
 
-  drawLwChart(keys, assetVals, debtVals, netVals, -1, 'nw-canvas', accts);
   renderLwTable(keys, netVals, 'nw-table');
+  (function(k, a, d, n, ac) {
+    requestAnimationFrame(function() { drawLwChart(k, a, d, n, -1, 'nw-canvas', ac); });
+  })(keys, assetVals, debtVals, netVals, accts);
 }
 
 function renderLwSummary(nw, assets, debts, changeAmt, changePct, targetId) {
@@ -4890,10 +4894,12 @@ function renderLessonsLearned() {
       : '—';
   }
 
-  drawLessonsChart(keys, byMonth, byMonthTxns, -1);
-  drawLessonsYearChart(byYear, byYearCount, byYearTxns, curYear, projYE);
-  drawLessonsPayeeChart(filteredTxns);
-  drawLessonsCategoryChart(filteredTxns);
+  requestAnimationFrame(function() {
+    drawLessonsChart(keys, byMonth, byMonthTxns, -1);
+    drawLessonsYearChart(byYear, byYearCount, byYearTxns, curYear, projYE);
+    drawLessonsPayeeChart(filteredTxns);
+    drawLessonsCategoryChart(filteredTxns);
+  });
 
   // Transaction table for the filtered period, sorted largest outflow first
   if (txnTableEl) {
@@ -5191,10 +5197,12 @@ function renderLeverage() {
       : '—';
   }
 
-  drawLeverageChart(keys, byMonth, byMonthTxns, -1);
-  drawLeverageYearChart(byYear, byYearCount, byYearTxns, curYear, projYE);
-  drawLeveragePayeeChart(filteredTxns);
-  drawLeverageCategoryChart(filteredTxns);
+  requestAnimationFrame(function() {
+    drawLeverageChart(keys, byMonth, byMonthTxns, -1);
+    drawLeverageYearChart(byYear, byYearCount, byYearTxns, curYear, projYE);
+    drawLeveragePayeeChart(filteredTxns);
+    drawLeverageCategoryChart(filteredTxns);
+  });
 
   if (txnTableEl) {
     filteredTxns.sort(function(a, b) { return b.amount - a.amount; });
