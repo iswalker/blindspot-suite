@@ -842,7 +842,7 @@ td.hbt-num:last-child { width: 13%; }
 .nw-driver-row:last-child { margin-bottom: 0; }
 .nw-driver-row:hover { background: #f5f7fb; }
 .nw-driver-overall { font-weight: 700; padding-bottom: 8px; margin-bottom: 8px !important; border-bottom: 1px solid #eee; }
-.nw-driver-label { font-size: 14px; min-width: 130px; flex: 1; }
+.nw-driver-label { font-size: 14px; flex: 1; }
 .nw-driver-overall .nw-driver-label { font-size: 15px; }
 .nw-driver-vals { display: flex; align-items: baseline; gap: 8px; flex-shrink: 0; }
 .nw-driver-amt { font-size: 15px; font-weight: 600; white-space: nowrap; }
@@ -3804,22 +3804,33 @@ function renderNetWorth() {
       for (var bk in bktAccts) {
         bktAccts[bk].sort(function(a, b) { return Math.abs(b.delta) - Math.abs(a.delta); });
       }
-      nwDriverTooltipData = bktAccts;
+      nwDriverTooltipData = { accts: bktAccts, nMonths: nMonths };
+
+      var startingNw = netVals[0];
 
       function driverRow(label, key, isOverall) {
         var dAmt  = bktDelta[key];
-        var dPct  = (changeAmt && key !== 'overall') ? dAmt / Math.abs(changeAmt) * 100 : null;
         var dAvg  = nMonths > 0 ? dAmt / nMonths : 0;
         var cls   = dAmt >= 0 ? 'lw-change-up' : 'lw-change-dn';
         var sign  = dAmt >= 0 ? '+' : '';
         var arrow = dAmt >= 0 ? '&#8593;' : '&#8595;';
         var avgSign = dAvg >= 0 ? '+' : '';
         var avgCls  = dAvg >= 0 ? 'lw-change-up' : 'lw-change-dn';
+        // Overall: % relative to starting NW; sub-drivers: share of total change in parens
+        var pctStr = '';
+        if (isOverall && startingNw) {
+          var oPct = dAmt / Math.abs(startingNw) * 100;
+          var oPctSign = oPct >= 0 ? '+' : '';
+          pctStr = '<span class="nw-driver-pct ' + cls + '">' + oPctSign + oPct.toFixed(1) + '%</span>';
+        } else if (!isOverall && changeAmt) {
+          var dPct = dAmt / Math.abs(changeAmt) * 100;
+          pctStr = '<span class="nw-driver-pct" style="color:#aaa">(' + Math.abs(dPct).toFixed(1) + '%)</span>';
+        }
         return '<div class="nw-driver-row' + (isOverall ? ' nw-driver-overall' : '') + '" data-bucket="' + key + '">'
           + '<span class="nw-driver-label">' + label + '</span>'
           + '<span class="nw-driver-vals">'
           + '<span class="nw-driver-amt ' + cls + '">' + arrow + ' ' + sign + fmtAbs(dAmt) + '</span>'
-          + (dPct !== null ? '<span class="nw-driver-pct ' + cls + '">' + sign + dPct.toFixed(1) + '%</span>' : '')
+          + pctStr
           + '<span class="nw-driver-sep"></span>'
           + '<span class="nw-driver-avg ' + avgCls + '">' + avgSign + fmtAbs(dAvg) + '/mo</span>'
           + '</span>'
@@ -7640,18 +7651,20 @@ document.addEventListener('DOMContentLoaded', function() {
     var LABELS = { overall: 'All Accounts', house: 'House', invest: 'Investments', savings: 'Savings / Debt Payoff' };
     function showTt(row, e) {
       if (!nwDriverTooltipData) return;
-      var bkt = row.getAttribute('data-bucket');
-      var accts = nwDriverTooltipData[bkt];
+      var bkt    = row.getAttribute('data-bucket');
+      var accts  = nwDriverTooltipData.accts[bkt];
+      var nMonths = nwDriverTooltipData.nMonths || 1;
       if (!accts || !accts.length) { tt.style.display = 'none'; return; }
-      var html = '<div class="nw-tt-hdr">' + escHtml(LABELS[bkt] || bkt) + '</div>';
+      var html = '<div class="nw-tt-hdr">' + escHtml(LABELS[bkt] || bkt) + ' · avg/mo</div>';
       var shown = accts.slice(0, 8);
       for (var i = 0; i < shown.length; i++) {
-        var a  = shown[i];
-        var cls = a.delta >= 0 ? 'lw-change-up' : 'lw-change-dn';
-        var sign = a.delta >= 0 ? '+' : '';
+        var a   = shown[i];
+        var avg = nMonths > 0 ? a.delta / nMonths : a.delta;
+        var cls  = avg >= 0 ? 'lw-change-up' : 'lw-change-dn';
+        var sign = avg >= 0 ? '+' : '';
         html += '<div class="nw-tt-row">'
           + '<span class="nw-tt-name">' + escHtml(a.name) + '</span>'
-          + '<span class="nw-tt-amt ' + cls + '">' + sign + fmtAbs(a.delta) + '</span>'
+          + '<span class="nw-tt-amt ' + cls + '">' + sign + fmtAbs(avg) + '/mo</span>'
           + '</div>';
       }
       if (accts.length > 8) html += '<div style="font-size:11px;color:#bbb;margin-top:4px">+ ' + (accts.length - 8) + ' more</div>';
