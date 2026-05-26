@@ -987,6 +987,85 @@ td.hbt-num:last-child { width: 13%; }
 .lessons-tt-amt  { font-size: 12px; font-weight: 600; color: #c62828; white-space: nowrap; }
 .lessons-tt-total { border-top: 1px solid #eee; margin-top: 7px; padding-top: 7px;
   display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; }
+@media (max-width: 820px) {
+  body { padding: 10px 12px; }
+
+  /* Tab nav becomes horizontally scrollable */
+  #tab-nav { overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; }
+  #tab-nav::-webkit-scrollbar { display: none; }
+  .tab-btn { padding: 6px 14px; font-size: 13px; flex-shrink: 0; }
+
+  /* Panel headers: tighten and allow wrapping */
+  .panel-hdr { gap: 8px 12px; }
+  .panel-hdr h1 { font-size: 22px; }
+
+  /* Current Month metric row: 2-up grid on mobile, hide algebra operators */
+  .home-metric-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: stretch; }
+  .home-metric-row > div[style*="flex:1"] { display: none; }
+  .home-metric-op { display: none; }
+  .home-metric-card { padding: 10px 12px; min-width: 0; }
+  .home-metric-label { font-size: 10px; }
+  .home-metric-sub { font-size: 11px; }
+  .home-metric-value { font-size: 18px; }
+  .home-metric-value.na { font-size: 14px; }
+
+  /* Current Month body stacks; pending side becomes full width */
+  .home-body { flex-direction: column; gap: 16px; }
+  .home-pending-side { width: 100%; }
+  .home-table-side { width: 100%; }
+
+  /* All summary metric rows wrap on mobile */
+  #lessons-summary-row,
+  #leverage-summary-row,
+  #nw-summary-row { flex-wrap: wrap; gap: 10px; }
+  #leverage-metrics-left { flex-wrap: wrap; gap: 10px; flex: 1 1 100%; }
+  #leverage-pos-widget { flex: 1 1 100%; min-width: 0; }
+  .lessons-metric-card { min-width: 0; flex: 1 1 calc(50% - 6px); padding: 10px 14px; }
+  #lw-summary-card, #nw-summary-card { min-width: 0; flex: 1 1 100%; }
+
+  /* Chart wraps: tighten padding so canvases use full width */
+  .lw-chart-wrap { padding: 10px 8px 10px 0; }
+
+  /* Charts row (Leverage etc.) stacks */
+  #leverage-charts-row { flex-direction: column; }
+  #leverage-chart-wrap, #leverage-year-chart-wrap { flex: 1 1 100%; }
+
+  /* Tables: allow horizontal scroll within the rounded card */
+  .lw-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  #lw-table th, #lw-table td { padding: 8px 10px; font-size: 12px; }
+  #lessons-txn-table th, #lessons-txn-table td,
+  #leverage-txn-table th, #leverage-txn-table td { padding: 8px 10px; font-size: 12px; }
+
+  /* Reconcile controls stack */
+  #rec-controls-row { flex-direction: column; align-items: stretch; gap: 10px; }
+  .rec-vs-lbl, .rec-or-lbl { text-align: center; }
+  #reconcile-acct-group, #plaid-acct-group { width: 100%; }
+  #reconcile-acct-group select, #plaid-acct-group select { width: 100%; min-width: 0; }
+  .plaid-acct-mgmt { flex-direction: column; align-items: stretch; }
+  .plaid-acct-mgmt label { width: 100%; }
+  #plaid-secret-input { width: 100%; }
+
+  /* POS widget header wraps cleanly */
+  #leverage-pos-hdr { flex-direction: column; align-items: stretch; }
+  #leverage-pos-secret { width: 100%; }
+  #leverage-pos-fetch-btn { width: 100%; }
+
+  /* Drive picker modal sized for phones */
+  #gdrive-picker-panel { width: 96vw; max-height: 80vh; }
+
+  /* Range filter wraps */
+  #lw-range-wrap, #nw-range-wrap, #lessons-range-wrap,
+  #leverage-range-wrap, #acct-history-range-wrap { flex-wrap: wrap; }
+}
+
+@media (max-width: 480px) {
+  body { padding: 8px 8px; }
+  .panel-hdr h1 { font-size: 19px; }
+  .home-metric-row { grid-template-columns: 1fr; }
+  .lessons-metric-card { flex: 1 1 100%; }
+  .home-metric-value { font-size: 20px; }
+}
+
 @media print {
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
@@ -7487,6 +7566,16 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   wireChartTooltip(document.getElementById('lw-canvas'), function() { return lwChartState; });
   wireChartTooltip(document.getElementById('nw-canvas'), function() { return nwChartState; });
+
+  // Redraw the active tab on window resize so charts & tables reflow on mobile/rotation
+  var resizeTimer = null;
+  var lastW = window.innerWidth;
+  window.addEventListener('resize', function() {
+    if (Math.abs(window.innerWidth - lastW) < 20) return;
+    lastW = window.innerWidth;
+    if (resizeTimer) clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function() { if (state.activeTab) switchTab(state.activeTab); }, 150);
+  });
 
   // Lessons Learned bar hover
   (function() {
