@@ -838,11 +838,29 @@ td.hbt-num:last-child { width: 13%; }
   background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
   padding: 20px 24px 18px; flex: 1; min-width: 180px;
 }
-.nw-driver-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.nw-driver-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; cursor: default; border-radius: 5px; padding: 2px 4px; margin-left: -4px; }
 .nw-driver-row:last-child { margin-bottom: 0; }
-.nw-driver-label { font-size: 14px; min-width: 130px; }
-.nw-driver-amt { font-size: 15px; font-weight: 600; }
-.nw-driver-pct { font-size: 13px; font-weight: 600; }
+.nw-driver-row:hover { background: #f5f7fb; }
+.nw-driver-overall { font-weight: 700; padding-bottom: 8px; margin-bottom: 8px !important; border-bottom: 1px solid #eee; }
+.nw-driver-label { font-size: 14px; min-width: 130px; flex: 1; }
+.nw-driver-overall .nw-driver-label { font-size: 15px; }
+.nw-driver-vals { display: flex; align-items: baseline; gap: 8px; flex-shrink: 0; }
+.nw-driver-amt { font-size: 15px; font-weight: 600; white-space: nowrap; }
+.nw-driver-pct { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.nw-driver-avg { font-size: 12px; color: #888; white-space: nowrap; min-width: 90px; text-align: right; }
+.nw-driver-sep { width: 1px; background: #eee; align-self: stretch; margin: 0 2px; }
+/* Driver row tooltip */
+#nw-driver-tt {
+  position: fixed; display: none; background: #fff; border: 1px solid #e0e0e0;
+  border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.12);
+  padding: 10px 14px; z-index: 400; min-width: 200px; max-width: 300px;
+  pointer-events: none;
+}
+.nw-tt-hdr { font-size: 11px; font-weight: 700; color: #aaa; letter-spacing: .07em; text-transform: uppercase; margin-bottom: 8px; }
+.nw-tt-row { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; margin-bottom: 4px; }
+.nw-tt-row:last-child { margin-bottom: 0; }
+.nw-tt-name { color: #444; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px; }
+.nw-tt-amt { font-weight: 600; white-space: nowrap; flex-shrink: 0; }
 .lw-nw-label { font-size: 12px; color: #333; margin-bottom: 2px; }
 .lw-nw-value { font-size: 28px; font-weight: 700; color: #222; margin-bottom: 14px; }
 .lw-stats { display: flex; gap: 36px; flex-wrap: wrap; align-items: flex-start; }
@@ -906,10 +924,20 @@ td.hbt-num:last-child { width: 13%; }
 }
 #lw-table th:nth-child(2), #lw-table th:last-child { text-align: right; }
 #lw-table td { padding: 10px 20px; font-size: 13px; border-bottom: 1px solid #f0f0ec; }
-#lw-table td:nth-child(2) { text-align: right; font-weight: 500; }
+#lw-table td:nth-child(2) { text-align: right; font-weight: 500; white-space: nowrap; }
 #lw-table td:last-child { text-align: right; white-space: nowrap; }
 #lw-table tr:last-child td { border-bottom: none; }
 #lw-table tr:hover td { background: #fafaf7; }
+/* NW table shares the same style pattern */
+#nw-table { border-collapse: collapse; width: 100%; }
+#nw-table th { text-align: left; font-size: 11px; font-weight: 600; color: #333; letter-spacing: .06em; padding: 10px 20px; border-bottom: 1px solid #e4e4e0; background: #fff; white-space: nowrap; }
+#nw-table th:nth-child(2), #nw-table th:last-child { text-align: right; }
+#nw-table td { padding: 10px 20px; font-size: 13px; border-bottom: 1px solid #f0f0ec; white-space: nowrap; }
+#nw-table td:first-child { white-space: normal; }
+#nw-table td:nth-child(2) { text-align: right; font-weight: 500; }
+#nw-table td:last-child { text-align: right; }
+#nw-table tr:last-child td { border-bottom: none; }
+#nw-table tr:hover td { background: #fafaf7; }
 
 /* ---- Lessons metrics row ---- */
 #lessons-summary-row { display: flex; gap: 16px; margin-bottom: 14px; }
@@ -1148,6 +1176,9 @@ td.hbt-num:last-child { width: 13%; }
     <div id="gdrive-picker-list"><div id="gdrive-picker-msg">Loading…</div></div>
   </div>
 </div>
+
+<!-- NW driver row tooltip -->
+<div id="nw-driver-tt"></div>
 
 <!-- Report -->
 <div id="report">
@@ -3121,8 +3152,9 @@ function renderTable(opts) {
 // DETAIL PANE
 // ============================================================
 var activeCell   = null;
-var lwChartState       = null;
-var nwChartState       = null;
+var lwChartState          = null;
+var nwChartState          = null;
+var nwDriverTooltipData   = null; // { overall:[{name,delta}], house:[], invest:[], savings:[] }
 var homeRecovBreakdown = [];
 var homeTrendBreakdown = [];
 var homeTrendHistory   = [];
@@ -3751,29 +3783,53 @@ function renderNetWorth() {
         bktEnd[bkt]   += acctBalanceAt(accts[bi].id, keys[lastIdx]);
       }
       var bktDelta = {
+        overall: changeAmt,
         house:   bktEnd.house   - bktStart.house,
         invest:  bktEnd.invest  - bktStart.invest,
         savings: bktEnd.savings - bktStart.savings
       };
-      var driverRows = [
-        { label: 'House', key: 'house' },
-        { label: 'Investments', key: 'invest' },
-        { label: 'Savings / Debt Payoff', key: 'savings' }
-      ];
-      var dHtml = '<div class="lw-nw-label">Change Driven By</div>';
-      for (var di = 0; di < driverRows.length; di++) {
-        var dr   = driverRows[di];
-        var dAmt = bktDelta[dr.key];
-        var dPct = changeAmt ? dAmt / Math.abs(changeAmt) * 100 : 0;
-        var cls  = dAmt >= 0 ? 'lw-change-up' : 'lw-change-dn';
-        var sign = dAmt >= 0 ? '+' : '';
+      var nMonths = keys.length - 1; // intervals between data points
+
+      // Per-account deltas for tooltip
+      var bktAccts = { overall: [], house: [], invest: [], savings: [] };
+      for (var bi2 = 0; bi2 < accts.length; bi2++) {
+        var a2   = accts[bi2];
+        var aDelta = acctBalanceAt(a2.id, keys[lastIdx]) - acctBalanceAt(a2.id, keys[0]);
+        if (aDelta === 0) continue;
+        var aBkt = classifyNwAcct(a2);
+        bktAccts[aBkt].push({ name: a2.name, delta: aDelta });
+        bktAccts.overall.push({ name: a2.name, delta: aDelta });
+      }
+      // Sort each bucket by absolute delta descending
+      for (var bk in bktAccts) {
+        bktAccts[bk].sort(function(a, b) { return Math.abs(b.delta) - Math.abs(a.delta); });
+      }
+      nwDriverTooltipData = bktAccts;
+
+      function driverRow(label, key, isOverall) {
+        var dAmt  = bktDelta[key];
+        var dPct  = (changeAmt && key !== 'overall') ? dAmt / Math.abs(changeAmt) * 100 : null;
+        var dAvg  = nMonths > 0 ? dAmt / nMonths : 0;
+        var cls   = dAmt >= 0 ? 'lw-change-up' : 'lw-change-dn';
+        var sign  = dAmt >= 0 ? '+' : '';
         var arrow = dAmt >= 0 ? '&#8593;' : '&#8595;';
-        dHtml += '<div class="nw-driver-row">'
-          + '<span class="nw-driver-label">' + dr.label + '</span>'
+        var avgSign = dAvg >= 0 ? '+' : '';
+        var avgCls  = dAvg >= 0 ? 'lw-change-up' : 'lw-change-dn';
+        return '<div class="nw-driver-row' + (isOverall ? ' nw-driver-overall' : '') + '" data-bucket="' + key + '">'
+          + '<span class="nw-driver-label">' + label + '</span>'
+          + '<span class="nw-driver-vals">'
           + '<span class="nw-driver-amt ' + cls + '">' + arrow + ' ' + sign + fmtAbs(dAmt) + '</span>'
-          + '<span class="nw-driver-pct ' + cls + '">' + sign + dPct.toFixed(1) + '%</span>'
+          + (dPct !== null ? '<span class="nw-driver-pct ' + cls + '">' + sign + dPct.toFixed(1) + '%</span>' : '')
+          + '<span class="nw-driver-sep"></span>'
+          + '<span class="nw-driver-avg ' + avgCls + '">' + avgSign + fmtAbs(dAvg) + '/mo</span>'
+          + '</span>'
           + '</div>';
       }
+
+      var dHtml = driverRow('Overall', 'overall', true)
+        + driverRow('House', 'house', false)
+        + driverRow('Investments', 'invest', false)
+        + driverRow('Savings / Debt Payoff', 'savings', false);
       driverCard.innerHTML = dHtml;
       driverCard.style.display = '';
     } else {
@@ -3800,6 +3856,7 @@ function renderLwSummary(nw, assets, debts, changeAmt, changePct, targetId) {
       changeStr += '<span class="lw-change-pct ' + cls + '">' + sign + changePct.toFixed(1) + '%</span>';
     }
   }
+  var isNwCard = (targetId === 'nw-summary-card');
   document.getElementById(targetId).innerHTML =
     '<div class="lw-nw-label">Net Worth</div>'
   + '<div class="lw-nw-value">' + (nw < 0 ? '-' : '') + fmtAbs(nw) + '</div>'
@@ -3808,7 +3865,7 @@ function renderLwSummary(nw, assets, debts, changeAmt, changePct, targetId) {
   +   '<div class="lw-stat-value">' + fmtAbs(assets) + '</div></div>'
   + '<div class="lw-stat"><div class="lw-stat-label"><span class="lw-stat-dot red"></span> Debts</div>'
   +   '<div class="lw-stat-value neg">-' + fmtAbs(Math.abs(debts)) + '</div></div>'
-  + (changeStr
+  + (!isNwCard && changeStr
     ? '<div class="lw-stat"><div class="lw-stat-label">Change in Net Worth</div>'
     +   '<div>' + changeStr + '</div></div>'
     : '')
@@ -7574,6 +7631,51 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   wireChartTooltip(document.getElementById('lw-canvas'), function() { return lwChartState; });
   wireChartTooltip(document.getElementById('nw-canvas'), function() { return nwChartState; });
+
+  // NW driver row hover tooltip
+  (function() {
+    var tt  = document.getElementById('nw-driver-tt');
+    var panel = document.getElementById('nw-driver-card');
+    if (!tt || !panel) return;
+    var LABELS = { overall: 'All Accounts', house: 'House', invest: 'Investments', savings: 'Savings / Debt Payoff' };
+    function showTt(row, e) {
+      if (!nwDriverTooltipData) return;
+      var bkt = row.getAttribute('data-bucket');
+      var accts = nwDriverTooltipData[bkt];
+      if (!accts || !accts.length) { tt.style.display = 'none'; return; }
+      var html = '<div class="nw-tt-hdr">' + escHtml(LABELS[bkt] || bkt) + '</div>';
+      var shown = accts.slice(0, 8);
+      for (var i = 0; i < shown.length; i++) {
+        var a  = shown[i];
+        var cls = a.delta >= 0 ? 'lw-change-up' : 'lw-change-dn';
+        var sign = a.delta >= 0 ? '+' : '';
+        html += '<div class="nw-tt-row">'
+          + '<span class="nw-tt-name">' + escHtml(a.name) + '</span>'
+          + '<span class="nw-tt-amt ' + cls + '">' + sign + fmtAbs(a.delta) + '</span>'
+          + '</div>';
+      }
+      if (accts.length > 8) html += '<div style="font-size:11px;color:#bbb;margin-top:4px">+ ' + (accts.length - 8) + ' more</div>';
+      tt.innerHTML = html;
+      tt.style.display = 'block';
+      positionTt(e);
+    }
+    function positionTt(e) {
+      var x = e.clientX + 14, y = e.clientY - 10;
+      if (x + 310 > window.innerWidth)  x = e.clientX - 320;
+      if (y + tt.offsetHeight > window.innerHeight) y = window.innerHeight - tt.offsetHeight - 8;
+      tt.style.left = x + 'px'; tt.style.top = y + 'px';
+    }
+    panel.addEventListener('mouseover', function(e) {
+      var row = e.target.closest ? e.target.closest('.nw-driver-row') : null;
+      if (row) showTt(row, e);
+    });
+    panel.addEventListener('mousemove', function(e) {
+      if (tt.style.display !== 'none') positionTt(e);
+    });
+    panel.addEventListener('mouseout', function(e) {
+      if (!e.relatedTarget || !panel.contains(e.relatedTarget)) tt.style.display = 'none';
+    });
+  })();
 
   // Redraw the active tab on window resize so charts & tables reflow on mobile/rotation
   var resizeTimer = null;
