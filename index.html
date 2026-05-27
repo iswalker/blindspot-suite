@@ -762,7 +762,7 @@ td.cell-active {
 }
 .hbt-cat-row:hover td { background: #fafaf7; }
 td.hbt-name { text-align: left; }
-td.hbt-indent { padding-left: 32px; color: #555; max-width: 200px; }
+td.hbt-indent { padding-left: 32px; color: #555; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 td.hbt-num { text-align: right; white-space: nowrap; }
 td.hbt-num:last-child { width: 13%; }
 .hbt-avail-pos {
@@ -1548,17 +1548,17 @@ td.hbt-num:last-child { width: 13%; }
         </div>
         <div class="pending-card">
           <div class="pending-card-hdr">
-            <span>Strategic Trades</span>
-            <span class="pending-card-total" id="opps-total"></span>
-          </div>
-          <div id="opps-list"></div>
-        </div>
-        <div class="pending-card">
-          <div class="pending-card-hdr">
             <span>Upcoming Charges for Review</span>
             <span class="pending-card-total" id="renewal-total"></span>
           </div>
           <div id="renewal-list"></div>
+        </div>
+        <div class="pending-card">
+          <div class="pending-card-hdr">
+            <span>Strategic Trades</span>
+            <span class="pending-card-total" id="opps-total"></span>
+          </div>
+          <div id="opps-list"></div>
         </div>
       </div>
     </div>
