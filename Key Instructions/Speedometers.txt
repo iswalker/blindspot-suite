@@ -1,0 +1,9 @@
+I'd like to add 2 "speedometers" to the top of the Leverage tab styled similarly to the attached image.  The max amount of the speedometer will be driven by the "Amount" column in the Config sheet, for the Metric = "Leverage 1" (speedometer 1) and "Leverage 2" (speedometer 2).  The value of how "filled" they are is a $ amount, driven by the transaction total in the respective account (ID stored in the "Text" column for these config keys) IF the Payee matches one of their qualifying merchants (stored in the Merchants tab of the Google Sheet Config file), then multiplied by the "Transaction Multiplier" column in the config tab.  The Merchant will be in the 1st column of the Merchants tab (matching the Payee of the transaction in YNAB data), and the values of "Yes" in Column 2 will correlate to a transaction "match" for Leverage 1, Column 3 is for Leverage 2, and so on.
+
+So for example, a $100 transaction at Life Extension inside the account ID d82f58ab-db7f-4913-8901-2a65c91bd404 (matching Text in config file, for Leverage 2 Metric) would be multiplied by .03 to result in $3 contributed to the speedometer out of $6000 ("Amount").
+
+Inside the speedometer, don't show a percentage like the graphic shows -- let's do the amount used / period limit (e.g. $3 / $6000).
+
+Lastly, there should be a "ticker mark" to show how progressed the time period is, indicated in the "Date Range" column in the config file.  For example, if today is April 1st and the period is 1 year, then the ticker would be about 25% through the circle.  If the period is 1 quarter (Jan-Mar, Apr-Jun, Jul-Sep, Oct-Dec), then May 1 would be about 33% up the speedometer.
+
+The intent is to show the rate at which benefits are being consumed at these unique accounts, compared to the pace that would maximize but not exceed them.
