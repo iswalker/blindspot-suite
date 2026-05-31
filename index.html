@@ -952,6 +952,21 @@ td.hbt-num:last-child { width: 13%; }
 #lessons-chart-wrap { flex: 3; min-width: 0; margin-bottom: 0; }
 #lessons-year-chart-wrap { flex: 1; min-width: 120px; margin-bottom: 0; }
 
+/* ---- Leverage speedometers ---- */
+#leverage-speedo-row { display: flex; gap: 16px; margin-bottom: 14px; flex-wrap: wrap; }
+.leverage-speedo {
+  flex: 1; min-width: 280px; background: #fff; border: 1px solid #e8e8e4;
+  border-radius: 10px; padding: 14px 18px 10px;
+}
+.leverage-speedo-label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #888; margin-bottom: 4px; }
+.leverage-speedo-svg-wrap { position: relative; }
+.leverage-speedo svg { display: block; width: 100%; height: auto; }
+.leverage-speedo-value { text-align: center; font-size: 20px; font-weight: 700; color: #1d4f5f; margin-top: -28px; margin-bottom: 6px; }
+.leverage-speedo-value .lev-sp-cur { color: #1d4f5f; }
+.leverage-speedo-value .lev-sp-sep { color: #aaa; margin: 0 4px; font-weight: 400; }
+.leverage-speedo-value .lev-sp-max { color: #888; font-weight: 600; }
+.leverage-speedo-foot { display: flex; justify-content: space-between; font-size: 11px; color: #999; }
+
 /* ---- Leverage metrics / layout (mirrors Lessons, blue accent) ---- */
 #leverage-summary-row { display: flex; gap: 16px; margin-bottom: 14px; align-items: flex-start; }
 #leverage-metrics-left { display: flex; gap: 16px; flex-shrink: 0; }
@@ -1131,6 +1146,11 @@ td.hbt-num:last-child { width: 13%; }
   </div>
   <span class="file-status" id="config-status">not loaded</span>
   <input type="file" id="config-file" accept=".csv" style="display:none">
+  <div class="file-row" style="margin-top:8px;align-items:center;gap:8px">
+    <label for="merchants-file" style="font-size:12px;color:#666">Merchants CSV (optional)</label>
+    <input type="file" id="merchants-file" accept=".csv">
+    <span class="file-status" id="merchants-status">not loaded</span>
+  </div>
   <div class="or-divider">sign in with YNAB</div>
   <button id="oauth-btn">Sign in with YNAB</button>
   <div class="or-divider">or connect via API key</div>
@@ -1358,6 +1378,7 @@ td.hbt-num:last-child { width: 13%; }
         </div>
       </div>
     </div>
+    <div id="leverage-speedo-row" style="display:none"></div>
     <div id="leverage-summary-row">
       <div id="leverage-metrics-left">
         <div class="lessons-metric-card">
@@ -1649,6 +1670,8 @@ var state = {
   regText:             null,
   configText:          null,
   catConfig:           [],
+  merchantsText:       null,
+  merchants:           {},
   data:                null,
   fromKey:             localStorage.getItem('sel-from') || null,
   toKey:               localStorage.getItem('sel-to')   || null,
@@ -1872,7 +1895,23 @@ function valCellsNet(vals, avg, pctRef, keys) {
 // ============================================================
 // DATA PROCESSING
 // ============================================================
+function ensureMerchantsLoaded() {
+  if (state.merchantsText) return;
+  var stored = localStorage.getItem('merchants-csv');
+  if (stored) {
+    state.merchantsText = stored;
+    state.merchants     = parseMerchantsCsv(stored);
+    var statusEl = document.getElementById('merchants-status');
+    if (statusEl) {
+      var n = Object.keys(state.merchants).length;
+      statusEl.textContent = 'cached (' + n + ' merchants)';
+      statusEl.className   = 'file-status ok';
+    }
+  }
+}
+
 function ensureConfigLoaded() {
+  ensureMerchantsLoaded();
   if (state.catConfig.length > 0) return Promise.resolve();
 
   // If a Google Sheet is linked, fetch fresh config from it (falling back to local cache on error)
@@ -1931,9 +1970,81 @@ function parseConfigCsv(text) {
         if (unit === '$') { amount = parsed; } else { dueDays = Math.round(parsed); }
       }
     }
-    result.push({ id: id, type: type, usedFor: usedFor, section: section, dueDays: dueDays, amount: amount, unit: unit });
+    var multRaw = (r['Transaction Multiplier'] || '').trim();
+    var multiplier = null;
+    if (multRaw !== '') {
+      var mm = multRaw.match(/-?\d+(?:\.\d+)?/);
+      if (mm) multiplier = parseFloat(mm[0]);
+    }
+    var dateRange = (r['Date Range'] || '').trim();
+    result.push({ id: id, type: type, usedFor: usedFor, section: section, dueDays: dueDays, amount: amount, unit: unit, multiplier: multiplier, dateRange: dateRange });
   }
   return result;
+}
+
+// Merchants CSV: header row is "Payee, Leverage 1, Leverage 2, ..."; each subsequent
+// row maps a payee to "Yes" cells indicating which Leverage metrics it qualifies for.
+// Returns { "payee lowercased": { "Leverage 1": true, "Leverage 2": true, ... } }
+function parseMerchantsCsv(text) {
+  if (!text) return {};
+  var rows = [];
+  var raw = parseCSV(text); // returns array of objects keyed by header
+  if (!raw || !raw.length) return {};
+  var headerKeys = Object.keys(raw[0]);
+  if (headerKeys.length < 2) return {};
+  var payeeKey = headerKeys[0];
+  var map = {};
+  for (var i = 0; i < raw.length; i++) {
+    var row = raw[i];
+    var payee = (row[payeeKey] || '').trim();
+    if (!payee) continue;
+    var entry = {};
+    var hasAny = false;
+    for (var hi = 1; hi < headerKeys.length; hi++) {
+      var metricName = (headerKeys[hi] || '').trim();
+      if (!metricName) continue;
+      var cellVal = (row[headerKeys[hi]] || '').trim().toLowerCase();
+      if (cellVal === 'yes' || cellVal === 'y' || cellVal === 'true' || cellVal === '1' || cellVal === 'x') {
+        entry[metricName] = true;
+        hasAny = true;
+      }
+    }
+    if (hasAny) map[payee.toLowerCase()] = entry;
+  }
+  return map;
+}
+
+// Compute calendar-aligned period bounds for a "Date Range" string like
+// "1 year", "1 quarter", "1 month". Returns { start: Date, end: Date, frac: 0..1 }
+// where frac is how far through the period today is (inclusive of today).
+function computePeriodProgress(dateRange, now) {
+  now = now || new Date();
+  var s = String(dateRange || '').toLowerCase();
+  var m = s.match(/(\d+)?\s*(year|quarter|month|week)/);
+  if (!m) return null;
+  var unit = m[2];
+  var y = now.getFullYear(), mo = now.getMonth(), d = now.getDate();
+  var start, end;
+  if (unit === 'year') {
+    start = new Date(y, 0, 1);
+    end   = new Date(y + 1, 0, 1);
+  } else if (unit === 'quarter') {
+    var qStart = Math.floor(mo / 3) * 3;
+    start = new Date(y, qStart, 1);
+    end   = new Date(y, qStart + 3, 1);
+  } else if (unit === 'month') {
+    start = new Date(y, mo, 1);
+    end   = new Date(y, mo + 1, 1);
+  } else if (unit === 'week') {
+    var dow = now.getDay();
+    start = new Date(y, mo, d - dow);
+    end   = new Date(y, mo, d - dow + 7);
+  }
+  var span = end.getTime() - start.getTime();
+  var frac = span > 0 ? (now.getTime() - start.getTime()) / span : 0;
+  if (frac < 0) frac = 0;
+  if (frac > 1) frac = 1;
+  return { start: start, end: end, frac: frac };
 }
 
 function processData(planText, regText) {
@@ -2597,6 +2708,25 @@ function fetchConfigFromGoogleSheet(token) {
     state.configText = csvText;
     state.catConfig  = parseConfigCsv(csvText);
     localStorage.setItem('cat-config-csv', csvText);
+    // Best-effort: try to pull a "Merchants" tab from the same spreadsheet.
+    fetch(
+      'https://sheets.googleapis.com/v4/spreadsheets/' + encodeURIComponent(sheetId) + '/values/Merchants!A:Z?majorDimension=ROWS',
+      { headers: { 'Authorization': 'Bearer ' + token } }
+    ).then(function(r2) { return r2.ok ? r2.json() : null; })
+     .then(function(mj) {
+       if (!mj || !mj.values) return;
+       var mcsv = sheetValuesToCsv(mj.values);
+       state.merchantsText = mcsv;
+       state.merchants     = parseMerchantsCsv(mcsv);
+       localStorage.setItem('merchants-csv', mcsv);
+       var statusEl = document.getElementById('merchants-status');
+       if (statusEl) {
+         var n = Object.keys(state.merchants).length;
+         statusEl.textContent = 'from Sheet (' + n + ' merchants)';
+         statusEl.className   = 'file-status ok';
+       }
+     })
+     .catch(function() { /* Merchants tab is optional */ });
     return state.catConfig;
   });
 }
@@ -5145,7 +5275,118 @@ function fetchLeveragePosData(secret) {
   tryFetch();
 }
 
+// Build an SVG path for a semicircular arc from fracStart..fracEnd (0=left, 1=right going clockwise over the top).
+function leverageArcPath(cx, cy, r, fracStart, fracEnd) {
+  if (fracEnd <= fracStart) return '';
+  var a0 = Math.PI - Math.PI * fracStart;
+  var a1 = Math.PI - Math.PI * fracEnd;
+  var x0 = cx + r * Math.cos(a0), y0 = cy - r * Math.sin(a0);
+  var x1 = cx + r * Math.cos(a1), y1 = cy - r * Math.sin(a1);
+  return 'M' + x0 + ' ' + y0 + ' A' + r + ' ' + r + ' 0 0 1 ' + x1 + ' ' + y1;
+}
+
+function fmtSpeedoDollar(v) {
+  return '$' + Math.round(v).toLocaleString('en-US');
+}
+
+function fmtSpeedoDate(d) {
+  return (d.getMonth() + 1) + '/' + d.getDate();
+}
+
+function renderLeverageSpeedometers() {
+  var row = document.getElementById('leverage-speedo-row');
+  if (!row) return;
+  var cfgs = (state.catConfig || []).filter(function(c) {
+    return /^Leverage\s+\d+$/i.test(c.usedFor || '');
+  });
+  cfgs.sort(function(a, b) {
+    var an = parseInt((a.usedFor.match(/\d+/) || [0])[0], 10);
+    var bn = parseInt((b.usedFor.match(/\d+/) || [0])[0], 10);
+    return an - bn;
+  });
+  if (!cfgs.length) { row.style.display = 'none'; row.innerHTML = ''; return; }
+  row.style.display = '';
+
+  var now      = new Date();
+  var acctList = (state.data && state.data.acctTxnsList) || {};
+  var merchants = state.merchants || {};
+
+  var html = '';
+  for (var ci = 0; ci < cfgs.length; ci++) {
+    var cfg     = cfgs[ci];
+    var metric  = cfg.usedFor;
+    var maxAmt  = cfg.amount || 0;
+    var mult    = (cfg.multiplier != null) ? cfg.multiplier : 1;
+    var acctId  = cfg.id || '';
+    var period  = computePeriodProgress(cfg.dateRange, now);
+
+    // Sum eligible transactions inside the period & account, restricted to merchants flagged for this metric.
+    var rawSum = 0;
+    var txnCount = 0;
+    if (period && acctList[acctId]) {
+      var txs = acctList[acctId];
+      var startStr = period.start.toISOString().slice(0, 10);
+      var endStr   = period.end.toISOString().slice(0, 10);
+      for (var ti = 0; ti < txs.length; ti++) {
+        var t = txs[ti];
+        if (!t.date || t.date < startStr || t.date >= endStr) continue;
+        var payeeKey = (t.payee || '').toLowerCase();
+        var mEntry = merchants[payeeKey];
+        if (!mEntry || !mEntry[metric]) continue;
+        // Outflows are negative in YNAB; treat absolute spend as the benefit-consumption amount.
+        var spend = Math.abs(t.amount || 0);
+        rawSum += spend;
+        txnCount++;
+      }
+    }
+    var consumed = rawSum * mult;
+    if (consumed > maxAmt) consumed = maxAmt; // cap at max
+    if (consumed < 0) consumed = 0;
+    var fillFrac = maxAmt > 0 ? consumed / maxAmt : 0;
+    var timeFrac = period ? period.frac : 0;
+
+    // Color: green when on/under pace, amber if ahead, red if at cap
+    var fillColor = '#2e7d32';
+    if (fillFrac >= 0.999) fillColor = '#c62828';
+    else if (fillFrac > timeFrac + 0.05) fillColor = '#ef6c00';
+
+    // Geometry (viewBox: 200 wide, 120 tall, arc centered at (100, 100), radius 84)
+    var cx = 100, cy = 100, r = 84;
+    var trackPath = leverageArcPath(cx, cy, r, 0, 1);
+    var fillPath  = leverageArcPath(cx, cy, r, 0, Math.max(0.001, fillFrac));
+    // Ticker mark: short radial line at timeFrac
+    var tickA   = Math.PI - Math.PI * timeFrac;
+    var tickInX = cx + (r - 14) * Math.cos(tickA), tickInY = cy - (r - 14) * Math.sin(tickA);
+    var tickOuX = cx + (r + 8)  * Math.cos(tickA), tickOuY = cy - (r + 8)  * Math.sin(tickA);
+
+    var periodLabel = period ? (fmtSpeedoDate(period.start) + ' – ' + fmtSpeedoDate(new Date(period.end.getTime() - 86400000))) : '';
+    var paceLabel   = period ? (Math.round(timeFrac * 100) + '% through ' + (cfg.dateRange || '')) : '';
+
+    html += '<div class="leverage-speedo">'
+      +    '<div class="leverage-speedo-label">' + escAttr(metric) + '</div>'
+      +    '<div class="leverage-speedo-svg-wrap">'
+      +      '<svg viewBox="0 0 200 110" preserveAspectRatio="xMidYMid meet">'
+      +        '<path d="' + trackPath + '" fill="none" stroke="#e6e6e2" stroke-width="18" stroke-linecap="round"/>'
+      +        '<path d="' + fillPath  + '" fill="none" stroke="' + fillColor + '" stroke-width="18" stroke-linecap="round"/>'
+      +        '<line x1="' + tickInX.toFixed(2) + '" y1="' + tickInY.toFixed(2) + '" x2="' + tickOuX.toFixed(2) + '" y2="' + tickOuY.toFixed(2) + '" stroke="#333" stroke-width="2.5" stroke-linecap="round"/>'
+      +      '</svg>'
+      +    '</div>'
+      +    '<div class="leverage-speedo-value">'
+      +      '<span class="lev-sp-cur">' + fmtSpeedoDollar(consumed) + '</span>'
+      +      '<span class="lev-sp-sep">/</span>'
+      +      '<span class="lev-sp-max">' + fmtSpeedoDollar(maxAmt) + '</span>'
+      +    '</div>'
+      +    '<div class="leverage-speedo-foot">'
+      +      '<span>' + escAttr(periodLabel) + '</span>'
+      +      '<span>' + escAttr(paceLabel) + ' &middot; ' + txnCount + ' txn' + (txnCount === 1 ? '' : 's') + '</span>'
+      +    '</div>'
+      +    '</div>';
+  }
+  row.innerHTML = html;
+}
+
 function renderLeverage() {
+  renderLeverageSpeedometers();
   var d = state.data;
   var txnTableEl     = document.getElementById('leverage-txn-table');
   var chartWrap      = document.getElementById('leverage-chart-wrap');
@@ -7019,6 +7260,20 @@ document.addEventListener('DOMContentLoaded', function() {
       localStorage.setItem('cat-config-csv', state.configText);
       document.getElementById('config-status').textContent = f.name + ' (' + state.catConfig.length + ' rules)';
       document.getElementById('config-status').className   = 'file-status ok';
+    };
+    r.readAsText(f);
+  });
+
+  document.getElementById('merchants-file').addEventListener('change', function() {
+    var f = this.files[0]; if (!f) return;
+    var r = new FileReader();
+    r.onload = function(e) {
+      state.merchantsText = e.target.result;
+      state.merchants     = parseMerchantsCsv(state.merchantsText);
+      localStorage.setItem('merchants-csv', state.merchantsText);
+      var n = Object.keys(state.merchants).length;
+      document.getElementById('merchants-status').textContent = f.name + ' (' + n + ' merchants)';
+      document.getElementById('merchants-status').className   = 'file-status ok';
     };
     r.readAsText(f);
   });
