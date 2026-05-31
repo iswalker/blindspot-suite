@@ -1314,6 +1314,11 @@ td.hbt-num:last-child { width: 13%; }
           <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
           Preview Current Month
         </label>
+        <label class="ios-toggle-wrap">
+          <input type="checkbox" id="lw-exclude-tracking">
+          <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+          Exclude Tracking
+        </label>
         <div id="lw-acct-filter-wrap">
           <button id="lw-acct-filter-btn">Accounts &#9660;</button>
           <div id="lw-acct-filter-panel"></div>
@@ -1709,6 +1714,7 @@ var state = {
   lwFromKey:           localStorage.getItem('sel-lw-from') || null,
   lwToKey:             localStorage.getItem('sel-lw-to')   || null,
   lwIncludeCurrent:    localStorage.getItem('lw-include-current') === '1',
+  lwExcludeTracking:   localStorage.getItem('lw-exclude-tracking') === '1',
   lwSelectedAccounts:  parseJsonLS('sel-lw-accts')    || {},
   nwFromKey:           localStorage.getItem('sel-nw-from') || null,
   nwToKey:             localStorage.getItem('sel-nw-to')   || null,
@@ -2480,6 +2486,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
   .then(function(data) {
     var txns    = data.transactions || [];
     var acctTxns = {};
+    var acctTxnsTracking = {}; // Tracking-group amounts only, for ExTracking toggle
     var acctTxnsList = {};
     for (var ti = 0; ti < txns.length; ti++) {
       var t = txns[ti];
@@ -2488,6 +2495,21 @@ function fetchYnabData(apiKey, budgetId, opts) {
         var tKey2 = t.date.slice(0, 7);
         if (!acctTxns[t.account_id]) acctTxns[t.account_id] = {};
         acctTxns[t.account_id][tKey2] = (acctTxns[t.account_id][tKey2] || 0) + (t.amount || 0) / 1000;
+        // Accumulate Tracking-group portion for ExTracking toggle.
+        // For split transactions sum subtransaction amounts in Tracking; for plain ones check top-level category.
+        var trackingAmt = 0;
+        if (t.subtransactions && t.subtransactions.length) {
+          for (var sti = 0; sti < t.subtransactions.length; sti++) {
+            var stx = t.subtransactions[sti];
+            if (catIdToGroup[stx.category_id] === 'Tracking') trackingAmt += (stx.amount || 0) / 1000;
+          }
+        } else if (catIdToGroup[t.category_id] === 'Tracking') {
+          trackingAmt = (t.amount || 0) / 1000;
+        }
+        if (trackingAmt !== 0) {
+          if (!acctTxnsTracking[t.account_id]) acctTxnsTracking[t.account_id] = {};
+          acctTxnsTracking[t.account_id][tKey2] = (acctTxnsTracking[t.account_id][tKey2] || 0) + trackingAmt;
+        }
         if (!t.deleted) {
           if (!acctTxnsList[t.account_id]) acctTxnsList[t.account_id] = [];
           // Always use parent transaction amount (t.amount = total, e.g. $139 for a $77+$62 split).
@@ -2655,7 +2677,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
                groupPivot: groupPivot, catPivot: catPivot, activeCats: activeCats,
                regTxns: regTxns, allAccounts: allAccounts,
                allAccountsInfo: allAccountsInfo, lwAccounts: lwAccounts,
-               nwAccounts: nwAccounts, acctTxns: acctTxns, acctTxnsList: acctTxnsList,
+               nwAccounts: nwAccounts, acctTxns: acctTxns, acctTxnsTracking: acctTxnsTracking, acctTxnsList: acctTxnsList,
                pendingTxns: pendingTxns,
                upcomingRenewals: upcomingRenewals,
                catActivityPivot: catActivityPivot, catAvailPivot: catAvailPivot,
@@ -3709,6 +3731,12 @@ function acctBalanceAt(acctId, monthKey) {
   var bal  = info.balance;
   var txns = (state.data.acctTxns || {})[acctId] || {};
   for (var k in txns) { if (k > monthKey) bal -= txns[k]; }
+  if (state.lwExcludeTracking) {
+    // Add back Tracking-group amounts from months after monthKey
+    // (they were subtracted above but we want to exclude them from the view)
+    var trk = (state.data.acctTxnsTracking || {})[acctId] || {};
+    for (var k2 in trk) { if (k2 > monthKey) bal += trk[k2]; }
+  }
   return bal;
 }
 
@@ -3754,9 +3782,11 @@ function populateLwRangeFilter() {
   toSel.value     = state.lwToKey   && keys.indexOf(state.lwToKey)   !== -1 ? state.lwToKey   : defaultTo;
   state.lwFromKey = fromSel.value;
   state.lwToKey   = toSel.value;
-  // Sync checkbox visual state
+  // Sync toggle visual states
   var chk = document.getElementById('lw-include-current');
   if (chk) chk.checked = !!state.lwIncludeCurrent;
+  var chkTrk = document.getElementById('lw-exclude-tracking');
+  if (chkTrk) chkTrk.checked = !!state.lwExcludeTracking;
 }
 
 function populateLwAccountFilter() {
@@ -7658,6 +7688,12 @@ document.addEventListener('DOMContentLoaded', function() {
         localStorage.setItem('sel-lw-to', prevKey);
       }
     }
+    renderLiquidWorth();
+  });
+
+  document.getElementById('lw-exclude-tracking').addEventListener('change', function() {
+    state.lwExcludeTracking = this.checked;
+    localStorage.setItem('lw-exclude-tracking', this.checked ? '1' : '0');
     renderLiquidWorth();
   });
 
