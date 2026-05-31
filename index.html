@@ -1967,7 +1967,8 @@ function parseConfigCsv(text) {
       var m = rawAmt.match(/(\d+(?:\.\d+)?)/);
       if (m) {
         var parsed = parseFloat(m[1]);
-        if (unit === '$') { amount = parsed; } else { dueDays = Math.round(parsed); }
+        var isLev  = /^leverage/i.test(usedFor);
+        if (unit === '$' || isLev) { amount = parsed; } else { dueDays = Math.round(parsed); }
       }
     }
     var multRaw = (r['Transaction Multiplier'] || '').trim();
@@ -5287,16 +5288,22 @@ function leverageArcPath(cx, cy, r, fracStart, fracEnd) {
 }
 
 function fmtSpeedoDollar(v) {
-  return '$' + Math.round(v).toLocaleString('en-US');
+  var abs = Math.abs(v);
+  // Show cents for small values; round to whole dollars for large ones
+  var dec = abs >= 100 ? 0 : 2;
+  return '$' + v.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
 }
 
 function fmtSpeedoDate(d) {
   return (d.getMonth() + 1) + '/' + d.getDate();
 }
 
+var leverageSpeedoTxns = {}; // { speedoId: { title: ..., txns: [...] } }
+
 function renderLeverageSpeedometers() {
   var row = document.getElementById('leverage-speedo-row');
   if (!row) return;
+  leverageSpeedoTxns = {};
   var cfgs = (state.catConfig || []).filter(function(c) {
     return /^Leverage\s+\d+$/i.test(c.usedFor || '');
   });
@@ -5328,6 +5335,7 @@ function renderLeverageSpeedometers() {
     // Sum eligible transactions inside the period & account, restricted to merchants flagged for this column.
     var rawSum = 0;
     var txnCount = 0;
+    var contribTxns = [];
     if (period && colHdr && acctList[acctId]) {
       var txs = acctList[acctId];
       var startStr = period.start.toISOString().slice(0, 10);
@@ -5342,8 +5350,19 @@ function renderLeverageSpeedometers() {
         var spend = Math.abs(t.amount || 0);
         rawSum += spend;
         txnCount++;
+        contribTxns.push({
+          date:   t.date,
+          payee:  t.payee || '',
+          memo:   t.memo  || '',
+          amount: spend * mult
+        });
       }
     }
+    var speedoId = 'leverage-speedo-' + ci;
+    leverageSpeedoTxns[speedoId] = {
+      title: (title || '') + ' — ' + (cfg.dateRange || ''),
+      txns:  contribTxns
+    };
     var consumed = rawSum * mult;
     if (consumed > maxAmt) consumed = maxAmt; // cap at max
     if (consumed < 0) consumed = 0;
@@ -5367,7 +5386,7 @@ function renderLeverageSpeedometers() {
     var periodLabel = period ? (fmtSpeedoDate(period.start) + ' – ' + fmtSpeedoDate(new Date(period.end.getTime() - 86400000))) : '';
     var paceLabel   = period ? (Math.round(timeFrac * 100) + '% through ' + (cfg.dateRange || '')) : '';
 
-    html += '<div class="leverage-speedo">'
+    html += '<div class="leverage-speedo" id="' + speedoId + '" style="cursor:default">'
       +    '<div class="leverage-speedo-label">' + escAttr(title) + '</div>'
       +    '<div class="leverage-speedo-svg-wrap">'
       +      '<svg viewBox="0 0 200 110" preserveAspectRatio="xMidYMid meet">'
@@ -5388,6 +5407,21 @@ function renderLeverageSpeedometers() {
       +    '</div>';
   }
   row.innerHTML = html;
+
+  // Attach hover tooltips listing per-transaction contributions (post-multiplier)
+  Object.keys(leverageSpeedoTxns).forEach(function(spId) {
+    var el = document.getElementById(spId);
+    if (!el) return;
+    var data = leverageSpeedoTxns[spId];
+    el.addEventListener('mousemove', function(e) {
+      if (!data.txns.length) return;
+      buildAndShowLessonsTt(e.clientX, e.clientY, data.title, data.txns, '#1d4f5f');
+    });
+    el.addEventListener('mouseleave', function() {
+      var tt = document.getElementById('lessons-tooltip');
+      if (tt) tt.style.display = 'none';
+    });
+  });
 }
 
 function renderLeverage() {
