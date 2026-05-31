@@ -1408,6 +1408,11 @@ td.hbt-num:last-child { width: 13%; }
           <span>&#8594;</span>
           <label>To <select id="leverage-to-sel"></select></label>
         </div>
+        <label class="ios-toggle-wrap">
+          <input type="checkbox" id="leverage-exclude-tracking">
+          <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+          Exclude Tracking
+        </label>
       </div>
     </div>
     <div id="leverage-speedo-row" style="display:none"></div>
@@ -1714,7 +1719,8 @@ var state = {
   lwFromKey:           localStorage.getItem('sel-lw-from') || null,
   lwToKey:             localStorage.getItem('sel-lw-to')   || null,
   lwIncludeCurrent:    localStorage.getItem('lw-include-current') === '1',
-  lwExcludeTracking:   localStorage.getItem('lw-exclude-tracking') === '1',
+  lwExcludeTracking:        localStorage.getItem('lw-exclude-tracking') === '1',
+  leverageExcludeTracking:  localStorage.getItem('leverage-exclude-tracking') === '1',
   lwSelectedAccounts:  parseJsonLS('sel-lw-accts')    || {},
   nwFromKey:           localStorage.getItem('sel-nw-from') || null,
   nwToKey:             localStorage.getItem('sel-nw-to')   || null,
@@ -2515,10 +2521,11 @@ function fetchYnabData(apiKey, budgetId, opts) {
           // Always use parent transaction amount (t.amount = total, e.g. $139 for a $77+$62 split).
           // Sub-transactions are expanded below only for category/spend analysis, not stored here.
           acctTxnsList[t.account_id].push({
-            date:   t.date,
-            amount: (t.amount || 0) / 1000,
-            payee:  t.payee_name || '',
-            memo:   t.memo || ''
+            date:           t.date,
+            amount:         (t.amount || 0) / 1000,
+            trackingAmount: trackingAmt,
+            payee:          t.payee_name || '',
+            memo:           t.memo || ''
           });
         }
       }
@@ -5479,7 +5486,9 @@ function renderLeverageSpeedometers() {
         var mEntry = merchants[payeeKey];
         if (!mEntry || !mEntry[colHdr]) continue;
         // Outflows are negative in YNAB; flip sign so spend is positive and refunds subtract.
+        // If Exclude Tracking is on, remove the Tracking-group portion of this transaction.
         var spend = -(t.amount || 0);
+        if (state.leverageExcludeTracking) spend -= -(t.trackingAmount || 0);
         rawSum += spend;
         txnCount++;
         contribTxns.push({
@@ -7761,6 +7770,13 @@ document.addEventListener('DOMContentLoaded', function() {
       localStorage.setItem('sel-leverage-from', state.leverageFromKey);
     }
     renderLeverage();
+  });
+
+  document.getElementById('leverage-exclude-tracking').checked = !!state.leverageExcludeTracking;
+  document.getElementById('leverage-exclude-tracking').addEventListener('change', function() {
+    state.leverageExcludeTracking = this.checked;
+    localStorage.setItem('leverage-exclude-tracking', this.checked ? '1' : '0');
+    renderLeverageSpeedometers();
   });
 
   document.getElementById('leverage-pos-fetch-btn').addEventListener('click', function() {
