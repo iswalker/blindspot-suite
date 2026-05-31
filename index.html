@@ -1275,11 +1275,6 @@ td.hbt-num:last-child { width: 13%; }
           <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
           Preview Current Month
         </label>
-        <label class="ios-toggle-wrap">
-          <input type="checkbox" id="cf-exclude-tracking">
-          <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
-          Exclude Tracking
-        </label>
         <div id="acct-filter-wrap">
           <button id="acct-filter-btn">Accounts &#9660;</button>
           <div id="acct-filter-panel"></div>
@@ -1723,7 +1718,6 @@ var state = {
   fromKey:             localStorage.getItem('sel-from') || null,
   toKey:               localStorage.getItem('sel-to')   || null,
   cfIncludeCurrent:    localStorage.getItem('cf-include-current') === '1',
-  cfExcludeTracking:   localStorage.getItem('cf-exclude-tracking') === '1',
   expanded:            parseJsonLS('ynab-expanded-groups') || {},
   selectedAccounts:    parseJsonLS('sel-accts')       || {},
   loadedAt:            null,
@@ -7574,13 +7568,6 @@ document.addEventListener('DOMContentLoaded', function() {
         localStorage.setItem('sel-to', prevKey);
       }
     }
-    renderTable();
-  });
-
-  document.getElementById('cf-exclude-tracking').checked = !!state.cfExcludeTracking;
-  document.getElementById('cf-exclude-tracking').addEventListener('change', function() {
-    state.cfExcludeTracking = this.checked;
-    localStorage.setItem('cf-exclude-tracking', this.checked ? '1' : '0');
     renderTable();
   });
 
