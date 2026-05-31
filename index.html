@@ -5351,8 +5351,8 @@ function renderLeverageSpeedometers() {
         var payeeKey = (t.payee || '').toLowerCase();
         var mEntry = merchants[payeeKey];
         if (!mEntry || !mEntry[colHdr]) continue;
-        // Outflows are negative in YNAB; treat absolute spend as the benefit-consumption amount.
-        var spend = Math.abs(t.amount || 0);
+        // Outflows are negative in YNAB; flip sign so spend is positive and refunds subtract.
+        var spend = -(t.amount || 0);
         rawSum += spend;
         txnCount++;
         contribTxns.push({
