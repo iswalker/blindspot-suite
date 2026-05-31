@@ -1292,6 +1292,10 @@ td.hbt-num:last-child { width: 13%; }
           <span>&#8594;</span>
           <label>To <select id="lw-to-sel"></select></label>
         </div>
+        <label id="lw-cur-month-toggle" style="display:flex;align-items:center;gap:5px;font-size:12px;color:#666;cursor:pointer;white-space:nowrap">
+          <input type="checkbox" id="lw-include-current">
+          Preview Current Month
+        </label>
         <div id="lw-acct-filter-wrap">
           <button id="lw-acct-filter-btn">Accounts &#9660;</button>
           <div id="lw-acct-filter-panel"></div>
@@ -1686,6 +1690,7 @@ var state = {
   activeTab:           localStorage.getItem('sel-tab') || 'home',
   lwFromKey:           localStorage.getItem('sel-lw-from') || null,
   lwToKey:             localStorage.getItem('sel-lw-to')   || null,
+  lwIncludeCurrent:    localStorage.getItem('lw-include-current') === '1',
   lwSelectedAccounts:  parseJsonLS('sel-lw-accts')    || {},
   nwFromKey:           localStorage.getItem('sel-nw-from') || null,
   nwToKey:             localStorage.getItem('sel-nw-to')   || null,
@@ -3712,11 +3717,18 @@ function populateLwRangeFilter() {
     fromSel.appendChild(o1);
     toSel.appendChild(o2);
   }
-  // Default: last 12 months, not including present month
-  var todayKey    = dtKey(new Date());
-  var defaultTo   = keys[0];
-  for (var ti2 = keys.length - 1; ti2 >= 0; ti2--) {
-    if (keys[ti2] < todayKey) { defaultTo = keys[ti2]; break; }
+  var todayKey  = dtKey(new Date());
+  var defaultTo = keys[0];
+  if (state.lwIncludeCurrent) {
+    // Include current month — default To = today's key (last in list)
+    for (var ti2 = keys.length - 1; ti2 >= 0; ti2--) {
+      if (keys[ti2] <= todayKey) { defaultTo = keys[ti2]; break; }
+    }
+  } else {
+    // Default: last 12 months, not including present month
+    for (var ti2 = keys.length - 1; ti2 >= 0; ti2--) {
+      if (keys[ti2] < todayKey) { defaultTo = keys[ti2]; break; }
+    }
   }
   var lwToIdx     = keys.indexOf(defaultTo);
   var defaultFrom = keys[Math.max(0, lwToIdx - 11)];
@@ -3724,6 +3736,9 @@ function populateLwRangeFilter() {
   toSel.value     = state.lwToKey   && keys.indexOf(state.lwToKey)   !== -1 ? state.lwToKey   : defaultTo;
   state.lwFromKey = fromSel.value;
   state.lwToKey   = toSel.value;
+  // Sync checkbox visual state
+  var chk = document.getElementById('lw-include-current');
+  if (chk) chk.checked = !!state.lwIncludeCurrent;
 }
 
 function populateLwAccountFilter() {
@@ -7597,6 +7612,33 @@ document.addEventListener('DOMContentLoaded', function() {
       state.lwFromKey = state.lwToKey;
       document.getElementById('lw-from-sel').value = state.lwFromKey;
       localStorage.setItem('sel-lw-from', state.lwFromKey);
+    }
+    renderLiquidWorth();
+  });
+
+  document.getElementById('lw-include-current').addEventListener('change', function() {
+    state.lwIncludeCurrent = this.checked;
+    localStorage.setItem('lw-include-current', this.checked ? '1' : '0');
+    var todayKey = dtKey(new Date());
+    var keys     = lwAllKeys();
+    if (this.checked) {
+      // Extend To to current month, preserving From
+      if (state.lwToKey < todayKey && keys.indexOf(todayKey) !== -1) {
+        state.lwToKey = todayKey;
+        document.getElementById('lw-to-sel').value = todayKey;
+        localStorage.setItem('sel-lw-to', todayKey);
+      }
+    } else {
+      // Step To back to last completed month if it was on current month
+      if (state.lwToKey >= todayKey) {
+        var prevKey = keys[0];
+        for (var i = keys.length - 1; i >= 0; i--) {
+          if (keys[i] < todayKey) { prevKey = keys[i]; break; }
+        }
+        state.lwToKey = prevKey;
+        document.getElementById('lw-to-sel').value = prevKey;
+        localStorage.setItem('sel-lw-to', prevKey);
+      }
     }
     renderLiquidWorth();
   });
