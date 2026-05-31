@@ -961,10 +961,15 @@ td.hbt-num:last-child { width: 13%; }
 .leverage-speedo-label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #888; margin-bottom: 4px; }
 .leverage-speedo-svg-wrap { position: relative; }
 .leverage-speedo svg { display: block; width: 100%; height: auto; }
-.leverage-speedo-value { text-align: center; font-size: 20px; font-weight: 700; color: #1d4f5f; margin-top: -28px; margin-bottom: 6px; }
+.leverage-speedo-value { text-align: center; font-size: 20px; font-weight: 700; color: #1d4f5f; margin-top: -28px; margin-bottom: 2px; }
 .leverage-speedo-value .lev-sp-cur { color: #1d4f5f; }
 .leverage-speedo-value .lev-sp-sep { color: #aaa; margin: 0 4px; font-weight: 400; }
 .leverage-speedo-value .lev-sp-max { color: #888; font-weight: 600; }
+.leverage-speedo-benefit { text-align: center; font-size: 13px; font-weight: 600; color: #2e7d32; margin-bottom: 6px; }
+.leverage-speedo-benefit .lev-sp-cur { color: #2e7d32; }
+.leverage-speedo-benefit .lev-sp-sep { color: #bbb; margin: 0 3px; font-weight: 400; }
+.leverage-speedo-benefit .lev-sp-max { color: #999; font-weight: 500; }
+.leverage-speedo-benefit .lev-sp-benefit-tag { font-size: 10px; font-weight: 600; color: #aaa; letter-spacing: .06em; text-transform: uppercase; margin-left: 6px; }
 .leverage-speedo-foot { display: flex; justify-content: space-between; font-size: 11px; color: #999; }
 
 /* ---- Leverage metrics / layout (mirrors Lessons, blue accent) ---- */
@@ -5363,10 +5368,15 @@ function renderLeverageSpeedometers() {
       title: (title || '') + ' — ' + (cfg.dateRange || ''),
       txns:  contribTxns
     };
-    var consumed = rawSum * mult;
-    if (consumed > maxAmt) consumed = maxAmt; // cap at max
-    if (consumed < 0) consumed = 0;
-    var fillFrac = maxAmt > 0 ? consumed / maxAmt : 0;
+    // Two stacked figures share the same fill fraction:
+    //   Top:    cappedSpend / periodLimit   (budget-driven; drives the arc)
+    //   Bottom: cappedBenefit / maxBenefit  (post-multiplier)
+    var cappedSpend = rawSum;
+    if (cappedSpend > maxAmt) cappedSpend = maxAmt;
+    if (cappedSpend < 0) cappedSpend = 0;
+    var cappedBenefit = cappedSpend * mult;
+    var maxBenefit    = maxAmt * mult;
+    var fillFrac = maxAmt > 0 ? cappedSpend / maxAmt : 0;
     var timeFrac = period ? period.frac : 0;
 
     // Color: green when on/under pace, amber if ahead, red if at cap
@@ -5396,9 +5406,15 @@ function renderLeverageSpeedometers() {
       +      '</svg>'
       +    '</div>'
       +    '<div class="leverage-speedo-value">'
-      +      '<span class="lev-sp-cur">' + fmtSpeedoDollar(consumed) + '</span>'
+      +      '<span class="lev-sp-cur">' + fmtSpeedoDollar(cappedSpend) + '</span>'
       +      '<span class="lev-sp-sep">/</span>'
       +      '<span class="lev-sp-max">' + fmtSpeedoDollar(maxAmt) + '</span>'
+      +    '</div>'
+      +    '<div class="leverage-speedo-benefit">'
+      +      '<span class="lev-sp-cur">' + fmtSpeedoDollar(cappedBenefit) + '</span>'
+      +      '<span class="lev-sp-sep">/</span>'
+      +      '<span class="lev-sp-max">' + fmtSpeedoDollar(maxBenefit) + '</span>'
+      +      '<span class="lev-sp-benefit-tag">benefit</span>'
       +    '</div>'
       +    '<div class="leverage-speedo-foot">'
       +      '<span>' + escAttr(periodLabel) + '</span>'
