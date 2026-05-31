@@ -3310,6 +3310,21 @@ var acctHistoryLastAcctId    = null;
 var reconcileCSVTxns         = null;
 var PLAID_CLIENT_ID          = '69fe8a6def2ece000e2425f0';
 var PLAID_STORAGE_KEY        = 'plaid-connections';
+var PLAID_SECRET_SESSION_KEY = 'plaid-secret';
+
+function getPlaidSecret() {
+  return sessionStorage.getItem(PLAID_SECRET_SESSION_KEY) || '';
+}
+function savePlaidSecret(v) {
+  if (v) sessionStorage.setItem(PLAID_SECRET_SESSION_KEY, v);
+  else sessionStorage.removeItem(PLAID_SECRET_SESSION_KEY);
+}
+function syncPlaidSecretInputs(value) {
+  var r = document.getElementById('plaid-secret-input');
+  var l = document.getElementById('leverage-pos-secret');
+  if (r && !r.value) r.value = value;
+  if (l && !l.value) l.value = value;
+}
 var cfSparklineKeys    = [];
 
 var LW_MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -5194,7 +5209,8 @@ function renderLeveragePosWidget() {
     }
     // Connection exists — auto-fetch if a secret is already available in the session
     var autoSecret = document.getElementById('leverage-pos-secret').value.trim()
-                   || document.getElementById('plaid-secret-input').value.trim();
+                   || document.getElementById('plaid-secret-input').value.trim()
+                   || getPlaidSecret();
     if (autoSecret) {
       fetchLeveragePosData(autoSecret);
     } else {
@@ -6289,7 +6305,7 @@ function renderPlaidConnections() {
 }
 
 function loadPlaidConnection(accessToken, accountId, acctName) {
-  var secret = document.getElementById('plaid-secret-input').value.trim();
+  var secret = document.getElementById('plaid-secret-input').value.trim() || getPlaidSecret();
   var statusEl = document.getElementById('plaid-status-msg');
   if (!secret) { statusEl.textContent = 'Please enter your Plaid secret key.'; return; }
   // Legacy connections without accountId: fetch accounts first then recurse
@@ -6348,7 +6364,7 @@ function loadPlaidScript() {
 }
 
 function connectPlaid() {
-  var secret = document.getElementById('plaid-secret-input').value.trim();
+  var secret = document.getElementById('plaid-secret-input').value.trim() || getPlaidSecret();
   var statusEl = document.getElementById('plaid-status-msg');
   if (!secret) { statusEl.textContent = 'Please enter your Plaid secret key.'; return; }
   statusEl.textContent = 'Loading Plaid Link…';
@@ -7330,6 +7346,22 @@ function init() {
 // ============================================================
 document.addEventListener('DOMContentLoaded', function() {
 
+  // Restore Plaid secret from sessionStorage and keep both inputs in sync
+  var _storedSecret = getPlaidSecret();
+  if (_storedSecret) syncPlaidSecretInputs(_storedSecret);
+  ['plaid-secret-input', 'leverage-pos-secret'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', function() {
+      var v = this.value.trim();
+      savePlaidSecret(v);
+      // Push into the sibling input if it's still empty
+      var otherId = id === 'plaid-secret-input' ? 'leverage-pos-secret' : 'plaid-secret-input';
+      var other = document.getElementById(otherId);
+      if (other && !other.value) other.value = v;
+    });
+  });
+
   // File pickers
   document.getElementById('plan-file').addEventListener('change', function() {
     var f = this.files[0]; if (!f) return;
@@ -7637,7 +7669,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
   document.getElementById('leverage-pos-fetch-btn').addEventListener('click', function() {
     var secret = document.getElementById('leverage-pos-secret').value.trim()
-               || document.getElementById('plaid-secret-input').value.trim();
+               || document.getElementById('plaid-secret-input').value.trim()
+               || getPlaidSecret();
     if (!secret) {
       document.getElementById('leverage-pos-status').textContent = 'Enter Plaid secret key first.';
       return;
