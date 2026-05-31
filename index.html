@@ -5305,6 +5305,46 @@ function fmtSpeedoDate(d) {
 
 var leverageSpeedoTxns = {}; // { speedoId: { title: ..., txns: [...] } }
 
+function buildAndShowSpeedoTt(clientX, clientY, title, txns, amtColor) {
+  amtColor = amtColor || '#1d4f5f';
+  var tt = document.getElementById('lessons-tooltip');
+  if (!tt) return;
+  var sorted = txns.slice().sort(function(a, b) { return b.amount - a.amount; });
+  function fmt(v) {
+    return (v < 0 ? '-$' : '$') + Math.abs(v).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  }
+  var html = '<div class="lessons-tt-month">' + escAttr(title) + '</div>';
+  var totBudget = 0, totBenefit = 0;
+  for (var i = 0; i < sorted.length; i++) {
+    var t       = sorted[i];
+    totBudget  += t.budget;
+    totBenefit += t.amount;
+    var label   = t.payee || t.memo || '';
+    html += '<div class="lessons-tt-row">'
+      + '<div style="flex:1;min-width:0">'
+      +   '<div class="lessons-tt-name">' + escAttr(label) + '</div>'
+      +   (t.memo && t.memo !== label ? '<div style="font-size:11px;color:#999;margin-top:1px">' + escAttr(t.memo) + '</div>' : '')
+      + '</div>'
+      + '<span class="lessons-tt-amt" style="color:' + amtColor + '">'
+      +   fmt(t.budget) + ' <span style="color:#999;font-weight:500">(' + fmt(t.amount) + ')</span>'
+      + '</span>'
+      + '</div>';
+  }
+  if (sorted.length > 1) {
+    html += '<div class="lessons-tt-total"><span>Total</span><span style="color:' + amtColor + '">'
+      + fmt(totBudget) + ' <span style="color:#999;font-weight:500">(' + fmt(totBenefit) + ')</span></span></div>';
+  }
+  tt.innerHTML = html;
+  var vw = window.innerWidth;
+  tt.style.display = 'block';
+  var tw = tt.offsetWidth;
+  var tx = clientX + 14, ty = clientY - tt.offsetHeight / 2;
+  if (tx + tw > vw - 8) tx = clientX - tw - 14;
+  if (ty < 8) ty = 8;
+  tt.style.left = tx + 'px';
+  tt.style.top  = ty + 'px';
+}
+
 function renderLeverageSpeedometers() {
   var row = document.getElementById('leverage-speedo-row');
   if (!row) return;
@@ -5359,6 +5399,7 @@ function renderLeverageSpeedometers() {
           date:   t.date,
           payee:  t.payee || '',
           memo:   t.memo  || '',
+          budget: spend,
           amount: spend * mult
         });
       }
@@ -5431,7 +5472,7 @@ function renderLeverageSpeedometers() {
     var data = leverageSpeedoTxns[spId];
     el.addEventListener('mousemove', function(e) {
       if (!data.txns.length) return;
-      buildAndShowLessonsTt(e.clientX, e.clientY, data.title, data.txns, '#1d4f5f');
+      buildAndShowSpeedoTt(e.clientX, e.clientY, data.title, data.txns, '#1d4f5f');
     });
     el.addEventListener('mouseleave', function() {
       var tt = document.getElementById('lessons-tooltip');
