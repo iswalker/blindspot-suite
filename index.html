@@ -1671,7 +1671,7 @@ var state = {
   configText:          null,
   catConfig:           [],
   merchantsText:       null,
-  merchants:           {},
+  merchants:           { headers: [], byPayee: {} },
   data:                null,
   fromKey:             localStorage.getItem('sel-from') || null,
   toKey:               localStorage.getItem('sel-to')   || null,
@@ -1903,7 +1903,7 @@ function ensureMerchantsLoaded() {
     state.merchants     = parseMerchantsCsv(stored);
     var statusEl = document.getElementById('merchants-status');
     if (statusEl) {
-      var n = Object.keys(state.merchants).length;
+      var n = Object.keys(state.merchants.byPayee).length;
       statusEl.textContent = 'cached (' + n + ' merchants)';
       statusEl.className   = 'file-status ok';
     }
@@ -1982,36 +1982,36 @@ function parseConfigCsv(text) {
   return result;
 }
 
-// Merchants CSV: header row is "Payee, Leverage 1, Leverage 2, ..."; each subsequent
-// row maps a payee to "Yes" cells indicating which Leverage metrics it qualifies for.
-// Returns { "payee lowercased": { "Leverage 1": true, "Leverage 2": true, ... } }
+// Merchants CSV: first column is the Payee name; remaining columns each represent
+// a Leverage metric (column 2 → Leverage 1, column 3 → Leverage 2, ...). A cell value
+// of "Yes" flags the merchant as qualifying for that metric.
+// Returns { headers: [col2Header, col3Header, ...], byPayee: { lowerPayee: { headerName: true } } }
 function parseMerchantsCsv(text) {
-  if (!text) return {};
-  var rows = [];
-  var raw = parseCSV(text); // returns array of objects keyed by header
-  if (!raw || !raw.length) return {};
+  if (!text) return { headers: [], byPayee: {} };
+  var raw = parseCSV(text);
+  if (!raw || !raw.length) return { headers: [], byPayee: {} };
   var headerKeys = Object.keys(raw[0]);
-  if (headerKeys.length < 2) return {};
-  var payeeKey = headerKeys[0];
-  var map = {};
+  if (headerKeys.length < 2) return { headers: [], byPayee: {} };
+  var metricHeaders = headerKeys.slice(1).map(function(h) { return (h || '').trim(); });
+  var byPayee = {};
   for (var i = 0; i < raw.length; i++) {
     var row = raw[i];
-    var payee = (row[payeeKey] || '').trim();
+    var payee = (row[headerKeys[0]] || '').trim();
     if (!payee) continue;
     var entry = {};
     var hasAny = false;
-    for (var hi = 1; hi < headerKeys.length; hi++) {
-      var metricName = (headerKeys[hi] || '').trim();
+    for (var hi = 0; hi < metricHeaders.length; hi++) {
+      var metricName = metricHeaders[hi];
       if (!metricName) continue;
-      var cellVal = (row[headerKeys[hi]] || '').trim().toLowerCase();
+      var cellVal = (row[headerKeys[hi + 1]] || '').trim().toLowerCase();
       if (cellVal === 'yes' || cellVal === 'y' || cellVal === 'true' || cellVal === '1' || cellVal === 'x') {
         entry[metricName] = true;
         hasAny = true;
       }
     }
-    if (hasAny) map[payee.toLowerCase()] = entry;
+    if (hasAny) byPayee[payee.toLowerCase()] = entry;
   }
-  return map;
+  return { headers: metricHeaders, byPayee: byPayee };
 }
 
 // Compute calendar-aligned period bounds for a "Date Range" string like
@@ -2606,6 +2606,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
         var st = schedTxns[si];
         if (!st.date_next) continue;
         if (st.flag_color) continue;
+        if ((st.amount || 0) >= 0) continue; // outflows only (YNAB stores outflows as negative)
         var nextDate = new Date(st.date_next + 'T00:00:00');
         if (nextDate < todayMid || nextDate > cutoff) continue;
         upcomingRenewals.push({
@@ -2721,7 +2722,7 @@ function fetchConfigFromGoogleSheet(token) {
        localStorage.setItem('merchants-csv', mcsv);
        var statusEl = document.getElementById('merchants-status');
        if (statusEl) {
-         var n = Object.keys(state.merchants).length;
+         var n = Object.keys(state.merchants.byPayee).length;
          statusEl.textContent = 'from Sheet (' + n + ' merchants)';
          statusEl.className   = 'file-status ok';
        }
@@ -5307,23 +5308,27 @@ function renderLeverageSpeedometers() {
   if (!cfgs.length) { row.style.display = 'none'; row.innerHTML = ''; return; }
   row.style.display = '';
 
-  var now      = new Date();
-  var acctList = (state.data && state.data.acctTxnsList) || {};
-  var merchants = state.merchants || {};
+  var now       = new Date();
+  var acctList  = (state.data && state.data.acctTxnsList) || {};
+  var merchants = (state.merchants && state.merchants.byPayee) || {};
+  var mHeaders  = (state.merchants && state.merchants.headers) || [];
 
   var html = '';
   for (var ci = 0; ci < cfgs.length; ci++) {
     var cfg     = cfgs[ci];
-    var metric  = cfg.usedFor;
-    var maxAmt  = cfg.amount || 0;
-    var mult    = (cfg.multiplier != null) ? cfg.multiplier : 1;
-    var acctId  = cfg.id || '';
-    var period  = computePeriodProgress(cfg.dateRange, now);
+    var idxMatch = (cfg.usedFor || '').match(/(\d+)/);
+    var lvIdx    = idxMatch ? parseInt(idxMatch[1], 10) : (ci + 1);
+    var colHdr   = mHeaders[lvIdx - 1] || '';   // column header for this Leverage slot
+    var title    = colHdr || cfg.usedFor;        // fall back to "Leverage N" if no Merchants tab
+    var maxAmt   = cfg.amount || 0;
+    var mult     = (cfg.multiplier != null) ? cfg.multiplier : 1;
+    var acctId   = cfg.id || '';
+    var period   = computePeriodProgress(cfg.dateRange, now);
 
-    // Sum eligible transactions inside the period & account, restricted to merchants flagged for this metric.
+    // Sum eligible transactions inside the period & account, restricted to merchants flagged for this column.
     var rawSum = 0;
     var txnCount = 0;
-    if (period && acctList[acctId]) {
+    if (period && colHdr && acctList[acctId]) {
       var txs = acctList[acctId];
       var startStr = period.start.toISOString().slice(0, 10);
       var endStr   = period.end.toISOString().slice(0, 10);
@@ -5332,7 +5337,7 @@ function renderLeverageSpeedometers() {
         if (!t.date || t.date < startStr || t.date >= endStr) continue;
         var payeeKey = (t.payee || '').toLowerCase();
         var mEntry = merchants[payeeKey];
-        if (!mEntry || !mEntry[metric]) continue;
+        if (!mEntry || !mEntry[colHdr]) continue;
         // Outflows are negative in YNAB; treat absolute spend as the benefit-consumption amount.
         var spend = Math.abs(t.amount || 0);
         rawSum += spend;
@@ -5363,7 +5368,7 @@ function renderLeverageSpeedometers() {
     var paceLabel   = period ? (Math.round(timeFrac * 100) + '% through ' + (cfg.dateRange || '')) : '';
 
     html += '<div class="leverage-speedo">'
-      +    '<div class="leverage-speedo-label">' + escAttr(metric) + '</div>'
+      +    '<div class="leverage-speedo-label">' + escAttr(title) + '</div>'
       +    '<div class="leverage-speedo-svg-wrap">'
       +      '<svg viewBox="0 0 200 110" preserveAspectRatio="xMidYMid meet">'
       +        '<path d="' + trackPath + '" fill="none" stroke="#e6e6e2" stroke-width="18" stroke-linecap="round"/>'
@@ -7271,7 +7276,7 @@ document.addEventListener('DOMContentLoaded', function() {
       state.merchantsText = e.target.result;
       state.merchants     = parseMerchantsCsv(state.merchantsText);
       localStorage.setItem('merchants-csv', state.merchantsText);
-      var n = Object.keys(state.merchants).length;
+      var n = Object.keys(state.merchants.byPayee).length;
       document.getElementById('merchants-status').textContent = f.name + ' (' + n + ' merchants)';
       document.getElementById('merchants-status').className   = 'file-status ok';
     };
