@@ -1270,6 +1270,16 @@ td.hbt-num:last-child { width: 13%; }
           <span id="range-sep">&#8594;</span>
           <label>To <select id="to-sel"></select></label>
         </div>
+        <label class="ios-toggle-wrap">
+          <input type="checkbox" id="cf-include-current">
+          <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+          Preview Current Month
+        </label>
+        <label class="ios-toggle-wrap">
+          <input type="checkbox" id="cf-exclude-tracking">
+          <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+          Exclude Tracking
+        </label>
         <div id="acct-filter-wrap">
           <button id="acct-filter-btn">Accounts &#9660;</button>
           <div id="acct-filter-panel"></div>
@@ -1712,6 +1722,8 @@ var state = {
   data:                null,
   fromKey:             localStorage.getItem('sel-from') || null,
   toKey:               localStorage.getItem('sel-to')   || null,
+  cfIncludeCurrent:    localStorage.getItem('cf-include-current') === '1',
+  cfExcludeTracking:   localStorage.getItem('cf-exclude-tracking') === '1',
   expanded:            parseJsonLS('ynab-expanded-groups') || {},
   selectedAccounts:    parseJsonLS('sel-accts')       || {},
   loadedAt:            null,
@@ -3645,11 +3657,17 @@ function populateRangeFilter() {
     toSel.appendChild(o2);
   }
 
-  // Default: last 4 months, not including present month
   var todayKey  = dtKey(new Date());
   var defaultTo = keys[0];
-  for (var ti2 = keys.length - 1; ti2 >= 0; ti2--) {
-    if (keys[ti2] < todayKey) { defaultTo = keys[ti2]; break; }
+  if (state.cfIncludeCurrent) {
+    for (var ti2 = keys.length - 1; ti2 >= 0; ti2--) {
+      if (keys[ti2] <= todayKey) { defaultTo = keys[ti2]; break; }
+    }
+  } else {
+    // Default: last 4 months, not including present month
+    for (var ti2 = keys.length - 1; ti2 >= 0; ti2--) {
+      if (keys[ti2] < todayKey) { defaultTo = keys[ti2]; break; }
+    }
   }
   var toIdx2    = keys.indexOf(defaultTo);
   var defaultFrom = keys[Math.max(0, toIdx2 - 3)];
@@ -3658,6 +3676,11 @@ function populateRangeFilter() {
 
   state.fromKey = fromSel.value;
   state.toKey   = toSel.value;
+
+  var chkCur = document.getElementById('cf-include-current');
+  if (chkCur) chkCur.checked = !!state.cfIncludeCurrent;
+  var chkTrk = document.getElementById('cf-exclude-tracking');
+  if (chkTrk) chkTrk.checked = !!state.cfExcludeTracking;
 }
 
 // ============================================================
@@ -7525,6 +7548,39 @@ document.addEventListener('DOMContentLoaded', function() {
       document.getElementById('from-sel').value = state.fromKey;
       localStorage.setItem('sel-from', state.fromKey);
     }
+    renderTable();
+  });
+
+  document.getElementById('cf-include-current').checked = !!state.cfIncludeCurrent;
+  document.getElementById('cf-include-current').addEventListener('change', function() {
+    state.cfIncludeCurrent = this.checked;
+    localStorage.setItem('cf-include-current', this.checked ? '1' : '0');
+    var todayKey = dtKey(new Date());
+    var keys     = state.data && state.data.allKeys || [];
+    if (this.checked) {
+      if (state.toKey < todayKey && keys.indexOf(todayKey) !== -1) {
+        state.toKey = todayKey;
+        document.getElementById('to-sel').value = todayKey;
+        localStorage.setItem('sel-to', todayKey);
+      }
+    } else {
+      if (state.toKey >= todayKey) {
+        var prevKey = keys[0];
+        for (var i = keys.length - 1; i >= 0; i--) {
+          if (keys[i] < todayKey) { prevKey = keys[i]; break; }
+        }
+        state.toKey = prevKey;
+        document.getElementById('to-sel').value = prevKey;
+        localStorage.setItem('sel-to', prevKey);
+      }
+    }
+    renderTable();
+  });
+
+  document.getElementById('cf-exclude-tracking').checked = !!state.cfExcludeTracking;
+  document.getElementById('cf-exclude-tracking').addEventListener('change', function() {
+    state.cfExcludeTracking = this.checked;
+    localStorage.setItem('cf-exclude-tracking', this.checked ? '1' : '0');
     renderTable();
   });
 
