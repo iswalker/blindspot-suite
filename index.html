@@ -5183,7 +5183,6 @@ function renderLeveragePosWidget() {
   var status = document.getElementById('leverage-pos-status');
   if (!tbl) return;
   if (!leveragePosData) {
-    // Find the Presidential Checking connection to show its name
     var conns = getPlaidConnections();
     var presConn = null;
     for (var i = 0; i < conns.length; i++) {
@@ -5191,6 +5190,15 @@ function renderLeveragePosWidget() {
     }
     if (!presConn) {
       tbl.innerHTML = '<tr><td colspan="2" id="leverage-pos-empty">No "Presidential Checking" Plaid connection found</td></tr>';
+      return;
+    }
+    // Connection exists — auto-fetch if a secret is already available in the session
+    var autoSecret = document.getElementById('leverage-pos-secret').value.trim()
+                   || document.getElementById('plaid-secret-input').value.trim();
+    if (autoSecret) {
+      fetchLeveragePosData(autoSecret);
+    } else {
+      tbl.innerHTML = '<tr><td colspan="2" id="leverage-pos-empty">Connection ready — enter Plaid secret key and click Fetch</td></tr>';
     }
     return;
   }
@@ -7628,7 +7636,8 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   document.getElementById('leverage-pos-fetch-btn').addEventListener('click', function() {
-    var secret = document.getElementById('leverage-pos-secret').value.trim();
+    var secret = document.getElementById('leverage-pos-secret').value.trim()
+               || document.getElementById('plaid-secret-input').value.trim();
     if (!secret) {
       document.getElementById('leverage-pos-status').textContent = 'Enter Plaid secret key first.';
       return;
