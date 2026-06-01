@@ -5431,9 +5431,8 @@ var leverageTooltipPinned = false;
 function buildAndShowSpeedoTt(clientX, clientY, data, amtColor) {
   var tt = document.getElementById('lessons-tooltip');
   if (!tt) return;
-  var txns       = data.txns         || [];
-  var assocEl    = data.assocEligible || [];
-  var assocOther = data.assocOther    || [];
+  var txns          = data.txns          || [];
+  var otherAcctTxns = data.otherAcctTxns || [];
   var rawSum = data.rawSum || 0;
   var maxAmt = data.maxAmt || 0;
   var mult   = data.mult   || 1;
@@ -5478,41 +5477,22 @@ function buildAndShowSpeedoTt(clientX, clientY, data, amtColor) {
     html += '<div class="lessons-tt-total"><span>Overages</span><span style="color:#888">'
       + fmt(overage) + ' <span style="color:#ef6c00;font-weight:600">(' + fmtDec(overageBenefit) + ')</span></span></div>';
   }
-  // -- Could Have Routed section --
-  var sec1BenTot = 0;
-  if (assocEl.length) {
-    html += sectionHdr('Could Have Routed');
-    var sec1SpendTot = 0;
-    for (var ei = 0; ei < assocEl.length; ei++) {
-      var e = assocEl[ei];
-      sec1SpendTot += e.budget;
-      sec1BenTot   += e.amount;
-      html += '<div class="lessons-tt-row">'
-        + '<div class="lessons-tt-name" style="flex:1;min-width:0">' + escAttr(e.payee) + '</div>'
-        + '<span class="lessons-tt-amt" style="color:#888">' + fmt(e.budget)
-        +   ' <span style="color:#ef6c00;font-weight:600">(' + fmtDec(e.amount) + ')</span>'
-        + '</span></div>';
-    }
-    html += '<div class="lessons-tt-total"><span>Total (Could Have Routed)</span><span style="color:#888">'
-      + fmt(sec1SpendTot) + ' <span style="color:#ef6c00;font-weight:600">(' + fmtDec(sec1BenTot) + ')</span></span></div>';
-  }
-  var totalBenNotRealized = overageBenefit + sec1BenTot;
-  if (totalBenNotRealized > 0) {
-    html += '<div class="lessons-tt-total"><span>Benefit Not Realized</span>'
-      + '<span style="color:#ef6c00;font-weight:700">' + fmtDec(totalBenNotRealized) + '</span></div>';
-  }
-  // -- No Match section --
-  if (assocOther.length) {
-    html += sectionHdr('No Match');
-    var sec2Tot = 0;
-    for (var oi = 0; oi < assocOther.length; oi++) {
-      var o = assocOther[oi];
-      sec2Tot += o.budget;
+  // -- Other Account Used section --
+  if (otherAcctTxns.length) {
+    html += sectionHdr('Other Account Used');
+    var otherSpendTot = 0, otherBenTot = 0;
+    for (var oi = 0; oi < otherAcctTxns.length; oi++) {
+      var o = otherAcctTxns[oi];
+      otherSpendTot += o.budget;
+      otherBenTot   += o.amount;
       html += '<div class="lessons-tt-row">'
         + '<div class="lessons-tt-name" style="flex:1;min-width:0">' + escAttr(o.payee) + '</div>'
-        + '<span class="lessons-tt-amt" style="color:#888">' + fmt(o.budget) + '</span></div>';
+        + '<span class="lessons-tt-amt" style="color:#888">' + fmt(o.budget)
+        +   ' <span style="color:#bbb;font-weight:500">(' + fmtDec(o.amount) + ')</span>'
+        + '</span></div>';
     }
-    html += '<div class="lessons-tt-total"><span>Total</span><span style="color:#888">' + fmt(sec2Tot) + '</span></div>';
+    html += '<div class="lessons-tt-total"><span>Total (Other Account)</span><span style="color:#888">'
+      + fmt(otherSpendTot) + ' <span style="color:#bbb;font-weight:500">(' + fmtDec(otherBenTot) + ')</span></span></div>';
   }
   tt.innerHTML = html;
   var vw = window.innerWidth;
@@ -5629,54 +5609,38 @@ function renderLeverageSpeedometers() {
         });
       }
     }
-    // Build associated-category sections (missed opportunities)
-    var assocEligible = [], assocOther = [], assocCatName = '';
-    if (cfg.assocCatId && state.data.catIdTxns) {
-      var catIdToNameMap = state.data.catIdToName || {};
-      assocCatName = catIdToNameMap[cfg.assocCatId] || cfg.assocCatId;
-      // Build acctId→accountName reverse map once per render
-      if (!acctIdToName) {
-        acctIdToName = {};
-        var aInfo = state.data.allAccountsInfo || {};
-        // allAccountsInfo is keyed by account ID; value has .name
-        for (var an in aInfo) { acctIdToName[an] = aInfo[an].name || an; }
-      }
-      var leverageAcctName = acctIdToName[acctId] || '';
-      var assocTxns = state.data.catIdTxns[cfg.assocCatId] || [];
-      var elByPayee = {}, otherByPayee = {};
-      for (var ati = 0; ati < assocTxns.length; ati++) {
-        var at = assocTxns[ati];
-        if (!at.date || at.date < (period ? period.start.toISOString().slice(0,10) : '') || at.date > asOfStr) continue;
-        if (leverageAcctName && at.account === leverageAcctName) continue; // already counted via account
-        var aspend = -at.amount; // amount stored negative (outflow)
-        if (aspend <= 0) continue;
-        var apk = (at.payee || '').toLowerCase();
-        if (merchants[apk] && merchants[apk][colHdr]) {
-          if (!elByPayee[at.payee]) elByPayee[at.payee] = 0;
-          elByPayee[at.payee] += aspend;
-        } else {
-          if (!otherByPayee[at.payee]) otherByPayee[at.payee] = 0;
-          otherByPayee[at.payee] += aspend;
+    // Build "Other Account Used": matching merchants that went through a different account in the period
+    var otherAcctByPayee = {};
+    var startStr = period ? period.start.toISOString().slice(0, 10) : '';
+    if (colHdr && startStr) {
+      for (var otherAcctId in acctList) {
+        if (otherAcctId === acctId) continue;
+        var otherTxs = acctList[otherAcctId] || [];
+        for (var oti = 0; oti < otherTxs.length; oti++) {
+          var ot = otherTxs[oti];
+          if (!ot.date || ot.date < startStr || ot.date > asOfStr) continue;
+          var opk = (ot.payee || '').toLowerCase();
+          if (!merchants[opk] || !merchants[opk][colHdr]) continue;
+          var ospend = -(ot.amount || 0);
+          if (state.leverageExcludeTracking) ospend -= -(ot.trackingAmount || 0);
+          if (ospend <= 0) continue;
+          if (!otherAcctByPayee[ot.payee]) otherAcctByPayee[ot.payee] = 0;
+          otherAcctByPayee[ot.payee] += ospend;
         }
       }
-      assocEligible = Object.keys(elByPayee).map(function(p) {
-        return { payee: p, budget: elByPayee[p], amount: elByPayee[p] * mult };
-      }).sort(function(a, b) { return b.budget - a.budget; });
-      assocOther = Object.keys(otherByPayee).map(function(p) {
-        return { payee: p, budget: otherByPayee[p] };
-      }).sort(function(a, b) { return b.budget - a.budget; });
     }
+    var otherAcctTxns = Object.keys(otherAcctByPayee).map(function(p) {
+      return { payee: p, budget: otherAcctByPayee[p], amount: otherAcctByPayee[p] * mult };
+    }).sort(function(a, b) { return b.budget - a.budget; });
 
     var speedoId = 'leverage-speedo-' + ci;
     leverageSpeedoTxns[speedoId] = {
-      title:         (title || '') + ' — ' + keyLabel(selMonth),
-      txns:          contribTxns,
-      rawSum:        rawSum,
-      maxAmt:        maxAmt,
-      mult:          mult,
-      assocEligible: assocEligible,
-      assocOther:    assocOther,
-      assocCatName:  assocCatName
+      title:        (title || '') + ' — ' + keyLabel(selMonth),
+      txns:         contribTxns,
+      rawSum:       rawSum,
+      maxAmt:       maxAmt,
+      mult:         mult,
+      otherAcctTxns: otherAcctTxns
     };
     var cappedSpend = Math.min(Math.max(rawSum, 0), maxAmt);
     var cappedBenefit = cappedSpend * mult;
@@ -5732,7 +5696,7 @@ function renderLeverageSpeedometers() {
     var data = leverageSpeedoTxns[spId];
     el.addEventListener('mousemove', function(e) {
       if (leverageTooltipPinned) return;
-      if (!data.txns.length && !data.assocEligible.length && !data.assocOther.length) return;
+      if (!data.txns.length && !data.otherAcctTxns.length) return;
       buildAndShowSpeedoTt(e.clientX, e.clientY, data, '#1d4f5f');
     });
     el.addEventListener('mouseleave', function() {
