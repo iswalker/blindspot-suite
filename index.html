@@ -5462,30 +5462,30 @@ function buildAndShowSpeedoTt(clientX, clientY, data, amtColor) {
     totBenefit += agg.amount;
     html += '<div class="lessons-tt-row">'
       + '<div class="lessons-tt-name" style="flex:1;min-width:0">' + escAttr(p) + '</div>'
-      + '<span class="lessons-tt-amt" style="color:' + amtColor + '">'
-      +   fmt(agg.budget) + ' <span style="color:#999;font-weight:500">(' + fmtDec(agg.amount) + ')</span>'
+      + '<span class="lessons-tt-amt" style="color:#888">'
+      +   fmt(agg.budget) + ' <span style="color:#bbb;font-weight:500">(' + fmtDec(agg.amount) + ')</span>'
       + '</span></div>';
   }
   if (payeeOrder.length > 1) {
-    html += '<div class="lessons-tt-total"><span>Total</span><span style="color:' + amtColor + '">'
-      + fmt(totBudget) + ' <span style="color:#999;font-weight:500">(' + fmtDec(totBenefit) + ')</span></span></div>';
+    html += '<div class="lessons-tt-total"><span>Total</span><span style="color:#888">'
+      + fmt(totBudget) + ' <span style="color:#bbb;font-weight:500">(' + fmtDec(totBenefit) + ')</span></span></div>';
   }
-  // -- Section 1: eligible but routed elsewhere --
+  // -- Section 1: eligible but routed elsewhere (missed benefit in orange) --
   if (assocEl.length) {
     html += sectionHdr((assocLabel ? assocLabel + ' — ' : '') + 'Could have routed (eligible)');
-    var sec1Tot = 0;
+    var sec1SpendTot = 0, sec1BenTot = 0;
     for (var ei = 0; ei < assocEl.length; ei++) {
       var e = assocEl[ei];
-      sec1Tot += e.budget;
+      sec1SpendTot += e.budget;
+      sec1BenTot   += e.amount;
       html += '<div class="lessons-tt-row">'
         + '<div class="lessons-tt-name" style="flex:1;min-width:0">' + escAttr(e.payee) + '</div>'
-        + '<span class="lessons-tt-amt" style="color:#ef6c00">' + fmt(e.budget)
-        +   ' <span style="color:#999;font-weight:500">(' + fmtDec(e.amount) + ')</span>'
+        + '<span class="lessons-tt-amt" style="color:#888">' + fmt(e.budget)
+        +   ' <span style="color:#ef6c00;font-weight:600">(' + fmtDec(e.amount) + ')</span>'
         + '</span></div>';
     }
-    if (assocEl.length > 1) {
-      html += '<div class="lessons-tt-total"><span>Total</span><span style="color:#ef6c00">' + fmt(sec1Tot) + '</span></div>';
-    }
+    html += '<div class="lessons-tt-total"><span>Benefit not realized</span>'
+      + '<span style="color:#ef6c00">' + fmtDec(sec1BenTot) + '</span></div>';
   }
   // -- Section 2: not eligible, routed elsewhere --
   if (assocOther.length) {
@@ -5496,10 +5496,10 @@ function buildAndShowSpeedoTt(clientX, clientY, data, amtColor) {
       sec2Tot += o.budget;
       html += '<div class="lessons-tt-row">'
         + '<div class="lessons-tt-name" style="flex:1;min-width:0">' + escAttr(o.payee) + '</div>'
-        + '<span class="lessons-tt-amt" style="color:#aaa">' + fmt(o.budget) + '</span></div>';
+        + '<span class="lessons-tt-amt" style="color:#888">' + fmt(o.budget) + '</span></div>';
     }
     if (assocOther.length > 1) {
-      html += '<div class="lessons-tt-total"><span>Total</span><span style="color:#aaa">' + fmt(sec2Tot) + '</span></div>';
+      html += '<div class="lessons-tt-total"><span>Total</span><span style="color:#888">' + fmt(sec2Tot) + '</span></div>';
     }
   }
   tt.innerHTML = html;
@@ -5626,7 +5626,8 @@ function renderLeverageSpeedometers() {
       if (!acctIdToName) {
         acctIdToName = {};
         var aInfo = state.data.allAccountsInfo || {};
-        for (var an in aInfo) { if (aInfo[an].id) acctIdToName[aInfo[an].id] = an; }
+        // allAccountsInfo is keyed by account ID; value has .name
+        for (var an in aInfo) { acctIdToName[an] = aInfo[an].name || an; }
       }
       var leverageAcctName = acctIdToName[acctId] || '';
       var assocTxns = state.data.catIdTxns[cfg.assocCatId] || [];
