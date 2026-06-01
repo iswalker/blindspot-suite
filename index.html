@@ -5433,6 +5433,7 @@ function buildAndShowSpeedoTt(clientX, clientY, data, amtColor) {
   if (!tt) return;
   var txns          = data.txns          || [];
   var otherAcctTxns = data.otherAcctTxns || [];
+  var noMatchTxns   = data.noMatchTxns   || [];
   var rawSum = data.rawSum || 0;
   var maxAmt = data.maxAmt || 0;
   var mult   = data.mult   || 1;
@@ -5493,6 +5494,19 @@ function buildAndShowSpeedoTt(clientX, clientY, data, amtColor) {
     }
     html += '<div class="lessons-tt-total"><span>Total (Other Account)</span><span style="color:#888">'
       + fmt(otherSpendTot) + ' <span style="color:#bbb;font-weight:500">(' + fmtDec(otherBenTot) + ')</span></span></div>';
+  }
+  // -- No Match section --
+  if (noMatchTxns.length) {
+    html += sectionHdr('No Match');
+    var noMatchTot = 0;
+    for (var ni = 0; ni < noMatchTxns.length; ni++) {
+      var nm = noMatchTxns[ni];
+      noMatchTot += nm.budget;
+      html += '<div class="lessons-tt-row">'
+        + '<div class="lessons-tt-name" style="flex:1;min-width:0">' + escAttr(nm.payee) + '</div>'
+        + '<span class="lessons-tt-amt" style="color:#888">' + fmt(nm.budget) + '</span></div>';
+    }
+    html += '<div class="lessons-tt-total"><span>Total</span><span style="color:#888">' + fmt(noMatchTot) + '</span></div>';
   }
   tt.innerHTML = html;
   var vw = window.innerWidth;
@@ -5633,14 +5647,41 @@ function renderLeverageSpeedometers() {
       return { payee: p, budget: otherAcctByPayee[p], amount: otherAcctByPayee[p] * mult };
     }).sort(function(a, b) { return b.budget - a.budget; });
 
+    // "No Match" section: transactions in the associated category via other accounts, not merchant-eligible
+    var noMatchByPayee = {};
+    if (cfg.assocCatId && state.data.catIdTxns && startStr) {
+      if (!acctIdToName) {
+        acctIdToName = {};
+        var aInf = state.data.allAccountsInfo || {};
+        for (var an in aInf) { acctIdToName[an] = aInf[an].name || an; }
+      }
+      var leverageAcctName = acctIdToName[acctId] || '';
+      var assocTxns = state.data.catIdTxns[cfg.assocCatId] || [];
+      for (var ati = 0; ati < assocTxns.length; ati++) {
+        var at = assocTxns[ati];
+        if (!at.date || at.date < startStr || at.date > asOfStr) continue;
+        if (leverageAcctName && at.account === leverageAcctName) continue;
+        var aspend = -at.amount;
+        if (aspend <= 0) continue;
+        var apk = (at.payee || '').toLowerCase();
+        if (merchants[apk] && merchants[apk][colHdr]) continue; // merchant-eligible → already in Other Account Used
+        if (!noMatchByPayee[at.payee]) noMatchByPayee[at.payee] = 0;
+        noMatchByPayee[at.payee] += aspend;
+      }
+    }
+    var noMatchTxns = Object.keys(noMatchByPayee).map(function(p) {
+      return { payee: p, budget: noMatchByPayee[p] };
+    }).sort(function(a, b) { return b.budget - a.budget; });
+
     var speedoId = 'leverage-speedo-' + ci;
     leverageSpeedoTxns[speedoId] = {
-      title:        (title || '') + ' — ' + keyLabel(selMonth),
-      txns:         contribTxns,
-      rawSum:       rawSum,
-      maxAmt:       maxAmt,
-      mult:         mult,
-      otherAcctTxns: otherAcctTxns
+      title:         (title || '') + ' — ' + keyLabel(selMonth),
+      txns:          contribTxns,
+      rawSum:        rawSum,
+      maxAmt:        maxAmt,
+      mult:          mult,
+      otherAcctTxns: otherAcctTxns,
+      noMatchTxns:   noMatchTxns
     };
     var cappedSpend = Math.min(Math.max(rawSum, 0), maxAmt);
     var cappedBenefit = cappedSpend * mult;
@@ -5696,7 +5737,7 @@ function renderLeverageSpeedometers() {
     var data = leverageSpeedoTxns[spId];
     el.addEventListener('mousemove', function(e) {
       if (leverageTooltipPinned) return;
-      if (!data.txns.length && !data.otherAcctTxns.length) return;
+      if (!data.txns.length && !data.otherAcctTxns.length && !data.noMatchTxns.length) return;
       buildAndShowSpeedoTt(e.clientX, e.clientY, data, '#1d4f5f');
     });
     el.addEventListener('mouseleave', function() {
