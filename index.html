@@ -953,9 +953,12 @@ td.hbt-num:last-child { width: 13%; }
 #lessons-year-chart-wrap { flex: 1; min-width: 120px; margin-bottom: 0; }
 
 /* ---- Leverage speedometers ---- */
+#leverage-speedo-hdr { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+#leverage-speedo-hdr label { font-size: 12px; color: #666; white-space: nowrap; }
+#leverage-speedo-month-sel { font-size: 12px; padding: 3px 6px; border: 1px solid #ddd; border-radius: 5px; color: #333; }
 #leverage-speedo-row { display: flex; gap: 16px; margin-bottom: 14px; flex-wrap: wrap; }
 .leverage-speedo {
-  flex: 1; min-width: 280px; background: #fff; border: 1px solid #e8e8e4;
+  flex: 1; min-width: 260px; max-width: 420px; background: #fff; border: 1px solid #e8e8e4;
   border-radius: 10px; padding: 14px 18px 10px;
 }
 .leverage-speedo-label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #888; margin-bottom: 4px; }
@@ -986,7 +989,7 @@ td.hbt-num:last-child { width: 13%; }
   box-shadow: 0 1px 3px rgba(0,0,0,.25);
   transition: left .2s;
 }
-.ios-toggle-wrap input:checked + .ios-toggle-track { background: #1565bf; }
+.ios-toggle-wrap input:checked + .ios-toggle-track { background: #555; }
 .ios-toggle-wrap input:checked + .ios-toggle-track .ios-toggle-thumb { left: 16px; }
 
 /* ---- Leverage metrics / layout (mirrors Lessons, blue accent) ---- */
@@ -1420,6 +1423,9 @@ td.hbt-num:last-child { width: 13%; }
         </label>
       </div>
     </div>
+    <div id="leverage-speedo-hdr" style="display:none">
+      <label>Speedometer Month <select id="leverage-speedo-month-sel"></select></label>
+    </div>
     <div id="leverage-speedo-row" style="display:none"></div>
     <div id="leverage-summary-row">
       <div id="leverage-metrics-left">
@@ -1727,6 +1733,7 @@ var state = {
   lwIncludeCurrent:    localStorage.getItem('lw-include-current') === '1',
   lwExcludeTracking:        localStorage.getItem('lw-exclude-tracking') === '1',
   leverageExcludeTracking:  localStorage.getItem('leverage-exclude-tracking') === '1',
+  leverageSpeedoMonth:      null,
   lwSelectedAccounts:  parseJsonLS('sel-lw-accts')    || {},
   nwFromKey:           localStorage.getItem('sel-nw-from') || null,
   nwToKey:             localStorage.getItem('sel-nw-to')   || null,
@@ -5420,28 +5427,33 @@ function buildAndShowSpeedoTt(clientX, clientY, title, txns, amtColor) {
   amtColor = amtColor || '#1d4f5f';
   var tt = document.getElementById('lessons-tooltip');
   if (!tt) return;
-  var sorted = txns.slice().sort(function(a, b) { return b.amount - a.amount; });
   function fmt(v) {
     return (v < 0 ? '-$' : '$') + Math.abs(v).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
   }
+  // Aggregate by payee
+  var byPayee = {}, payeeOrder = [];
+  for (var i = 0; i < txns.length; i++) {
+    var t = txns[i];
+    var key = t.payee || '(Unknown)';
+    if (!byPayee[key]) { byPayee[key] = { budget: 0, amount: 0 }; payeeOrder.push(key); }
+    byPayee[key].budget += t.budget;
+    byPayee[key].amount += t.amount;
+  }
+  payeeOrder.sort(function(a, b) { return byPayee[b].amount - byPayee[a].amount; });
   var html = '<div class="lessons-tt-month">' + escAttr(title) + '</div>';
   var totBudget = 0, totBenefit = 0;
-  for (var i = 0; i < sorted.length; i++) {
-    var t       = sorted[i];
-    totBudget  += t.budget;
-    totBenefit += t.amount;
-    var label   = t.payee || t.memo || '';
+  for (var pi = 0; pi < payeeOrder.length; pi++) {
+    var p = payeeOrder[pi], agg = byPayee[p];
+    totBudget  += agg.budget;
+    totBenefit += agg.amount;
     html += '<div class="lessons-tt-row">'
-      + '<div style="flex:1;min-width:0">'
-      +   '<div class="lessons-tt-name">' + escAttr(label) + '</div>'
-      +   (t.memo && t.memo !== label ? '<div style="font-size:11px;color:#999;margin-top:1px">' + escAttr(t.memo) + '</div>' : '')
-      + '</div>'
+      + '<div class="lessons-tt-name" style="flex:1;min-width:0">' + escAttr(p) + '</div>'
       + '<span class="lessons-tt-amt" style="color:' + amtColor + '">'
-      +   fmt(t.budget) + ' <span style="color:#999;font-weight:500">(' + fmt(t.amount) + ')</span>'
+      +   fmt(agg.budget) + ' <span style="color:#999;font-weight:500">(' + fmt(agg.amount) + ')</span>'
       + '</span>'
       + '</div>';
   }
-  if (sorted.length > 1) {
+  if (payeeOrder.length > 1) {
     html += '<div class="lessons-tt-total"><span>Total</span><span style="color:' + amtColor + '">'
       + fmt(totBudget) + ' <span style="color:#999;font-weight:500">(' + fmt(totBenefit) + ')</span></span></div>';
   }
@@ -5456,8 +5468,35 @@ function buildAndShowSpeedoTt(clientX, clientY, title, txns, amtColor) {
   tt.style.top  = ty + 'px';
 }
 
+function populateSpeedoMonthPicker(acctIds) {
+  var sel = document.getElementById('leverage-speedo-month-sel');
+  if (!sel) return;
+  var keysSet = {};
+  var acctTxnsList = (state.data && state.data.acctTxnsList) || {};
+  for (var ai = 0; ai < acctIds.length; ai++) {
+    var txs = acctTxnsList[acctIds[ai]] || [];
+    for (var ti = 0; ti < txs.length; ti++) {
+      if (txs[ti].date) keysSet[txs[ti].date.slice(0, 7)] = 1;
+    }
+  }
+  var todayKey = dtKey(new Date());
+  keysSet[todayKey] = 1;
+  var months = Object.keys(keysSet).sort().reverse();
+  var prev = sel.value || state.leverageSpeedoMonth || todayKey;
+  sel.innerHTML = '';
+  for (var mi = 0; mi < months.length; mi++) {
+    var opt = document.createElement('option');
+    opt.value = months[mi];
+    opt.textContent = keyLabel(months[mi]) + (months[mi] === todayKey ? ' (current)' : '');
+    sel.appendChild(opt);
+  }
+  sel.value = (months.indexOf(prev) !== -1) ? prev : todayKey;
+  state.leverageSpeedoMonth = sel.value;
+}
+
 function renderLeverageSpeedometers() {
   var row = document.getElementById('leverage-speedo-row');
+  var hdr = document.getElementById('leverage-speedo-hdr');
   if (!row) return;
   leverageSpeedoTxns = {};
   var cfgs = (state.catConfig || []).filter(function(c) {
@@ -5468,10 +5507,28 @@ function renderLeverageSpeedometers() {
     var bn = parseInt((b.usedFor.match(/\d+/) || [0])[0], 10);
     return an - bn;
   });
-  if (!cfgs.length) { row.style.display = 'none'; row.innerHTML = ''; return; }
+  if (!cfgs.length) {
+    row.style.display = 'none'; row.innerHTML = '';
+    if (hdr) hdr.style.display = 'none';
+    return;
+  }
+  if (hdr) hdr.style.display = '';
   row.style.display = '';
 
-  var now       = new Date();
+  // Determine the "as-of" date from the month picker
+  var acctIds = cfgs.map(function(c) { return c.id || ''; }).filter(Boolean);
+  populateSpeedoMonthPicker(acctIds);
+  var todayKey = dtKey(new Date());
+  var selMonth = state.leverageSpeedoMonth || todayKey;
+  var asOfDate;
+  if (selMonth >= todayKey) {
+    asOfDate = new Date(); // current (partial) month — use today
+  } else {
+    var mp = selMonth.split('-');
+    asOfDate = new Date(parseInt(mp[0], 10), parseInt(mp[1], 10), 0); // last day of selected month
+  }
+  var asOfStr = asOfDate.toISOString().slice(0, 10);
+
   var acctList  = (state.data && state.data.acctTxnsList) || {};
   var merchants = (state.merchants && state.merchants.byPayee) || {};
   var mHeaders  = (state.merchants && state.merchants.headers) || [];
@@ -5481,29 +5538,26 @@ function renderLeverageSpeedometers() {
     var cfg     = cfgs[ci];
     var idxMatch = (cfg.usedFor || '').match(/(\d+)/);
     var lvIdx    = idxMatch ? parseInt(idxMatch[1], 10) : (ci + 1);
-    var colHdr   = mHeaders[lvIdx - 1] || '';   // column header for this Leverage slot
-    var title    = colHdr || cfg.usedFor;        // fall back to "Leverage N" if no Merchants tab
+    var colHdr   = mHeaders[lvIdx - 1] || '';
+    var title    = colHdr || cfg.usedFor;
     var maxAmt   = cfg.amount || 0;
     var mult     = (cfg.multiplier != null) ? cfg.multiplier : 1;
     var acctId   = cfg.id || '';
-    var period   = computePeriodProgress(cfg.dateRange, now);
+    var period   = computePeriodProgress(cfg.dateRange, asOfDate);
 
-    // Sum eligible transactions inside the period & account, restricted to merchants flagged for this column.
     var rawSum = 0;
     var txnCount = 0;
     var contribTxns = [];
     if (period && colHdr && acctList[acctId]) {
       var txs = acctList[acctId];
       var startStr = period.start.toISOString().slice(0, 10);
-      var endStr   = period.end.toISOString().slice(0, 10);
       for (var ti = 0; ti < txs.length; ti++) {
         var t = txs[ti];
-        if (!t.date || t.date < startStr || t.date >= endStr) continue;
+        // Include transactions from period start up to and including asOfDate
+        if (!t.date || t.date < startStr || t.date > asOfStr) continue;
         var payeeKey = (t.payee || '').toLowerCase();
         var mEntry = merchants[payeeKey];
         if (!mEntry || !mEntry[colHdr]) continue;
-        // Outflows are negative in YNAB; flip sign so spend is positive and refunds subtract.
-        // If Exclude Tracking is on, remove the Tracking-group portion of this transaction.
         var spend = -(t.amount || 0);
         if (state.leverageExcludeTracking) spend -= -(t.trackingAmount || 0);
         rawSum += spend;
@@ -5519,30 +5573,22 @@ function renderLeverageSpeedometers() {
     }
     var speedoId = 'leverage-speedo-' + ci;
     leverageSpeedoTxns[speedoId] = {
-      title: (title || '') + ' — ' + (cfg.dateRange || ''),
+      title: (title || '') + ' — ' + keyLabel(selMonth),
       txns:  contribTxns
     };
-    // Two stacked figures share the same fill fraction:
-    //   Top:    cappedSpend / periodLimit   (budget-driven; drives the arc)
-    //   Bottom: cappedBenefit / maxBenefit  (post-multiplier)
-    var cappedSpend = rawSum;
-    if (cappedSpend > maxAmt) cappedSpend = maxAmt;
-    if (cappedSpend < 0) cappedSpend = 0;
+    var cappedSpend = Math.min(Math.max(rawSum, 0), maxAmt);
     var cappedBenefit = cappedSpend * mult;
     var maxBenefit    = maxAmt * mult;
     var fillFrac = maxAmt > 0 ? cappedSpend / maxAmt : 0;
     var timeFrac = period ? period.frac : 0;
 
-    // Color: green when on/under pace, amber if ahead, red if at cap
     var fillColor = '#2e7d32';
     if (fillFrac >= 0.999) fillColor = '#c62828';
     else if (fillFrac > timeFrac + 0.05) fillColor = '#ef6c00';
 
-    // Geometry (viewBox: 200 wide, 120 tall, arc centered at (100, 100), radius 84)
     var cx = 100, cy = 100, r = 84;
     var trackPath = leverageArcPath(cx, cy, r, 0, 1);
     var fillPath  = leverageArcPath(cx, cy, r, 0, Math.max(0.001, fillFrac));
-    // Ticker mark: short radial line at timeFrac
     var tickA   = Math.PI - Math.PI * timeFrac;
     var tickInX = cx + (r - 14) * Math.cos(tickA), tickInY = cy - (r - 14) * Math.sin(tickA);
     var tickOuX = cx + (r + 8)  * Math.cos(tickA), tickOuY = cy - (r + 8)  * Math.sin(tickA);
@@ -5578,7 +5624,6 @@ function renderLeverageSpeedometers() {
   }
   row.innerHTML = html;
 
-  // Attach hover tooltips listing per-transaction contributions (post-multiplier)
   Object.keys(leverageSpeedoTxns).forEach(function(spId) {
     var el = document.getElementById(spId);
     if (!el) return;
@@ -7819,6 +7864,11 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('leverage-exclude-tracking').addEventListener('change', function() {
     state.leverageExcludeTracking = this.checked;
     localStorage.setItem('leverage-exclude-tracking', this.checked ? '1' : '0');
+    renderLeverageSpeedometers();
+  });
+
+  document.getElementById('leverage-speedo-month-sel').addEventListener('change', function() {
+    state.leverageSpeedoMonth = this.value;
     renderLeverageSpeedometers();
   });
 
