@@ -5426,15 +5426,19 @@ function fmtSpeedoDate(d) {
 }
 
 var leverageSpeedoTxns = {}; // { speedoId: { title: ..., txns: [...] } }
+var leverageTooltipPinned = false;
 
 function buildAndShowSpeedoTt(clientX, clientY, data, amtColor) {
-  amtColor = amtColor || '#1d4f5f';
   var tt = document.getElementById('lessons-tooltip');
   if (!tt) return;
-  var txns        = data.txns        || [];
-  var assocEl     = data.assocEligible || [];
-  var assocOther  = data.assocOther   || [];
-  var assocLabel  = data.assocCatName || '';
+  var txns       = data.txns         || [];
+  var assocEl    = data.assocEligible || [];
+  var assocOther = data.assocOther    || [];
+  var rawSum = data.rawSum || 0;
+  var maxAmt = data.maxAmt || 0;
+  var mult   = data.mult   || 1;
+  var overage        = Math.max(0, rawSum - maxAmt);
+  var overageBenefit = overage * mult;
   function fmt(v) {
     return (v < 0 ? '-$' : '$') + Math.abs(Math.round(v)).toLocaleString('en-US');
   }
@@ -5463,17 +5467,22 @@ function buildAndShowSpeedoTt(clientX, clientY, data, amtColor) {
     html += '<div class="lessons-tt-row">'
       + '<div class="lessons-tt-name" style="flex:1;min-width:0">' + escAttr(p) + '</div>'
       + '<span class="lessons-tt-amt" style="color:#888">'
-      +   fmt(agg.budget) + ' <span style="color:#bbb;font-weight:500">(' + fmtDec(agg.amount) + ')</span>'
+      +   fmt(agg.budget) + ' <span style="color:#1565bf;font-weight:500">(' + fmtDec(agg.amount) + ')</span>'
       + '</span></div>';
   }
-  if (payeeOrder.length > 1) {
+  if (payeeOrder.length > 0) {
     html += '<div class="lessons-tt-total"><span>Total</span><span style="color:#888">'
-      + fmt(totBudget) + ' <span style="color:#bbb;font-weight:500">(' + fmtDec(totBenefit) + ')</span></span></div>';
+      + fmt(totBudget) + ' <span style="color:#1565bf;font-weight:500">(' + fmtDec(totBenefit) + ')</span></span></div>';
   }
-  // -- Section 1: eligible but routed elsewhere (missed benefit in orange) --
+  if (overage > 0) {
+    html += '<div class="lessons-tt-total"><span>Overages</span><span style="color:#888">'
+      + fmt(overage) + ' <span style="color:#ef6c00;font-weight:600">(' + fmtDec(overageBenefit) + ')</span></span></div>';
+  }
+  // -- Could Have Routed section --
+  var sec1BenTot = 0;
   if (assocEl.length) {
-    html += sectionHdr((assocLabel ? assocLabel + ' — ' : '') + 'Could have routed (eligible)');
-    var sec1SpendTot = 0, sec1BenTot = 0;
+    html += sectionHdr('Could Have Routed');
+    var sec1SpendTot = 0;
     for (var ei = 0; ei < assocEl.length; ei++) {
       var e = assocEl[ei];
       sec1SpendTot += e.budget;
@@ -5484,12 +5493,17 @@ function buildAndShowSpeedoTt(clientX, clientY, data, amtColor) {
         +   ' <span style="color:#ef6c00;font-weight:600">(' + fmtDec(e.amount) + ')</span>'
         + '</span></div>';
     }
-    html += '<div class="lessons-tt-total"><span>Benefit not realized</span>'
-      + '<span style="color:#ef6c00">' + fmtDec(sec1BenTot) + '</span></div>';
+    html += '<div class="lessons-tt-total"><span>Total (Could Have Routed)</span><span style="color:#888">'
+      + fmt(sec1SpendTot) + ' <span style="color:#ef6c00;font-weight:600">(' + fmtDec(sec1BenTot) + ')</span></span></div>';
   }
-  // -- Section 2: not eligible, routed elsewhere --
+  var totalBenNotRealized = overageBenefit + sec1BenTot;
+  if (totalBenNotRealized > 0) {
+    html += '<div class="lessons-tt-total"><span>Benefit Not Realized</span>'
+      + '<span style="color:#ef6c00;font-weight:700">' + fmtDec(totalBenNotRealized) + '</span></div>';
+  }
+  // -- No Match section --
   if (assocOther.length) {
-    html += sectionHdr((assocLabel ? assocLabel + ' — ' : '') + 'No match');
+    html += sectionHdr('No Match');
     var sec2Tot = 0;
     for (var oi = 0; oi < assocOther.length; oi++) {
       var o = assocOther[oi];
@@ -5498,9 +5512,7 @@ function buildAndShowSpeedoTt(clientX, clientY, data, amtColor) {
         + '<div class="lessons-tt-name" style="flex:1;min-width:0">' + escAttr(o.payee) + '</div>'
         + '<span class="lessons-tt-amt" style="color:#888">' + fmt(o.budget) + '</span></div>';
     }
-    if (assocOther.length > 1) {
-      html += '<div class="lessons-tt-total"><span>Total</span><span style="color:#888">' + fmt(sec2Tot) + '</span></div>';
-    }
+    html += '<div class="lessons-tt-total"><span>Total</span><span style="color:#888">' + fmt(sec2Tot) + '</span></div>';
   }
   tt.innerHTML = html;
   var vw = window.innerWidth;
@@ -5657,8 +5669,11 @@ function renderLeverageSpeedometers() {
 
     var speedoId = 'leverage-speedo-' + ci;
     leverageSpeedoTxns[speedoId] = {
-      title:        (title || '') + ' — ' + keyLabel(selMonth),
-      txns:         contribTxns,
+      title:         (title || '') + ' — ' + keyLabel(selMonth),
+      txns:          contribTxns,
+      rawSum:        rawSum,
+      maxAmt:        maxAmt,
+      mult:          mult,
       assocEligible: assocEligible,
       assocOther:    assocOther,
       assocCatName:  assocCatName
@@ -5716,13 +5731,38 @@ function renderLeverageSpeedometers() {
     if (!el) return;
     var data = leverageSpeedoTxns[spId];
     el.addEventListener('mousemove', function(e) {
+      if (leverageTooltipPinned) return;
       if (!data.txns.length && !data.assocEligible.length && !data.assocOther.length) return;
       buildAndShowSpeedoTt(e.clientX, e.clientY, data, '#1d4f5f');
     });
     el.addEventListener('mouseleave', function() {
+      if (leverageTooltipPinned) return;
       var tt = document.getElementById('lessons-tooltip');
       if (tt) tt.style.display = 'none';
     });
+    el.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var tt = document.getElementById('lessons-tooltip');
+      if (!tt || tt.style.display === 'none') return; // nothing showing, ignore
+      leverageTooltipPinned = !leverageTooltipPinned;
+      if (leverageTooltipPinned) {
+        tt.style.pointerEvents = 'all';
+        tt.style.cursor = 'text';
+        tt.style.boxShadow = '0 4px 18px rgba(0,0,0,.15), 0 0 0 2px #1565bf';
+      } else {
+        tt.style.pointerEvents = '';
+        tt.style.cursor = '';
+        tt.style.boxShadow = '';
+        tt.style.display = 'none';
+      }
+    });
+  });
+  // Click outside unpins
+  document.addEventListener('click', function() {
+    if (!leverageTooltipPinned) return;
+    leverageTooltipPinned = false;
+    var tt = document.getElementById('lessons-tooltip');
+    if (tt) { tt.style.pointerEvents = ''; tt.style.cursor = ''; tt.style.boxShadow = ''; tt.style.display = 'none'; }
   });
 }
 
