@@ -5651,7 +5651,7 @@ function renderLeverageSpeedometers() {
     var lvIdx    = idxMatch ? parseInt(idxMatch[1], 10) : (ci + 1);
     var colHdr   = mHeaders[lvIdx - 1] || '';
     var title    = colHdr || cfg.usedFor;
-    var maxAmt   = cfg.amount || 0;
+    var maxAmt   = (cfg.amount !== null && cfg.amount > 0) ? cfg.amount : 0;
     var mult     = (cfg.multiplier != null) ? cfg.multiplier : 1;
     var acctId   = cfg.id || '';
     var period   = computePeriodProgress(cfg.dateRange, asOfDate);
@@ -5734,6 +5734,15 @@ function renderLeverageSpeedometers() {
       return { payee: p, budget: noMatchByPayee[p] };
     }).sort(function(a, b) { return b.budget - a.budget; });
 
+    var hasLimit = cfg.amount !== null && cfg.amount > 0;
+    var hasAcct  = !!acctId;
+
+    var cappedSpend   = hasLimit ? Math.min(Math.max(rawSum, 0), maxAmt) : Math.max(rawSum, 0);
+    var cappedBenefit = cappedSpend * mult;
+    var maxBenefit    = maxAmt * mult;
+    var fillFrac = hasLimit && maxAmt > 0 ? cappedSpend / maxAmt : 0;
+    var timeFrac = period ? period.frac : 0;
+
     var speedoId = 'leverage-speedo-' + ci;
     leverageSpeedoTxns[speedoId] = {
       title:         (title || '') + ' — ' + keyLabel(selMonth),
@@ -5744,49 +5753,58 @@ function renderLeverageSpeedometers() {
       otherAcctTxns: otherAcctTxns,
       noMatchTxns:   noMatchTxns
     };
-    var cappedSpend = Math.min(Math.max(rawSum, 0), maxAmt);
-    var cappedBenefit = cappedSpend * mult;
-    var maxBenefit    = maxAmt * mult;
-    var fillFrac = maxAmt > 0 ? cappedSpend / maxAmt : 0;
-    var timeFrac = period ? period.frac : 0;
-
-    var fillColor = '#2e7d32';
-    if (fillFrac >= 0.999) fillColor = '#c62828';
-    else if (fillFrac > timeFrac + 0.05) fillColor = '#ef6c00';
-
-    var cx = 100, cy = 100, r = 84;
-    var trackPath = leverageArcPath(cx, cy, r, 0, 1);
-    var fillPath  = leverageArcPath(cx, cy, r, 0, Math.max(0.001, fillFrac));
-    var tickA   = Math.PI - Math.PI * timeFrac;
-    var tickInX = cx + (r - 14) * Math.cos(tickA), tickInY = cy - (r - 14) * Math.sin(tickA);
-    var tickOuX = cx + (r + 8)  * Math.cos(tickA), tickOuY = cy - (r + 8)  * Math.sin(tickA);
 
     var periodLabel = period ? (fmtSpeedoDate(period.start) + ' – ' + fmtSpeedoDate(new Date(period.end.getTime() - 86400000))) : '';
-    var paceLabel   = period ? (Math.round(timeFrac * 100) + '% through ' + (cfg.dateRange || '')) : '';
+    var footRight   = hasLimit && period
+      ? (Math.round(timeFrac * 100) + '% through ' + (cfg.dateRange || '') + ' &middot; ' + txnCount + ' txn' + (txnCount === 1 ? '' : 's'))
+      : (txnCount + ' txn' + (txnCount === 1 ? '' : 's'));
+
+    var svgBlock = '';
+    if (hasLimit) {
+      var fillColor = '#2e7d32';
+      if (fillFrac >= 0.999) fillColor = '#c62828';
+      else if (fillFrac > timeFrac + 0.05) fillColor = '#ef6c00';
+      var cx = 100, cy = 100, r = 84;
+      var trackPath = leverageArcPath(cx, cy, r, 0, 1);
+      var fillPath  = leverageArcPath(cx, cy, r, 0, Math.max(0.001, fillFrac));
+      var tickA   = Math.PI - Math.PI * timeFrac;
+      var tickInX = cx + (r - 14) * Math.cos(tickA), tickInY = cy - (r - 14) * Math.sin(tickA);
+      var tickOuX = cx + (r + 8)  * Math.cos(tickA), tickOuY = cy - (r + 8)  * Math.sin(tickA);
+      svgBlock = '<div class="leverage-speedo-svg-wrap">'
+        + '<svg viewBox="0 0 200 110" preserveAspectRatio="xMidYMid meet">'
+        +   '<path d="' + trackPath + '" fill="none" stroke="#e6e6e2" stroke-width="18" stroke-linecap="round"/>'
+        +   '<path d="' + fillPath  + '" fill="none" stroke="' + fillColor + '" stroke-width="18" stroke-linecap="round"/>'
+        +   '<line x1="' + tickInX.toFixed(2) + '" y1="' + tickInY.toFixed(2) + '" x2="' + tickOuX.toFixed(2) + '" y2="' + tickOuY.toFixed(2) + '" stroke="#333" stroke-width="2.5" stroke-linecap="round"/>'
+        + '</svg></div>';
+    }
+
+    var valueBlock = hasLimit
+      ? ('<div class="leverage-speedo-value">'
+          + '<span class="lev-sp-cur">' + fmtSpeedoDollar(cappedSpend) + '</span>'
+          + '<span class="lev-sp-sep">/</span>'
+          + '<span class="lev-sp-max">' + fmtSpeedoDollar(maxAmt) + '</span>'
+          + '</div>'
+          + '<div class="leverage-speedo-benefit">'
+          + '<span class="lev-sp-cur">' + fmtSpeedoDollar(cappedBenefit) + '</span>'
+          + '<span class="lev-sp-sep">/</span>'
+          + '<span class="lev-sp-max">' + fmtSpeedoDollar(maxBenefit) + '</span>'
+          + '<span class="lev-sp-benefit-tag">benefit</span>'
+          + '</div>')
+      : ('<div class="leverage-speedo-value" style="margin-top:12px">'
+          + '<span class="lev-sp-cur">' + fmtSpeedoDollar(cappedSpend) + '</span>'
+          + '</div>'
+          + '<div class="leverage-speedo-benefit">'
+          + '<span class="lev-sp-cur">' + fmtSpeedoDollar(cappedBenefit) + '</span>'
+          + '<span class="lev-sp-benefit-tag">benefit</span>'
+          + '</div>');
 
     html += '<div class="leverage-speedo" id="' + speedoId + '" style="cursor:default">'
-      +    '<div class="leverage-speedo-label">' + escAttr(title) + '</div>'
-      +    '<div class="leverage-speedo-svg-wrap">'
-      +      '<svg viewBox="0 0 200 110" preserveAspectRatio="xMidYMid meet">'
-      +        '<path d="' + trackPath + '" fill="none" stroke="#e6e6e2" stroke-width="18" stroke-linecap="round"/>'
-      +        '<path d="' + fillPath  + '" fill="none" stroke="' + fillColor + '" stroke-width="18" stroke-linecap="round"/>'
-      +        '<line x1="' + tickInX.toFixed(2) + '" y1="' + tickInY.toFixed(2) + '" x2="' + tickOuX.toFixed(2) + '" y2="' + tickOuY.toFixed(2) + '" stroke="#333" stroke-width="2.5" stroke-linecap="round"/>'
-      +      '</svg>'
-      +    '</div>'
-      +    '<div class="leverage-speedo-value">'
-      +      '<span class="lev-sp-cur">' + fmtSpeedoDollar(cappedSpend) + '</span>'
-      +      '<span class="lev-sp-sep">/</span>'
-      +      '<span class="lev-sp-max">' + fmtSpeedoDollar(maxAmt) + '</span>'
-      +    '</div>'
-      +    '<div class="leverage-speedo-benefit">'
-      +      '<span class="lev-sp-cur">' + fmtSpeedoDollar(cappedBenefit) + '</span>'
-      +      '<span class="lev-sp-sep">/</span>'
-      +      '<span class="lev-sp-max">' + fmtSpeedoDollar(maxBenefit) + '</span>'
-      +      '<span class="lev-sp-benefit-tag">benefit</span>'
-      +    '</div>'
+      +    '<div class="leverage-speedo-label">' + escAttr(title) + (hasAcct ? '' : ' <span style="font-size:10px;color:#bbb;font-weight:400;text-transform:none">(no account)</span>') + '</div>'
+      +    svgBlock
+      +    valueBlock
       +    '<div class="leverage-speedo-foot">'
       +      '<span>' + escAttr(periodLabel) + '</span>'
-      +      '<span>' + escAttr(paceLabel) + ' &middot; ' + txnCount + ' txn' + (txnCount === 1 ? '' : 's') + '</span>'
+      +      '<span>' + footRight + '</span>'
       +    '</div>'
       +    '</div>';
   }
