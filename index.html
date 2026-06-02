@@ -2010,8 +2010,9 @@ function parseConfigCsv(text) {
     var usedFor = (r['Used For'] || r['Metric'] || '').trim();
     var section = (r['Section']  || r['Group']  || '').trim();
     var unit    = (r['Unit']     || '').trim();
-    // Target-type rows may omit ID; all others require one
-    if (!id && (type !== 'Target' || !usedFor)) continue;
+    // Target-type and Leverage-type rows may omit ID; all others require one
+    var isLeverageRow = /^leverage\s+\d+$/i.test(usedFor);
+    if (!id && !isLeverageRow && (type !== 'Target' || !usedFor)) continue;
     // Support both "Amount" (new) and "Due Date" (legacy) column names
     var rawAmt  = (r['Amount'] || r['Due Date'] || '').trim().toLowerCase();
     var dueDays = null;
