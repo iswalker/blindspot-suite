@@ -2909,6 +2909,13 @@ function refreshGoogleSheetConfig() {
 }
 
 function startOAuthFlow() {
+  // Reuse the existing token if available — avoids re-prompting YNAB for authorization.
+  var existingKey    = localStorage.getItem('ynab-api-key');
+  var existingBudget = localStorage.getItem('ynab-budget-id');
+  if (existingKey && existingBudget) {
+    loadYnabBudget(existingKey, existingBudget);
+    return;
+  }
   var redirectUri = window.location.origin + window.location.pathname;
   window.location.href = 'https://app.youneedabudget.com/oauth/authorize'
     + '?client_id=' + encodeURIComponent(YNAB_OAUTH_CLIENT_ID)
@@ -5623,16 +5630,18 @@ function renderLeverageSpeedometers() {
         });
       }
     }
-    // Build "Other Account Used": matching merchants that went through a different account in the period
+    // Build "Other Account Used": matching merchants that went through a different account,
+    // clamped to the selected Speedometer Month only (not the full period).
     var otherAcctByPayee = {};
     var startStr = period ? period.start.toISOString().slice(0, 10) : '';
-    if (colHdr && startStr) {
+    var monthStartStr = selMonth + '-01'; // first day of selected Speedometer Month
+    if (colHdr && monthStartStr) {
       for (var otherAcctId in acctList) {
         if (otherAcctId === acctId) continue;
         var otherTxs = acctList[otherAcctId] || [];
         for (var oti = 0; oti < otherTxs.length; oti++) {
           var ot = otherTxs[oti];
-          if (!ot.date || ot.date < startStr || ot.date > asOfStr) continue;
+          if (!ot.date || ot.date < monthStartStr || ot.date > asOfStr) continue;
           var opk = (ot.payee || '').toLowerCase();
           if (!merchants[opk] || !merchants[opk][colHdr]) continue;
           var ospend = -(ot.amount || 0);
