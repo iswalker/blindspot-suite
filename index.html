@@ -5335,12 +5335,52 @@ function renderLeveragePosWidget() {
       var parts = row.month.split('-');
       var label = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1)
         .toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
-      html += '<tr><td>' + escHtml(label) + '</td><td>' + row.count + '</td></tr>';
+      var hasPayees = row.payees && row.payees.length > 0;
+      html += '<tr><td>' + escHtml(label) + '</td>'
+        + '<td class="pos-count-cell"'
+        + (hasPayees ? ' data-idx="' + j + '" style="cursor:default"' : '')
+        + '>' + row.count + '</td></tr>';
     }
   }
   html += '</tbody>';
   tbl.innerHTML = html;
   if (status) status.textContent = '';
+
+  // Attach hover to count cells
+  var countCells = tbl.querySelectorAll('.pos-count-cell[data-idx]');
+  var posTooltip = document.getElementById('lw-tooltip');
+  for (var ci = 0; ci < countCells.length; ci++) {
+    (function(cell) {
+      var idx = parseInt(cell.getAttribute('data-idx'), 10);
+      cell.addEventListener('mousemove', function(e) {
+        var row = leveragePosData[idx];
+        if (!row || !row.payees || !row.payees.length) return;
+        var parts2 = row.month.split('-');
+        var mLabel = new Date(parseInt(parts2[0]), parseInt(parts2[1]) - 1, 1)
+          .toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+        var h = '<div class="lwtt-month">' + escHtml(mLabel) + ' — POS Withdrawals</div>';
+        for (var pi = 0; pi < row.payees.length; pi++) {
+          var py = row.payees[pi];
+          h += '<div class="lwtt-driver-row">'
+            + '<span class="lwtt-driver-name">' + escHtml(py.name) + '</span>'
+            + '<span class="lwtt-driver-val" style="color:#555">'
+            +   py.count + ' &middot; $' + py.total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})
+            + '</span></div>';
+        }
+        posTooltip.innerHTML = h;
+        posTooltip.style.display = 'block';
+        var tw = posTooltip.offsetWidth;
+        var tx = e.clientX + 14, ty = e.clientY - posTooltip.offsetHeight / 2;
+        if (tx + tw > window.innerWidth - 8) tx = e.clientX - tw - 14;
+        if (ty < 8) ty = 8;
+        posTooltip.style.left = tx + 'px';
+        posTooltip.style.top  = ty + 'px';
+      });
+      cell.addEventListener('mouseleave', function() {
+        posTooltip.style.display = 'none';
+      });
+    })(countCells[ci]);
+  }
 }
 
 function fetchLeveragePosData(secret) {
@@ -5390,20 +5430,32 @@ function fetchLeveragePosData(secret) {
       }
       if (data.error_code) throw new Error(data.error_message || data.error_code);
       var txns = data.transactions || [];
-      var counts = {};
+      var counts = {}, byMonthPayee = {};
       // Pre-populate all 6 months with 0
       for (var m = 0; m < 6; m++) {
         var d2 = new Date(now.getFullYear(), now.getMonth() - 5 + m, 1);
         var key = d2.getFullYear() + '-' + String(d2.getMonth() + 1).padStart(2, '0');
         counts[key] = 0;
+        byMonthPayee[key] = {};
       }
       for (var ti = 0; ti < txns.length; ti++) {
-        var name = txns[ti].name || '';
+        var pt = txns[ti];
+        var name = pt.name || '';
         if (name.toLowerCase().indexOf('point of sale withdrawal') === -1) continue;
-        var monthKey = txns[ti].date.substring(0, 7);
-        if (counts.hasOwnProperty(monthKey)) counts[monthKey]++;
+        var monthKey = pt.date.substring(0, 7);
+        if (!counts.hasOwnProperty(monthKey)) continue;
+        counts[monthKey]++;
+        var payeeName = (pt.merchant_name || pt.name || '(Unknown)').trim();
+        if (!byMonthPayee[monthKey][payeeName]) byMonthPayee[monthKey][payeeName] = { count: 0, total: 0 };
+        byMonthPayee[monthKey][payeeName].count++;
+        byMonthPayee[monthKey][payeeName].total += pt.amount || 0; // Plaid: positive = debit
       }
-      leveragePosData = Object.keys(counts).sort().map(function(k) { return { month: k, count: counts[k] }; });
+      leveragePosData = Object.keys(counts).sort().map(function(k) {
+        var payees = Object.keys(byMonthPayee[k] || {}).map(function(p) {
+          return { name: p, count: byMonthPayee[k][p].count, total: byMonthPayee[k][p].total };
+        }).sort(function(a, b) { return b.total - a.total; });
+        return { month: k, count: counts[k], payees: payees };
+      });
       renderLeveragePosWidget();
       if (fetchBtn) fetchBtn.disabled = false;
     }).catch(function(e) {
