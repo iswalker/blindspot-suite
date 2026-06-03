@@ -1358,6 +1358,11 @@ td.hbt-num:last-child { width: 13%; }
           <span>&#8594;</span>
           <label>To <select id="nw-to-sel"></select></label>
         </div>
+        <label class="ios-toggle-wrap">
+          <input type="checkbox" id="nw-include-current">
+          <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+          Preview Current Month
+        </label>
         <div id="nw-acct-filter-wrap">
           <button id="nw-acct-filter-btn">Accounts &#9660;</button>
           <div id="nw-acct-filter-panel"></div>
@@ -1755,6 +1760,7 @@ var state = {
   lwSelectedAccounts:  parseJsonLS('sel-lw-accts')    || {},
   nwFromKey:           localStorage.getItem('sel-nw-from') || null,
   nwToKey:             localStorage.getItem('sel-nw-to')   || null,
+  nwIncludeCurrent:    localStorage.getItem('nw-include-current') === '1',
   nwSelectedAccounts:  parseJsonLS('sel-nw-accts')    || {},
   lessonsFromKey:      localStorage.getItem('sel-lessons-from') || null,
   lessonsToKey:        localStorage.getItem('sel-lessons-to')   || null,
@@ -3996,11 +4002,17 @@ function populateNwRangeFilter() {
     fromSel.appendChild(o1);
     toSel.appendChild(o2);
   }
-  // Default: last 48 months, not including present month
-  var todayKey     = dtKey(new Date());
-  var defaultTo    = keys[0];
-  for (var ti2 = keys.length - 1; ti2 >= 0; ti2--) {
-    if (keys[ti2] < todayKey) { defaultTo = keys[ti2]; break; }
+  var todayKey  = dtKey(new Date());
+  var defaultTo = keys[0];
+  if (state.nwIncludeCurrent) {
+    for (var ti2 = keys.length - 1; ti2 >= 0; ti2--) {
+      if (keys[ti2] <= todayKey) { defaultTo = keys[ti2]; break; }
+    }
+  } else {
+    // Default: last 48 months, not including present month
+    for (var ti2 = keys.length - 1; ti2 >= 0; ti2--) {
+      if (keys[ti2] < todayKey) { defaultTo = keys[ti2]; break; }
+    }
   }
   var nwToIdx      = keys.indexOf(defaultTo);
   var defaultFrom  = keys[Math.max(0, nwToIdx - 47)];
@@ -4008,6 +4020,8 @@ function populateNwRangeFilter() {
   toSel.value      = state.nwToKey   && keys.indexOf(state.nwToKey)   !== -1 ? state.nwToKey   : defaultTo;
   state.nwFromKey  = fromSel.value;
   state.nwToKey    = toSel.value;
+  var chk = document.getElementById('nw-include-current');
+  if (chk) chk.checked = !!state.nwIncludeCurrent;
 }
 
 function populateNwAccountFilter() {
@@ -8124,6 +8138,31 @@ document.addEventListener('DOMContentLoaded', function() {
       state.nwFromKey = state.nwToKey;
       document.getElementById('nw-from-sel').value = state.nwFromKey;
       localStorage.setItem('sel-nw-from', state.nwFromKey);
+    }
+    renderNetWorth();
+  });
+
+  document.getElementById('nw-include-current').addEventListener('change', function() {
+    state.nwIncludeCurrent = this.checked;
+    localStorage.setItem('nw-include-current', this.checked ? '1' : '0');
+    var todayKey = dtKey(new Date());
+    var keys     = lwAllKeys();
+    if (this.checked) {
+      if (state.nwToKey < todayKey && keys.indexOf(todayKey) !== -1) {
+        state.nwToKey = todayKey;
+        document.getElementById('nw-to-sel').value = todayKey;
+        localStorage.setItem('sel-nw-to', todayKey);
+      }
+    } else {
+      if (state.nwToKey >= todayKey) {
+        var prevKey = keys[0];
+        for (var i = keys.length - 1; i >= 0; i--) {
+          if (keys[i] < todayKey) { prevKey = keys[i]; break; }
+        }
+        state.nwToKey = prevKey;
+        document.getElementById('nw-to-sel').value = prevKey;
+        localStorage.setItem('sel-nw-to', prevKey);
+      }
     }
     renderNetWorth();
   });
