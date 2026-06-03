@@ -132,6 +132,9 @@ body {
   gap: 8px;
   flex-wrap: wrap;
 }
+#plan-sel-wrap { display: none; align-items: center; gap: 6px; margin-left: auto; }
+#plan-sel-wrap label { font-size: 12px; color: #666; white-space: nowrap; }
+#plan-sel { font-size: 12px; padding: 4px 8px; border: 1px solid #ccc; border-radius: 5px; color: #333; max-width: 200px; }
 #back-btn {
   padding: 6px 14px;
   background: #fff;
@@ -1263,6 +1266,10 @@ td.hbt-num:last-child { width: 13%; }
         </div>
       </div>
       <button id="back-btn">&#8592; Reload Files</button>
+      <div id="plan-sel-wrap">
+        <label for="plan-sel">Plan</label>
+        <select id="plan-sel"></select>
+      </div>
     </div>
   </div>
   <div id="margin-panel">
@@ -2737,6 +2744,40 @@ function fetchYnabData(apiKey, budgetId, opts) {
                allMonthKeys: finalAllMonthKeys };
     });
   });
+}
+
+var planSelectorPopulated = false;
+
+function populatePlanSelector() {
+  var sel = document.getElementById('plan-sel');
+  if (!sel) return;
+  var apiKey = localStorage.getItem('ynab-api-key');
+  var currentId = localStorage.getItem('ynab-budget-id');
+  if (!apiKey) return;
+  // Only fetch budget list once per session; just sync selection if already populated
+  if (planSelectorPopulated && sel.options.length > 0) {
+    if (currentId && sel.value !== currentId) sel.value = currentId;
+    return;
+  }
+  ynabGet('/budgets', apiKey).then(function(data) {
+    var budgets = (data.budgets || []).filter(function(b) { return !b.deleted; });
+    if (budgets.length < 2) { document.getElementById('plan-sel-wrap').style.display = 'none'; return; }
+    // Sort: non-archived first, then by last_modified desc
+    budgets.sort(function(a, b) {
+      var aArch = !!a.last_modified_on && a.first_month < '2000'; // YNAB uses old dates for archived
+      var bArch = !!b.last_modified_on && b.first_month < '2000';
+      if (a.archived !== b.archived) return (a.archived ? 1 : -1);
+      return (b.last_modified_on || '').localeCompare(a.last_modified_on || '');
+    });
+    sel.innerHTML = budgets.map(function(b) {
+      var label = b.name + (b.archived ? ' (archived)' : '');
+      return '<option value="' + escAttr(b.id) + '">' + escAttr(label) + '</option>';
+    }).join('');
+    // Default: current stored budget, else first non-archived
+    var defaultId = currentId || (budgets.find(function(b) { return !b.archived; }) || budgets[0]).id;
+    sel.value = defaultId;
+    planSelectorPopulated = true;
+  }).catch(function() { /* silently ignore — plan selector is non-critical */ });
 }
 
 function connectYnab() {
@@ -7627,6 +7668,9 @@ function showReport() {
 
   var hasYnab = !!(localStorage.getItem('ynab-api-key') && localStorage.getItem('ynab-budget-id'));
   document.getElementById('refresh-btn').style.display = hasYnab ? '' : 'none';
+  var planWrap = document.getElementById('plan-sel-wrap');
+  if (planWrap) planWrap.style.display = hasYnab ? 'flex' : 'none';
+  if (hasYnab) populatePlanSelector();
   var hasGSheet = !!(localStorage.getItem('google-access-token') && extractSheetId(localStorage.getItem('google-sheet-url') || ''));
   if (state.loadedAt) {
     var d = new Date(state.loadedAt);
@@ -7934,6 +7978,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Refresh from YNAB
   document.getElementById('refresh-btn').addEventListener('click', refreshYnab);
+
+  document.getElementById('plan-sel').addEventListener('change', function() {
+    var apiKey = localStorage.getItem('ynab-api-key');
+    var newId  = this.value;
+    if (!apiKey || !newId || newId === localStorage.getItem('ynab-budget-id')) return;
+    // Clear incremental cache so the new budget does a full load
+    localStorage.removeItem('ynab-budget-id');
+    state.data = null;
+    loadYnabBudget(apiKey, newId);
+  });
 
   // Top bar Config picker
   var configPickerMenu = document.getElementById('config-picker-menu');
