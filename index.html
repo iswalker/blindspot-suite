@@ -2042,8 +2042,9 @@ function parseConfigCsv(text) {
       if (mm) multiplier = parseFloat(mm[0]);
     }
     var dateRange  = (r['Date Range'] || '').trim();
-    var assocCatId = (r['Associated Category ID'] || '').trim();
-    result.push({ id: id, type: type, usedFor: usedFor, section: section, dueDays: dueDays, amount: amount, unit: unit, multiplier: multiplier, dateRange: dateRange, assocCatId: assocCatId });
+    var assocCatRaw = (r['Associated Category ID(s)'] || r['Associated Category ID'] || '').trim();
+    var assocCatIds = assocCatRaw ? assocCatRaw.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : [];
+    result.push({ id: id, type: type, usedFor: usedFor, section: section, dueDays: dueDays, amount: amount, unit: unit, multiplier: multiplier, dateRange: dateRange, assocCatIds: assocCatIds });
   }
   return result;
 }
@@ -5728,26 +5729,29 @@ function renderLeverageSpeedometers() {
       return { payee: p, budget: otherAcctByPayee[p], amount: otherAcctByPayee[p] * mult };
     }).sort(function(a, b) { return b.budget - a.budget; });
 
-    // "No Match" section: transactions in the associated category via other accounts, not merchant-eligible
+    // "No Match" section: transactions in the associated categories via other accounts, not merchant-eligible
     var noMatchByPayee = {};
-    if (cfg.assocCatId && state.data.catIdTxns && startStr) {
+    var assocCatIds = cfg.assocCatIds || [];
+    if (assocCatIds.length && state.data.catIdTxns && startStr) {
       if (!acctIdToName) {
         acctIdToName = {};
         var aInf = state.data.allAccountsInfo || {};
         for (var an in aInf) { acctIdToName[an] = aInf[an].name || an; }
       }
       var leverageAcctName = acctIdToName[acctId] || '';
-      var assocTxns = state.data.catIdTxns[cfg.assocCatId] || [];
-      for (var ati = 0; ati < assocTxns.length; ati++) {
-        var at = assocTxns[ati];
-        if (!at.date || at.date < startStr || at.date > asOfStr) continue;
-        if (leverageAcctName && at.account === leverageAcctName) continue;
-        var aspend = -at.amount;
-        if (aspend <= 0) continue;
-        var apk = (at.payee || '').toLowerCase();
-        if (merchants[apk] && merchants[apk][colHdr]) continue; // merchant-eligible → already in Other Account Used
-        if (!noMatchByPayee[at.payee]) noMatchByPayee[at.payee] = 0;
-        noMatchByPayee[at.payee] += aspend;
+      for (var cai = 0; cai < assocCatIds.length; cai++) {
+        var assocTxns = state.data.catIdTxns[assocCatIds[cai]] || [];
+        for (var ati = 0; ati < assocTxns.length; ati++) {
+          var at = assocTxns[ati];
+          if (!at.date || at.date < startStr || at.date > asOfStr) continue;
+          if (leverageAcctName && at.account === leverageAcctName) continue;
+          var aspend = -at.amount;
+          if (aspend <= 0) continue;
+          var apk = (at.payee || '').toLowerCase();
+          if (merchants[apk] && merchants[apk][colHdr]) continue; // merchant-eligible → already in Other Account Used
+          if (!noMatchByPayee[at.payee]) noMatchByPayee[at.payee] = 0;
+          noMatchByPayee[at.payee] += aspend;
+        }
       }
     }
     var noMatchTxns = Object.keys(noMatchByPayee).map(function(p) {
