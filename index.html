@@ -5603,13 +5603,9 @@ function populateSpeedoMonthPicker(acctIds) {
   var sel = document.getElementById('leverage-speedo-month-sel');
   if (!sel) return;
   var keysSet = {};
-  var acctTxnsList = (state.data && state.data.acctTxnsList) || {};
-  for (var ai = 0; ai < acctIds.length; ai++) {
-    var txs = acctTxnsList[acctIds[ai]] || [];
-    for (var ti = 0; ti < txs.length; ti++) {
-      if (txs[ti].date) keysSet[txs[ti].date.slice(0, 7)] = 1;
-    }
-  }
+  // Seed from the full budget month history so the picker matches the page's date range
+  var allKeys = (state.data && state.data.allKeys) || [];
+  for (var ki = 0; ki < allKeys.length; ki++) keysSet[allKeys[ki]] = 1;
   var todayKey = dtKey(new Date());
   keysSet[todayKey] = 1;
   var months = Object.keys(keysSet).sort().reverse();
