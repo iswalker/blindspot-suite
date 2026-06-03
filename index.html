@@ -7485,7 +7485,7 @@ function drawLwChart(keys, assetVals, debtVals, netVals, hoveredIdx, canvasId, a
   // Credit Float line
   if (lwFloatAmt !== null) {
     var floatY = yPos(lwFloatAmt);
-    ctx.strokeStyle = '#b9dbf8';
+    ctx.strokeStyle = '#1e87e3';
     ctx.lineWidth   = 0.5;
     ctx.setLineDash([6, 4]);
     ctx.beginPath();
@@ -7493,7 +7493,7 @@ function drawLwChart(keys, assetVals, debtVals, netVals, hoveredIdx, canvasId, a
     ctx.lineTo(totalW - R_PAD, floatY);
     ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = '#b9dbf8';
+    ctx.fillStyle = '#1e87e3';
     ctx.textAlign = 'right';
     ctx.font      = '12px system-ui, -apple-system, sans-serif';
     ctx.fillText('Float ' + fmtYTick(lwFloatAmt), totalW - R_PAD - 2, floatY - 4);
