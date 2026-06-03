@@ -1230,7 +1230,7 @@ td.hbt-num:last-child { width: 13%; }
     <div id="tab-nav">
       <button class="tab-btn tab-active" data-tab="home">Current Month</button>
       <button class="tab-btn" data-tab="margin">Cash Flow</button>
-      <button class="tab-btn" data-tab="lw">Liquid Accounts</button>
+      <button class="tab-btn" data-tab="lw">Liquid Balances</button>
       <button class="tab-btn" data-tab="nw">Net Worth</button>
       <button class="tab-btn" data-tab="lessons">Lessons Learned</button>
       <button class="tab-btn" data-tab="leverage">Leverage</button>
@@ -1310,7 +1310,7 @@ td.hbt-num:last-child { width: 13%; }
   </div>
   <div id="lw-panel">
     <div class="panel-hdr">
-      <h1>Liquid Accounts</h1>
+      <h1>Liquid Balances</h1>
       <div id="lw-range-wrap" style="display:flex;align-items:center;gap:8px">
         <div id="lw-range-group">
           <label>From <select id="lw-from-sel"></select></label>
@@ -7357,15 +7357,17 @@ function drawLwChart(keys, assetVals, debtVals, netVals, hoveredIdx, canvasId, a
 
   var chartH = H - T_PAD - B_PAD;
 
-  // Resolve Net Liquid Target and Minimum (lw-canvas only)
+  // Resolve Net Liquid Target, Minimum, and Credit Float (lw-canvas only)
   var lwTargetAmt = null;
   var lwMinAmt    = null;
+  var lwFloatAmt  = null;
   if (canvasId === 'lw-canvas') {
     for (var lqti = 0; lqti < state.catConfig.length; lqti++) {
       var lqcfg = state.catConfig[lqti];
       if (lqcfg.amount !== null) {
         if (lqcfg.usedFor === 'Net Liquid')         lwTargetAmt = lqcfg.amount;
         if (lqcfg.usedFor === 'Net Liquid Minimum') lwMinAmt    = lqcfg.amount;
+        if (lqcfg.usedFor === 'Credit Float')       lwFloatAmt  = lqcfg.amount;
       }
     }
   }
@@ -7375,6 +7377,7 @@ function drawLwChart(keys, assetVals, debtVals, netVals, hoveredIdx, canvasId, a
   for (var i = 0; i < n; i++) maxBar = Math.max(maxBar, assetVals[i], Math.abs(debtVals[i]));
   if (lwTargetAmt !== null) maxBar = Math.max(maxBar, lwTargetAmt);
   if (lwMinAmt    !== null) maxBar = Math.max(maxBar, lwMinAmt);
+  if (lwFloatAmt  !== null) maxBar = Math.max(maxBar, lwFloatAmt);
   if (maxBar === 0) maxBar = 1;
   var rough  = maxBar / 6;
   var pow10  = Math.pow(10, Math.floor(Math.log(rough) / Math.LN10));
@@ -7477,6 +7480,23 @@ function drawLwChart(keys, assetVals, debtVals, netVals, hoveredIdx, canvasId, a
     ctx.textAlign = 'right';
     ctx.font      = '12px system-ui, -apple-system, sans-serif';
     ctx.fillText('Minimum ' + fmtYTick(lwMinAmt), totalW - R_PAD - 2, minY - 4);
+  }
+
+  // Credit Float line
+  if (lwFloatAmt !== null) {
+    var floatY = yPos(lwFloatAmt);
+    ctx.strokeStyle = '#b9dbf8';
+    ctx.lineWidth   = 0.5;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(L_PAD, floatY);
+    ctx.lineTo(totalW - R_PAD, floatY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#b9dbf8';
+    ctx.textAlign = 'right';
+    ctx.font      = '12px system-ui, -apple-system, sans-serif';
+    ctx.fillText('Float ' + fmtYTick(lwFloatAmt), totalW - R_PAD - 2, floatY - 4);
   }
 
   // Net worth circles — green/red by month-over-month change; hovered = solid black
