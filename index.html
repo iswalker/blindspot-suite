@@ -956,7 +956,7 @@ td.hbt-num:last-child { width: 13%; }
 #leverage-speedo-hdr { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 #leverage-speedo-hdr label { font-size: 12px; color: #666; white-space: nowrap; }
 #leverage-speedo-month-sel { font-size: 12px; padding: 3px 6px; border: 1px solid #ddd; border-radius: 5px; color: #333; }
-#leverage-speedo-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 14px; }
+#leverage-speedo-row { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 16px; margin-bottom: 14px; }
 .leverage-speedo {
   min-width: 0; background: #fff; border: 1px solid #e8e8e4;
   border-radius: 10px; padding: 14px 18px 10px;
@@ -1095,7 +1095,7 @@ td.hbt-num:last-child { width: 13%; }
 
   /* Charts row (Leverage etc.) stacks */
   #leverage-charts-row { flex-direction: column; }
-  #leverage-speedo-row { grid-template-columns: repeat(2, 1fr); }
+  #leverage-speedo-row { grid-auto-flow: row; grid-template-columns: repeat(2, 1fr); }
   #leverage-chart-wrap, #leverage-year-chart-wrap { flex: 1 1 100%; }
 
   /* Tables: allow horizontal scroll within the rounded card */
