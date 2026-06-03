@@ -5781,7 +5781,7 @@ function renderLeverageSpeedometers() {
       : (txnCount + ' txn' + (txnCount === 1 ? '' : 's'));
 
     var svgBlock = '';
-    if (hasLimit) {
+    if (hasLimit && hasAcct) {
       var fillColor = '#2e7d32';
       if (fillFrac >= 0.999) fillColor = '#c62828';
       else if (fillFrac > timeFrac + 0.05) fillColor = '#ef6c00';
@@ -5829,6 +5829,12 @@ function renderLeverageSpeedometers() {
       +    '</div>'
       +    '</div>';
   }
+  // Full tiles = 2fr, no-account tiles = 1fr so they stay half the width
+  row.style.gridTemplateColumns = cfgs.map(function(c) {
+    return (c.id || '') ? '2fr' : '1fr';
+  }).join(' ');
+  row.style.gridAutoFlow = 'unset';
+
   row.innerHTML = html;
 
   Object.keys(leverageSpeedoTxns).forEach(function(spId) {
