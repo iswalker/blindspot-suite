@@ -1705,6 +1705,16 @@ var LIQUID_TYPES = { checking: 1, savings: 1, cash: 1, creditCard: 1, lineOfCred
 var CONFIG_FILENAME = 'Config.csv';
 var RECOVERABLE_MARKER = '='; // categories whose name contains this substring count toward Recoverable Costs
 var GLIDEPATH_CAT = 'Cash Flow & Opportunities Glidepath'; // Day-1 balance tracked separately
+// YNAB only exposes the current net budgeted value per month, never the day-1 assignment.
+// We reconstruct day-1 as the max-ever-seen budgeted value and persist it to localStorage so
+// it survives full rebuilds (config reload, re-auth, fresh session) — not just incremental refreshes.
+var GLIDEPATH_LS_KEY = 'glidepath-snapshot';
+function loadGlidepathSnapshot() {
+  try { return JSON.parse(localStorage.getItem(GLIDEPATH_LS_KEY) || '{}') || {}; } catch (e) { return {}; }
+}
+function saveGlidepathSnapshot(snap) {
+  try { localStorage.setItem(GLIDEPATH_LS_KEY, JSON.stringify(snap || {})); } catch (e) {}
+}
 
 var PLAN_FILENAME = 'Plan.csv';
 var REG_FILENAME  = 'Register.csv';
@@ -2353,8 +2363,15 @@ function fetchYnabData(apiKey, budgetId, opts) {
   var recovCatActivity = {}; // { catNm: { key: activity } } for "=" categories
   // Snapshot: { key: day1Value } — highest budgeted value seen per month (pre-move)
   // Future months always update; current/past months keep max-ever-seen (moves only reduce budgeted)
+  // Seed from the durable localStorage snapshot, then max-merge the in-memory snapshot passed by
+  // an incremental refresh. This keeps each past month's day-1 value even on a full rebuild, where
+  // opts.glidepathSnapshot is empty and YNAB would otherwise report the post-move ($0) budgeted value.
   var glidepathSnapshot = {};
-  for (var gpk in prevGlidepathSnapshot) glidepathSnapshot[gpk] = prevGlidepathSnapshot[gpk];
+  var persistedGlidepath = loadGlidepathSnapshot();
+  for (var ppk in persistedGlidepath) glidepathSnapshot[ppk] = persistedGlidepath[ppk];
+  for (var gpk in prevGlidepathSnapshot) {
+    glidepathSnapshot[gpk] = Math.max(glidepathSnapshot[gpk] || 0, prevGlidepathSnapshot[gpk] || 0);
+  }
   // Resolved at category-load time: category ID → dueDays
   // Targets: "Pending Packing & Dropoff ~", "Pending Return Creation / Listing ~", "Pending Decision ~"
   var pendingCatIdMap = {};
@@ -2701,6 +2718,8 @@ function fetchYnabData(apiKey, budgetId, opts) {
       upcomingRenewals.sort(function(a, b) { return a.nextDate - b.nextDate; });
 
       setProgress('');
+      // Persist day-1 glidepath values so they survive full rebuilds (config reload / re-auth / new session)
+      saveGlidepathSnapshot(glidepathSnapshot);
       return { allKeys: allKeys, incomePivot: incomePivot, incomeAcctPivot: incomeAcctPivot, incomePayeePivot: incomePayeePivot,
                groupPivot: groupPivot, catPivot: catPivot, activeCats: activeCats,
                regTxns: regTxns, allAccounts: allAccounts,
