@@ -5674,7 +5674,7 @@ function buildAndShowSpeedoTt(clientX, clientY, data, amtColor) {
         + '</span></div>';
     }
     html += '<div class="lessons-tt-total"><span>Total (Other Account)</span><span style="color:#888">'
-      + fmt(otherSpendTot) + ' <span style="color:#bbb;font-weight:500">(' + fmtDec(otherBenTot) + ')</span></span></div>';
+      + fmt(otherSpendTot) + ' <span style="color:#222;font-weight:500">(' + fmtDec(otherBenTot) + ')</span></span></div>';
   }
   // -- No Match section --
   if (noMatchTxns.length) {
@@ -6043,23 +6043,28 @@ function renderLeverageSpeedometers() {
         };
       }
       var ideaTags2Html = '';
-      var ideaGrandTotal = 0;
+      var ideaGrandBenefit = 0, ideaGrandBudget = 0;
       for (var ji = 0; ji < ideaCfgs.length; ji++) {
         var jcfg   = ideaCfgs[ji];
         var jIdxM  = (jcfg.usedFor || '').match(/(\d+)/);
         var jLvIdx = jIdxM ? parseInt(jIdxM[1], 10) : (fullCfgs.length + ji + 1);
         var jTitle = mHeaders[jLvIdx - 1] || jcfg.usedFor;
         var jOtherTxns = (leverageSpeedoTxns['leverage-idea-' + ji] || {}).otherAcctTxns || [];
-        var jBenefit = 0;
-        for (var jbi = 0; jbi < jOtherTxns.length; jbi++) jBenefit += jOtherTxns[jbi].amount;
-        ideaGrandTotal += jBenefit;
+        var jBenefit = 0, jBudget = 0;
+        for (var jbi = 0; jbi < jOtherTxns.length; jbi++) {
+          jBenefit += jOtherTxns[jbi].amount;
+          jBudget  += jOtherTxns[jbi].budget;
+        }
+        ideaGrandBenefit += jBenefit;
+        ideaGrandBudget  += jBudget;
         var jBenStr = jBenefit > 0
           ? ' <span style="color:#555">($' + jBenefit.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ')</span>'
           : '';
         ideaTags2Html += '<span class="leverage-acct-idea-tag" data-idea-id="leverage-idea-' + ji + '">' + escAttr(jTitle) + jBenStr + '</span>';
       }
-      var ideaGrandStr = ideaGrandTotal > 0
-        ? ' <span style="color:#555">($' + ideaGrandTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ')</span>'
+      var fmt2 = function(v) { return '$' + v.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); };
+      var ideaGrandStr = (ideaGrandBenefit > 0 || ideaGrandBudget > 0)
+        ? ' <span style="color:#555">(' + fmt2(ideaGrandBenefit) + ' / ' + fmt2(ideaGrandBudget) + ')</span>'
         : '';
       var ideaHtml = '<span class="leverage-acct-idea-lbl">Account Ideas' + ideaGrandStr + ':</span>' + ideaTags2Html;
       ideasEl.innerHTML = ideaHtml;
