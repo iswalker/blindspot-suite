@@ -2067,7 +2067,8 @@ function parseConfigCsv(text) {
     var dateRange  = (r['Date Range'] || '').trim();
     var assocCatRaw = (r['Associated Category ID(s)'] || r['Associated Category ID'] || '').trim();
     var assocCatIds = assocCatRaw ? assocCatRaw.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : [];
-    result.push({ id: id, type: type, usedFor: usedFor, section: section, dueDays: dueDays, amount: amount, unit: unit, multiplier: multiplier, dateRange: dateRange, assocCatIds: assocCatIds });
+    var trackAgainst = (r['Track Against'] || 'all').trim().toLowerCase();
+    result.push({ id: id, type: type, usedFor: usedFor, section: section, dueDays: dueDays, amount: amount, unit: unit, multiplier: multiplier, dateRange: dateRange, assocCatIds: assocCatIds, trackAgainst: trackAgainst });
   }
   return result;
 }
@@ -5704,9 +5705,9 @@ function renderLeverageSpeedometers() {
     if (hdr) hdr.style.display = 'none';
     return;
   }
-  // Split into full (has account) and no-account configs
-  var fullCfgs   = cfgs.filter(function(c) { return !!(c.id || ''); });
-  var ideaCfgs   = cfgs.filter(function(c) { return !(c.id || ''); });
+  // Split into full (has account or payee) and no-source configs (ideas)
+  var fullCfgs = cfgs.filter(function(c) { return !!(c.id || ''); });
+  var ideaCfgs = cfgs.filter(function(c) { return !(c.id || ''); });
 
   if (hdr) hdr.style.display = '';
   row.style.display = fullCfgs.length ? '' : 'none';
@@ -5738,20 +5739,59 @@ function renderLeverageSpeedometers() {
     var lvIdx    = idxMatch ? parseInt(idxMatch[1], 10) : (ci + 1);
     var colHdr   = mHeaders[lvIdx - 1] || '';
     var title    = colHdr || cfg.usedFor;
-    var maxAmt   = (cfg.amount !== null && cfg.amount > 0) ? cfg.amount : 0;
-    var mult     = (cfg.multiplier != null) ? cfg.multiplier : 1;
-    var acctId   = cfg.id || '';
-    var period   = computePeriodProgress(cfg.dateRange, asOfDate);
+    var maxAmt      = (cfg.amount !== null && cfg.amount > 0) ? cfg.amount : 0;
+    var mult        = (cfg.multiplier != null) ? cfg.multiplier : 1;
+    var isPayeeType = (cfg.type || '').toLowerCase() === 'payee';
+    var acctId      = isPayeeType ? '' : (cfg.id || '');
+    var payeeName   = isPayeeType ? (cfg.id || '') : '';
+    var period      = computePeriodProgress(cfg.dateRange, asOfDate);
+
+    // For Payee type, override the title to the payee name when no merchants-tab header exists
+    if (isPayeeType && !colHdr) title = payeeName || cfg.usedFor;
 
     var rawSum = 0;
     var txnCount = 0;
     var contribTxns = [];
-    if (period && colHdr && acctList[acctId]) {
+    var startStr = period ? period.start.toISOString().slice(0, 10) : '';
+
+    if (isPayeeType && payeeName && period) {
+      // Sum transactions across ALL accounts where payee matches, filtered by trackAgainst mode.
+      // trackAgainst: 'all' = outflows; anything containing 'inflow' = positive YNAB amounts,
+      // then optionally filtered by whether memo contains 'shipping'.
+      var targetPayeeLc = payeeName.toLowerCase();
+      var trackMode  = cfg.trackAgainst || 'all';
+      var wantInflow = trackMode.indexOf('inflow') !== -1;
+      var wantShipping    = wantInflow && trackMode.indexOf('shipping') !== -1 && trackMode.indexOf('minus') === -1 && trackMode.indexOf('no ') === -1;
+      var excludeShipping = wantInflow && (trackMode.indexOf('minus') !== -1 || trackMode.indexOf('no ') !== -1 || trackMode.indexOf('without') !== -1);
+      for (var allAid in acctList) {
+        var aTxs = acctList[allAid] || [];
+        for (var ati2 = 0; ati2 < aTxs.length; ati2++) {
+          var at2 = aTxs[ati2];
+          if (!at2.date || at2.date < startStr || at2.date > asOfStr) continue;
+          if ((at2.payee || '').toLowerCase() !== targetPayeeLc) continue;
+          var rawAmt2 = at2.amount || 0; // negative = outflow, positive = inflow in YNAB
+          var memoLc  = (at2.memo || '').toLowerCase();
+          var hasShipping = memoLc.indexOf('shipping') !== -1;
+          var spend2;
+          if (wantInflow) {
+            if (rawAmt2 <= 0) continue; // only inflows
+            if (excludeShipping && hasShipping) continue;
+            if (wantShipping && !hasShipping) continue;
+            spend2 = rawAmt2; // inflows are already positive
+          } else {
+            spend2 = -rawAmt2; // flip outflow to positive
+            if (state.leverageExcludeTracking) spend2 -= -(at2.trackingAmount || 0);
+            if (spend2 <= 0) continue;
+          }
+          rawSum += spend2;
+          txnCount++;
+          contribTxns.push({ date: at2.date, payee: at2.payee || '', memo: at2.memo || '', budget: spend2, amount: spend2 * mult });
+        }
+      }
+    } else if (!isPayeeType && period && colHdr && acctList[acctId]) {
       var txs = acctList[acctId];
-      var startStr = period.start.toISOString().slice(0, 10);
       for (var ti = 0; ti < txs.length; ti++) {
         var t = txs[ti];
-        // Include transactions from period start up to and including asOfDate
         if (!t.date || t.date < startStr || t.date > asOfStr) continue;
         var payeeKey = (t.payee || '').toLowerCase();
         var mEntry = merchants[payeeKey];
@@ -5760,21 +5800,13 @@ function renderLeverageSpeedometers() {
         if (state.leverageExcludeTracking) spend -= -(t.trackingAmount || 0);
         rawSum += spend;
         txnCount++;
-        contribTxns.push({
-          date:   t.date,
-          payee:  t.payee || '',
-          memo:   t.memo  || '',
-          budget: spend,
-          amount: spend * mult
-        });
+        contribTxns.push({ date: t.date, payee: t.payee || '', memo: t.memo || '', budget: spend, amount: spend * mult });
       }
     }
-    // Build "Other Account Used": matching merchants that went through a different account,
-    // clamped to the selected Speedometer Month only (not the full period).
+
+    // "Other Account Used": only relevant for Account type (Payee type already spans all accounts)
     var otherAcctByPayee = {};
-    var startStr = period ? period.start.toISOString().slice(0, 10) : '';
-    // monthStartStr is hoisted above the loop
-    if (colHdr && monthStartStr) {
+    if (!isPayeeType && colHdr && monthStartStr) {
       for (var otherAcctId in acctList) {
         if (otherAcctId === acctId) continue;
         var otherTxs = acctList[otherAcctId] || [];
@@ -5825,7 +5857,7 @@ function renderLeverageSpeedometers() {
     }).sort(function(a, b) { return b.budget - a.budget; });
 
     var hasLimit = cfg.amount !== null && cfg.amount > 0;
-    var hasAcct  = !!acctId;
+    var hasAcct  = isPayeeType ? !!payeeName : !!acctId;
 
     var cappedSpend   = hasLimit ? Math.min(Math.max(rawSum, 0), maxAmt) : Math.max(rawSum, 0);
     var cappedBenefit = cappedSpend * mult;
