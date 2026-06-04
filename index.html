@@ -5463,14 +5463,23 @@ function renderLeveragePosWidget() {
         var mLabel = new Date(parseInt(parts2[0]), parseInt(parts2[1]) - 1, 1)
           .toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
         var h = '<div class="lwtt-month">' + escHtml(mLabel) + ' — POS Withdrawals</div>';
+        var totCount = 0, totAmt = 0;
         for (var pi = 0; pi < row.payees.length; pi++) {
           var py = row.payees[pi];
+          totCount += py.count;
+          totAmt   += py.total;
           h += '<div class="lwtt-driver-row">'
             + '<span class="lwtt-driver-name">' + escHtml(py.name) + '</span>'
             + '<span class="lwtt-driver-val" style="color:#555">'
             +   py.count + ' &middot; $' + py.total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})
             + '</span></div>';
         }
+        h += '<div class="lwtt-divider"></div>'
+          + '<div class="lwtt-driver-row">'
+          + '<span class="lwtt-driver-name" style="font-weight:700;color:#333">Total</span>'
+          + '<span class="lwtt-driver-val" style="color:#333;font-weight:700">'
+          +   totCount + ' &middot; $' + totAmt.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})
+          + '</span></div>';
         posTooltip.innerHTML = h;
         posTooltip.style.display = 'block';
         var tw = posTooltip.offsetWidth;
@@ -5742,13 +5751,14 @@ function renderLeverageSpeedometers() {
     asOfDate = new Date(parseInt(mp[0], 10), parseInt(mp[1], 10), 0); // last day of selected month
   }
   var asOfStr = asOfDate.toISOString().slice(0, 10);
-  // upperStr: when including forecasted, extend to end-of-month for the current month.
-  // Past months: asOfStr is already their last day, so upperStr = asOfStr either way.
-  var upperStr = asOfStr;
-  if (selMonth >= todayKey && !state.leverageExcludeForecasted) {
-    var ump = selMonth.split('-');
-    upperStr = new Date(parseInt(ump[0], 10), parseInt(ump[1], 10), 0).toISOString().slice(0, 10);
-  }
+  // End-of-month for the selected month (works for any month, past or current).
+  // For past months endOfSelMonth === asOfStr, so the toggle has no effect there.
+  var smp = selMonth.split('-');
+  var endOfSelMonth = new Date(parseInt(smp[0], 10), parseInt(smp[1], 10), 0);
+  var endOfSelMonthStr = endOfSelMonth.getFullYear() + '-'
+    + String(endOfSelMonth.getMonth() + 1).padStart(2, '0') + '-'
+    + String(endOfSelMonth.getDate()).padStart(2, '0');
+  var upperStr = state.leverageExcludeForecasted ? asOfStr : endOfSelMonthStr;
 
   var acctList     = (state.data && state.data.acctTxnsList) || {};
   var merchants    = (state.merchants && state.merchants.byPayee) || {};
@@ -5880,7 +5890,7 @@ function renderLeverageSpeedometers() {
         var assocTxns = state.data.catIdTxns[assocCatIds[cai]] || [];
         for (var ati = 0; ati < assocTxns.length; ati++) {
           var at = assocTxns[ati];
-          if (!at.date || at.date < startStr || at.date > asOfStr) continue;
+          if (!at.date || at.date < startStr || at.date > upperStr) continue;
           if (leverageAcctName && at.account === leverageAcctName) continue;
           var aspend = -at.amount;
           if (aspend <= 0) continue;
@@ -5996,7 +6006,7 @@ function renderLeverageSpeedometers() {
             var iTxs = acctList[iAcctId] || [];
             for (var iti = 0; iti < iTxs.length; iti++) {
               var it = iTxs[iti];
-              if (!it.date || it.date < monthStartStr || it.date > asOfStr) continue;
+              if (!it.date || it.date < monthStartStr || it.date > upperStr) continue;
               var ipk = (it.payee || '').toLowerCase();
               if (!merchants[ipk] || !merchants[ipk][iColHdr]) continue;
               var ispend = -(it.amount || 0);
