@@ -6042,14 +6042,26 @@ function renderLeverageSpeedometers() {
           noMatchTxns:   []
         };
       }
-      var ideaHtml = '<span class="leverage-acct-idea-lbl">Account Ideas:</span>';
+      var ideaTags2Html = '';
+      var ideaGrandTotal = 0;
       for (var ji = 0; ji < ideaCfgs.length; ji++) {
         var jcfg   = ideaCfgs[ji];
         var jIdxM  = (jcfg.usedFor || '').match(/(\d+)/);
         var jLvIdx = jIdxM ? parseInt(jIdxM[1], 10) : (fullCfgs.length + ji + 1);
         var jTitle = mHeaders[jLvIdx - 1] || jcfg.usedFor;
-        ideaHtml += '<span class="leverage-acct-idea-tag" data-idea-id="leverage-idea-' + ji + '">' + escAttr(jTitle) + '</span>';
+        var jOtherTxns = (leverageSpeedoTxns['leverage-idea-' + ji] || {}).otherAcctTxns || [];
+        var jBenefit = 0;
+        for (var jbi = 0; jbi < jOtherTxns.length; jbi++) jBenefit += jOtherTxns[jbi].amount;
+        ideaGrandTotal += jBenefit;
+        var jBenStr = jBenefit > 0
+          ? ' <span style="color:#555">($' + jBenefit.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ')</span>'
+          : '';
+        ideaTags2Html += '<span class="leverage-acct-idea-tag" data-idea-id="leverage-idea-' + ji + '">' + escAttr(jTitle) + jBenStr + '</span>';
       }
+      var ideaGrandStr = ideaGrandTotal > 0
+        ? ' <span style="color:#555">($' + ideaGrandTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ')</span>'
+        : '';
+      var ideaHtml = '<span class="leverage-acct-idea-lbl">Account Ideas' + ideaGrandStr + ':</span>' + ideaTags2Html;
       ideasEl.innerHTML = ideaHtml;
       // Wire hover on idea tags
       var ideaTags = ideasEl.querySelectorAll('.leverage-acct-idea-tag');
