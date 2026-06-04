@@ -2578,12 +2578,20 @@ function fetchYnabData(apiKey, budgetId, opts) {
           if (!acctTxnsList[t.account_id]) acctTxnsList[t.account_id] = [];
           // Always use parent transaction amount (t.amount = total, e.g. $139 for a $77+$62 split).
           // Sub-transactions are expanded below only for category/spend analysis, not stored here.
+          // Store sub-transaction memo+amount breakdown so Payee-type speedometers can
+          // correctly split e.g. a $100 inflow into $10 Shipping / $90 Sales.
+          var subDetails = (t.subtransactions && t.subtransactions.length)
+            ? t.subtransactions.map(function(st) {
+                return { amount: (st.amount || 0) / 1000, memo: (st.memo || t.memo || '') };
+              })
+            : null;
           acctTxnsList[t.account_id].push({
             date:           t.date,
             amount:         (t.amount || 0) / 1000,
             trackingAmount: trackingAmt,
             payee:          t.payee_name || '',
-            memo:           t.memo || ''
+            memo:           t.memo || '',
+            subs:           subDetails
           });
         }
       }
@@ -5759,30 +5767,45 @@ function renderLeverageSpeedometers() {
       // trackAgainst: 'all' = outflows; anything containing 'inflow' = positive YNAB amounts,
       // then optionally filtered by whether memo contains 'shipping'.
       var targetPayeeLc = payeeName.toLowerCase();
-      var trackMode  = cfg.trackAgainst || 'all';
-      var wantInflow = trackMode.indexOf('inflow') !== -1;
-      var wantShipping    = wantInflow && trackMode.indexOf('shipping') !== -1 && trackMode.indexOf('minus') === -1 && trackMode.indexOf('no ') === -1;
+      var trackMode       = cfg.trackAgainst || 'all';
+      var wantInflow      = trackMode.indexOf('inflow') !== -1;
       var excludeShipping = wantInflow && (trackMode.indexOf('minus') !== -1 || trackMode.indexOf('no ') !== -1 || trackMode.indexOf('without') !== -1);
+      var wantShipping    = wantInflow && !excludeShipping && trackMode.indexOf('shipping') !== -1;
       for (var allAid in acctList) {
         var aTxs = acctList[allAid] || [];
         for (var ati2 = 0; ati2 < aTxs.length; ati2++) {
           var at2 = aTxs[ati2];
           if (!at2.date || at2.date < startStr || at2.date > asOfStr) continue;
           if ((at2.payee || '').toLowerCase() !== targetPayeeLc) continue;
-          var rawAmt2 = at2.amount || 0; // negative = outflow, positive = inflow in YNAB
-          var memoLc  = (at2.memo || '').toLowerCase();
-          var hasShipping = memoLc.indexOf('shipping') !== -1;
-          var spend2;
+          var rawAmt2 = at2.amount || 0;
+          if (wantInflow && rawAmt2 <= 0) continue; // only inflows
+          if (!wantInflow && rawAmt2 >= 0) continue; // only outflows
+          var spend2 = 0;
           if (wantInflow) {
-            if (rawAmt2 <= 0) continue; // only inflows
-            if (excludeShipping && hasShipping) continue;
-            if (wantShipping && !hasShipping) continue;
-            spend2 = rawAmt2; // inflows are already positive
+            if (at2.subs) {
+              // Split transaction: sum only the sub-amounts whose memo matches the filter
+              for (var si2 = 0; si2 < at2.subs.length; si2++) {
+                var sub2 = at2.subs[si2];
+                if (sub2.amount <= 0) continue; // skip outflow subs
+                var subMemoLc = (sub2.memo || '').toLowerCase();
+                var subHasShip = subMemoLc.indexOf('shipping') !== -1;
+                if (excludeShipping && subHasShip) continue;
+                if (wantShipping && !subHasShip) continue;
+                spend2 += sub2.amount;
+              }
+            } else {
+              // Non-split: apply filter to top-level memo
+              var memoLc = (at2.memo || '').toLowerCase();
+              var hasShip = memoLc.indexOf('shipping') !== -1;
+              if (excludeShipping && hasShip) continue;
+              if (wantShipping && !hasShip) continue;
+              spend2 = rawAmt2;
+            }
           } else {
-            spend2 = -rawAmt2; // flip outflow to positive
+            spend2 = -rawAmt2;
             if (state.leverageExcludeTracking) spend2 -= -(at2.trackingAmount || 0);
-            if (spend2 <= 0) continue;
           }
+          if (spend2 <= 0) continue;
           rawSum += spend2;
           txnCount++;
           contribTxns.push({ date: at2.date, payee: at2.payee || '', memo: at2.memo || '', budget: spend2, amount: spend2 * mult });
