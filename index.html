@@ -1442,6 +1442,11 @@ td.hbt-num:last-child { width: 13%; }
           <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
           Exclude Tracking
         </label>
+        <label class="ios-toggle-wrap">
+          <input type="checkbox" id="leverage-exclude-forecasted">
+          <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+          Exclude Forecasted
+        </label>
       </div>
     </div>
     <div id="leverage-speedo-hdr" style="display:none">
@@ -1764,7 +1769,8 @@ var state = {
   lwToKey:             localStorage.getItem('sel-lw-to')   || null,
   lwIncludeCurrent:    localStorage.getItem('lw-include-current') === '1',
   lwExcludeTracking:        localStorage.getItem('lw-exclude-tracking') === '1',
-  leverageExcludeTracking:  localStorage.getItem('leverage-exclude-tracking') === '1',
+  leverageExcludeTracking:   localStorage.getItem('leverage-exclude-tracking') === '1',
+  leverageExcludeForecasted: localStorage.getItem('leverage-exclude-forecasted') === '1',
   leverageSpeedoMonth:      null,
   lwSelectedAccounts:  parseJsonLS('sel-lw-accts')    || {},
   nwFromKey:           localStorage.getItem('sel-nw-from') || null,
@@ -5736,6 +5742,13 @@ function renderLeverageSpeedometers() {
     asOfDate = new Date(parseInt(mp[0], 10), parseInt(mp[1], 10), 0); // last day of selected month
   }
   var asOfStr = asOfDate.toISOString().slice(0, 10);
+  // upperStr: when including forecasted, extend to end-of-month for the current month.
+  // Past months: asOfStr is already their last day, so upperStr = asOfStr either way.
+  var upperStr = asOfStr;
+  if (selMonth >= todayKey && !state.leverageExcludeForecasted) {
+    var ump = selMonth.split('-');
+    upperStr = new Date(parseInt(ump[0], 10), parseInt(ump[1], 10), 0).toISOString().slice(0, 10);
+  }
 
   var acctList     = (state.data && state.data.acctTxnsList) || {};
   var merchants    = (state.merchants && state.merchants.byPayee) || {};
@@ -5778,7 +5791,7 @@ function renderLeverageSpeedometers() {
         var aTxs = acctList[allAid] || [];
         for (var ati2 = 0; ati2 < aTxs.length; ati2++) {
           var at2 = aTxs[ati2];
-          if (!at2.date || at2.date < startStr || at2.date > asOfStr) continue;
+          if (!at2.date || at2.date < startStr || at2.date > upperStr) continue;
           if ((at2.payee || '').toLowerCase() !== targetPayeeLc) continue;
           var rawAmt2 = at2.amount || 0;
           if (wantInflow && rawAmt2 <= 0) continue; // only inflows
@@ -5818,7 +5831,7 @@ function renderLeverageSpeedometers() {
       var txs = acctList[acctId];
       for (var ti = 0; ti < txs.length; ti++) {
         var t = txs[ti];
-        if (!t.date || t.date < startStr || t.date > asOfStr) continue;
+        if (!t.date || t.date < startStr || t.date > upperStr) continue;
         var payeeKey = (t.payee || '').toLowerCase();
         var mEntry = merchants[payeeKey];
         if (!mEntry || !mEntry[colHdr]) continue;
@@ -5838,7 +5851,7 @@ function renderLeverageSpeedometers() {
         var otherTxs = acctList[otherAcctId] || [];
         for (var oti = 0; oti < otherTxs.length; oti++) {
           var ot = otherTxs[oti];
-          if (!ot.date || ot.date < monthStartStr || ot.date > asOfStr) continue;
+          if (!ot.date || ot.date < monthStartStr || ot.date > upperStr) continue;
           var opk = (ot.payee || '').toLowerCase();
           if (!merchants[opk] || !merchants[opk][colHdr]) continue;
           var ospend = -(ot.amount || 0);
@@ -8376,6 +8389,13 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('leverage-exclude-tracking').addEventListener('change', function() {
     state.leverageExcludeTracking = this.checked;
     localStorage.setItem('leverage-exclude-tracking', this.checked ? '1' : '0');
+    renderLeverageSpeedometers();
+  });
+
+  document.getElementById('leverage-exclude-forecasted').checked = !!state.leverageExcludeForecasted;
+  document.getElementById('leverage-exclude-forecasted').addEventListener('change', function() {
+    state.leverageExcludeForecasted = this.checked;
+    localStorage.setItem('leverage-exclude-forecasted', this.checked ? '1' : '0');
     renderLeverageSpeedometers();
   });
 
