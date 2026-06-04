@@ -1447,6 +1447,11 @@ td.hbt-num:last-child { width: 13%; }
           <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
           Exclude Forecasted
         </label>
+        <label class="ios-toggle-wrap">
+          <input type="checkbox" id="leverage-include-tbd">
+          <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+          Include TBD Matches
+        </label>
       </div>
     </div>
     <div id="leverage-speedo-hdr" style="display:none">
@@ -1771,6 +1776,7 @@ var state = {
   lwExcludeTracking:        localStorage.getItem('lw-exclude-tracking') === '1',
   leverageExcludeTracking:   localStorage.getItem('leverage-exclude-tracking') === '1',
   leverageExcludeForecasted: localStorage.getItem('leverage-exclude-forecasted') === '1',
+  leverageIncludeTbd:        localStorage.getItem('leverage-include-tbd') === '1',
   leverageSpeedoMonth:      null,
   lwSelectedAccounts:  parseJsonLS('sel-lw-accts')    || {},
   nwFromKey:           localStorage.getItem('sel-nw-from') || null,
@@ -2106,6 +2112,9 @@ function parseMerchantsCsv(text) {
       var cellVal = (row[headerKeys[hi + 1]] || '').trim().toLowerCase();
       if (cellVal === 'yes' || cellVal === 'y' || cellVal === 'true' || cellVal === '1' || cellVal === 'x') {
         entry[metricName] = true;
+        hasAny = true;
+      } else if (cellVal === 'tbd') {
+        entry[metricName] = 'tbd';
         hasAny = true;
       }
     }
@@ -5765,6 +5774,8 @@ function renderLeverageSpeedometers() {
   var mHeaders     = (state.merchants && state.merchants.headers) || [];
   var acctIdToName = null; // built lazily on first assocCatId cfg
   var monthStartStr = selMonth + '-01'; // shared by both full and idea cfg loops
+  var includeTbd = !!state.leverageIncludeTbd;
+  var matchesMetric = function(e, col) { return !!(e && (e[col] === true || (includeTbd && e[col] === 'tbd'))); };
 
   var html = '';
   for (var ci = 0; ci < fullCfgs.length; ci++) {
@@ -5844,7 +5855,7 @@ function renderLeverageSpeedometers() {
         if (!t.date || t.date < startStr || t.date > upperStr) continue;
         var payeeKey = (t.payee || '').toLowerCase();
         var mEntry = merchants[payeeKey];
-        if (!mEntry || !mEntry[colHdr]) continue;
+        if (!matchesMetric(mEntry, colHdr)) continue;
         var spend = -(t.amount || 0);
         if (state.leverageExcludeTracking) spend -= -(t.trackingAmount || 0);
         rawSum += spend;
@@ -5863,7 +5874,7 @@ function renderLeverageSpeedometers() {
           var ot = otherTxs[oti];
           if (!ot.date || ot.date < monthStartStr || ot.date > upperStr) continue;
           var opk = (ot.payee || '').toLowerCase();
-          if (!merchants[opk] || !merchants[opk][colHdr]) continue;
+          if (!matchesMetric(merchants[opk], colHdr)) continue;
           var ospend = -(ot.amount || 0);
           if (state.leverageExcludeTracking) ospend -= -(ot.trackingAmount || 0);
           if (ospend <= 0) continue;
@@ -5895,7 +5906,7 @@ function renderLeverageSpeedometers() {
           var aspend = -at.amount;
           if (aspend <= 0) continue;
           var apk = (at.payee || '').toLowerCase();
-          if (merchants[apk] && merchants[apk][colHdr]) continue; // merchant-eligible → already in Other Account Used
+          if (matchesMetric(merchants[apk], colHdr)) continue; // merchant-eligible → already in Other Account Used
           if (!noMatchByPayee[at.payee]) noMatchByPayee[at.payee] = 0;
           noMatchByPayee[at.payee] += aspend;
         }
@@ -6008,7 +6019,7 @@ function renderLeverageSpeedometers() {
               var it = iTxs[iti];
               if (!it.date || it.date < monthStartStr || it.date > upperStr) continue;
               var ipk = (it.payee || '').toLowerCase();
-              if (!merchants[ipk] || !merchants[ipk][iColHdr]) continue;
+              if (!matchesMetric(merchants[ipk], iColHdr)) continue;
               var ispend = -(it.amount || 0);
               if (state.leverageExcludeTracking) ispend -= -(it.trackingAmount || 0);
               if (ispend <= 0) continue;
@@ -8406,6 +8417,13 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('leverage-exclude-forecasted').addEventListener('change', function() {
     state.leverageExcludeForecasted = this.checked;
     localStorage.setItem('leverage-exclude-forecasted', this.checked ? '1' : '0');
+    renderLeverageSpeedometers();
+  });
+
+  document.getElementById('leverage-include-tbd').checked = !!state.leverageIncludeTbd;
+  document.getElementById('leverage-include-tbd').addEventListener('change', function() {
+    state.leverageIncludeTbd = this.checked;
+    localStorage.setItem('leverage-include-tbd', this.checked ? '1' : '0');
     renderLeverageSpeedometers();
   });
 
