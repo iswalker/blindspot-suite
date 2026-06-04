@@ -2068,7 +2068,10 @@ function parseConfigCsv(text) {
     var assocCatRaw = (r['Associated Category ID(s)'] || r['Associated Category ID'] || '').trim();
     var assocCatIds = assocCatRaw ? assocCatRaw.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : [];
     var trackAgainst = (r['Track Against'] || 'all').trim().toLowerCase();
-    result.push({ id: id, type: type, usedFor: usedFor, section: section, dueDays: dueDays, amount: amount, unit: unit, multiplier: multiplier, dateRange: dateRange, assocCatIds: assocCatIds, trackAgainst: trackAgainst });
+    var pastValueRaw = (r['Past Value'] || '').trim().replace(/[$,]/g, '');
+    var pastValue = pastValueRaw !== '' ? parseFloat(pastValueRaw) : 0;
+    if (isNaN(pastValue)) pastValue = 0;
+    result.push({ id: id, type: type, usedFor: usedFor, section: section, dueDays: dueDays, amount: amount, unit: unit, multiplier: multiplier, dateRange: dateRange, assocCatIds: assocCatIds, trackAgainst: trackAgainst, pastValue: pastValue });
   }
   return result;
 }
@@ -5878,6 +5881,9 @@ function renderLeverageSpeedometers() {
     var noMatchTxns = Object.keys(noMatchByPayee).map(function(p) {
       return { payee: p, budget: noMatchByPayee[p] };
     }).sort(function(a, b) { return b.budget - a.budget; });
+
+    // Apply Past Value offset (backfill from pre-fresh-start transactions)
+    rawSum += (cfg.pastValue || 0);
 
     var hasLimit = cfg.amount !== null && cfg.amount > 0;
     var hasAcct  = isPayeeType ? !!payeeName : !!acctId;
