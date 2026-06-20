@@ -1633,6 +1633,12 @@ td.hbt-num:last-child { width: 13%; }
         <!--div class="home-metric-sub">From Config.csv</div-->
         <div class="home-metric-value na" id="home-liq-target-value">&#8212;</div>
       </div>
+      <div class="home-metric-op" style="color:#ccc">|</div>
+      <div class="home-metric-card" style="cursor:default">
+        <div class="home-metric-label">Float Ratio</div>
+        <div class="home-metric-sub">Credit / Cash Basis</div>
+        <div class="home-metric-value na" id="home-float-ratio-value">&#8212;</div>
+      </div>
     </div>
     <div class="home-body">
       <div class="home-table-side">
@@ -7346,6 +7352,33 @@ function renderHome() {
       liqGapEl.className = 'home-metric-value' + (liqGap < 0 ? ' delta-neg' : '');
     } else {
       liqGapEl.innerHTML = '&#8212;'; liqGapEl.className = 'home-metric-value na';
+    }
+  }
+
+  // Float Ratio: |total credit card balances| / Cash Basis account balance
+  var floatRatioEl = document.getElementById('home-float-ratio-value');
+  if (floatRatioEl) {
+    var cashBasisCfg = null;
+    for (var fci = 0; fci < state.catConfig.length; fci++) {
+      if (state.catConfig[fci].usedFor === 'Cash Basis') { cashBasisCfg = state.catConfig[fci]; break; }
+    }
+    var floatRatio = null;
+    if (cashBasisCfg && cashBasisCfg.id && d.allAccountsInfo && d.allAccountsInfo[cashBasisCfg.id]) {
+      var cashBal = d.allAccountsInfo[cashBasisCfg.id].balance;
+      if (cashBal > 0 && d.lwAccounts) {
+        var creditTotal = 0;
+        for (var fri = 0; fri < d.lwAccounts.length; fri++) {
+          if (d.lwAccounts[fri].type === 'creditCard') creditTotal += d.lwAccounts[fri].balance;
+        }
+        floatRatio = Math.abs(creditTotal) / cashBal * 100;
+      }
+    }
+    if (floatRatio !== null) {
+      floatRatioEl.textContent = floatRatio.toFixed(1) + '%';
+      floatRatioEl.className = 'home-metric-value' + (floatRatio >= 100 ? ' delta-neg' : '');
+    } else {
+      floatRatioEl.innerHTML = '&#8212;';
+      floatRatioEl.className = 'home-metric-value na';
     }
   }
 
