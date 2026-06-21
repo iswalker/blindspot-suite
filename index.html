@@ -1271,6 +1271,10 @@ td.hbt-num:last-child { width: 13%; }
             </svg>
             Upload CSV
           </button>
+          <button class="config-picker-item" id="config-refresh-manual-item" style="justify-content:space-between;padding-left:18px">
+            <span style="color:#555">Refresh Manually</span>
+            <span id="config-refresh-manual-ind" style="font-size:11px;font-weight:600;color:#bbb;letter-spacing:.04em;flex-shrink:0">OFF</span>
+          </button>
         </div>
       </div>
       <button id="back-btn">&#8592; Reload Files</button>
@@ -8158,7 +8162,12 @@ function init() {
     if (cached && cached.data) {
       state.data     = cached.data;
       state.loadedAt = cached.savedAt || null;
-      ensureConfigLoaded().then(function() { showReport(); });
+      ensureConfigLoaded().then(function() {
+        showReport();
+        if (localStorage.getItem('refresh-manually') !== '1') {
+          setTimeout(function() { refreshYnab(); }, 50);
+        }
+      });
       return;
     }
 
@@ -8438,6 +8447,22 @@ document.addEventListener('DOMContentLoaded', function() {
     configPickerMenu.style.display = 'none';
     document.getElementById('config-reload-file').click();
   });
+  (function() {
+    function updateRefreshManualInd() {
+      var ind = document.getElementById('config-refresh-manual-ind');
+      if (!ind) return;
+      var on = localStorage.getItem('refresh-manually') === '1';
+      ind.textContent = on ? 'ON' : 'OFF';
+      ind.style.color = on ? '#2e7d32' : '#bbb';
+    }
+    updateRefreshManualInd();
+    document.getElementById('config-refresh-manual-item').addEventListener('click', function(e) {
+      e.stopPropagation(); // keep menu open
+      var on = localStorage.getItem('refresh-manually') === '1';
+      localStorage.setItem('refresh-manually', on ? '' : '1');
+      updateRefreshManualInd();
+    });
+  })();
 
   // Upload panel Config picker
   var uploadConfigMenu = document.getElementById('upload-config-menu');
