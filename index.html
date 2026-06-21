@@ -1584,6 +1584,24 @@ td.hbt-num:last-child { width: 13%; }
       </div>
     </div>
     <div class="home-metric-row">
+      <div class="home-metric-card" style="cursor:default">
+        <div class="home-metric-label">Cash Basis</div>
+        <div class="home-metric-sub" id="home-cash-basis-sub"></div>
+        <div style="display:flex;align-items:baseline;justify-content:flex-end;gap:6px">
+          <div class="home-metric-value na" id="home-cash-basis-value">&#8212;</div>
+          <div id="home-cash-basis-range" style="display:none;font-size:12px;color:#bbb;font-weight:400;white-space:nowrap"></div>
+        </div>
+      </div>
+      <div class="home-metric-op" style="color:#ccc">|</div>
+      <div class="home-metric-card" style="cursor:default">
+        <div class="home-metric-label">Float Ratio</div>
+        <div class="home-metric-sub">Credit / Cash Basis</div>
+        <div style="display:flex;align-items:baseline;justify-content:flex-end;gap:6px">
+          <div class="home-metric-value na" id="home-float-ratio-value">&#8212;</div>
+          <div id="home-float-ratio-range" style="display:none;font-size:12px;color:#bbb;font-weight:400;white-space:nowrap"></div>
+        </div>
+      </div>
+      <div class="home-metric-op" style="color:#ccc">|</div>
       <div class="home-metric-card" id="home-actionable-card">
         <div class="home-metric-label">Actionable Opportunity</div>
         <div class="home-metric-sub">Line of sight</div>
@@ -1632,24 +1650,6 @@ td.hbt-num:last-child { width: 13%; }
         <div class="home-metric-label">Net Liquid Target</div>
         <!--div class="home-metric-sub">From Config.csv</div-->
         <div class="home-metric-value na" id="home-liq-target-value">&#8212;</div>
-      </div>
-      <div class="home-metric-op" style="color:#ccc">|</div>
-      <div class="home-metric-card" style="cursor:default">
-        <div class="home-metric-label">Cash Basis</div>
-        <div class="home-metric-sub" id="home-cash-basis-sub"></div>
-        <div style="display:flex;align-items:baseline;justify-content:flex-end;gap:6px">
-          <div class="home-metric-value na" id="home-cash-basis-value">&#8212;</div>
-          <div id="home-cash-basis-range" style="display:none;font-size:12px;color:#bbb;font-weight:400;white-space:nowrap"></div>
-        </div>
-      </div>
-      <div class="home-metric-op" style="color:#ccc">|</div>
-      <div class="home-metric-card" style="cursor:default">
-        <div class="home-metric-label">Float Ratio</div>
-        <div class="home-metric-sub">Credit / Cash Basis</div>
-        <div style="display:flex;align-items:baseline;justify-content:flex-end;gap:6px">
-          <div class="home-metric-value na" id="home-float-ratio-value">&#8212;</div>
-          <div id="home-float-ratio-range" style="display:none;font-size:12px;color:#bbb;font-weight:400;white-space:nowrap"></div>
-        </div>
       </div>
     </div>
     <div class="home-body">
@@ -6362,29 +6362,29 @@ function populateAcctHistoryFilter() {
   if (!d || !d.allAccountsInfo) return [];
   var sel = document.getElementById('acct-history-sel');
   if (!sel) return [];
-  var trackingAccts = [];
+  var allAccts = [];
   for (var id in d.allAccountsInfo) {
     var info = d.allAccountsInfo[id];
-    if (info.on_budget === false && !info.closed && info.name.indexOf('~') === -1) {
-      trackingAccts.push({ id: id, name: info.name });
+    if (!info.closed && info.name.indexOf('~') === -1) {
+      allAccts.push({ id: id, name: info.name });
     }
   }
-  trackingAccts.sort(function(a, b) { return a.name.localeCompare(b.name); });
+  allAccts.sort(function(a, b) { return a.name.localeCompare(b.name); });
   sel.innerHTML = '';
-  for (var i = 0; i < trackingAccts.length; i++) {
+  for (var i = 0; i < allAccts.length; i++) {
     var opt = document.createElement('option');
-    opt.value       = trackingAccts[i].id;
-    opt.textContent = trackingAccts[i].name;
+    opt.value       = allAccts[i].id;
+    opt.textContent = allAccts[i].name;
     sel.appendChild(opt);
   }
   if (state.acctHistoryId && sel.querySelector('option[value="' + state.acctHistoryId + '"]')) {
     sel.value = state.acctHistoryId;
-  } else if (trackingAccts.length > 0) {
-    sel.value           = trackingAccts[0].id;
+  } else if (allAccts.length > 0) {
+    sel.value           = allAccts[0].id;
     state.acctHistoryId = sel.value;
     localStorage.setItem('sel-acct-history-id', state.acctHistoryId);
   }
-  return trackingAccts;
+  return allAccts;
 }
 
 function fmtBalLabel(v) {
