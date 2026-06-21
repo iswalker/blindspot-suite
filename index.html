@@ -1635,9 +1635,21 @@ td.hbt-num:last-child { width: 13%; }
       </div>
       <div class="home-metric-op" style="color:#ccc">|</div>
       <div class="home-metric-card" style="cursor:default">
+        <div class="home-metric-label">Cash Basis</div>
+        <div class="home-metric-sub" id="home-cash-basis-sub"></div>
+        <div style="display:flex;align-items:baseline;justify-content:flex-end;gap:6px">
+          <div class="home-metric-value na" id="home-cash-basis-value">&#8212;</div>
+          <div id="home-cash-basis-range" style="display:none;font-size:12px;color:#bbb;font-weight:400;white-space:nowrap"></div>
+        </div>
+      </div>
+      <div class="home-metric-op" style="color:#ccc">|</div>
+      <div class="home-metric-card" style="cursor:default">
         <div class="home-metric-label">Float Ratio</div>
         <div class="home-metric-sub">Credit / Cash Basis</div>
-        <div class="home-metric-value na" id="home-float-ratio-value">&#8212;</div>
+        <div style="display:flex;align-items:baseline;justify-content:flex-end;gap:6px">
+          <div class="home-metric-value na" id="home-float-ratio-value">&#8212;</div>
+          <div id="home-float-ratio-range" style="display:none;font-size:12px;color:#bbb;font-weight:400;white-space:nowrap"></div>
+        </div>
       </div>
     </div>
     <div class="home-body">
@@ -7355,31 +7367,136 @@ function renderHome() {
     }
   }
 
-  // Float Ratio: |total credit card balances| / Cash Basis account balance
-  var floatRatioEl = document.getElementById('home-float-ratio-value');
-  if (floatRatioEl) {
-    var cashBasisCfg = null;
-    for (var fci = 0; fci < state.catConfig.length; fci++) {
-      if (state.catConfig[fci].usedFor === 'Cash Basis') { cashBasisCfg = state.catConfig[fci]; break; }
-    }
-    var floatRatio = null;
-    if (cashBasisCfg && cashBasisCfg.id && d.allAccountsInfo && d.allAccountsInfo[cashBasisCfg.id]) {
-      var cashBal = d.allAccountsInfo[cashBasisCfg.id].balance;
-      if (cashBal > 0 && d.lwAccounts) {
-        var creditTotal = 0;
-        for (var fri = 0; fri < d.lwAccounts.length; fri++) {
-          if (d.lwAccounts[fri].type === 'creditCard') creditTotal += d.lwAccounts[fri].balance;
+  // Cash Basis + Float Ratio (with intra-month min/max)
+  var cashBasisCfg = null;
+  for (var fci = 0; fci < state.catConfig.length; fci++) {
+    if (state.catConfig[fci].usedFor === 'Cash Basis') { cashBasisCfg = state.catConfig[fci]; break; }
+  }
+
+  var floatRatio = null, cashBasisBal = null;
+  var floatMinRatio = null, floatMaxRatio = null;
+  var cashBasisMin = null, cashBasisMax = null;
+  var cbId = cashBasisCfg ? cashBasisCfg.id : null;
+
+  if (cbId && d.allAccountsInfo && d.allAccountsInfo[cbId]) {
+    cashBasisBal = d.allAccountsInfo[cbId].balance;
+
+    var cbSubEl = document.getElementById('home-cash-basis-sub');
+    if (cbSubEl) cbSubEl.textContent = d.allAccountsInfo[cbId].name || '';
+
+    // Credit card IDs + current total
+    var creditAcctIds = [];
+    var creditCurrentTotal = 0;
+    if (d.lwAccounts) {
+      for (var fri = 0; fri < d.lwAccounts.length; fri++) {
+        if (d.lwAccounts[fri].type === 'creditCard') {
+          creditAcctIds.push(d.lwAccounts[fri].id);
+          creditCurrentTotal += d.lwAccounts[fri].balance;
         }
-        floatRatio = Math.abs(creditTotal) / cashBal * 100;
       }
     }
+
+    if (cashBasisBal > 0) floatRatio = Math.abs(creditCurrentTotal) / cashBasisBal * 100;
+
+    // Intra-month min/max via daily transaction walk
+    if (d.acctTxnsList) {
+      var allCbIds = [cbId].concat(creditAcctIds);
+
+      // Net amount of each account's transactions in curKey
+      var mmNet = {};
+      for (var mmi = 0; mmi < allCbIds.length; mmi++) {
+        var mmId = allCbIds[mmi];
+        var mmTxns = d.acctTxnsList[mmId] || [];
+        var mmSum = 0;
+        for (var mmj = 0; mmj < mmTxns.length; mmj++) {
+          if (mmTxns[mmj].date.slice(0, 7) === curKey) mmSum += mmTxns[mmj].amount;
+        }
+        mmNet[mmId] = mmSum;
+      }
+
+      // Start-of-month running balances
+      var runBals = {};
+      for (var rbi = 0; rbi < allCbIds.length; rbi++) {
+        var rbId = allCbIds[rbi];
+        runBals[rbId] = acctBalanceAt(rbId, curKey) - mmNet[rbId];
+      }
+
+      // Cash Basis min/max initialised to start-of-month value
+      cashBasisMin = runBals[cbId]; cashBasisMax = runBals[cbId];
+
+      // Float Ratio at start of month
+      var sbCredit = 0;
+      for (var sci = 0; sci < creditAcctIds.length; sci++) sbCredit += runBals[creditAcctIds[sci]];
+      var startRatio = runBals[cbId] > 0 ? Math.abs(sbCredit) / runBals[cbId] * 100 : null;
+      floatMinRatio = startRatio; floatMaxRatio = startRatio;
+
+      // Collect + sort all relevant transactions in curKey
+      var allFloatTxns = [];
+      for (var afi = 0; afi < allCbIds.length; afi++) {
+        var afId = allCbIds[afi];
+        var afTxns = d.acctTxnsList[afId] || [];
+        for (var afj = 0; afj < afTxns.length; afj++) {
+          if (afTxns[afj].date.slice(0, 7) === curKey)
+            allFloatTxns.push({ date: afTxns[afj].date, id: afId, amount: afTxns[afj].amount });
+        }
+      }
+      allFloatTxns.sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+
+      // Walk forward, update running balances, track min/max
+      for (var ati = 0; ati < allFloatTxns.length; ati++) {
+        var atx = allFloatTxns[ati];
+        runBals[atx.id] += atx.amount;
+        if (atx.id === cbId) {
+          if (runBals[cbId] < cashBasisMin) cashBasisMin = runBals[cbId];
+          if (runBals[cbId] > cashBasisMax) cashBasisMax = runBals[cbId];
+        }
+        var curCreditSum = 0;
+        for (var csi = 0; csi < creditAcctIds.length; csi++) curCreditSum += runBals[creditAcctIds[csi]];
+        var curRatio = runBals[cbId] > 0 ? Math.abs(curCreditSum) / runBals[cbId] * 100 : null;
+        if (curRatio !== null) {
+          if (floatMinRatio === null || curRatio < floatMinRatio) floatMinRatio = curRatio;
+          if (floatMaxRatio === null || curRatio > floatMaxRatio) floatMaxRatio = curRatio;
+        }
+      }
+    }
+  }
+
+  // Render Cash Basis
+  var cashBasisValEl = document.getElementById('home-cash-basis-value');
+  var cashBasisRngEl = document.getElementById('home-cash-basis-range');
+  if (cashBasisValEl) {
+    if (cashBasisBal !== null) {
+      cashBasisValEl.textContent = '$' + Math.abs(cashBasisBal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      cashBasisValEl.className = 'home-metric-value' + (cashBasisBal < 0 ? ' delta-neg' : '');
+    } else {
+      cashBasisValEl.innerHTML = '&#8212;'; cashBasisValEl.className = 'home-metric-value na';
+    }
+  }
+  if (cashBasisRngEl) {
+    if (cashBasisMin !== null && cashBasisMax !== null) {
+      cashBasisRngEl.textContent = '($' +
+        Math.abs(cashBasisMin).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' / $' +
+        Math.abs(cashBasisMax).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ')';
+      cashBasisRngEl.style.display = '';
+    } else { cashBasisRngEl.style.display = 'none'; }
+  }
+
+  // Render Float Ratio
+  var floatRatioEl = document.getElementById('home-float-ratio-value');
+  var floatRangeEl = document.getElementById('home-float-ratio-range');
+  if (floatRatioEl) {
     if (floatRatio !== null) {
       floatRatioEl.textContent = floatRatio.toFixed(1) + '%';
       floatRatioEl.className = 'home-metric-value' + (floatRatio >= 100 ? ' delta-neg' : '');
     } else {
-      floatRatioEl.innerHTML = '&#8212;';
-      floatRatioEl.className = 'home-metric-value na';
+      floatRatioEl.innerHTML = '&#8212;'; floatRatioEl.className = 'home-metric-value na';
     }
+  }
+  if (floatRangeEl) {
+    if (floatMinRatio !== null && floatMaxRatio !== null) {
+      floatRangeEl.textContent = '(' + floatMinRatio.toFixed(1) + '% / ' + floatMaxRatio.toFixed(1) + '%)';
+      floatRangeEl.style.display = '';
+    } else { floatRangeEl.style.display = 'none'; }
   }
 
   // First pass: collect per-group data and accumulate grand totals
