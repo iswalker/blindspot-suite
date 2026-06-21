@@ -6465,15 +6465,30 @@ function drawAcctHistoryChart(keys, values, hoveredIdx) {
     ctx.fillText(fmtBalLabel(tv2), L_PAD - 6, ty + 4);
   }
 
-  // X-axis month labels — skip to avoid crowding
-  var xLabelStep = Math.max(1, Math.ceil(n / 14));
-  ctx.textAlign  = 'center';
-  ctx.fillStyle  = '#aaa';
-  ctx.font       = '11px -apple-system, BlinkMacSystemFont, sans-serif';
-  for (var xi = 0; xi < n; xi += xLabelStep) {
-    var pp  = keys[xi].split('-');
-    var lbl = MONTH_ABBR[parseInt(pp[1], 10) - 1] + ' \'' + pp[0].slice(2);
-    ctx.fillText(lbl, xAt(xi), T_PAD + plotH + 16);
+  // X-axis labels — daily or monthly resolution
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#aaa';
+  ctx.font      = '11px -apple-system, BlinkMacSystemFont, sans-serif';
+  var isDaily = keys.length > 0 && keys[0].length === 10;
+  if (isDaily) {
+    for (var xi = 0; xi < n; xi++) {
+      var xpp  = keys[xi].split('-');
+      var xDay = parseInt(xpp[2], 10);
+      var isMonthStart = xDay === 1;
+      var isMidMonth   = xDay === 15 && n <= 90;
+      if (isMonthStart || isMidMonth) {
+        var xmo  = MONTH_ABBR[parseInt(xpp[1], 10) - 1];
+        var xlbl = isMonthStart ? xmo + ' \'' + xpp[0].slice(2) : xmo + ' 15';
+        ctx.fillText(xlbl, xAt(xi), T_PAD + plotH + 16);
+      }
+    }
+  } else {
+    var xLabelStep = Math.max(1, Math.ceil(n / 14));
+    for (var xi = 0; xi < n; xi += xLabelStep) {
+      var xpp  = keys[xi].split('-');
+      var xlbl = MONTH_ABBR[parseInt(xpp[1], 10) - 1] + ' \'' + xpp[0].slice(2);
+      ctx.fillText(xlbl, xAt(xi), T_PAD + plotH + 16);
+    }
   }
 
   // Gradient fill
@@ -6533,7 +6548,9 @@ function showAcctHistoryTooltip(clientX, clientY, idx) {
   var tt = document.getElementById('acct-history-tooltip');
   if (!tt) return;
   var pp  = s.keys[idx].split('-');
-  var mo  = MONTH_ABBR[parseInt(pp[1], 10) - 1] + ' ' + pp[0];
+  var mo  = pp.length === 3
+    ? MONTH_ABBR[parseInt(pp[1], 10) - 1] + ' ' + parseInt(pp[2], 10) + ', ' + pp[0]
+    : MONTH_ABBR[parseInt(pp[1], 10) - 1] + ' ' + pp[0];
   var val = s.values[idx];
   var rounded = Math.round(val * 100) / 100;
   var balStr = (rounded < 0 ? '-' : '') + '$' + Math.abs(rounded).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
@@ -6587,11 +6604,53 @@ function renderAccountHistory() {
   }
   populateAcctHistoryRangeFilter(availKeys, firstNonZero);
 
-  var keys = generateMonthRange(state.acctHistoryFromKey, state.acctHistoryToKey);
+  // Build daily balance series within the selected month range
+  var fromMonthKey = state.acctHistoryFromKey;
+  var toMonthKey   = state.acctHistoryToKey;
 
-  var values = [];
-  for (var i = 0; i < keys.length; i++) {
-    values.push(acctBalanceAt(acctId, keys[i]));
+  // Balance at end of the month before fromMonthKey = start-of-range balance
+  var fParts = fromMonthKey.split('-');
+  var fY = parseInt(fParts[0], 10), fM = parseInt(fParts[1], 10) - 1;
+  if (fM < 1) { fM = 12; fY--; }
+  var prevMonthKey = fY + '-' + (fM < 10 ? '0' + fM : '' + fM);
+  var startBal = acctBalanceAt(acctId, prevMonthKey);
+
+  // Today as YYYY-MM-DD
+  var todayD = new Date();
+  var todayStr = todayD.getFullYear() + '-'
+    + (todayD.getMonth() < 9 ? '0' : '') + (todayD.getMonth() + 1) + '-'
+    + (todayD.getDate() < 10 ? '0' : '') + todayD.getDate();
+
+  // End date: last day of toMonthKey, capped at today
+  var tParts = toMonthKey.split('-');
+  var tY = parseInt(tParts[0], 10), tM = parseInt(tParts[1], 10);
+  var toLastDay = new Date(tY, tM, 0).getDate();
+  var toDateStr = tY + '-' + (tM < 10 ? '0' + tM : '' + tM) + '-' + (toLastDay < 10 ? '0' + toLastDay : '' + toLastDay);
+  if (toDateStr > todayStr) toDateStr = todayStr;
+  var fromDateStr = fromMonthKey + '-01';
+
+  // Build daily net transaction map
+  var dailyNet = {};
+  var txnList = (d.acctTxnsList || {})[acctId] || [];
+  for (var dti = 0; dti < txnList.length; dti++) {
+    var tdate = txnList[dti].date;
+    if (tdate >= fromDateStr && tdate <= toDateStr)
+      dailyNet[tdate] = (dailyNet[tdate] || 0) + txnList[dti].amount;
+  }
+
+  // Walk forward day by day accumulating balance
+  var keys = [], values = [];
+  var bal = startBal;
+  var curD = new Date(fromDateStr + 'T00:00:00');
+  var endD = new Date(toDateStr + 'T00:00:00');
+  while (curD <= endD) {
+    var ds = curD.getFullYear() + '-'
+      + (curD.getMonth() < 9 ? '0' : '') + (curD.getMonth() + 1) + '-'
+      + (curD.getDate() < 10 ? '0' : '') + curD.getDate();
+    bal += (dailyNet[ds] || 0);
+    keys.push(ds);
+    values.push(bal);
+    curD.setDate(curD.getDate() + 1);
   }
 
   drawAcctHistoryChart(keys, values, null);
