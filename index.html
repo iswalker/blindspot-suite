@@ -3494,7 +3494,7 @@ function renderTable(opts) {
 
   // Net Cash Flow = Remaining Margin - Margin Reinvestment
   html += '<tr class="row-spacer"><td></td>' + emptyCells() + '</tr>';
-  html += '<tr class="total-row"><td>Net Cash Flow</td>' + netValCells(netCashFlowVals, avgNetCashFlow) + '</tr>';
+  html += '<tr class="total-row"><td>Net Cash Flow</td>' + netValCells(netCashFlowVals, avgNetCashFlow, marginPctRef) + '</tr>';
 
   // Non-Liquid Savings group
   var nlsIsExp   = !!state.expanded['Non-Liquid Savings'];
@@ -3683,7 +3683,7 @@ function showLwTooltip(clientX, clientY, idx, s) {
     '<div class="lwtt-row"><span class="lwtt-dot" style="background:#aaa"></span>' +
       '<div><div class="lwtt-label">Debts</div><div class="lwtt-val">' + fmtTT(Math.abs(s.debtVals[idx])) + '</div></div></div>' +
     '<div class="lwtt-row"><span class="lwtt-dash"></span>' +
-      '<div><div class="lwtt-label">Net Worth</div><div class="lwtt-val">' + fmtTT(s.netVals[idx]) + '</div></div></div>' +
+      '<div><div class="lwtt-label">Liquid Balances</div><div class="lwtt-val">' + fmtTT(s.netVals[idx]) + '</div></div></div>' +
     changeHtml + driversHtml;
   tt.style.display = 'block';
   var ttRect = tt.getBoundingClientRect();
@@ -8105,7 +8105,8 @@ function renderLwTable(keys, netVals, targetId) {
   if (!targetId) targetId = 'lw-table';
   var MONTH_NAMES = ['January','February','March','April','May','June',
                      'July','August','September','October','November','December'];
-  var h = '<thead><tr><th>Month</th><th>Net Worth</th><th>Monthly Change</th></tr></thead><tbody>';
+  var lwColLabel = (targetId === 'nw-table') ? 'Net Worth' : 'Liquid Balances';
+  var h = '<thead><tr><th>Month</th><th>' + lwColLabel + '</th><th>Monthly Change</th></tr></thead><tbody>';
   for (var i = keys.length - 1; i >= 0; i--) {
     var nw      = netVals[i];
     var nwStr   = (nw < 0 ? '-' : '') + fmtAbs(nw);
