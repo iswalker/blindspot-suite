@@ -7339,9 +7339,14 @@ function renderHome() {
   }
 
   // Planned Net Liquid: current month Cash Flow Net Liquid (same formula as Cash Flow tab)
+  // Filter income by selectedAccounts to match Cash Flow tab exactly (excludes ~ accounts)
   var plannedNetLiq = null;
-  if (d.incomePivot && d.groupPivot) {
-    var pIncome = d.incomePivot[curKey] || 0;
+  if (d.incomeAcctPivot && d.groupPivot) {
+    var pIncome = 0;
+    var pIncomeAcctMap = (d.incomeAcctPivot || {})[curKey] || {};
+    for (var pian in pIncomeAcctMap) {
+      if (state.selectedAccounts[pian]) pIncome += pIncomeAcctMap[pian];
+    }
     var pDist   = (d.groupPivot['Distribution']       || {})[curKey] || 0;
     var pMargin = (d.groupPivot['Margin Reinvestment'] || {})[curKey] || 0;
     var pTotalExp = 0;
