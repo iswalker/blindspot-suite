@@ -1599,7 +1599,7 @@ td.hbt-num:last-child { width: 13%; }
       <div class="home-metric-op" style="color:#ccc">|</div>
       <div class="home-metric-card" style="cursor:default">
         <div class="home-metric-label">Float Ratio</div>
-        <div class="home-metric-sub">Credit / Cash Basis</div>
+        <div class="home-metric-sub">Balance leverage &amp; tension</div>
         <div style="display:flex;align-items:baseline;justify-content:flex-end;gap:6px">
           <div class="home-metric-value na" id="home-float-ratio-value">&#8212;</div>
           <div id="home-float-ratio-range" style="display:none;font-size:12px;color:#bbb;font-weight:400;white-space:nowrap"></div>
@@ -7445,7 +7445,7 @@ function renderHome() {
     cashBasisBal = d.allAccountsInfo[cbId].balance;
 
     var cbSubEl = document.getElementById('home-cash-basis-sub');
-    if (cbSubEl) cbSubEl.textContent = d.allAccountsInfo[cbId].name || '';
+    if (cbSubEl) cbSubEl.textContent = 'Available for transfers';
 
     // Credit card IDs + current total
     var creditAcctIds = [];
