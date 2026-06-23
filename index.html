@@ -1298,6 +1298,11 @@ td.hbt-num:last-child { width: 13%; }
           <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
           Preview Current Month
         </label>
+        <label class="ios-toggle-wrap">
+          <input type="checkbox" id="cf-show-glidepath">
+          <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+          Show Day 1 Glidepath
+        </label>
         <div id="acct-filter-wrap">
           <button id="acct-filter-btn">Accounts &#9660;</button>
           <div id="acct-filter-panel"></div>
@@ -1582,6 +1587,11 @@ td.hbt-num:last-child { width: 13%; }
     <div class="panel-hdr">
       <h1>Current Month</h1>
       <span id="home-month-label" style="font-size:14px;color:#333;font-weight:400;margin-left:4px"></span>
+      <label class="ios-toggle-wrap" style="margin-left:auto">
+        <input type="checkbox" id="home-show-trend">
+        <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+        Show Recoverable Costs Trend
+      </label>
       <div id="home-acct-filter-wrap" style="display:none">
         <button id="home-acct-filter-btn">Accounts &#9660;</button>
         <div id="home-acct-filter-panel"></div>
@@ -1628,7 +1638,7 @@ td.hbt-num:last-child { width: 13%; }
       <div class="home-metric-op">+</div>
       <div class="home-metric-card" id="home-pending-card" style="cursor:default">
         <div class="home-metric-label">Purchase Loops</div>
-        <div class="home-metric-sub">Close the loop</div>
+        <div class="home-metric-sub">Close out float</div>
         <div class="home-metric-value na" id="home-pending-metric-value">&#8212;</div>
       </div>
       <div class="home-metric-op">+</div>
@@ -1640,18 +1650,19 @@ td.hbt-num:last-child { width: 13%; }
       <div style="flex:1"></div>
       <div class="home-metric-card" style="cursor:default">
         <div class="home-metric-label">Liquidity Gap</div>
+        <div class="home-metric-sub">Deviation from healthy baseline</div>
         <div class="home-metric-value na" id="home-liq-gap-value">&#8212;</div>
       </div>
       <div class="home-metric-op">=</div>
       <div class="home-metric-card" style="cursor:default">
         <div class="home-metric-label">Last Month Net Liquid Worth</div>
-        <!--div class="home-metric-sub">Liquid account balances, prior month</div-->
+        <div class="home-metric-sub">Latest progress point</div>
         <div class="home-metric-value na" id="home-liq-delta-value">&#8212;</div>
       </div>
       <div class="home-metric-op">&#8722;</div>
       <div class="home-metric-card" style="cursor:default">
         <div class="home-metric-label">Net Liquid Target</div>
-        <!--div class="home-metric-sub">From Config.csv</div-->
+        <div class="home-metric-sub">Operating setpoint</div>
         <div class="home-metric-value na" id="home-liq-target-value">&#8212;</div>
       </div>
     </div>
@@ -1745,7 +1756,7 @@ td.hbt-num:last-child { width: 13%; }
 var EXPENSE_GROUPS = [
   'Daily Flow', 'Health', 'Flexible Living', 'Timed Repairs',
   'Giving & Growth', 'Base Operations', 'Business',
-  'Margin Reinvestment', 'Distribution'
+  'Margin Reinvestment', 'Non-Liquid Savings', 'Distribution'
 ];
 var EXCLUDE_GROUPS = {
   'Tracking': 1, 'Zzz. Archive': 1, 'Inflow': 1, 'Hidden Categories': 1
@@ -1815,6 +1826,8 @@ var state = {
   rowShading:          localStorage.getItem('row-shading') !== '0',
   catSortMode:         localStorage.getItem('cat-sort') || 'ynab',
   showTotalExp:        localStorage.getItem('show-total-exp') === '1',
+  showRecovTrend:      localStorage.getItem('show-recov-trend') === '1',
+  showGlidepath:       localStorage.getItem('show-glidepath') === '1',
   homeSelectedAccounts: parseJsonLS('sel-home-accts') || {}
 };
 
@@ -3217,7 +3230,7 @@ function renderTable(opts) {
   var totalExpVals = keys.map(function(_, idx) {
     var s = 0;
     for (var ti = 0; ti < EXPENSE_GROUPS.length; ti++) {
-      if (EXPENSE_GROUPS[ti] !== 'Distribution' && EXPENSE_GROUPS[ti] !== 'Margin Reinvestment') {
+      if (EXPENSE_GROUPS[ti] !== 'Distribution' && EXPENSE_GROUPS[ti] !== 'Margin Reinvestment' && EXPENSE_GROUPS[ti] !== 'Non-Liquid Savings') {
         s += gVals[EXPENSE_GROUPS[ti]][idx];
       }
     }
@@ -3228,7 +3241,15 @@ function renderTable(opts) {
   var remainMarginVals = keys.map(function(_, idx) { return remainVals[idx] - totalExpVals[idx]; });
   var avgRemainMargin  = mean(remainMarginVals);
 
-  var netVals = keys.map(function(_, idx) { return incomeVals[idx] - distVals[idx] - totalExpVals[idx] - marginVals[idx]; });
+  var nlsGrpIdx = EXPENSE_GROUPS.indexOf('Non-Liquid Savings');
+  var nlsVals   = gVals['Non-Liquid Savings'] || keys.map(function() { return 0; });
+  var avgNls    = gAvgs['Non-Liquid Savings'] || 0;
+  var nlsCats   = (d.activeCats['Non-Liquid Savings'] || []).filter(function(c) { return !EXCLUDE_CAT_NAMES[c]; });
+
+  var netCashFlowVals = keys.map(function(_, idx) { return remainMarginVals[idx] - marginVals[idx]; });
+  var avgNetCashFlow  = mean(netCashFlowVals);
+
+  var netVals = keys.map(function(_, idx) { return netCashFlowVals[idx] - nlsVals[idx]; });
   var avgNet  = mean(netVals);
 
   // Helper: generate value cells
@@ -3471,17 +3492,59 @@ function renderTable(opts) {
     html += '</tr>';
   }
 
-  // Net Liquid
+  // Net Cash Flow = Remaining Margin - Margin Reinvestment
+  html += '<tr class="row-spacer"><td></td>' + emptyCells() + '</tr>';
+  html += '<tr class="total-row"><td>Net Cash Flow</td>' + netValCells(netCashFlowVals, avgNetCashFlow) + '</tr>';
+
+  // Non-Liquid Savings group
+  var nlsIsExp   = !!state.expanded['Non-Liquid Savings'];
+  var nlsHasCats = nlsCats.length > 0;
+  var nlsArrow   = nlsHasCats
+    ? '<span class="grp-arrow" data-group="' + nlsGrpIdx + '">' + (nlsIsExp ? '&#9660;' : '&#9654;') + '</span> '
+    : '<span class="grp-arrow"></span> ';
+  html += '<tr class="data-row exp-group' + (nlsIsExp ? ' grp-bordered' : '') + '" data-group="' + nlsGrpIdx + '">';
+  html += '<td>' + nlsArrow + 'Non-Liquid Savings</td>';
+  html += valCells(nlsVals, avgNls, true, 'group', nlsGrpIdx);
+  html += '</tr>';
+  var nlsCatItems = nlsCats.map(function(ncat, nci) {
+    var ncatVals = keys.map(function(k) { return ((d.catPivot['Non-Liquid Savings'] || {})[ncat] || {})[k] || 0; });
+    return { cat: ncat, ci: nci, vals: ncatVals, avg: mean(ncatVals) };
+  });
+  if (state.catSortMode === 'avg') nlsCatItems.sort(function(a, b) { return b.avg - a.avg; });
+  for (var nci = 0; nci < nlsCatItems.length; nci++) {
+    var ni = nlsCatItems[nci];
+    var isLastNls = nci === nlsCatItems.length - 1;
+    html += '<tr class="cat-row' + (nlsIsExp ? ' cat-row-bordered' : '') + (isLastNls ? ' cat-row-last' : '') + '" data-group="' + nlsGrpIdx + '" style="' + (nlsIsExp ? '' : 'display:none') + '">';
+    html += '<td>' + ni.cat + '</td>';
+    html += valCells(ni.vals, ni.avg, true, 'cat', nlsGrpIdx, ni.ci);
+    html += '</tr>';
+  }
+
+  // Net Liquid = Net Cash Flow - Non-Liquid Savings
   html += '<tr class="row-spacer"><td></td>' + emptyCells() + '</tr>';
   html += '<tr class="net-val"><td>Net Liquid</td>' + netValCells(netVals, avgNet) + '</tr>';
 
-  // Glidepath Day-1 balance (API only — omit row if no data)
-  if (d.glidepathSnapshot) {
+  // Glidepath Day-1 balance (API only — omit row if no data; hidden unless toggle ON)
+  if (state.showGlidepath && d.glidepathSnapshot) {
     var gpVals = keys.map(function(k) { return d.glidepathSnapshot[k] || 0; });
     var gpAny  = gpVals.some(function(v) { return v !== 0; });
     if (gpAny) {
       html += '<tr class="data-row"><td>Day 1 Glidepath</td>' + valCells(gpVals, mean(gpVals), false, '') + '</tr>';
     }
+  }
+
+  // Last Month Liquid Balances (API only — reference row)
+  if (d.lwAccounts && d.allAccountsInfo) {
+    var lwPrevVals = keys.map(function(k) {
+      var kp = k.split('-');
+      var pyr = parseInt(kp[0]), pmo = parseInt(kp[1]) - 1;
+      if (pmo < 1) { pmo = 12; pyr--; }
+      var prevKey = pyr + '-' + (pmo < 10 ? '0' + pmo : '' + pmo);
+      var total = 0;
+      for (var li = 0; li < d.lwAccounts.length; li++) { total += acctBalanceAt(d.lwAccounts[li].id, prevKey); }
+      return total;
+    });
+    html += '<tr class="data-row"><td>Last Month Liquid Balances</td>' + valCells(lwPrevVals, mean(lwPrevVals), false, '') + '</tr>';
   }
 
   html += '</tbody>';
@@ -4262,7 +4325,7 @@ function renderLwSummary(nw, assets, debts, changeAmt, changePct, targetId) {
   }
   var isNwCard = (targetId === 'nw-summary-card');
   document.getElementById(targetId).innerHTML =
-    '<div class="lw-nw-label">Net Worth</div>'
+    (isNwCard ? '<div class="lw-nw-label">Net Worth</div>' : '')
   + '<div class="lw-nw-value">' + (nw < 0 ? '-' : '') + fmtAbs(nw) + '</div>'
   + '<div class="lw-stats">'
   + '<div class="lw-stat"><div class="lw-stat-label"><span class="lw-stat-dot blue"></span> Assets</div>'
@@ -4270,7 +4333,7 @@ function renderLwSummary(nw, assets, debts, changeAmt, changePct, targetId) {
   + '<div class="lw-stat"><div class="lw-stat-label"><span class="lw-stat-dot red"></span> Debts</div>'
   +   '<div class="lw-stat-value neg">-' + fmtAbs(Math.abs(debts)) + '</div></div>'
   + (!isNwCard && changeStr
-    ? '<div class="lw-stat"><div class="lw-stat-label">Change in Net Worth</div>'
+    ? '<div class="lw-stat"><div class="lw-stat-label">Change in Liquid Balances</div>'
     +   '<div>' + changeStr + '</div></div>'
     : '')
   + '</div>';
@@ -7272,8 +7335,10 @@ function renderHome() {
   var daysThisMonth = (new Date()).getDate() - 1;
   homeTrendHistory = computeRecovHistory(d, curKey, daysThisMonth, trendItems);
   var deltaEl = document.getElementById('home-trend-delta');
+  var trendCardEl = document.getElementById('home-trend-card');
+  if (trendCardEl) trendCardEl.style.cursor = state.showRecovTrend ? 'pointer' : 'default';
   if (deltaEl) {
-    if (homeTrendHistory.length > 1 && trendTotal > 0) {
+    if (state.showRecovTrend && homeTrendHistory.length > 1 && trendTotal > 0) {
       var val1st  = homeTrendHistory[0].value;
       var val7ago = homeTrendHistory.length > 7
                     ? homeTrendHistory[homeTrendHistory.length - 1 - 7].value
@@ -7351,7 +7416,7 @@ function renderHome() {
     var pTotalExp = 0;
     for (var pei = 0; pei < EXPENSE_GROUPS.length; pei++) {
       var peg = EXPENSE_GROUPS[pei];
-      if (peg === 'Distribution' || peg === 'Margin Reinvestment') continue;
+      if (peg === 'Distribution' || peg === 'Margin Reinvestment' || peg === 'Non-Liquid Savings') continue;
       var pev = (d.groupPivot[peg] || {})[curKey] || 0;
       var pexmap = d.catPivot[peg] || {};
       for (var pexcn in EXCLUDE_CAT_NAMES) {
@@ -7359,7 +7424,8 @@ function renderHome() {
       }
       pTotalExp += pev;
     }
-    plannedNetLiq = pIncome - pDist - pTotalExp - pMargin;
+    var pNonLiqSavings = (d.groupPivot['Non-Liquid Savings'] || {})[curKey] || 0;
+    plannedNetLiq = pIncome - pDist - pTotalExp - pMargin - pNonLiqSavings;
   }
   var plannedLiqEl = document.getElementById('home-planned-liq-value');
   if (plannedLiqEl) {
@@ -8340,6 +8406,20 @@ document.addEventListener('DOMContentLoaded', function() {
     renderTable();
   });
 
+  document.getElementById('cf-show-glidepath').checked = !!state.showGlidepath;
+  document.getElementById('cf-show-glidepath').addEventListener('change', function() {
+    state.showGlidepath = this.checked;
+    localStorage.setItem('show-glidepath', this.checked ? '1' : '0');
+    renderTable();
+  });
+
+  document.getElementById('home-show-trend').checked = !!state.showRecovTrend;
+  document.getElementById('home-show-trend').addEventListener('change', function() {
+    state.showRecovTrend = this.checked;
+    localStorage.setItem('show-recov-trend', this.checked ? '1' : '0');
+    renderHome();
+  });
+
   document.getElementById('cf-include-current').checked = !!state.cfIncludeCurrent;
   document.getElementById('cf-include-current').addEventListener('change', function() {
     state.cfIncludeCurrent = this.checked;
@@ -8961,7 +9041,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   if (trendCard && trendTt) {
     trendCard.addEventListener('mouseenter', function(e) {
-      if (!homeTrendHistory.length) return;
+      if (!state.showRecovTrend || !homeTrendHistory.length) return;
       trendTt.style.display = 'block';
       positionTrendTt(e);
       var sparkCanvas = document.getElementById('home-trend-sparkline');
