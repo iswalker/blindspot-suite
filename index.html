@@ -1649,21 +1649,12 @@ td.hbt-num:last-child { width: 13%; }
       </div>
       <div style="flex:1"></div>
       <div class="home-metric-card" style="cursor:default">
-        <div class="home-metric-label">Liquidity Gap</div>
-        <div class="home-metric-sub">Deviation from healthy baseline</div>
-        <div class="home-metric-value na" id="home-liq-gap-value">&#8212;</div>
-      </div>
-      <div class="home-metric-op">=</div>
-      <div class="home-metric-card" style="cursor:default">
-        <div class="home-metric-label">Last Month Net Liquid Worth</div>
-        <div class="home-metric-sub">Latest progress point</div>
-        <div class="home-metric-value na" id="home-liq-delta-value">&#8212;</div>
-      </div>
-      <div class="home-metric-op">&#8722;</div>
-      <div class="home-metric-card" style="cursor:default">
-        <div class="home-metric-label">Net Liquid Target</div>
-        <div class="home-metric-sub">Operating setpoint</div>
-        <div class="home-metric-value na" id="home-liq-target-value">&#8212;</div>
+        <div class="home-metric-label">Liquidity Delta</div>
+        <div class="home-metric-sub">Deviation from operating setpoint</div>
+        <div style="display:flex;align-items:baseline;justify-content:flex-end;gap:6px">
+          <div class="home-metric-value na" id="home-liq-gap-value">&#8212;</div>
+          <div id="home-liq-gap-range" style="display:none;font-size:12px;color:#bbb;font-weight:400;white-space:nowrap"></div>
+        </div>
       </div>
     </div>
     <div class="home-body">
@@ -7463,7 +7454,7 @@ function renderHome() {
       lastMonthLiqWorth += acctBalanceAt(d.lwAccounts[lwai].id, lwPrevKey);
     }
   }
-  var liqEl = document.getElementById('home-liq-delta-value');
+  var liqEl = null; // removed — values now shown in Liquidity Delta parenthetical
   if (liqEl) {
     if (lastMonthLiqWorth === null) {
       liqEl.innerHTML = '&#8212;'; liqEl.className = 'home-metric-value na';
@@ -7479,24 +7470,23 @@ function renderHome() {
   for (var lgci = 0; lgci < state.catConfig.length; lgci++) {
     if (state.catConfig[lgci].usedFor === 'Net Liquid') { liqGapCfg = state.catConfig[lgci]; break; }
   }
-  var liqTargetEl = document.getElementById('home-liq-target-value');
-  if (liqTargetEl) {
-    if (liqGapCfg && liqGapCfg.amount !== null) {
-      liqTargetEl.textContent = '$' + liqGapCfg.amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-      liqTargetEl.className = 'home-metric-value';
-    } else {
-      liqTargetEl.innerHTML = '&#8212;'; liqTargetEl.className = 'home-metric-value na';
-    }
-  }
   var liqGapEl = document.getElementById('home-liq-gap-value');
+  var liqGapRangeEl = document.getElementById('home-liq-gap-range');
   if (liqGapEl) {
     if (lastMonthLiqWorth !== null && liqGapCfg && liqGapCfg.amount !== null) {
       var liqGap = lastMonthLiqWorth - liqGapCfg.amount;
       liqGapEl.textContent = (liqGap < 0 ? '-' : '+') + '$' +
         Math.abs(liqGap).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
       liqGapEl.className = 'home-metric-value' + (liqGap < 0 ? ' delta-neg' : '');
+      if (liqGapRangeEl) {
+        var fmtLiqBal = '$' + Math.abs(lastMonthLiqWorth).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        var fmtLiqTgt = '$' + liqGapCfg.amount.toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 0});
+        liqGapRangeEl.textContent = '(' + fmtLiqBal + ' / ' + fmtLiqTgt + ')';
+        liqGapRangeEl.style.display = '';
+      }
     } else {
       liqGapEl.innerHTML = '&#8212;'; liqGapEl.className = 'home-metric-value na';
+      if (liqGapRangeEl) liqGapRangeEl.style.display = 'none';
     }
   }
 
