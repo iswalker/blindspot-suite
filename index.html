@@ -7447,11 +7447,12 @@ function renderHome() {
   for (var lwki = allLwK2.length - 1; lwki >= 0; lwki--) {
     if (allLwK2[lwki] < curKey) { lwPrevKey = allLwK2[lwki]; break; }
   }
+  // Current month liquid balances (sum of current account balances)
   var lastMonthLiqWorth = null;
-  if (lwPrevKey && d.lwAccounts && d.lwAccounts.length > 0) {
+  if (d.lwAccounts && d.lwAccounts.length > 0) {
     lastMonthLiqWorth = 0;
     for (var lwai = 0; lwai < d.lwAccounts.length; lwai++) {
-      lastMonthLiqWorth += acctBalanceAt(d.lwAccounts[lwai].id, lwPrevKey);
+      lastMonthLiqWorth += d.lwAccounts[lwai].balance;
     }
   }
   var liqEl = null; // removed — values now shown in Liquidity Delta parenthetical
