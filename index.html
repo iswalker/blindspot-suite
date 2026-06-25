@@ -132,7 +132,7 @@ body {
   gap: 8px;
   flex-wrap: wrap;
 }
-#plan-sel-wrap { display: none; align-items: center; gap: 6px; margin-left: auto; }
+#plan-sel-wrap { display: none; align-items: center; gap: 6px; padding: 8px 16px; }
 #plan-sel-wrap label { font-size: 12px; color: #666; white-space: nowrap; }
 #plan-sel { font-size: 12px; padding: 4px 8px; border: 1px solid #ccc; border-radius: 5px; color: #333; max-width: 200px; }
 #back-btn {
@@ -198,6 +198,29 @@ body {
 }
 .config-picker-item:last-child { border-bottom: none; }
 .config-picker-item:hover { background: #f5f7fb; }
+
+/* ---- Settings Gear Panel ---- */
+#settings-wrap { position: relative; }
+#settings-gear-btn {
+  width: 34px; height: 34px;
+  background: none; border: 1px solid transparent;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  border-radius: 8px; color: #888; padding: 0;
+}
+#settings-gear-btn:hover, #settings-gear-btn.active { background: #f0f0f0; color: #444; border-color: #ddd; }
+#settings-panel {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 400;
+  background: #fff; border: 1px solid #e0e0e8; border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.14); min-width: 240px; padding: 6px 0;
+}
+.settings-section-label {
+  padding: 8px 16px 5px;
+  font-size: 10px; font-weight: 700; color: #bbb; letter-spacing: .1em; text-transform: uppercase;
+}
+.settings-row { display: flex; align-items: center; gap: 8px; padding: 8px 16px; width: 100%; box-sizing: border-box; }
+.settings-divider { height: 1px; background: #f0f0f2; margin: 2px 0; }
+#settings-panel .config-picker-wrap { width: 100%; padding: 4px 16px; box-sizing: border-box; }
+#settings-panel .config-picker-btn { width: 100%; justify-content: space-between; }
 
 #refresh-btn {
   padding: 6px 14px;
@@ -1250,37 +1273,55 @@ td.hbt-num:last-child { width: 13%; }
       <button class="tab-btn" data-tab="reconcile">Reconcile</button>
     </div>
     <div id="controls-bar">
-      <span id="cache-label"></span>
-      <button id="refresh-btn" style="display:none">&#8635; Refresh</button>
       <input type="file" id="config-reload-file" accept=".csv" style="display:none">
-      <div class="config-picker-wrap">
-        <button class="config-picker-btn" id="config-picker-btn">&#8679; Config &#9660;</button>
-        <div class="config-picker-menu" id="config-picker-menu" style="display:none">
-          <button class="config-picker-item" id="config-gsheet-item">
-            <svg width="16" height="16" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-              <path fill="#0F9D58" d="M29 3H9C7.3 3 6 4.3 6 6v36c0 1.7 1.3 3 3 3h30c1.7 0 3-1.3 3-3V15L29 3z"/>
-              <path fill="#87CEAC" d="M29 3v12h12z"/>
-              <path fill="#fff" d="M14 24h20v2H14zm0 4h20v2H14zm0 4h14v2H14z"/>
-            </svg>
-            Google Sheet
-          </button>
-          <button class="config-picker-item" id="config-reload-item">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="#555" stroke-width="2" stroke-linejoin="round"/>
-              <polyline points="14,2 14,8 20,8" stroke="#555" stroke-width="2" stroke-linejoin="round"/>
-            </svg>
-            Upload CSV
-          </button>
-          <button class="config-picker-item" id="config-refresh-manual-item" style="justify-content:space-between;padding-left:18px">
-            <span style="color:#555">Refresh Manually</span>
-            <span id="config-refresh-manual-ind" style="font-size:11px;font-weight:600;color:#bbb;letter-spacing:.04em;flex-shrink:0">OFF</span>
-          </button>
+      <div id="settings-wrap">
+        <button id="settings-gear-btn" title="Settings">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+        <div id="settings-panel" style="display:none">
+          <div class="settings-section-label">Settings</div>
+          <div class="settings-row">
+            <span id="cache-label" style="flex:1"></span>
+            <button id="refresh-btn" style="display:none">&#8635; Refresh</button>
+          </div>
+          <div class="settings-divider"></div>
+          <div class="config-picker-wrap">
+            <button class="config-picker-btn" id="config-picker-btn">&#8679; Config &#9660;</button>
+            <div class="config-picker-menu" id="config-picker-menu" style="display:none">
+              <button class="config-picker-item" id="config-gsheet-item">
+                <svg width="16" height="16" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                  <path fill="#0F9D58" d="M29 3H9C7.3 3 6 4.3 6 6v36c0 1.7 1.3 3 3 3h30c1.7 0 3-1.3 3-3V15L29 3z"/>
+                  <path fill="#87CEAC" d="M29 3v12h12z"/>
+                  <path fill="#fff" d="M14 24h20v2H14zm0 4h20v2H14zm0 4h14v2H14z"/>
+                </svg>
+                Google Sheet
+              </button>
+              <button class="config-picker-item" id="config-reload-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="#555" stroke-width="2" stroke-linejoin="round"/>
+                  <polyline points="14,2 14,8 20,8" stroke="#555" stroke-width="2" stroke-linejoin="round"/>
+                </svg>
+                Upload CSV
+              </button>
+              <button class="config-picker-item" id="config-refresh-manual-item" style="justify-content:space-between;padding-left:18px">
+                <span style="color:#555">Refresh Manually</span>
+                <span id="config-refresh-manual-ind" style="font-size:11px;font-weight:600;color:#bbb;letter-spacing:.04em;flex-shrink:0">OFF</span>
+              </button>
+            </div>
+          </div>
+          <div class="settings-divider"></div>
+          <div class="settings-row">
+            <button id="back-btn" style="width:100%">&#8592; Reload Files</button>
+          </div>
+          <div class="settings-divider"></div>
+          <div id="plan-sel-wrap">
+            <label for="plan-sel">Plan</label>
+            <select id="plan-sel"></select>
+          </div>
         </div>
-      </div>
-      <button id="back-btn">&#8592; Reload Files</button>
-      <div id="plan-sel-wrap">
-        <label for="plan-sel">Plan</label>
-        <select id="plan-sel"></select>
       </div>
     </div>
   </div>
@@ -1586,7 +1627,6 @@ td.hbt-num:last-child { width: 13%; }
   <div id="home-panel">
     <div class="panel-hdr">
       <h1>Current Month</h1>
-      <span id="home-month-label" style="font-size:14px;color:#333;font-weight:400;margin-left:4px"></span>
       <label class="ios-toggle-wrap" style="margin-left:auto">
         <input type="checkbox" id="home-show-trend">
         <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
@@ -7215,10 +7255,6 @@ function renderHome() {
     if (allKeys[i] <= todayKey) { curKey = allKeys[i]; break; }
   }
 
-  // Month label
-  var lblEl = document.getElementById('home-month-label');
-  if (lblEl) lblEl.textContent = keyLabel(curKey);
-
   // Recoverable Costs: sum of positive Available values for categories whose name contains "="
   var recovTotal = 0;
   var breakdown  = [];
@@ -8509,6 +8545,15 @@ document.addEventListener('DOMContentLoaded', function() {
     loadYnabBudget(apiKey, newId);
   });
 
+  // Settings gear toggle
+  document.getElementById('settings-gear-btn').addEventListener('click', function(e) {
+    e.stopPropagation();
+    var panel = document.getElementById('settings-panel');
+    var isOpen = panel.style.display !== 'none';
+    panel.style.display = isOpen ? 'none' : '';
+    this.classList.toggle('active', !isOpen);
+  });
+
   // Top bar Config picker
   var configPickerMenu = document.getElementById('config-picker-menu');
   document.getElementById('config-picker-btn').addEventListener('click', function(e) {
@@ -8554,9 +8599,16 @@ document.addEventListener('DOMContentLoaded', function() {
     uploadConfigMenu.style.display = 'none';
     document.getElementById('config-file').click();
   });
-  document.addEventListener('click', function() {
+  document.addEventListener('click', function(e) {
     configPickerMenu.style.display = 'none';
     uploadConfigMenu.style.display = 'none';
+    var settingsWrap = document.getElementById('settings-wrap');
+    if (settingsWrap && !settingsWrap.contains(e.target)) {
+      var sp = document.getElementById('settings-panel');
+      if (sp) sp.style.display = 'none';
+      var gb = document.getElementById('settings-gear-btn');
+      if (gb) gb.classList.remove('active');
+    }
   });
 
   // Google Drive picker modal close
