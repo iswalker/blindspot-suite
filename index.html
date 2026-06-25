@@ -1701,6 +1701,14 @@ td.hbt-num:last-child { width: 13%; }
           <div id="home-liq-gap-range" style="display:none;font-size:12px;color:#bbb;font-weight:400;white-space:nowrap"></div>
         </div>
       </div>
+      <div class="home-metric-card" style="cursor:default">
+        <div class="home-metric-label">Breakfix Exposure</div>
+        <div class="home-metric-sub">Readiness for equipment failure</div>
+        <div style="display:flex;align-items:baseline;justify-content:flex-end;gap:6px">
+          <div class="home-metric-value na" id="home-breakfix-value">&#8212;</div>
+          <div id="home-breakfix-range" style="display:none;font-size:12px;color:#bbb;font-weight:400;white-space:nowrap"></div>
+        </div>
+      </div>
     </div>
     <div class="home-body">
       <div class="home-table-side">
@@ -7529,6 +7537,34 @@ function renderHome() {
     } else {
       liqGapEl.innerHTML = '&#8212;'; liqGapEl.className = 'home-metric-value na';
       if (liqGapRangeEl) liqGapRangeEl.style.display = 'none';
+    }
+  }
+
+  // Breakfix Exposure (account balance vs target from Config.csv "Breakfix Coverage" row)
+  var breakfixCfg = null;
+  for (var bfci = 0; bfci < state.catConfig.length; bfci++) {
+    if (state.catConfig[bfci].usedFor === 'Breakfix Coverage') { breakfixCfg = state.catConfig[bfci]; break; }
+  }
+  var bfEl = document.getElementById('home-breakfix-value');
+  var bfRangeEl = document.getElementById('home-breakfix-range');
+  if (bfEl) {
+    var bfAcctId = breakfixCfg ? breakfixCfg.id : null;
+    var bfAcctInfo = bfAcctId && d.allAccountsInfo ? d.allAccountsInfo[bfAcctId] : null;
+    if (bfAcctInfo && breakfixCfg && breakfixCfg.amount !== null) {
+      var bfBal = bfAcctInfo.balance;
+      var bfGap = bfBal - breakfixCfg.amount;
+      bfEl.textContent = (bfGap < 0 ? '-' : '+') + '$' +
+        Math.abs(bfGap).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      bfEl.className = 'home-metric-value' + (bfGap < 0 ? ' delta-neg' : '');
+      if (bfRangeEl) {
+        var fmtBfBal = '$' + Math.abs(bfBal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        var fmtBfTgt = '$' + breakfixCfg.amount.toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 0});
+        bfRangeEl.textContent = '(' + fmtBfBal + ' / ' + fmtBfTgt + ')';
+        bfRangeEl.style.display = '';
+      }
+    } else {
+      bfEl.innerHTML = '&#8212;'; bfEl.className = 'home-metric-value na';
+      if (bfRangeEl) bfRangeEl.style.display = 'none';
     }
   }
 
