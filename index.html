@@ -1323,13 +1323,25 @@ td.hbt-num:last-child { width: 13%; }
             <label for="plan-sel">Plan</label>
             <select id="plan-sel"></select>
           </div>
-          <div class="settings-divider"></div>
-          <div class="settings-row">
-            <label class="ios-toggle-wrap">
-              <input type="checkbox" id="home-show-trend">
-              <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
-              Show Recoverable Costs Trend
-            </label>
+          <div class="settings-tab-block" data-tab="home">
+            <div class="settings-divider"></div>
+            <div class="settings-row">
+              <label class="ios-toggle-wrap">
+                <input type="checkbox" id="home-show-trend">
+                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+                Show Recoverable Costs Trend
+              </label>
+            </div>
+          </div>
+          <div class="settings-tab-block" data-tab="margin">
+            <div class="settings-divider"></div>
+            <div class="settings-row">
+              <label class="ios-toggle-wrap">
+                <input type="checkbox" id="cf-exclude-unknown-income">
+                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+                Exclude Income with No Payee
+              </label>
+            </div>
           </div>
         </div>
       </div>
@@ -1872,6 +1884,7 @@ var state = {
   showTotalExp:        localStorage.getItem('show-total-exp') === '1',
   showRecovTrend:      localStorage.getItem('show-recov-trend') === '1',
   showGlidepath:       localStorage.getItem('show-glidepath') === '1',
+  excludeUnknownIncome: localStorage.getItem('cf-exclude-unknown-income') !== '0',
   homeSelectedAccounts: parseJsonLS('sel-home-accts') || {}
 };
 
@@ -3222,7 +3235,18 @@ function renderTable(opts) {
   }
 
   // Compute values
+  var excludeUnknown = !!state.excludeUnknownIncome;
   var incomeVals = keys.map(function(k) {
+    if (excludeUnknown && d.incomePayeePivot) {
+      var pmap = d.incomePayeePivot[k] || {};
+      var sump = 0;
+      for (var pn in pmap) {
+        if (pn === '(Unknown)') continue;
+        var pAccts = pmap[pn];
+        for (var pa in pAccts) { if (acctSel[pa]) sump += pAccts[pa]; }
+      }
+      return sump;
+    }
     var acctMap = (d.incomeAcctPivot || {})[k] || {};
     var sum = 0;
     for (var acn in acctMap) {
@@ -3377,6 +3401,7 @@ function renderTable(opts) {
     for (var pki = 0; pki < keys.length; pki++) {
       var pkm = d.incomePayeePivot[keys[pki]] || {};
       for (var pkn in pkm) {
+        if (excludeUnknown && pkn === '(Unknown)') continue;
         var pkAccts = pkm[pkn];
         for (var pka in pkAccts) {
           if (acctSel[pka]) payeeTotals[pkn] = (payeeTotals[pkn] || 0) + pkAccts[pka];
@@ -3985,6 +4010,10 @@ function switchTab(tab) {
   var btns = document.querySelectorAll('.tab-btn');
   for (var i = 0; i < btns.length; i++) {
     btns[i].classList.toggle('tab-active', btns[i].getAttribute('data-tab') === tab);
+  }
+  var tabBlocks = document.querySelectorAll('.settings-tab-block');
+  for (var sti = 0; sti < tabBlocks.length; sti++) {
+    tabBlocks[sti].style.display = tabBlocks[sti].getAttribute('data-tab') === tab ? '' : 'none';
   }
   document.getElementById('home-panel').style.display     = tab === 'home'     ? 'block' : 'none';
   document.getElementById('margin-panel').style.display   = tab === 'margin'   ? 'block' : 'none';
@@ -7447,9 +7476,18 @@ function renderHome() {
   var plannedNetLiq = null;
   if (d.incomeAcctPivot && d.groupPivot) {
     var pIncome = 0;
-    var pIncomeAcctMap = (d.incomeAcctPivot || {})[curKey] || {};
-    for (var pian in pIncomeAcctMap) {
-      if (state.selectedAccounts[pian]) pIncome += pIncomeAcctMap[pian];
+    if (state.excludeUnknownIncome && d.incomePayeePivot) {
+      var pPayeeMap = d.incomePayeePivot[curKey] || {};
+      for (var ppn in pPayeeMap) {
+        if (ppn === '(Unknown)') continue;
+        var ppAccts = pPayeeMap[ppn];
+        for (var ppa in ppAccts) { if (state.selectedAccounts[ppa]) pIncome += ppAccts[ppa]; }
+      }
+    } else {
+      var pIncomeAcctMap = (d.incomeAcctPivot || {})[curKey] || {};
+      for (var pian in pIncomeAcctMap) {
+        if (state.selectedAccounts[pian]) pIncome += pIncomeAcctMap[pian];
+      }
     }
     var pDist   = (d.groupPivot['Distribution']       || {})[curKey] || 0;
     var pMargin = (d.groupPivot['Margin Reinvestment'] || {})[curKey] || 0;
@@ -8219,6 +8257,10 @@ function showReport() {
   document.getElementById('leverage-panel').style.display     = tab === 'leverage'     ? 'block' : 'none';
   document.getElementById('acct-history-panel').style.display = tab === 'acct-history' ? 'block' : 'none';
   document.getElementById('reconcile-panel').style.display    = tab === 'reconcile'     ? 'block' : 'none';
+  var initTabBlocks = document.querySelectorAll('.settings-tab-block');
+  for (var stib = 0; stib < initTabBlocks.length; stib++) {
+    initTabBlocks[stib].style.display = initTabBlocks[stib].getAttribute('data-tab') === tab ? '' : 'none';
+  }
 
   // Sync row-shading toggle state
   document.body.classList.toggle('shading-mode', state.rowShading);
@@ -8487,6 +8529,13 @@ document.addEventListener('DOMContentLoaded', function() {
     state.showRecovTrend = this.checked;
     localStorage.setItem('show-recov-trend', this.checked ? '1' : '0');
     renderHome();
+  });
+
+  document.getElementById('cf-exclude-unknown-income').checked = !!state.excludeUnknownIncome;
+  document.getElementById('cf-exclude-unknown-income').addEventListener('change', function() {
+    state.excludeUnknownIncome = this.checked;
+    localStorage.setItem('cf-exclude-unknown-income', this.checked ? '1' : '0');
+    renderTable();
   });
 
   document.getElementById('cf-include-current').checked = !!state.cfIncludeCurrent;
