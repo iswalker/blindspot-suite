@@ -5846,6 +5846,14 @@ function buildAndShowSpeedoTt(clientX, clientY, data, amtColor) {
     }
     html += '<div class="lessons-tt-total"><span>Total</span><span style="color:#888">' + fmt(noMatchTot) + '</span></div>';
   }
+  // -- Past Value note --
+  var pastValueAmt = data.pastValue || 0;
+  if (pastValueAmt > 0) {
+    html += '<div style="margin-top:10px;padding-top:8px;border-top:1px solid #eee;font-size:11px;color:#888;line-height:1.4;font-style:italic">'
+      + 'Note: This figure is including a past value of ' + fmtDec(pastValueAmt) + '. '
+      + 'This can be cleared in the Config file if no longer desired.'
+      + '</div>';
+  }
   tt.innerHTML = html;
   var vw = window.innerWidth;
   tt.style.display = 'block';
@@ -6092,6 +6100,7 @@ function renderLeverageSpeedometers() {
       rawSum:        rawSum,
       maxAmt:        maxAmt,
       mult:          mult,
+      pastValue:     cfg.pastValue || 0,
       otherAcctTxns: otherAcctTxns,
       noMatchTxns:   noMatchTxns
     };
