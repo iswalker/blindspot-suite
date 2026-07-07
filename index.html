@@ -9636,12 +9636,12 @@ document.addEventListener('DOMContentLoaded', function() {
       var mx   = e.clientX - rect.left;
       if (mx < s.L_PAD || mx > s.L_PAD + s.plotW) { hideAcctHistoryTooltip(); return; }
       var best = s.n <= 1 ? 0 : Math.min(s.n - 1, Math.max(0, Math.floor((mx - s.L_PAD) * (s.n - 1) / s.plotW)));
-      drawAcctHistoryChart(s.keys, s.values, best);
+      drawAcctHistoryChart(s.keys, s.values, best, s.floatValues);
       showAcctHistoryTooltip(e.clientX, e.clientY, best);
     });
     ahCanvas.addEventListener('mouseleave', function() {
       var s = acctHistoryChartState;
-      if (s) drawAcctHistoryChart(s.keys, s.values, null);
+      if (s) drawAcctHistoryChart(s.keys, s.values, null, s.floatValues);
       hideAcctHistoryTooltip();
     });
   })();
