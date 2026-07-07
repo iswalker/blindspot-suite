@@ -3500,7 +3500,7 @@ function renderTable(opts) {
 
   for (var eg = 0; eg < EXPENSE_GROUPS.length; eg++) {
     var grp = EXPENSE_GROUPS[eg];
-    if (grp === 'Distribution' || grp === 'Margin Reinvestment' || grp === 'Base Operations') continue;
+    if (grp === 'Distribution' || grp === 'Margin Reinvestment' || grp === 'Base Operations' || grp === 'Non-Liquid Savings') continue;
     var cats = (d.activeCats[grp] || []).filter(function(c) { return !EXCLUDE_CAT_NAMES[c]; });
     var isExp = !!state.expanded[grp];
     var hasCategories = cats.length > 0;
