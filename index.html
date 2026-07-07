@@ -628,6 +628,7 @@ td.cell-active {
 }
 .ahtt-month   { font-size: 11px; font-weight: 700; color: #bbb; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 4px; }
 .ahtt-balance { font-size: 15px; font-weight: 700; color: #4285f4; }
+.ahtt-float   { font-size: 13px; font-weight: 600; color: #f59e0b; margin-top: 3px; }
 
 /* ---- Reconcile tab ---- */
 #reconcile-acct-group, #plaid-acct-group {
@@ -6545,7 +6546,7 @@ function fmtBalLabel(v) {
   return v < 0 ? '-' + s : s;
 }
 
-function drawAcctHistoryChart(keys, values, hoveredIdx) {
+function drawAcctHistoryChart(keys, values, hoveredIdx, floatValues) {
   var canvas = document.getElementById('acct-history-canvas');
   var wrap   = document.getElementById('acct-history-chart-wrap');
   if (!canvas || !wrap || !keys.length) return;
@@ -6554,7 +6555,8 @@ function drawAcctHistoryChart(keys, values, hoveredIdx) {
   var totalW = wrap.clientWidth || 800;
   var n      = keys.length;
 
-  var L_PAD = 68, R_PAD = 20, T_PAD = 24, B_PAD = 40;
+  var hasFloat = !!(floatValues && floatValues.length === n);
+  var L_PAD = 68, R_PAD = hasFloat ? 52 : 20, T_PAD = 24, B_PAD = 40;
   var plotW  = totalW - L_PAD - R_PAD;
   var plotH  = 240;
   var totalH = T_PAD + plotH + B_PAD;
@@ -6595,6 +6597,16 @@ function drawAcctHistoryChart(keys, values, hoveredIdx) {
   function xAt(i) { return L_PAD + (n <= 1 ? plotW / 2 : i * plotW / (n - 1)); }
   function yAt(v) { return T_PAD + plotH - (v - yLo) / (yHi - yLo) * plotH; }
 
+  var rLo = 0, rHi = 110;
+  if (hasFloat) {
+    var maxR = 100;
+    for (var ri = 0; ri < n; ri++) {
+      if (floatValues[ri] !== null && floatValues[ri] > maxR) maxR = floatValues[ri];
+    }
+    rHi = maxR * 1.08;
+  }
+  function yAtR(v) { return T_PAD + plotH - (v - rLo) / (rHi - rLo) * plotH; }
+
   // Background
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, totalW, totalH);
@@ -6611,6 +6623,17 @@ function drawAcctHistoryChart(keys, values, hoveredIdx) {
     ctx.beginPath(); ctx.moveTo(L_PAD, ty); ctx.lineTo(L_PAD + plotW, ty); ctx.stroke();
     ctx.fillStyle = '#aaa';
     ctx.fillText(fmtBalLabel(tv2), L_PAD - 6, ty + 4);
+  }
+
+  // Right Y-axis labels for float ratio
+  if (hasFloat) {
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#f59e0b';
+    var rStep = niceStep(rHi - rLo, 4);
+    for (var rti = 0; rti <= rHi + rStep * 0.01; rti += rStep) {
+      if (rti < rLo - rStep * 0.1 || rti > rHi + rStep * 0.1) continue;
+      ctx.fillText(Math.round(rti) + '%', L_PAD + plotW + 6, yAtR(rti) + 4);
+    }
   }
 
   // X-axis labels — daily or monthly resolution
@@ -6666,6 +6689,35 @@ function drawAcctHistoryChart(keys, values, hoveredIdx) {
   ctx.lineWidth   = 2;
   ctx.stroke();
 
+  // Float ratio overlay
+  if (hasFloat) {
+    // 100% reference dashed line
+    var ref100y = yAtR(100);
+    if (ref100y >= T_PAD && ref100y <= T_PAD + plotH) {
+      ctx.strokeStyle = 'rgba(245,158,11,0.3)';
+      ctx.lineWidth   = 1;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath(); ctx.moveTo(L_PAD, ref100y); ctx.lineTo(L_PAD + plotW, ref100y); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    // Float ratio step line
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath();
+    var frStarted = false;
+    for (var fri = 0; fri < n; fri++) {
+      if (floatValues[fri] === null) { frStarted = false; continue; }
+      var frx = xAt(fri), fry = yAtR(floatValues[fri]);
+      if (!frStarted) { ctx.moveTo(frx, fry); frStarted = true; }
+      else {
+        var prevR = floatValues[fri - 1] !== null ? floatValues[fri - 1] : floatValues[fri];
+        ctx.lineTo(xAt(fri), yAtR(prevR));
+        ctx.lineTo(frx, fry);
+      }
+    }
+    ctx.stroke();
+  }
+
   // Hover crosshair + dot
   if (hoveredIdx !== null && hoveredIdx >= 0 && hoveredIdx < n) {
     var hx = xAt(hoveredIdx);
@@ -6682,11 +6734,22 @@ function drawAcctHistoryChart(keys, values, hoveredIdx) {
     ctx.strokeStyle = '#fff';
     ctx.lineWidth   = 2;
     ctx.stroke();
+    if (hasFloat && floatValues[hoveredIdx] !== null) {
+      var hry = yAtR(floatValues[hoveredIdx]);
+      ctx.beginPath();
+      ctx.arc(hx, hry, 4, 0, 2 * Math.PI);
+      ctx.fillStyle   = '#f59e0b';
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth   = 2;
+      ctx.stroke();
+    }
   }
 
   acctHistoryChartState = {
     keys: keys, values: values, n: n,
-    L_PAD: L_PAD, plotW: plotW, T_PAD: T_PAD, plotH: plotH
+    L_PAD: L_PAD, plotW: plotW, T_PAD: T_PAD, plotH: plotH,
+    floatValues: floatValues || null
   };
 }
 
@@ -6702,8 +6765,13 @@ function showAcctHistoryTooltip(clientX, clientY, idx) {
   var val = s.values[idx];
   var rounded = Math.round(val * 100) / 100;
   var balStr = (rounded < 0 ? '-' : '') + '$' + Math.abs(rounded).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  var floatLine = '';
+  if (s.floatValues && s.floatValues[idx] !== null) {
+    floatLine = '<div class="ahtt-float">Float Ratio: ' + s.floatValues[idx].toFixed(1) + '%</div>';
+  }
   tt.innerHTML = '<div class="ahtt-month">' + mo + '</div>'
-               + '<div class="ahtt-balance">' + balStr + '</div>';
+               + '<div class="ahtt-balance">' + balStr + '</div>'
+               + floatLine;
   tt.style.display = 'block';
   var vw = window.innerWidth, vh = window.innerHeight;
   var tw = tt.offsetWidth + 4, th = tt.offsetHeight + 4;
@@ -6801,7 +6869,50 @@ function renderAccountHistory() {
     curD.setDate(curD.getDate() + 1);
   }
 
-  drawAcctHistoryChart(keys, values, null);
+  // Float Ratio overlay when viewing the Cash Basis account
+  var floatValues = null;
+  var cashBasisCfgAH = null;
+  for (var ahfi = 0; ahfi < state.catConfig.length; ahfi++) {
+    if (state.catConfig[ahfi].usedFor === 'Cash Basis') { cashBasisCfgAH = state.catConfig[ahfi]; break; }
+  }
+  if (cashBasisCfgAH && acctId === cashBasisCfgAH.id) {
+    var creditAcctIdsAH = [];
+    if (d.lwAccounts) {
+      for (var ahcai = 0; ahcai < d.lwAccounts.length; ahcai++) {
+        if (d.lwAccounts[ahcai].type === 'creditCard') creditAcctIdsAH.push(d.lwAccounts[ahcai].id);
+      }
+    }
+    if (creditAcctIdsAH.length) {
+      var creditDailyNetsAH = {};
+      for (var ahcci = 0; ahcci < creditAcctIdsAH.length; ahcci++) {
+        var ahCcId = creditAcctIdsAH[ahcci];
+        creditDailyNetsAH[ahCcId] = {};
+        var ahCcTxns = (d.acctTxnsList || {})[ahCcId] || [];
+        for (var ahcti = 0; ahcti < ahCcTxns.length; ahcti++) {
+          var ahCcDate = ahCcTxns[ahcti].date;
+          if (ahCcDate >= fromDateStr && ahCcDate <= toDateStr)
+            creditDailyNetsAH[ahCcId][ahCcDate] = (creditDailyNetsAH[ahCcId][ahCcDate] || 0) + ahCcTxns[ahcti].amount;
+        }
+      }
+      var creditBalsAH = {};
+      for (var ahcbi = 0; ahcbi < creditAcctIdsAH.length; ahcbi++) {
+        creditBalsAH[creditAcctIdsAH[ahcbi]] = acctBalanceAt(creditAcctIdsAH[ahcbi], prevMonthKey);
+      }
+      floatValues = [];
+      for (var ahfvi = 0; ahfvi < keys.length; ahfvi++) {
+        var ahDs = keys[ahfvi];
+        var ahCreditTotal = 0;
+        for (var ahcfii = 0; ahcfii < creditAcctIdsAH.length; ahcfii++) {
+          var ahCid = creditAcctIdsAH[ahcfii];
+          creditBalsAH[ahCid] += (creditDailyNetsAH[ahCid][ahDs] || 0);
+          ahCreditTotal += creditBalsAH[ahCid];
+        }
+        floatValues.push(values[ahfvi] > 0 ? Math.abs(ahCreditTotal) / values[ahfvi] * 100 : null);
+      }
+    }
+  }
+
+  drawAcctHistoryChart(keys, values, null, floatValues);
 }
 
 // ---- Reconcile ----
