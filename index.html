@@ -2681,10 +2681,14 @@ function fetchYnabData(apiKey, budgetId, opts) {
         if (t.subtransactions && t.subtransactions.length) {
           for (var sti = 0; sti < t.subtransactions.length; sti++) {
             var stx = t.subtransactions[sti];
-            if (catIdToGroup[stx.category_id] === 'Tracking') trackingAmt += (stx.amount || 0) / 1000;
+            var stxGrp = catIdToGroup[stx.category_id] || '';
+            var stxNm  = catIdToName[stx.category_id]  || '';
+            if (stxGrp === 'Tracking' || stxNm.indexOf('~') !== -1) trackingAmt += (stx.amount || 0) / 1000;
           }
-        } else if (catIdToGroup[t.category_id] === 'Tracking') {
-          trackingAmt = (t.amount || 0) / 1000;
+        } else {
+          var tGrp = catIdToGroup[t.category_id] || '';
+          var tNm  = catIdToName[t.category_id]  || '';
+          if (tGrp === 'Tracking' || tNm.indexOf('~') !== -1) trackingAmt = (t.amount || 0) / 1000;
         }
         if (trackingAmt !== 0) {
           if (!acctTxnsTracking[t.account_id]) acctTxnsTracking[t.account_id] = {};
@@ -4047,7 +4051,10 @@ function acctBalanceAt(acctId, monthKey) {
   for (var k in txns) { if (k > monthKey) bal -= txns[k]; }
   if (state.lwExcludeTracking) {
     var trk = (state.data.acctTxnsTracking || {})[acctId] || {};
-    for (var k2 in trk) { if (k2 > monthKey) bal += trk[k2]; }
+    for (var k2 in trk) {
+      if (k2 > monthKey) bal += trk[k2];
+      else bal -= trk[k2];
+    }
   }
   return bal;
 }
