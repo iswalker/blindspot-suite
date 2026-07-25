@@ -2489,7 +2489,6 @@ function fetchYnabData(apiKey, budgetId, opts) {
 
   var catIdToGroup   = {};
   var catIdToName    = {};
-  var trackingGroupSet = {}; // non-expense groups where every category name ends with ~
   var groupPivot     = {};
   var catPivot       = {};
   var groupCats      = {};
@@ -2527,18 +2526,6 @@ function fetchYnabData(apiKey, budgetId, opts) {
     var cgroups = data.category_groups || [];
     for (var g = 0; g < cgroups.length; g++) {
       var cg = cgroups[g], cats = cg.categories || [];
-      // Detect tracking groups: not an expense group, and every category name ends with ~
-      var cgIsExpGrp = false;
-      for (var egi = 0; egi < EXPENSE_GROUPS.length; egi++) {
-        if (EXPENSE_GROUPS[egi] === cg.name) { cgIsExpGrp = true; break; }
-      }
-      if (!cgIsExpGrp && cats.length > 0) {
-        var allTilde = true;
-        for (var tci = 0; tci < cats.length; tci++) {
-          if (cats[tci].name.indexOf('~') === -1) { allTilde = false; break; }
-        }
-        if (allTilde) trackingGroupSet[cg.name] = true;
-      }
       for (var c = 0; c < cats.length; c++) {
         catIdToGroup[cats[c].id] = cg.name;
         catIdToName[cats[c].id]  = cats[c].name;
@@ -2694,12 +2681,12 @@ function fetchYnabData(apiKey, budgetId, opts) {
         if (t.subtransactions && t.subtransactions.length) {
           for (var sti = 0; sti < t.subtransactions.length; sti++) {
             var stx = t.subtransactions[sti];
-            var stxGrp = catIdToGroup[stx.category_id] || '';
-            if (trackingGroupSet[stxGrp]) trackingAmt += (stx.amount || 0) / 1000;
+            var stxNm = catIdToName[stx.category_id] || '';
+            if (stxNm.slice(-1) === '~') trackingAmt += (stx.amount || 0) / 1000;
           }
         } else {
-          var tGrp = catIdToGroup[t.category_id] || '';
-          if (trackingGroupSet[tGrp]) trackingAmt = (t.amount || 0) / 1000;
+          var tNm = catIdToName[t.category_id] || '';
+          if (tNm.slice(-1) === '~') trackingAmt = (t.amount || 0) / 1000;
         }
         if (trackingAmt !== 0) {
           if (!acctTxnsTracking[t.account_id]) acctTxnsTracking[t.account_id] = {};
