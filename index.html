@@ -1344,6 +1344,16 @@ td.hbt-num:last-child { width: 13%; }
               </label>
             </div>
           </div>
+          <div class="settings-tab-block" data-tab="lw">
+            <div class="settings-divider"></div>
+            <div class="settings-row">
+              <label class="ios-toggle-wrap">
+                <input type="checkbox" id="lw-exclude-distribution">
+                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+                Exclude Distribution
+              </label>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1863,6 +1873,7 @@ var state = {
   lwToKey:             localStorage.getItem('sel-lw-to')   || null,
   lwIncludeCurrent:    localStorage.getItem('lw-include-current') === '1',
   lwExcludeTracking:        localStorage.getItem('lw-exclude-tracking') === '1',
+  lwExcludeDistribution:    localStorage.getItem('lw-exclude-distribution') === '1',
   leverageExcludeTracking:   localStorage.getItem('leverage-exclude-tracking') === '1',
   leverageExcludeForecasted: localStorage.getItem('leverage-exclude-forecasted') === '1',
   leverageIncludeTbd:        localStorage.getItem('leverage-include-tbd') === '1',
@@ -2659,7 +2670,8 @@ function fetchYnabData(apiKey, budgetId, opts) {
   .then(function(data) {
     var txns    = data.transactions || [];
     var acctTxns = {};
-    var acctTxnsTracking = {}; // Tracking-group amounts only, for ExTracking toggle
+    var acctTxnsTracking = {};     // Tracking-group amounts only, for ExTracking toggle
+    var acctTxnsDistribution = {}; // Distribution-group amounts only, for ExDistribution toggle
     var acctTxnsList = {};
     var catIdTxns = {}; // { catId: [{ date, account, payee, amount }] } outflows only
     for (var ti = 0; ti < txns.length; ti++) {
@@ -2683,6 +2695,19 @@ function fetchYnabData(apiKey, budgetId, opts) {
         if (trackingAmt !== 0) {
           if (!acctTxnsTracking[t.account_id]) acctTxnsTracking[t.account_id] = {};
           acctTxnsTracking[t.account_id][tKey2] = (acctTxnsTracking[t.account_id][tKey2] || 0) + trackingAmt;
+        }
+        var distAmt = 0;
+        if (t.subtransactions && t.subtransactions.length) {
+          for (var dsti = 0; dsti < t.subtransactions.length; dsti++) {
+            var dstx = t.subtransactions[dsti];
+            if (catIdToGroup[dstx.category_id] === 'Distribution') distAmt += (dstx.amount || 0) / 1000;
+          }
+        } else if (catIdToGroup[t.category_id] === 'Distribution') {
+          distAmt = (t.amount || 0) / 1000;
+        }
+        if (distAmt !== 0) {
+          if (!acctTxnsDistribution[t.account_id]) acctTxnsDistribution[t.account_id] = {};
+          acctTxnsDistribution[t.account_id][tKey2] = (acctTxnsDistribution[t.account_id][tKey2] || 0) + distAmt;
         }
         if (!t.deleted) {
           if (!acctTxnsList[t.account_id]) acctTxnsList[t.account_id] = [];
@@ -2867,7 +2892,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
                groupPivot: groupPivot, catPivot: catPivot, activeCats: activeCats,
                regTxns: regTxns, allAccounts: allAccounts,
                allAccountsInfo: allAccountsInfo, lwAccounts: lwAccounts,
-               nwAccounts: nwAccounts, acctTxns: acctTxns, acctTxnsTracking: acctTxnsTracking, acctTxnsList: acctTxnsList, catIdTxns: catIdTxns, catIdToName: catIdToName,
+               nwAccounts: nwAccounts, acctTxns: acctTxns, acctTxnsTracking: acctTxnsTracking, acctTxnsDistribution: acctTxnsDistribution, acctTxnsList: acctTxnsList, catIdTxns: catIdTxns, catIdToName: catIdToName,
                pendingTxns: pendingTxns,
                upcomingRenewals: upcomingRenewals,
                catActivityPivot: catActivityPivot, catAvailPivot: catAvailPivot,
@@ -4040,10 +4065,12 @@ function acctBalanceAt(acctId, monthKey) {
   var txns = (state.data.acctTxns || {})[acctId] || {};
   for (var k in txns) { if (k > monthKey) bal -= txns[k]; }
   if (state.lwExcludeTracking) {
-    // Add back Tracking-group amounts from months after monthKey
-    // (they were subtracted above but we want to exclude them from the view)
     var trk = (state.data.acctTxnsTracking || {})[acctId] || {};
     for (var k2 in trk) { if (k2 > monthKey) bal += trk[k2]; }
+  }
+  if (state.lwExcludeDistribution) {
+    var dist = (state.data.acctTxnsDistribution || {})[acctId] || {};
+    for (var k3 in dist) { if (k3 > monthKey) bal += dist[k3]; }
   }
   return bal;
 }
@@ -4095,6 +4122,8 @@ function populateLwRangeFilter() {
   if (chk) chk.checked = !!state.lwIncludeCurrent;
   var chkTrk = document.getElementById('lw-exclude-tracking');
   if (chkTrk) chkTrk.checked = !!state.lwExcludeTracking;
+  var chkDist = document.getElementById('lw-exclude-distribution');
+  if (chkDist) chkDist.checked = !!state.lwExcludeDistribution;
 }
 
 function populateLwAccountFilter() {
@@ -8901,6 +8930,12 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('lw-exclude-tracking').addEventListener('change', function() {
     state.lwExcludeTracking = this.checked;
     localStorage.setItem('lw-exclude-tracking', this.checked ? '1' : '0');
+    renderLiquidWorth();
+  });
+
+  document.getElementById('lw-exclude-distribution').addEventListener('change', function() {
+    state.lwExcludeDistribution = this.checked;
+    localStorage.setItem('lw-exclude-distribution', this.checked ? '1' : '0');
     renderLiquidWorth();
   });
 
