@@ -2801,14 +2801,6 @@ function fetchYnabData(apiKey, budgetId, opts) {
         }
       }
     }
-    // DEBUG: log tracking transaction breakdown — open browser console after refresh
-    console.group('ExcludeTracking breakdown (' + trackingLog.length + ' transactions)');
-    trackingLog.sort(function(a, b) { return a.date < b.date ? 1 : -1; });
-    trackingLog.forEach(function(r) { console.log(r.month, r.acct, r.cat, r.payee, r.amt.toFixed(2)); });
-    var byMonth = {};
-    trackingLog.forEach(function(r) { byMonth[r.month] = (byMonth[r.month] || 0) + r.amt; });
-    console.log('--- monthly totals ---'); Object.keys(byMonth).sort().reverse().forEach(function(m) { console.log(m, byMonth[m].toFixed(2)); });
-    console.groupEnd();
     var allKeysSet = {};
     for (var gk in groupPivot) { for (var k in groupPivot[gk]) allKeysSet[k] = 1; }
     for (var ik in incomePivot) { if (incomePivot[ik] !== 0) allKeysSet[ik] = 1; }
@@ -2864,6 +2856,21 @@ function fetchYnabData(apiKey, budgetId, opts) {
       for (var trkAcctId in acctTxnsTracking) {
         if (!lwAcctIdSet[trkAcctId]) delete acctTxnsTracking[trkAcctId];
       }
+      // DEBUG: post-pruning tracking log (liquid accounts only) — remove once confirmed
+      var prunedLog = trackingLog.filter(function(r) {
+        for (var lwpi2 = 0; lwpi2 < lwAccounts.length; lwpi2++) {
+          if (lwAccounts[lwpi2].name === r.acct) return true;
+        }
+        return false;
+      });
+      prunedLog.sort(function(a, b) { return a.date < b.date ? 1 : -1; });
+      var pByMonth = {};
+      prunedLog.forEach(function(r) { pByMonth[r.month] = (pByMonth[r.month] || 0) + r.amt; });
+      console.group('ExcludeTracking — liquid accounts only (' + prunedLog.length + ' transactions)');
+      prunedLog.forEach(function(r) { console.log(r.month, r.acct, r.cat, r.payee, r.amt.toFixed(2)); });
+      console.log('--- monthly totals (liquid only) ---');
+      Object.keys(pByMonth).sort().reverse().forEach(function(m) { console.log(m, pByMonth[m].toFixed(2)); });
+      console.groupEnd();
 
       // Upcoming Renewals: scheduled transactions due within 30 days with no flag
       var todayMid = new Date(); todayMid.setHours(0, 0, 0, 0);
