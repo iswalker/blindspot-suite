@@ -2259,27 +2259,45 @@ function processData(planText, regText) {
   var regRows  = parseCSV(regText);
 
   // Plan: group + category pivots
-  var groupPivot = {};     // { grp: { key: total } }
-  var catPivot   = {};     // { grp: { cat: { key: val } } }
-  var groupCats  = {};     // { grp: [cat, ...] } ordered first-seen
-  var planActive = {};
+  var groupPivot      = {};     // { grp: { key: total } }
+  var catPivot        = {};     // { grp: { cat: { key: val } } }
+  var groupCats       = {};     // { grp: [cat, ...] } ordered first-seen
+  var planActive      = {};
+  var otherGroupPivot = {};     // groups not in EXPENSE_GROUPS (excl. Hidden Categories)
+  var otherCatPivot   = {};
+  var otherGroupCats  = {};
 
   for (var i = 0; i < planRows.length; i++) {
     var row = planRows[i];
     var grp = row['Category Group'];
     var cat = row['Category'];
-    if (!grp || !cat || EXCLUDE_GROUPS[grp]) continue;
+    if (!grp || !cat || grp === 'Hidden Categories') continue;
     var isExpGrp = false;
     for (var g = 0; g < EXPENSE_GROUPS.length; g++) {
       if (EXPENSE_GROUPS[g] === grp) { isExpGrp = true; break; }
     }
     var isRecovCat = cat.indexOf(RECOVERABLE_MARKER) !== -1;
-    if (!isExpGrp && !isRecovCat) continue;
 
     var dt = parseMonthStr(row['Month']);
     if (!dt) continue;
     var key = dtKey(dt);
     var val = parseDollar(row['Assigned']);
+
+    if (!isExpGrp && !isRecovCat) {
+      if (!otherGroupPivot[grp]) otherGroupPivot[grp] = {};
+      otherGroupPivot[grp][key] = (otherGroupPivot[grp][key] || 0) + val;
+      if (!otherCatPivot[grp]) otherCatPivot[grp] = {};
+      if (!otherCatPivot[grp][cat]) otherCatPivot[grp][cat] = {};
+      otherCatPivot[grp][cat][key] = (otherCatPivot[grp][cat][key] || 0) + val;
+      if (!otherGroupCats[grp]) otherGroupCats[grp] = [];
+      var ocFound = false;
+      for (var oci = 0; oci < otherGroupCats[grp].length; oci++) {
+        if (otherGroupCats[grp][oci] === cat) { ocFound = true; break; }
+      }
+      if (!ocFound) otherGroupCats[grp].push(cat);
+      if (val !== 0) planActive[key] = 1;
+      continue;
+    }
 
     if (isRecovCat) {
       if (!recovPlanPivot[cat]) recovPlanPivot[cat] = {};
@@ -2429,8 +2447,19 @@ function processData(planText, regText) {
     }
   }
 
+  var otherActiveCats = {};
+  for (var oagrp in otherGroupCats) {
+    otherActiveCats[oagrp] = [];
+    for (var oac2 = 0; oac2 < otherGroupCats[oagrp].length; oac2++) {
+      var oacat2 = otherGroupCats[oagrp][oac2];
+      var ocatData2 = (otherCatPivot[oagrp] || {})[oacat2] || {};
+      var ohasVal2 = false;
+      for (var ock2 in ocatData2) { if (ocatData2[ock2] !== 0) { ohasVal2 = true; break; } }
+      if (ohasVal2) otherActiveCats[oagrp].push(oacat2);
+    }
+  }
   var allAccounts = Object.keys(allAccountsSet).filter(function(a) { return a; }).sort();
-  return { allKeys: allKeys, incomePivot: incomePivot, incomeAcctPivot: incomeAcctPivot, incomePayeePivot: incomePayeePivot, groupPivot: groupPivot, catPivot: catPivot, activeCats: activeCats, regTxns: regTxns, allAccounts: allAccounts, pendingTxns: pendingTxns, recovPlanPivot: recovPlanPivot };
+  return { allKeys: allKeys, incomePivot: incomePivot, incomeAcctPivot: incomeAcctPivot, incomePayeePivot: incomePayeePivot, groupPivot: groupPivot, catPivot: catPivot, activeCats: activeCats, regTxns: regTxns, allAccounts: allAccounts, pendingTxns: pendingTxns, recovPlanPivot: recovPlanPivot, otherGroupPivot: otherGroupPivot, otherCatPivot: otherCatPivot, otherActiveCats: otherActiveCats };
 }
 
 // ============================================================
@@ -2500,6 +2529,9 @@ function fetchYnabData(apiKey, budgetId, opts) {
   var pendingTxns      = [];
   var catActivityPivot = {}; // { grpNm: { catNm: { key: activity } } }
   var catAvailPivot    = {}; // { grpNm: { catNm: { key: balance } } }
+  var otherGroupPivot  = {}; // groups not in EXPENSE_GROUPS (excl. Hidden Categories)
+  var otherCatPivot    = {};
+  var otherGroupCats   = {};
   var recovCatAvail    = {}; // { catNm: { key: balance } } for "=" categories
   var recovCatActivity = {}; // { catNm: { key: activity } } for "=" categories
   // Snapshot: { key: day1Value } — highest budgeted value seen per month (pre-move)
@@ -2639,7 +2671,22 @@ function fetchYnabData(apiKey, budgetId, opts) {
         for (var eg = 0; eg < EXPENSE_GROUPS.length; eg++) {
           if (EXPENSE_GROUPS[eg] === grpNm) { isExpGrp = true; break; }
         }
-        if (!isExpGrp) continue;
+        if (!isExpGrp) {
+          if (grpNm !== 'Hidden Categories') {
+            if (!otherGroupPivot[grpNm]) otherGroupPivot[grpNm] = {};
+            otherGroupPivot[grpNm][key] = (otherGroupPivot[grpNm][key] || 0) + bgt;
+            if (!otherCatPivot[grpNm]) otherCatPivot[grpNm] = {};
+            if (!otherCatPivot[grpNm][catNm]) otherCatPivot[grpNm][catNm] = {};
+            otherCatPivot[grpNm][catNm][key] = (otherCatPivot[grpNm][catNm][key] || 0) + bgt;
+            if (!otherGroupCats[grpNm]) otherGroupCats[grpNm] = [];
+            var alreadyO = false;
+            for (var goi = 0; goi < otherGroupCats[grpNm].length; goi++) {
+              if (otherGroupCats[grpNm][goi] === catNm) { alreadyO = true; break; }
+            }
+            if (!alreadyO) otherGroupCats[grpNm].push(catNm);
+          }
+          continue;
+        }
         if (!groupPivot[grpNm]) groupPivot[grpNm] = {};
         groupPivot[grpNm][key] = (groupPivot[grpNm][key] || 0) + bgt;
         if (!catPivot[grpNm]) catPivot[grpNm] = {};
@@ -2812,6 +2859,17 @@ function fetchYnabData(apiKey, budgetId, opts) {
         if (hasVal) activeCats[agrp].push(acat);
       }
     }
+    var otherActiveCats = {};
+    for (var oagrp in otherGroupCats) {
+      otherActiveCats[oagrp] = [];
+      for (var oac = 0; oac < otherGroupCats[oagrp].length; oac++) {
+        var oacat = otherGroupCats[oagrp][oac];
+        var ocatData = (otherCatPivot[oagrp] || {})[oacat] || {};
+        var ohasVal = false;
+        for (var ock in ocatData) { if (ocatData[ock] !== 0) { ohasVal = true; break; } }
+        if (ohasVal) otherActiveCats[oagrp].push(oacat);
+      }
+    }
     var allAccounts = Object.keys(allAccountsSet).filter(function(a) { return a; }).sort();
     setProgress('Loading accounts…');
     var schedPromise = ynabGet('/budgets/' + budgetId + '/scheduled_transactions', apiKey)
@@ -2885,6 +2943,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
                pendingTxns: pendingTxns,
                upcomingRenewals: upcomingRenewals,
                catActivityPivot: catActivityPivot, catAvailPivot: catAvailPivot,
+               otherGroupPivot: otherGroupPivot, otherCatPivot: otherCatPivot, otherActiveCats: otherActiveCats,
                recovCatAvail: recovCatAvail, recovCatActivity: recovCatActivity,
                glidepathSnapshot: glidepathSnapshot,
                serverKnowledge: { months: newMonthsKnow },
@@ -3639,6 +3698,51 @@ function renderTable(opts) {
     html += '<tr class="data-row"><td>Last Month Liquid Balances</td>' + valCells(lwPrevVals, mean(lwPrevVals), false, '') + '</tr>';
   }
 
+  // Other groups — not in EXPENSE_GROUPS, not Hidden Categories
+  var otherGrpPivot  = d.otherGroupPivot  || {};
+  var otherCtPivot   = d.otherCatPivot    || {};
+  var otherActCats   = d.otherActiveCats  || {};
+  var otherGrpNames  = Object.keys(otherGrpPivot).sort();
+  var otherGrpWithData = [];
+  for (var ogi = 0; ogi < otherGrpNames.length; ogi++) {
+    var ogn = otherGrpNames[ogi];
+    var ogHasData = false;
+    for (var ogki = 0; ogki < keys.length; ogki++) {
+      if ((otherGrpPivot[ogn] || {})[keys[ogki]]) { ogHasData = true; break; }
+    }
+    if (ogHasData) otherGrpWithData.push(ogn);
+  }
+  if (otherGrpWithData.length > 0) {
+    html += '<tr class="row-spacer"><td></td>' + emptyCells() + '</tr>';
+    html += '<tr class="sec-hdr"><td>Other</td>' + emptyCells() + '</tr>';
+    for (var ogi2 = 0; ogi2 < otherGrpWithData.length; ogi2++) {
+      var oGrp    = otherGrpWithData[ogi2];
+      var oVals   = (function(g) { return keys.map(function(k) { return (otherGrpPivot[g] || {})[k] || 0; }); })(oGrp);
+      var oAvg    = mean(oVals);
+      var oCats   = otherActCats[oGrp] || [];
+      var oIsExp  = !!state.expanded[oGrp];
+      var oHasCats = oCats.length > 0;
+      var oAttr   = 'data-other-group="' + oGrp.replace(/&/g,'&amp;').replace(/"/g,'&quot;') + '"';
+      var oArrow  = oHasCats
+        ? '<span class="grp-arrow" ' + oAttr + '>' + (oIsExp ? '&#9660;' : '&#9654;') + '</span> '
+        : '<span class="grp-arrow"></span> ';
+      html += '<tr class="data-row exp-group' + (oIsExp ? ' grp-bordered' : '') + '" ' + oAttr + '>';
+      html += '<td>' + oArrow + oGrp + '</td>';
+      html += valCells(oVals, oAvg, true);
+      html += '</tr>';
+      for (var ocii = 0; ocii < oCats.length; ocii++) {
+        var ocat    = oCats[ocii];
+        var ocVals  = (function(g, c) { return keys.map(function(k) { return ((otherCtPivot[g] || {})[c] || {})[k] || 0; }); })(oGrp, ocat);
+        var ocAvg   = mean(ocVals);
+        var isLastO = ocii === oCats.length - 1;
+        html += '<tr class="cat-row' + (oIsExp ? ' cat-row-bordered' : '') + (isLastO ? ' cat-row-last' : '') + '" ' + oAttr + ' style="' + (oIsExp ? '' : 'display:none') + '">';
+        html += '<td>' + ocat + '</td>';
+        html += valCells(ocVals, ocAvg, true);
+        html += '</tr>';
+      }
+    }
+  }
+
   html += '</tbody>';
 
   document.getElementById(tableId).innerHTML = html;
@@ -3934,6 +4038,22 @@ function expandAllGroups(expand) {
   }
   localStorage.setItem('ynab-expanded-groups', JSON.stringify(state.expanded));
   renderTable();
+}
+
+function toggleOtherGroup(grpName) {
+  state.expanded[grpName] = !state.expanded[grpName];
+  var isExp = state.expanded[grpName];
+  var safe  = grpName.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  var arrows   = document.querySelectorAll('.grp-arrow[data-other-group="' + safe + '"]');
+  for (var ai = 0; ai < arrows.length; ai++) arrows[ai].innerHTML = isExp ? '&#9660;' : '&#9654;';
+  var grpRow   = document.querySelector('tr.exp-group[data-other-group="' + safe + '"]');
+  if (grpRow) grpRow.classList.toggle('grp-bordered', isExp);
+  var catRows  = document.querySelectorAll('tr.cat-row[data-other-group="' + safe + '"]');
+  for (var ri = 0; ri < catRows.length; ri++) {
+    catRows[ri].style.display = isExp ? '' : 'none';
+    catRows[ri].classList.toggle('cat-row-bordered', isExp);
+  }
+  localStorage.setItem('ynab-expanded-groups', JSON.stringify(state.expanded));
 }
 
 // ============================================================
@@ -9225,6 +9345,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (row) {
       var idx = row.getAttribute('data-group');
       if (idx !== null) toggleGroup(parseInt(idx, 10));
+      var otherGrpName = row.getAttribute('data-other-group');
+      if (otherGrpName) toggleOtherGroup(otherGrpName);
     }
   });
 
