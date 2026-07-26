@@ -4071,8 +4071,7 @@ function acctBalanceAt(acctId, monthKey) {
   if (state.lwExcludeTracking) {
     var trk = (state.data.acctTxnsTracking || {})[acctId] || {};
     for (var k2 in trk) {
-      if (k2 > monthKey) bal += trk[k2];
-      else bal -= trk[k2];
+      if (k2 <= monthKey) bal -= trk[k2];
     }
   }
   return bal;
