@@ -3618,7 +3618,10 @@ function renderTable(opts) {
   }
 
   // Last Month Liquid Balances (API only — reference row)
+  // Respects Exclude Tracking (via acctBalanceAt) and Exclude Distribution (mirroring renderLiquidWorth)
   if (d.lwAccounts && d.allAccountsInfo) {
+    var lwPrevDistCatAvail = state.lwExcludeDistribution
+      ? ((d.catAvailPivot || {})['Distribution'] || {}) : null;
     var lwPrevVals = keys.map(function(k) {
       var kp = k.split('-');
       var pyr = parseInt(kp[0]), pmo = parseInt(kp[1]) - 1;
@@ -3626,6 +3629,11 @@ function renderTable(opts) {
       var prevKey = pyr + '-' + (pmo < 10 ? '0' + pmo : '' + pmo);
       var total = 0;
       for (var li = 0; li < d.lwAccounts.length; li++) { total += acctBalanceAt(d.lwAccounts[li].id, prevKey); }
+      if (lwPrevDistCatAvail) {
+        var distAvail = 0;
+        for (var dcat in lwPrevDistCatAvail) distAvail += (lwPrevDistCatAvail[dcat][prevKey] || 0);
+        total -= Math.max(0, distAvail);
+      }
       return total;
     });
     html += '<tr class="data-row"><td>Last Month Liquid Balances</td>' + valCells(lwPrevVals, mean(lwPrevVals), false, '') + '</tr>';
