@@ -2857,6 +2857,13 @@ function fetchYnabData(apiKey, budgetId, opts) {
       var sortByName = function(x, y) { return x.name < y.name ? -1 : x.name > y.name ? 1 : 0; };
       lwAccounts.sort(sortByName);
       nwAccounts.sort(sortByName);
+      // Prune acctTxnsTracking to liquid accounts only — non-liquid account transactions
+      // (e.g. accounts with ~ in name) must not influence the Liquid Balances calculation.
+      var lwAcctIdSet = {};
+      for (var lwpi = 0; lwpi < lwAccounts.length; lwpi++) lwAcctIdSet[lwAccounts[lwpi].id] = true;
+      for (var trkAcctId in acctTxnsTracking) {
+        if (!lwAcctIdSet[trkAcctId]) delete acctTxnsTracking[trkAcctId];
+      }
 
       // Upcoming Renewals: scheduled transactions due within 30 days with no flag
       var todayMid = new Date(); todayMid.setHours(0, 0, 0, 0);
