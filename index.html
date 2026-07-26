@@ -2666,6 +2666,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
     var txns    = data.transactions || [];
     var acctTxns = {};
     var acctTxnsTracking = {}; // Tracking-group amounts only, for ExTracking toggle
+    var trackingLog = []; // DEBUG: remove once tracking sources are identified
     var acctTxnsList = {};
     var catIdTxns = {}; // { catId: [{ date, account, payee, amount }] } outflows only
     for (var ti = 0; ti < txns.length; ti++) {
@@ -2691,6 +2692,11 @@ function fetchYnabData(apiKey, budgetId, opts) {
         if (trackingAmt !== 0) {
           if (!acctTxnsTracking[t.account_id]) acctTxnsTracking[t.account_id] = {};
           acctTxnsTracking[t.account_id][tKey2] = (acctTxnsTracking[t.account_id][tKey2] || 0) + trackingAmt;
+          var logCats = t.subtransactions && t.subtransactions.length
+            ? t.subtransactions.filter(function(st) { return (catIdToName[st.category_id] || '').slice(-1) === '~'; })
+                .map(function(st) { return (catIdToName[st.category_id] || '') + ' (' + ((st.amount||0)/1000).toFixed(2) + ')'; }).join(', ')
+            : (catIdToName[t.category_id] || t.category_name || '');
+          trackingLog.push({ date: t.date, month: tKey2, acct: t.account_name || t.account_id, cat: logCats, payee: t.payee_name || '', amt: trackingAmt });
         }
         if (!t.deleted) {
           if (!acctTxnsList[t.account_id]) acctTxnsList[t.account_id] = [];
@@ -2795,6 +2801,14 @@ function fetchYnabData(apiKey, budgetId, opts) {
         }
       }
     }
+    // DEBUG: log tracking transaction breakdown — open browser console after refresh
+    console.group('ExcludeTracking breakdown (' + trackingLog.length + ' transactions)');
+    trackingLog.sort(function(a, b) { return a.date < b.date ? 1 : -1; });
+    trackingLog.forEach(function(r) { console.log(r.month, r.acct, r.cat, r.payee, r.amt.toFixed(2)); });
+    var byMonth = {};
+    trackingLog.forEach(function(r) { byMonth[r.month] = (byMonth[r.month] || 0) + r.amt; });
+    console.log('--- monthly totals ---'); Object.keys(byMonth).sort().reverse().forEach(function(m) { console.log(m, byMonth[m].toFixed(2)); });
+    console.groupEnd();
     var allKeysSet = {};
     for (var gk in groupPivot) { for (var k in groupPivot[gk]) allKeysSet[k] = 1; }
     for (var ik in incomePivot) { if (incomePivot[ik] !== 0) allKeysSet[ik] = 1; }
