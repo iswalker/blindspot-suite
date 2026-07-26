@@ -2532,6 +2532,9 @@ function fetchYnabData(apiKey, budgetId, opts) {
   var otherGroupPivot  = {}; // groups not in EXPENSE_GROUPS (excl. Hidden Categories)
   var otherCatPivot    = {};
   var otherGroupCats   = {};
+  // { grpKey: { monthKey: { acctId: amt } } } — collapsed to liquid accounts once /accounts loads.
+  // grpKey is '@INCOME' for Ready to Assign, '@UNCAT' for transfers/uncategorized, else group name.
+  var grpActByAcct     = {};
   var recovCatAvail    = {}; // { catNm: { key: balance } } for "=" categories
   var recovCatActivity = {}; // { catNm: { key: activity } } for "=" categories
   // Snapshot: { key: day1Value } — highest budgeted value seen per month (pre-move)
@@ -2785,6 +2788,14 @@ function fetchYnabData(apiKey, budgetId, opts) {
         var acct  = s.account_name || '';
         var isRTA = catNm === 'Inflow: Ready to Assign';
         allAccountsSet[acct] = 1;
+        // Per-group activity keyed by account, so the Cash Flow reconciliation row can
+        // restrict actual activity to the same liquid accounts the Liquid Balances tab uses.
+        if (t.account_id && !t.deleted) {
+          var gActKey = isRTA ? '@INCOME' : (grpNm || '@UNCAT');
+          if (!grpActByAcct[gActKey])      grpActByAcct[gActKey]      = {};
+          if (!grpActByAcct[gActKey][key]) grpActByAcct[gActKey][key] = {};
+          grpActByAcct[gActKey][key][t.account_id] = (grpActByAcct[gActKey][key][t.account_id] || 0) + amt;
+        }
         // Build per-category transaction list for associated-category analysis
         if (catId && !t.deleted && amt < 0) { // outflows only
           if (!catIdTxns[catId]) catIdTxns[catId] = [];
@@ -2908,6 +2919,16 @@ function fetchYnabData(apiKey, budgetId, opts) {
       for (var trkAcctId in acctTxnsTracking) {
         if (!lwAcctIdSet[trkAcctId]) delete acctTxnsTracking[trkAcctId];
       }
+      // Collapse per-account group activity down to liquid accounts only
+      var liqGrpActivity = {}; // { grpKey: { monthKey: amt } }
+      for (var lgk in grpActByAcct) {
+        liqGrpActivity[lgk] = {};
+        for (var lgm in grpActByAcct[lgk]) {
+          var lgSum = 0, lgMap = grpActByAcct[lgk][lgm];
+          for (var lgAid in lgMap) { if (lwAcctIdSet[lgAid]) lgSum += lgMap[lgAid]; }
+          if (lgSum !== 0) liqGrpActivity[lgk][lgm] = lgSum;
+        }
+      }
       // Upcoming Renewals: scheduled transactions due within 30 days with no flag
       var todayMid = new Date(); todayMid.setHours(0, 0, 0, 0);
       var cutoff   = new Date(todayMid.getTime() + 30 * 86400000);
@@ -2944,6 +2965,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
                upcomingRenewals: upcomingRenewals,
                catActivityPivot: catActivityPivot, catAvailPivot: catAvailPivot,
                otherGroupPivot: otherGroupPivot, otherCatPivot: otherCatPivot, otherActiveCats: otherActiveCats,
+               liqGrpActivity: liqGrpActivity,
                recovCatAvail: recovCatAvail, recovCatActivity: recovCatActivity,
                glidepathSnapshot: glidepathSnapshot,
                serverKnowledge: { months: newMonthsKnow },
@@ -3666,6 +3688,101 @@ function renderTable(opts) {
   // Net Liquid = Net Cash Flow - Non-Liquid Savings
   html += '<tr class="row-spacer"><td></td>' + emptyCells() + '</tr>';
   html += '<tr class="net-val"><td>Net Liquid</td>' + netValCells(netVals, avgNet) + '</tr>';
+
+  // ---- Reconciliation: bridge assignment-based Net Liquid to actual liquid balance change ----
+  // Net Liquid is assignment-driven; the Liquid Balances tab is transaction-driven over a
+  // restricted account set. These diverge whenever spend != assignment, when activity lands in
+  // accounts outside lwAccounts, or when categories fall outside EXPENSE_GROUPS.
+  if (d.lwAccounts && d.allAccountsInfo && d.liqGrpActivity) {
+    var rcLiqAct  = d.liqGrpActivity;
+    var rcSel     = state.lwSelectedAccounts || {};
+    var rcAnySel  = false;
+    for (var rcq in rcSel) { if (rcSel[rcq]) { rcAnySel = true; break; } }
+    var rcAccts = d.lwAccounts.filter(function(a) { return !rcAnySel || rcSel[a.id]; });
+    var rcDistAvail = state.lwExcludeDistribution
+      ? ((d.catAvailPivot || {})['Distribution'] || {}) : null;
+    var rcPrevKey = function(k) {
+      var kp = k.split('-'); var py = parseInt(kp[0], 10), pm = parseInt(kp[1], 10) - 1;
+      if (pm < 1) { pm = 12; py--; }
+      return py + '-' + (pm < 10 ? '0' + pm : '' + pm);
+    };
+    var rcBalAt = function(mk) {
+      var tot = 0;
+      for (var ri = 0; ri < rcAccts.length; ri++) tot += acctBalanceAt(rcAccts[ri].id, mk);
+      if (rcDistAvail) {
+        var da = 0;
+        for (var dc in rcDistAvail) da += (rcDistAvail[dc][mk] || 0);
+        tot -= Math.max(0, da);
+      }
+      return tot;
+    };
+    var rcActualVals = keys.map(function(k) { return rcBalAt(k) - rcBalAt(rcPrevKey(k)); });
+    var rcGapVals    = keys.map(function(_, i) { return netVals[i] - rcActualVals[i]; });
+
+    html += '<tr class="row-spacer"><td></td>' + emptyCells() + '</tr>';
+    html += '<tr class="sec-hdr"><td>Reconciliation</td>' + emptyCells() + '</tr>';
+    html += '<tr class="data-row"><td>Actual Liquid Change</td>'
+          + valCells(rcActualVals, mean(rcActualVals), false, '') + '</tr>';
+
+    // Build bridge components. Sign convention: each term is what it adds to the gap
+    // (gap = Net Liquid - Actual Liquid Change).
+    var rcRows = [], rcSumVals = keys.map(function() { return 0; });
+    var rcAdd = function(label, vals) {
+      var any = false;
+      for (var vi = 0; vi < vals.length; vi++) { if (Math.abs(vals[vi]) > 0.005) { any = true; break; } }
+      if (!any) return;
+      rcRows.push({ label: label, vals: vals });
+      for (var vj = 0; vj < vals.length; vj++) rcSumVals[vj] += vals[vj];
+    };
+    // Income recognised by Cash Flow but not landing in liquid accounts
+    rcAdd('Income not in liquid accounts', keys.map(function(k, i) {
+      return incomeVals[i] - ((rcLiqAct['@INCOME'] || {})[k] || 0);
+    }));
+    // Tracked groups: actual liquid spend vs assignment
+    for (var rgi = 0; rgi < EXPENSE_GROUPS.length; rgi++) {
+      (function(grp) {
+        rcAdd(grp + ' — spend vs assigned', keys.map(function(k, i) {
+          return -((rcLiqAct[grp] || {})[k] || 0) - (gVals[grp] ? gVals[grp][i] : 0);
+        }));
+      })(EXPENSE_GROUPS[rgi]);
+    }
+    // Groups Cash Flow never subtracts
+    var rcUntrackedKeys = Object.keys(rcLiqAct).filter(function(g) {
+      return g !== '@INCOME' && g !== '@UNCAT' && EXPENSE_GROUPS.indexOf(g) === -1;
+    });
+    for (var rui = 0; rui < rcUntrackedKeys.length; rui++) {
+      (function(grp) {
+        rcAdd(grp + ' — untracked spend', keys.map(function(k) {
+          return -((rcLiqAct[grp] || {})[k] || 0);
+        }));
+      })(rcUntrackedKeys[rui]);
+    }
+    // Transfers and uncategorised movement
+    rcAdd('Transfers / uncategorised', keys.map(function(k) {
+      return -((rcLiqAct['@UNCAT'] || {})[k] || 0);
+    }));
+    // Whatever the components do not explain (toggle effects, excluded categories, rounding)
+    rcAdd('Unexplained', keys.map(function(_, i) { return rcGapVals[i] - rcSumVals[i]; }));
+
+    var rcIsExp = !!state.expanded['__reconciliation'];
+    var rcAttr  = 'data-other-group="__reconciliation"';
+    var rcArrow = rcRows.length
+      ? '<span class="grp-arrow" ' + rcAttr + '>' + (rcIsExp ? '&#9660;' : '&#9654;') + '</span> '
+      : '<span class="grp-arrow"></span> ';
+    html += '<tr class="data-row exp-group' + (rcIsExp ? ' grp-bordered' : '') + '" ' + rcAttr + '>';
+    html += '<td>' + rcArrow + 'Cash Flow vs. Actual Gap</td>';
+    html += valCells(rcGapVals, mean(rcGapVals), false, '');
+    html += '</tr>';
+    for (var rri = 0; rri < rcRows.length; rri++) {
+      var rcR = rcRows[rri];
+      html += '<tr class="cat-row' + (rcIsExp ? ' cat-row-bordered' : '')
+            + (rri === rcRows.length - 1 ? ' cat-row-last' : '') + '" ' + rcAttr
+            + ' style="' + (rcIsExp ? '' : 'display:none') + '">';
+      html += '<td>' + rcR.label + '</td>';
+      html += valCells(rcR.vals, mean(rcR.vals), false, '');
+      html += '</tr>';
+    }
+  }
 
   // Glidepath Day-1 balance (API only — omit row if no data; hidden unless toggle ON)
   if (state.showGlidepath && d.glidepathSnapshot) {
