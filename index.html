@@ -8933,12 +8933,14 @@ document.addEventListener('DOMContentLoaded', function() {
     state.lwExcludeTracking = this.checked;
     localStorage.setItem('lw-exclude-tracking', this.checked ? '1' : '0');
     renderLiquidWorth();
+    renderTable();
   });
 
   document.getElementById('lw-exclude-distribution').addEventListener('change', function() {
     state.lwExcludeDistribution = this.checked;
     localStorage.setItem('lw-exclude-distribution', this.checked ? '1' : '0');
     renderLiquidWorth();
+    renderTable();
   });
 
   // NW range filter
