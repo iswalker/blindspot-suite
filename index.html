@@ -3931,11 +3931,13 @@ function renderTable(opts) {
     // Build bridge components. Sign convention: each term is what it adds to the gap
     // (gap = Net Liquid - Actual Liquid Change).
     var rcRows = [], rcSumVals = keys.map(function() { return 0; });
-    var rcAdd = function(label, vals, bucket) {
+    // hidden: fold the term into the running total without surfacing a row, for movement that
+    // is accounted for by construction and so should not land in Unexplained.
+    var rcAdd = function(label, vals, bucket, hidden) {
       var any = false;
       for (var vi = 0; vi < vals.length; vi++) { if (Math.abs(vals[vi]) > 0.005) { any = true; break; } }
       if (!any) return;
-      rcRows.push({ label: label, vals: vals, bucket: bucket || null });
+      if (!hidden) rcRows.push({ label: label, vals: vals, bucket: bucket || null });
       for (var vj = 0; vj < vals.length; vj++) rcSumVals[vj] += vals[vj];
     };
     // Uncategorised is no longer reconciled here — it is a real expense line above, so it is
@@ -3970,6 +3972,12 @@ function renderTable(opts) {
     rcAdd('Transfers out of liquid accounts', keys.map(function(k) {
       return -rcAct('@TRANSFER', k);
     }), '@TRANSFER');
+    // Deployable Cash Pools is spendable cash already sitting in liquid accounts — assigning to
+    // it is a budget formality with the same outcome as leaving the money in checking. It still
+    // moves the raw gap, so its term is folded in silently to keep it out of Unexplained.
+    rcAdd(CF_POST_NET_LIQUID_GROUP, keys.map(function(k) {
+      return -rcAct(CF_POST_NET_LIQUID_GROUP, k);
+    }), CF_POST_NET_LIQUID_GROUP, true);
     // Whatever the components do not explain (toggle effects, excluded categories, rounding)
     rcAdd('Unexplained', keys.map(function(_, i) { return rcGapVals[i] - rcSumVals[i]; }));
 
