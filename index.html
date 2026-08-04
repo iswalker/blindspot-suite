@@ -928,7 +928,9 @@ td.hbt-num:last-child { width: 13%; }
 .lwtt-driver-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 3px; }
 .lwtt-driver-name { font-size: 12px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
 .lwtt-driver-val { font-size: 12px; font-weight: 600; white-space: nowrap; }
+.lwtt-driver-detail { font-size: 10px; color: #999; margin: -1px 0 5px; white-space: nowrap; }
 .lwtt-drivers-more { font-size: 11px; color: #bbb; margin-top: 2px; }
+.lwtt-asof { font-size: 10px; font-weight: 400; color: #aaa; }
 
 /* ---- LW chart ---- */
 .lw-chart-wrap {
@@ -3910,6 +3912,15 @@ var cfSparklineKeys    = [];
 
 var LW_MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
+// Balances are reconstructed at the CLOSE of a month (acctBalanceAt subtracts every
+// transaction dated after it), so comparisons are always month-end to month-end.
+function lwMonthEndLabel(key) {
+  var kp = key.split('-');
+  var y  = parseInt(kp[0], 10), m = parseInt(kp[1], 10);
+  var last = new Date(y, m, 0).getDate(); // day 0 of the next month = last day of this one
+  return m + '/' + last + '/' + String(y).slice(2);
+}
+
 function showLwTooltip(clientX, clientY, idx, s) {
   var tt = document.getElementById('lw-tooltip');
   if (!tt) return;
@@ -3940,36 +3951,46 @@ function showLwTooltip(clientX, clientY, idx, s) {
     var drivers = [];
     if (isNwChart) {
       // For NW chart: sum all on_budget accounts into one "Liquid Accounts" line
-      var liquidChange = 0;
+      var liquidChange = 0, liquidPrev = 0, liquidCur = 0;
       for (var di = 0; di < s.accounts.length; di++) {
         var a = s.accounts[di];
-        var dCh = acctBalanceAt(a.id, s.keys[idx]) - acctBalanceAt(a.id, s.keys[idx - 1]);
+        var aPrev = acctBalanceAt(a.id, s.keys[idx - 1]);
+        var aCur  = acctBalanceAt(a.id, s.keys[idx]);
+        var dCh   = aCur - aPrev;
         if (a.on_budget) {
-          liquidChange += dCh;
+          liquidChange += dCh; liquidPrev += aPrev; liquidCur += aCur;
         } else {
-          if (Math.abs(dCh) >= 0.5) drivers.push({ name: a.name, change: dCh });
+          if (Math.abs(dCh) >= 0.5) drivers.push({ name: a.name, change: dCh, prev: aPrev, cur: aCur });
         }
       }
-      if (Math.abs(liquidChange) >= 0.5) drivers.push({ name: 'Liquid Accounts', change: liquidChange });
+      if (Math.abs(liquidChange) >= 0.5) {
+        drivers.push({ name: 'Liquid Accounts', change: liquidChange, prev: liquidPrev, cur: liquidCur });
+      }
     } else {
       for (var di = 0; di < s.accounts.length; di++) {
-        var acId = s.accounts[di].id;
-        var dCh  = acctBalanceAt(acId, s.keys[idx]) - acctBalanceAt(acId, s.keys[idx - 1]);
-        if (Math.abs(dCh) >= 0.5) drivers.push({ name: s.accounts[di].name, change: dCh });
+        var acId  = s.accounts[di].id;
+        var acPrev = acctBalanceAt(acId, s.keys[idx - 1]);
+        var acCur  = acctBalanceAt(acId, s.keys[idx]);
+        var dCh    = acCur - acPrev;
+        if (Math.abs(dCh) >= 0.5) {
+          drivers.push({ name: s.accounts[di].name, change: dCh, prev: acPrev, cur: acCur });
+        }
       }
     }
     // Group Student Loan accounts into one line
-    var slTotal = 0, slCount = 0, nonSl = [];
+    var slTotal = 0, slPrev = 0, slCur = 0, slCount = 0, nonSl = [];
     for (var sli = 0; sli < drivers.length; sli++) {
       if (drivers[sli].name.indexOf('Student Loan') !== -1) {
-        slTotal += drivers[sli].change; slCount++;
+        slTotal += drivers[sli].change; slPrev += drivers[sli].prev; slCur += drivers[sli].cur; slCount++;
       } else { nonSl.push(drivers[sli]); }
     }
-    if (slCount > 0) nonSl.push({ name: 'Student Loans', change: slTotal });
+    if (slCount > 0) nonSl.push({ name: 'Student Loans', change: slTotal, prev: slPrev, cur: slCur });
     drivers = nonSl;
     drivers.sort(function(a, b) { return Math.abs(b.change) - Math.abs(a.change); });
     var shown = Math.min(drivers.length, 7);
     if (shown > 0) {
+      var prevDateLbl = lwMonthEndLabel(s.keys[idx - 1]);
+      var curDateLbl  = lwMonthEndLabel(s.keys[idx]);
       driversHtml = '<div class="lwtt-divider"></div><div class="lwtt-drivers-hdr">Change Drivers</div>';
       for (var dj = 0; dj < shown; dj++) {
         var dc     = drivers[dj].change;
@@ -3981,6 +4002,10 @@ function showLwTooltip(clientX, clientY, idx, s) {
         driversHtml += '<div class="lwtt-driver-row">'
           + '<span class="lwtt-driver-name">' + dName + '</span>'
           + '<span class="lwtt-driver-val" style="color:' + dColor + '">' + dAmt + '</span>'
+          + '</div>'
+          + '<div class="lwtt-driver-detail">'
+          + fmtTT(drivers[dj].prev) + ' on ' + prevDateLbl
+          + ' &rarr; ' + fmtTT(drivers[dj].cur) + ' on ' + curDateLbl
           + '</div>';
       }
       if (drivers.length > shown) {
@@ -3990,7 +4015,8 @@ function showLwTooltip(clientX, clientY, idx, s) {
   }
 
   tt.innerHTML =
-    '<div class="lwtt-month">' + monthLbl + '</div>' +
+    '<div class="lwtt-month">' + monthLbl
+      + ' <span class="lwtt-asof">as of ' + lwMonthEndLabel(s.keys[idx]) + '</span></div>' +
     '<div class="lwtt-row"><span class="lwtt-dot" style="background:#3f51b5"></span>' +
       '<div><div class="lwtt-label">Assets</div><div class="lwtt-val">' + fmtTT(s.assetVals[idx]) + '</div></div></div>' +
     '<div class="lwtt-row"><span class="lwtt-dot" style="background:#aaa"></span>' +
