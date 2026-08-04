@@ -1467,6 +1467,11 @@ td.hbt-num:last-child { width: 13%; }
           <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
           Exclude Distribution
         </label>
+        <label class="ios-toggle-wrap">
+          <input type="checkbox" id="lw-exclude-budgeted">
+          <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+          Exclude Budgeted Expenses
+        </label>
         <div id="lw-acct-filter-wrap">
           <button id="lw-acct-filter-btn">Accounts &#9660;</button>
           <div id="lw-acct-filter-panel"></div>
@@ -1643,6 +1648,11 @@ td.hbt-num:last-child { width: 13%; }
         <input type="checkbox" id="ah-exclude-distribution">
         <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
         Exclude Distribution
+      </label>
+      <label class="ios-toggle-wrap">
+        <input type="checkbox" id="ah-exclude-budgeted">
+        <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+        Exclude Budgeted Expenses
       </label>
       <div id="acct-history-acct-wrap">
         <div id="acct-history-acct-group">
@@ -1942,6 +1952,7 @@ var state = {
   lwIncludeCurrent:    localStorage.getItem('lw-include-current') === '1',
   lwExcludeTracking:        localStorage.getItem('lw-exclude-tracking') === '1',
   lwExcludeDistribution:    localStorage.getItem('lw-exclude-distribution') === '1',
+  lwExcludeBudgeted:        localStorage.getItem('lw-exclude-budgeted') === '1',
   leverageExcludeTracking:   localStorage.getItem('leverage-exclude-tracking') === '1',
   leverageExcludeForecasted: localStorage.getItem('leverage-exclude-forecasted') === '1',
   leverageIncludeTbd:        localStorage.getItem('leverage-include-tbd') === '1',
@@ -3108,7 +3119,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
                groupPivot: groupPivot, catPivot: catPivot, activeCats: activeCats,
                regTxns: regTxns, allAccounts: allAccounts,
                allAccountsInfo: allAccountsInfo, lwAccounts: lwAccounts,
-               nwAccounts: nwAccounts, acctTxns: acctTxns, acctTxnsTracking: acctTxnsTracking, acctTrkTxns: acctTrkTxns, acctTxnsList: acctTxnsList, catIdTxns: catIdTxns, catIdToName: catIdToName,
+               nwAccounts: nwAccounts, acctTxns: acctTxns, acctTxnsTracking: acctTxnsTracking, acctTrkTxns: acctTrkTxns, acctTxnsList: acctTxnsList, catIdTxns: catIdTxns, catIdToName: catIdToName, catIdToGroup: catIdToGroup,
                pendingTxns: pendingTxns,
                upcomingRenewals: upcomingRenewals,
                catActivityPivot: catActivityPivot, catAvailPivot: catAvailPivot,
@@ -4500,10 +4511,14 @@ function parseDateSort(s) {
 // Categories with no Holding key are NOT neutralised and must stay in the reconciliation:
 // their overspend is a real discrepancy, not an artefact.
 function rcMappedCatSet() {
-  if (!state.lwExcludeDistribution) return null;
-  var map = lwHoldingMap(), out = {};
+  var map = lwHoldingMap(), out = null;
   for (var aid in map) {
-    for (var i = 0; i < map[aid].length; i++) out[map[aid][i].grp + '||' + map[aid][i].cat] = true;
+    for (var i = 0; i < map[aid].length; i++) {
+      var e = map[aid][i];
+      if (!lwHoldingScopeOn(e.scope)) continue;
+      if (!out) out = {};
+      out[e.grp + '||' + e.cat] = true;
+    }
   }
   return out;
 }
@@ -4812,41 +4827,68 @@ function switchTab(tab) {
 // actually holds that cash. The mapping comes from "<name> Holding" keys in the YNAB Config
 // workbook, whose ID column carries the target Account ID.
 // Rules are evaluated in order; the first match wins.
-var LW_HOLDING_RULES = [
-  { key: 'Tithe Holding',        group: 'Distribution', match: 'Tithe' },
-  { key: 'First Fruits Holding', group: 'Distribution', match: 'First Fruit' },
-  { key: 'Taxes Holding',        group: null,           match: 'Taxes' } // any group
-];
+// Holding rules come from "<name> Holding" rows in the Config workbook, whose ID column
+// carries the target Account ID. These three sit behind Exclude Distribution; every other
+// Holding key is governed by Exclude Budgeted Expenses.
+var LW_DIST_HOLDING_KEYS = { 'Tithe Holding': 1, 'First Fruits Holding': 1, 'Taxes Holding': 1 };
 
 var _lwHoldCache = null, _lwHoldToken = null;
 
-// { acctId: [ { grp, cat }, ... ] } — categories whose reserve sits in that account
+// { acctId: [ { grp, cat, scope }, ... ] } — categories whose reserve sits in that account.
+// Each category is claimed by exactly one rule, so a balance is never deducted twice when
+// rules overlap (e.g. an Escrow category nested inside Base Operations).
 function lwHoldingMap() {
   var token = String(state.loadedAt || 0) + '|' + ((state.catConfig || []).length);
   if (_lwHoldCache && _lwHoldToken === token) return _lwHoldCache;
-  var cfgRows = state.catConfig || [];
-  var acctForKey = {};
-  for (var ri = 0; ri < LW_HOLDING_RULES.length; ri++) {
-    var rKey = LW_HOLDING_RULES[ri].key;
-    for (var ci = 0; ci < cfgRows.length; ci++) {
-      if (cfgRows[ci].usedFor === rKey && cfgRows[ci].id) { acctForKey[rKey] = cfgRows[ci].id; break; }
-    }
+
+  var rules = [], cfgRows = state.catConfig || [];
+  for (var ci = 0; ci < cfgRows.length; ci++) {
+    var cfg = cfgRows[ci];
+    if (!cfg.id || !/ Holding$/.test(cfg.usedFor || '')) continue;
+    rules.push({
+      acctId: cfg.id,
+      ids:    (cfg.assocCatIds && cfg.assocCatIds.length) ? cfg.assocCatIds : null,
+      match:  cfg.usedFor.replace(/ Holding$/, '').trim(),
+      scope:  LW_DIST_HOLDING_KEYS[cfg.usedFor] ? 'dist' : 'budget'
+    });
   }
-  var map   = {};
-  var pivot = ((state.data || {}).catAvailPivot) || {};
+  // catAvailPivot is keyed by name, so resolve "group||category" back to a category ID
+  var idFor = {};
+  var idToName = (state.data || {}).catIdToName  || {};
+  var idToGrp  = (state.data || {}).catIdToGroup || {};
+  for (var cid in idToName) idFor[(idToGrp[cid] || '') + '||' + idToName[cid]] = cid;
+
+  // Specificity tiers: an explicit ID beats a category-name match, which beats a group-name
+  // match. Keyword length only breaks ties within a tier. Ranking by length alone would let a
+  // broad "Base Operations" group match swallow the narrower "Escrow" category rule.
+  var ruleTier = function(rule, grp, cat, ckey) {
+    if (rule.ids) {
+      var cid2 = idFor[ckey];
+      return (cid2 && rule.ids.indexOf(cid2) !== -1) ? 0 : null;
+    }
+    if (!rule.match) return null;
+    if (cat.indexOf(rule.match) !== -1) return 1;
+    if (grp.indexOf(rule.match) !== -1) return 2;
+    return null;
+  };
+
+  var map = {}, pivot = ((state.data || {}).catAvailPivot) || {};
   for (var grp in pivot) {
     for (var cat in pivot[grp]) {
-      for (var rj = 0; rj < LW_HOLDING_RULES.length; rj++) {
-        var rule = LW_HOLDING_RULES[rj];
-        if (rule.group && grp !== rule.group) continue;
-        if (cat.indexOf(rule.match) === -1) continue;
-        var aid = acctForKey[rule.key];
-        if (aid) {
-          if (!map[aid]) map[aid] = [];
-          map[aid].push({ grp: grp, cat: cat });
+      var ckey = grp + '||' + cat;
+      var best = null, bestTier = null;
+      for (var ri = 0; ri < rules.length; ri++) {
+        var tier = ruleTier(rules[ri], grp, cat, ckey);
+        if (tier === null) continue;
+        if (bestTier === null || tier < bestTier ||
+            (tier === bestTier && rules[ri].match.length > best.match.length)) {
+          best = rules[ri]; bestTier = tier;
         }
-        break; // first matching rule wins, mapped or not
       }
+      // Exactly one rule claims each category, so a balance is never deducted twice
+      if (!best) continue;
+      if (!map[best.acctId]) map[best.acctId] = [];
+      map[best.acctId].push({ grp: grp, cat: cat, scope: best.scope });
     }
   }
   _lwHoldToken = token;
@@ -4854,17 +4896,24 @@ function lwHoldingMap() {
   return map;
 }
 
-// Leftover Available held in acctId at monthKey. Summed across that account's mapped
-// categories then floored at 0, so an overspent category cannot offset a funded one.
+function lwHoldingScopeOn(scope) {
+  return scope === 'dist' ? !!state.lwExcludeDistribution : !!state.lwExcludeBudgeted;
+}
+
+// Leftover Available held in acctId at monthKey, for whichever scopes are toggled on. Each
+// scope is floored at 0 separately so an overspend in one cannot offset a surplus in the other.
 function lwHoldingReserve(acctId, monthKey) {
   var entries = lwHoldingMap()[acctId];
   if (!entries || !entries.length) return 0;
   var pivot = ((state.data || {}).catAvailPivot) || {};
-  var sum = 0;
+  var distSum = 0, budgetSum = 0;
   for (var i = 0; i < entries.length; i++) {
-    sum += (((pivot[entries[i].grp] || {})[entries[i].cat] || {})[monthKey] || 0);
+    var e = entries[i];
+    if (!lwHoldingScopeOn(e.scope)) continue;
+    var av = (((pivot[e.grp] || {})[e.cat] || {})[monthKey] || 0);
+    if (e.scope === 'dist') distSum += av; else budgetSum += av;
   }
-  return Math.max(0, sum);
+  return Math.max(0, distSum) + Math.max(0, budgetSum);
 }
 
 function acctBalanceAt(acctId, monthKey) {
@@ -4879,9 +4928,8 @@ function acctBalanceAt(acctId, monthKey) {
       if (k2 <= monthKey) bal -= trk[k2];
     }
   }
-  if (state.lwExcludeDistribution) {
-    bal -= lwHoldingReserve(acctId, monthKey);
-  }
+  // Returns 0 when neither holding toggle is on, so this is safe unconditionally
+  bal -= lwHoldingReserve(acctId, monthKey);
   return bal;
 }
 
@@ -4940,7 +4988,9 @@ function syncExclusionToggles() {
     ['lw-exclude-tracking',     'lwExcludeTracking'],
     ['ah-exclude-tracking',     'lwExcludeTracking'],
     ['lw-exclude-distribution', 'lwExcludeDistribution'],
-    ['ah-exclude-distribution', 'lwExcludeDistribution']
+    ['ah-exclude-distribution', 'lwExcludeDistribution'],
+    ['lw-exclude-budgeted',     'lwExcludeBudgeted'],
+    ['ah-exclude-budgeted',     'lwExcludeBudgeted']
   ];
   for (var i = 0; i < pairs.length; i++) {
     var el = document.getElementById(pairs[i][0]);
@@ -9787,6 +9837,12 @@ document.addEventListener('DOMContentLoaded', function() {
   });
   document.getElementById('ah-exclude-distribution').addEventListener('change', function() {
     applyExclusionToggle('lwExcludeDistribution', 'lw-exclude-distribution', this.checked);
+  });
+  document.getElementById('lw-exclude-budgeted').addEventListener('change', function() {
+    applyExclusionToggle('lwExcludeBudgeted', 'lw-exclude-budgeted', this.checked);
+  });
+  document.getElementById('ah-exclude-budgeted').addEventListener('change', function() {
+    applyExclusionToggle('lwExcludeBudgeted', 'lw-exclude-budgeted', this.checked);
   });
 
   // NW range filter
