@@ -3976,7 +3976,7 @@ function renderTable(opts) {
     // side is not then reported here as unaccounted for.
     var rcMapped = rcMappedCatSet();
     var rcAct = function(bucket, k) {
-      if (bucket.charAt(0) !== '@') {
+      if (bucket.charAt(0) !== '@' && EXPENSE_GROUPS.indexOf(bucket) !== -1) {
         // Sum the per-category figures so the group total and its rows cannot disagree
         var byCat = rcActByCat(bucket, k), s2 = 0;
         for (var c in byCat) s2 += byCat[c];
@@ -4037,7 +4037,10 @@ function renderTable(opts) {
     // tracking is a property of the category name, and holding rules map whole categories.
     var rcActByCat = function(bucket, k) {
       var out = {};
-      if (bucket.charAt(0) === '@') { // synthetic buckets have no category-level counterpart
+      // catActivityPivot only covers EXPENSE_GROUPS, so synthetic buckets AND untracked groups
+      // (Closing Loops, Zzz. Archive, …) must keep the transaction path — routing them through
+      // the pivot silently returned zero and dumped their contribution into Unexplained.
+      if (bucket.charAt(0) === '@' || EXPENSE_GROUPS.indexOf(bucket) === -1) {
         var list = rcFilterTxns((rcTxnAll[bucket] || {})[k] || [], bucket);
         for (var i = 0; i < list.length; i++) {
           out[list[i].category] = (out[list[i].category] || 0) + list[i].amt;
@@ -4109,6 +4112,19 @@ function renderTable(opts) {
       }
       return out;
     };
+    // Category activity sitting in excluded accounts (e.g. Planned~). YNAB counts it toward the
+    // category, the Liquid Balances side cannot see it, so it belongs on its own line rather
+    // than inflating the group's budget variance.
+    var rcNonLiqByCat = function(grp, k) {
+      var src = ((d.nonLiqCatAct || {})[grp]) || {}, out = {};
+      for (var cat in src) {
+        if (state.lwExcludeTracking && cat.slice(-1) === '~') continue;
+        if (rcMapped && rcMapped[grp + '||' + cat]) continue;
+        var v = src[cat][k] || 0;
+        if (!isZeroish(v)) out[cat] = v;
+      }
+      return out;
+    };
     var rcAdd = function(label, vals, bucket, hidden, cats) {
       if (!rcNonZero(vals)) return;
       if (!hidden) rcRows.push({ label: label, vals: vals, bucket: bucket || null, cats: cats || null });
@@ -4118,7 +4134,7 @@ function renderTable(opts) {
     // already inside Net Liquid and would double-count if repeated as a gap component.
     // Carry-funded spend is resolved up front so Previously Budgeted can lead the list; the
     // tracked-group loop below reuses rcCarry rather than recomputing it.
-    var rcCarry = {}, pbCats = {}, pbTotals = keys.map(function() { return 0; });
+    var rcCarry = {}, rcNonLiq = {}, pbCats = {}, pbTotals = keys.map(function() { return 0; });
     for (var pgi = 0; pgi < EXPENSE_GROUPS.length; pgi++) {
       (function(grp) {
         var byKey = keys.map(function(k) { return rcCarryByCat(grp, k); });
@@ -4139,6 +4155,26 @@ function renderTable(opts) {
       Object.keys(pbCats).sort().map(function(l) { return { label: l, vals: pbCats[l] }; })
         .filter(function(r) { return rcNonZero(r.vals); }));
 
+    // Activity YNAB attributes to a category but which landed in an excluded account
+    var plCats = {}, plTotals = keys.map(function() { return 0; });
+    for (var pli = 0; pli < EXPENSE_GROUPS.length; pli++) {
+      (function(grp) {
+        var byKey = keys.map(function(k) { return rcNonLiqByCat(grp, k); });
+        rcNonLiq[grp] = byKey;
+        for (var i = 0; i < keys.length; i++) {
+          for (var c in byKey[i]) {
+            plTotals[i] += byKey[i][c];
+            var lbl = grp + ': ' + c;
+            if (!plCats[lbl]) plCats[lbl] = keys.map(function() { return 0; });
+            plCats[lbl][i] += byKey[i][c];
+          }
+        }
+      })(EXPENSE_GROUPS[pli]);
+    }
+    rcAdd('Still in Planned Account', plTotals, null, false,
+      Object.keys(plCats).sort().map(function(l) { return { label: l, vals: plCats[l] }; })
+        .filter(function(r) { return rcNonZero(r.vals); }));
+
     // Income recognised by Cash Flow but not landing in liquid accounts
     rcAdd('Income not in liquid accounts', keys.map(function(k, i) {
       return incomeVals[i] - rcAct('@INCOME', k);
@@ -4150,15 +4186,22 @@ function renderTable(opts) {
         var carryTot   = carryByKey.map(function(mp) {
           var s = 0; for (var c in mp) s += mp[c]; return s;
         });
+        // Reported on its own line above, so peel it off to leave the pure budget variance
+        var nlByKey = rcNonLiq[grp] || keys.map(function() { return {}; });
+        var nlTot   = nlByKey.map(function(mp) {
+          var s = 0; for (var c in mp) s += mp[c]; return s;
+        });
         // Group total stays the direct computation so it cannot drift from the click-through;
         // only the carry-funded portion is peeled off.
         var vals = keys.map(function(k, i) {
-          return -rcAct(grp, k) - rcAssigned(grp, i, k) - carryTot[i];
+          return -rcAct(grp, k) - rcAssigned(grp, i, k) - carryTot[i] - nlTot[i];
         });
         var cats = rcCatRows(grp, true).map(function(r) {
           return {
             label: r.label,
-            vals:  r.vals.map(function(v, i) { return v - (carryByKey[i][r.label] || 0); })
+            vals:  r.vals.map(function(v, i) {
+              return v - (carryByKey[i][r.label] || 0) - (nlByKey[i][r.label] || 0);
+            })
           };
         }).filter(function(r) { return rcNonZero(r.vals); });
         rcAdd(grp + ' — assigned vs spend', vals, grp, false, cats);
