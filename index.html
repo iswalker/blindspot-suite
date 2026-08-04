@@ -2119,6 +2119,18 @@ function heatColor3(val, lo, rowAvg, hi, isExpense) {
   }
 }
 
+// Sign-based shading for rows that straddle zero, where the heat scale would mislead by
+// colouring relative to the row's own range instead of by direction.
+function divergeColor(v, posHi, negHi) {
+  if (v === 0) return '';
+  if (v > 0) {
+    var pt = posHi > 0 ? v / posHi : 0;
+    return 'hsl(121,' + Math.round(pt * 38) + '%,' + Math.round(100 - pt * 34) + '%)';
+  }
+  var t = negHi > 0 ? Math.abs(v) / negHi : 0;
+  return 'hsl(3,' + Math.round(t * 66) + '%,' + Math.round(100 - t * 28) + '%)';
+}
+
 // Diverging heatmap for net/margin rows: green for positives, red for negatives
 function valCellsNet(vals, avg, pctRef, keys) {
   var posVals    = vals.filter(function(v) { return v > 0; });
@@ -3566,10 +3578,20 @@ function renderTable(opts) {
 
   // Helper: generate value cells
   // type: 'income' | 'group' | 'cat' | 'total-exp' | '' (non-clickable)
-  function valCells(vals, avg, neg, type, gi, ci, pctRef, avgNote) {
+  function valCells(vals, avg, neg, type, gi, ci, pctRef, avgNote, diverge) {
     var clickable = !!type;
     var shading   = state.rowShading;
     var h = '';
+
+    // Diverging rows colour by the direction of the displayed value, not by row-relative heat
+    var dPosHi = 0, dNegHi = 0;
+    if (diverge) {
+      for (var dvi = 0; dvi < vals.length; dvi++) {
+        var dv = neg ? -vals[dvi] : vals[dvi];
+        if (dv > dPosHi)  dPosHi = dv;
+        if (-dv > dNegHi) dNegHi = -dv;
+      }
+    }
 
     // Shading mode: compute per-row heat range
     var rowLo, rowAvg, rowHi;
@@ -3586,7 +3608,9 @@ function renderTable(opts) {
     for (var vi = 0; vi < vals.length; vi++) {
       var v   = neg ? -vals[vi] : vals[vi];
       var raw = vals[vi];
-      var bg  = (shading && raw !== 0) ? heatColor3(raw, rowLo, rowAvg, rowHi, neg) : '';
+      var bg  = (shading && raw !== 0)
+        ? (diverge ? divergeColor(v, dPosHi, dNegHi) : heatColor3(raw, rowLo, rowAvg, rowHi, neg))
+        : '';
       var tdOpen = clickable
         ? '<td class="clickable" data-month="' + keys[vi] + '" data-type="' + type + '"' +
           (gi !== undefined ? ' data-gi="' + gi + '"' : '') +
@@ -3613,7 +3637,8 @@ function renderTable(opts) {
       ? ' data-sp-vals="' + escAttr(JSON.stringify(vals)) + '"' + (neg ? ' data-sp-neg="1"' : '')
       : '';
     if (shading) {
-      var avgBg = avg !== 0 ? heatColor3(avg, rowLo, rowAvg, rowHi, neg) : '';
+      var avgBg = avg === 0 ? ''
+        : (diverge ? divergeColor(avgV, dPosHi, dNegHi) : heatColor3(avg, rowLo, rowAvg, rowHi, neg));
       h += '<td class="avg-col"' + spAttr + '>' + avgPctStr + avgNoteSuffix + fmtShadedPill(avgV, avgBg) + '</td>';
     } else {
       h += '<td class="avg-col"' + spAttr + '>' + avgPctStr + avgNoteSuffix + fmtMoney(avgV) + '</td>';
@@ -3926,7 +3951,8 @@ function renderTable(opts) {
     html += '<tr class="row-spacer"><td></td>' + emptyCells() + '</tr>';
     html += '<tr class="sec-hdr"><td>Reconciliation</td>' + emptyCells() + '</tr>';
     html += '<tr class="data-row"><td>Actual Liquid Change</td>'
-          + valCells(rcActualVals, mean(rcActualVals), false, '') + '</tr>';
+          + valCells(rcActualVals, mean(rcActualVals), false, '',
+                     undefined, undefined, undefined, undefined, true) + '</tr>';
 
     // Build bridge components. Sign convention: each term is what it adds to the gap
     // (gap = Net Liquid - Actual Liquid Change).
@@ -3949,7 +3975,7 @@ function renderTable(opts) {
     // Tracked groups: actual liquid spend vs assignment
     for (var rgi = 0; rgi < EXPENSE_GROUPS.length; rgi++) {
       (function(grp) {
-        rcAdd(grp + ' — spend vs assigned', keys.map(function(k, i) {
+        rcAdd(grp + ' — assigned vs spend', keys.map(function(k, i) {
           return -rcAct(grp, k) - rcAssigned(grp, i, k);
         }), grp);
       })(EXPENSE_GROUPS[rgi]);
@@ -3988,7 +4014,8 @@ function renderTable(opts) {
       : '<span class="grp-arrow"></span> ';
     html += '<tr class="data-row exp-group' + (rcIsExp ? ' grp-bordered' : '') + '" ' + rcAttr + '>';
     html += '<td>' + rcArrow + 'Cash Flow vs. Actual Gap</td>';
-    html += valCells(rcGapVals, mean(rcGapVals), false, '');
+    html += valCells(rcGapVals, mean(rcGapVals), true, '',
+                     undefined, undefined, undefined, undefined, true);
     html += '</tr>';
     cfReconBuckets = [];
     for (var rri = 0; rri < rcRows.length; rri++) {
@@ -3997,11 +4024,15 @@ function renderTable(opts) {
             + (rri === rcRows.length - 1 ? ' cat-row-last' : '') + '" ' + rcAttr
             + ' style="' + (rcIsExp ? '' : 'display:none') + '">';
       html += '<td>' + rcR.label + '</td>';
+      // neg: a positive contribution means Cash Flow overstated cash, so it reads as an
+      // outflow. diverge: colour by direction — shortfall red, over-assignment green.
       if (rcR.bucket) {
         cfReconBuckets.push({ bucket: rcR.bucket, label: rcR.label });
-        html += valCells(rcR.vals, mean(rcR.vals), false, 'recon', cfReconBuckets.length - 1);
+        html += valCells(rcR.vals, mean(rcR.vals), true, 'recon',
+                         cfReconBuckets.length - 1, undefined, undefined, undefined, true);
       } else {
-        html += valCells(rcR.vals, mean(rcR.vals), false, '');
+        html += valCells(rcR.vals, mean(rcR.vals), true, '',
+                         undefined, undefined, undefined, undefined, true);
       }
       html += '</tr>';
     }
