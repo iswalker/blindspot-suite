@@ -4017,6 +4017,29 @@ function renderTable(opts) {
       });
       return rows;
     };
+    // Spend beyond this month's assignment that a prior month's leftover Available already
+    // covers. Splitting it out stops a planned drawdown reading as a current-budget overspend.
+    // Categories neutralised by a holding rule are skipped, since their reserve release on the
+    // balance side already accounts for the drawdown.
+    var rcCarryByCat = function(grp, k) {
+      var out  = {};
+      var acts = rcActByCat(grp, k);
+      var cp   = (d.catPivot || {})[grp] || {};
+      var ap   = (d.catAvailPivot || {})[grp] || {};
+      var pk   = rcPrevKey(k);
+      var cats = {};
+      for (var ca in acts) cats[ca] = 1;
+      for (var cb in cp)   cats[cb] = 1;
+      for (var cat in cats) {
+        if (rcMapped && rcMapped[grp + '||' + cat]) continue;
+        if (EXCLUDE_CAT_NAMES[cat]) continue;
+        var excess = -(acts[cat] || 0) - ((cp[cat] || {})[k] || 0); // spend - assigned
+        if (excess <= 0.005) continue;
+        var carry = Math.min(excess, Math.max(0, (ap[cat] || {})[pk] || 0));
+        if (carry > 0.005) out[cat] = carry;
+      }
+      return out;
+    };
     var rcAdd = function(label, vals, bucket, hidden, cats) {
       if (!rcNonZero(vals)) return;
       if (!hidden) rcRows.push({ label: label, vals: vals, bucket: bucket || null, cats: cats || null });
@@ -4028,14 +4051,41 @@ function renderTable(opts) {
     rcAdd('Income not in liquid accounts', keys.map(function(k, i) {
       return incomeVals[i] - rcAct('@INCOME', k);
     }), '@INCOME');
-    // Tracked groups: actual liquid spend vs assignment
+    // Tracked groups: actual liquid spend vs assignment, less anything a prior month funded
+    var pbCats = {}, pbTotals = keys.map(function() { return 0; });
     for (var rgi = 0; rgi < EXPENSE_GROUPS.length; rgi++) {
       (function(grp) {
-        rcAdd(grp + ' — assigned vs spend', keys.map(function(k, i) {
-          return -rcAct(grp, k) - rcAssigned(grp, i, k);
-        }), grp, false, rcCatRows(grp, true));
+        var carryByKey = keys.map(function(k) { return rcCarryByCat(grp, k); });
+        var carryTot   = carryByKey.map(function(mp) {
+          var s = 0; for (var c in mp) s += mp[c]; return s;
+        });
+        // Group total stays the direct computation so it cannot drift from the click-through;
+        // only the carry-funded portion is peeled off.
+        var vals = keys.map(function(k, i) {
+          return -rcAct(grp, k) - rcAssigned(grp, i, k) - carryTot[i];
+        });
+        var cats = rcCatRows(grp, true).map(function(r) {
+          return {
+            label: r.label,
+            vals:  r.vals.map(function(v, i) { return v - (carryByKey[i][r.label] || 0); })
+          };
+        }).filter(function(r) { return rcNonZero(r.vals); });
+        rcAdd(grp + ' — assigned vs spend', vals, grp, false, cats);
+        for (var i2 = 0; i2 < keys.length; i2++) {
+          pbTotals[i2] += carryTot[i2];
+          for (var c3 in carryByKey[i2]) {
+            var lbl = grp + ': ' + c3;
+            if (!pbCats[lbl]) pbCats[lbl] = keys.map(function() { return 0; });
+            pbCats[lbl][i2] += carryByKey[i2][c3];
+          }
+        }
       })(EXPENSE_GROUPS[rgi]);
     }
+    // Drawdown of earlier months' assignments. Empties out for categories covered by a holding
+    // rule while Exclude Budgeted Expenses is on, since those were already written off.
+    rcAdd('Previously Budgeted', pbTotals, null, false,
+      Object.keys(pbCats).sort().map(function(l) { return { label: l, vals: pbCats[l] }; })
+        .filter(function(r) { return rcNonZero(r.vals); }));
     // Groups Cash Flow never subtracts
     var rcUntrackedKeys = Object.keys(rcTxnAll).filter(function(g) {
       return g.charAt(0) !== '@' && g !== CF_POST_NET_LIQUID_GROUP
