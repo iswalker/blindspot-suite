@@ -1893,6 +1893,9 @@ var EXCLUDE_GROUPS = {
   'Tracking': 1, 'Zzz. Archive': 1, 'Inflow': 1, 'Hidden Categories': 1
 };
 var EXCLUDE_CAT_NAMES = {'Large Bills Liquidity   [Financial]$': true};
+// Rendered directly beneath Net Liquid rather than in the Other section, and omitted from the
+// reconciliation breakout since it is visible in its own right.
+var CF_POST_NET_LIQUID_GROUP = 'Deployable Cash Pools';
 
 var LIQUID_TYPES = { checking: 1, savings: 1, cash: 1, creditCard: 1, lineOfCredit: 1 };
 // Pending category rules are loaded from Config.csv at runtime (see parseConfigCsv / state.catConfig).
@@ -3836,9 +3839,45 @@ function renderTable(opts) {
     html += '</tr>';
   }
 
+  // Groups outside EXPENSE_GROUPS. Deployable Cash Pools is surfaced directly under Net Liquid
+  // (mirroring Non-Liquid Savings under Net Cash Flow); the rest fall into the Other section.
+  var otherGrpPivot = d.otherGroupPivot || {};
+  var otherCtPivot  = d.otherCatPivot   || {};
+  var otherActCats  = d.otherActiveCats || {};
+  var otherGrpHasData = function(g) {
+    for (var i = 0; i < keys.length; i++) { if ((otherGrpPivot[g] || {})[keys[i]]) return true; }
+    return false;
+  };
+  var renderOtherGroupBlock = function(oGrp) {
+    var oVals    = keys.map(function(k) { return (otherGrpPivot[oGrp] || {})[k] || 0; });
+    var oCats    = otherActCats[oGrp] || [];
+    var oIsExp   = !!state.expanded[oGrp];
+    var oAttr    = 'data-other-group="' + oGrp.replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '"';
+    var oArrow   = oCats.length
+      ? '<span class="grp-arrow" ' + oAttr + '>' + (oIsExp ? '&#9660;' : '&#9654;') + '</span> '
+      : '<span class="grp-arrow"></span> ';
+    var out = '<tr class="data-row exp-group' + (oIsExp ? ' grp-bordered' : '') + '" ' + oAttr + '>'
+            + '<td>' + oArrow + oGrp + '</td>' + valCells(oVals, mean(oVals), true) + '</tr>';
+    for (var ci3 = 0; ci3 < oCats.length; ci3++) {
+      var ocat   = oCats[ci3];
+      var ocVals = (function(c) {
+        return keys.map(function(k) { return ((otherCtPivot[oGrp] || {})[c] || {})[k] || 0; });
+      })(ocat);
+      out += '<tr class="cat-row' + (oIsExp ? ' cat-row-bordered' : '')
+           + (ci3 === oCats.length - 1 ? ' cat-row-last' : '') + '" ' + oAttr
+           + ' style="' + (oIsExp ? '' : 'display:none') + '">'
+           + '<td>' + ocat + '</td>' + valCells(ocVals, mean(ocVals), true) + '</tr>';
+    }
+    return out;
+  };
+
   // Net Liquid = Net Cash Flow - Non-Liquid Savings
   html += '<tr class="row-spacer"><td></td>' + emptyCells() + '</tr>';
   html += '<tr class="net-val"><td>Net Liquid</td>' + netValCells(netVals, avgNet) + '</tr>';
+
+  if (otherGrpHasData(CF_POST_NET_LIQUID_GROUP)) {
+    html += renderOtherGroupBlock(CF_POST_NET_LIQUID_GROUP);
+  }
 
   // ---- Reconciliation: bridge assignment-based Net Liquid to actual liquid balance change ----
   // Net Liquid is assignment-driven; the Liquid Balances tab is transaction-driven over a
@@ -3915,7 +3954,8 @@ function renderTable(opts) {
     }
     // Groups Cash Flow never subtracts
     var rcUntrackedKeys = Object.keys(rcTxnAll).filter(function(g) {
-      return g.charAt(0) !== '@' && EXPENSE_GROUPS.indexOf(g) === -1;
+      return g.charAt(0) !== '@' && g !== CF_POST_NET_LIQUID_GROUP
+          && EXPENSE_GROUPS.indexOf(g) === -1;
     });
     for (var rui = 0; rui < rcUntrackedKeys.length; rui++) {
       (function(grp) {
@@ -3983,48 +4023,15 @@ function renderTable(opts) {
     html += '<tr class="data-row"><td>Last Month Liquid Balances</td>' + valCells(lwPrevVals, mean(lwPrevVals), false, '') + '</tr>';
   }
 
-  // Other groups — not in EXPENSE_GROUPS, not Hidden Categories
-  var otherGrpPivot  = d.otherGroupPivot  || {};
-  var otherCtPivot   = d.otherCatPivot    || {};
-  var otherActCats   = d.otherActiveCats  || {};
-  var otherGrpNames  = Object.keys(otherGrpPivot).sort();
-  var otherGrpWithData = [];
-  for (var ogi = 0; ogi < otherGrpNames.length; ogi++) {
-    var ogn = otherGrpNames[ogi];
-    var ogHasData = false;
-    for (var ogki = 0; ogki < keys.length; ogki++) {
-      if ((otherGrpPivot[ogn] || {})[keys[ogki]]) { ogHasData = true; break; }
-    }
-    if (ogHasData) otherGrpWithData.push(ogn);
-  }
+  // Remaining non-EXPENSE_GROUPS groups; Deployable Cash Pools already rendered under Net Liquid
+  var otherGrpWithData = Object.keys(otherGrpPivot).sort().filter(function(g) {
+    return g !== CF_POST_NET_LIQUID_GROUP && otherGrpHasData(g);
+  });
   if (otherGrpWithData.length > 0) {
     html += '<tr class="row-spacer"><td></td>' + emptyCells() + '</tr>';
     html += '<tr class="sec-hdr"><td>Other</td>' + emptyCells() + '</tr>';
     for (var ogi2 = 0; ogi2 < otherGrpWithData.length; ogi2++) {
-      var oGrp    = otherGrpWithData[ogi2];
-      var oVals   = (function(g) { return keys.map(function(k) { return (otherGrpPivot[g] || {})[k] || 0; }); })(oGrp);
-      var oAvg    = mean(oVals);
-      var oCats   = otherActCats[oGrp] || [];
-      var oIsExp  = !!state.expanded[oGrp];
-      var oHasCats = oCats.length > 0;
-      var oAttr   = 'data-other-group="' + oGrp.replace(/&/g,'&amp;').replace(/"/g,'&quot;') + '"';
-      var oArrow  = oHasCats
-        ? '<span class="grp-arrow" ' + oAttr + '>' + (oIsExp ? '&#9660;' : '&#9654;') + '</span> '
-        : '<span class="grp-arrow"></span> ';
-      html += '<tr class="data-row exp-group' + (oIsExp ? ' grp-bordered' : '') + '" ' + oAttr + '>';
-      html += '<td>' + oArrow + oGrp + '</td>';
-      html += valCells(oVals, oAvg, true);
-      html += '</tr>';
-      for (var ocii = 0; ocii < oCats.length; ocii++) {
-        var ocat    = oCats[ocii];
-        var ocVals  = (function(g, c) { return keys.map(function(k) { return ((otherCtPivot[g] || {})[c] || {})[k] || 0; }); })(oGrp, ocat);
-        var ocAvg   = mean(ocVals);
-        var isLastO = ocii === oCats.length - 1;
-        html += '<tr class="cat-row' + (oIsExp ? ' cat-row-bordered' : '') + (isLastO ? ' cat-row-last' : '') + '" ' + oAttr + ' style="' + (oIsExp ? '' : 'display:none') + '">';
-        html += '<td>' + ocat + '</td>';
-        html += valCells(ocVals, ocAvg, true);
-        html += '</tr>';
-      }
+      html += renderOtherGroupBlock(otherGrpWithData[ogi2]);
     }
   }
 
