@@ -2081,12 +2081,15 @@ function keyLabel(k) {
 function fmtAbs(v) {
   return '$' + Math.abs(v).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
+// Anything rounding to $0.00 is treated as zero, so residual float dust cannot render as a
+// signed, shaded value. Exact === 0 checks let -0.004 through as a red "-$0.00".
+function isZeroish(v) { return !(Math.abs(v) >= 0.005); }
 function fmtMoney(v) {
-  if (v === 0) return '<span class="zero">$0.00</span>';
+  if (isZeroish(v)) return '<span class="zero">$0.00</span>';
   return '<span class="' + (v > 0 ? 'pos' : 'neg') + '">' + (v < 0 ? '-' : '') + fmtAbs(v) + '</span>';
 }
 function fmtExpense(v) {
-  if (v === 0) return '<span class="zero">$0.00</span>';
+  if (isZeroish(v)) return '<span class="zero">$0.00</span>';
   return '<span class="neg">-' + fmtAbs(v) + '</span>';
 }
 function mean(arr) {
@@ -2103,11 +2106,11 @@ function stdDev(arr) {
 // ---- Row-shading helpers (used when state.rowShading === true) ----
 
 function fmtPlain(v) {
-  if (v === 0) return '<span class="zero">$0.00</span>';
+  if (isZeroish(v)) return '<span class="zero">$0.00</span>';
   return (v < 0 ? '-' : '') + fmtAbs(v);
 }
 function fmtShadedPill(v, bg) {
-  if (v === 0) return '<span class="zero">$0.00</span>';
+  if (isZeroish(v)) return '<span class="zero">$0.00</span>';
   var txt = (v < 0 ? '-' : '') + fmtAbs(v);
   if (!bg) return txt;
   return '<span style="background:' + bg + ';border-radius:4px;padding:2px 7px;display:inline-block">' + txt + '</span>';
@@ -2135,7 +2138,7 @@ function heatColor3(val, lo, rowAvg, hi, isExpense) {
 // Sign-based shading for rows that straddle zero, where the heat scale would mislead by
 // colouring relative to the row's own range instead of by direction.
 function divergeColor(v, posHi, negHi) {
-  if (v === 0) return '';
+  if (isZeroish(v)) return '';
   if (v > 0) {
     var pt = posHi > 0 ? v / posHi : 0;
     return 'hsl(121,' + Math.round(pt * 38) + '%,' + Math.round(100 - pt * 34) + '%)';
@@ -3621,7 +3624,7 @@ function renderTable(opts) {
     for (var vi = 0; vi < vals.length; vi++) {
       var v   = neg ? -vals[vi] : vals[vi];
       var raw = vals[vi];
-      var bg  = (shading && raw !== 0)
+      var bg  = (shading && !isZeroish(raw))
         ? (diverge ? divergeColor(v, dPosHi, dNegHi) : heatColor3(raw, rowLo, rowAvg, rowHi, neg))
         : '';
       var tdOpen = clickable
@@ -3650,7 +3653,7 @@ function renderTable(opts) {
       ? ' data-sp-vals="' + escAttr(JSON.stringify(vals)) + '"' + (neg ? ' data-sp-neg="1"' : '')
       : '';
     if (shading) {
-      var avgBg = avg === 0 ? ''
+      var avgBg = isZeroish(avg) ? ''
         : (diverge ? divergeColor(avgV, dPosHi, dNegHi) : heatColor3(avg, rowLo, rowAvg, rowHi, neg));
       h += '<td class="avg-col"' + spAttr + '>' + avgPctStr + avgNoteSuffix + fmtShadedPill(avgV, avgBg) + '</td>';
     } else {
@@ -4047,15 +4050,37 @@ function renderTable(opts) {
     };
     // Uncategorised is no longer reconciled here — it is a real expense line above, so it is
     // already inside Net Liquid and would double-count if repeated as a gap component.
+    // Carry-funded spend is resolved up front so Previously Budgeted can lead the list; the
+    // tracked-group loop below reuses rcCarry rather than recomputing it.
+    var rcCarry = {}, pbCats = {}, pbTotals = keys.map(function() { return 0; });
+    for (var pgi = 0; pgi < EXPENSE_GROUPS.length; pgi++) {
+      (function(grp) {
+        var byKey = keys.map(function(k) { return rcCarryByCat(grp, k); });
+        rcCarry[grp] = byKey;
+        for (var i = 0; i < keys.length; i++) {
+          for (var c in byKey[i]) {
+            pbTotals[i] += byKey[i][c];
+            var lbl = grp + ': ' + c;
+            if (!pbCats[lbl]) pbCats[lbl] = keys.map(function() { return 0; });
+            pbCats[lbl][i] += byKey[i][c];
+          }
+        }
+      })(EXPENSE_GROUPS[pgi]);
+    }
+    // Drawdown of earlier months' assignments. Empties out for categories covered by a holding
+    // rule while Exclude Budgeted Expenses is on, since those were already written off.
+    rcAdd('Previously Budgeted', pbTotals, null, false,
+      Object.keys(pbCats).sort().map(function(l) { return { label: l, vals: pbCats[l] }; })
+        .filter(function(r) { return rcNonZero(r.vals); }));
+
     // Income recognised by Cash Flow but not landing in liquid accounts
     rcAdd('Income not in liquid accounts', keys.map(function(k, i) {
       return incomeVals[i] - rcAct('@INCOME', k);
     }), '@INCOME');
     // Tracked groups: actual liquid spend vs assignment, less anything a prior month funded
-    var pbCats = {}, pbTotals = keys.map(function() { return 0; });
     for (var rgi = 0; rgi < EXPENSE_GROUPS.length; rgi++) {
       (function(grp) {
-        var carryByKey = keys.map(function(k) { return rcCarryByCat(grp, k); });
+        var carryByKey = rcCarry[grp] || keys.map(function() { return {}; });
         var carryTot   = carryByKey.map(function(mp) {
           var s = 0; for (var c in mp) s += mp[c]; return s;
         });
@@ -4071,21 +4096,8 @@ function renderTable(opts) {
           };
         }).filter(function(r) { return rcNonZero(r.vals); });
         rcAdd(grp + ' — assigned vs spend', vals, grp, false, cats);
-        for (var i2 = 0; i2 < keys.length; i2++) {
-          pbTotals[i2] += carryTot[i2];
-          for (var c3 in carryByKey[i2]) {
-            var lbl = grp + ': ' + c3;
-            if (!pbCats[lbl]) pbCats[lbl] = keys.map(function() { return 0; });
-            pbCats[lbl][i2] += carryByKey[i2][c3];
-          }
-        }
       })(EXPENSE_GROUPS[rgi]);
     }
-    // Drawdown of earlier months' assignments. Empties out for categories covered by a holding
-    // rule while Exclude Budgeted Expenses is on, since those were already written off.
-    rcAdd('Previously Budgeted', pbTotals, null, false,
-      Object.keys(pbCats).sort().map(function(l) { return { label: l, vals: pbCats[l] }; })
-        .filter(function(r) { return rcNonZero(r.vals); }));
     // Groups Cash Flow never subtracts
     var rcUntrackedKeys = Object.keys(rcTxnAll).filter(function(g) {
       return g.charAt(0) !== '@' && g !== CF_POST_NET_LIQUID_GROUP
