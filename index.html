@@ -349,6 +349,7 @@ tr.cat-row-bordered.cat-row-last > td { border-bottom: 2px solid #777; }
 .cat-row .avg-col { background: #f3f3ef; }
 /* Nested one level below .cat-row (54px), so it must indent further, not less */
 .recon-cat-row td:first-child { padding-left: 72px; color: #777; }
+.holding-warn { font-size: 11px; color: #b26a00; white-space: nowrap; }
 .cat-row:hover td { background: #f2f2ee; }
 .cat-row:hover td:first-child { background: #f2f2ee; }
 .cat-row:hover .avg-col { background: #eeeee9; }
@@ -1473,6 +1474,7 @@ td.hbt-num:last-child { width: 13%; }
           <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
           Exclude Budgeted Expenses
         </label>
+        <span class="holding-warn" id="lw-holding-warn"></span>
         <div id="lw-acct-filter-wrap">
           <button id="lw-acct-filter-btn">Accounts &#9660;</button>
           <div id="lw-acct-filter-panel"></div>
@@ -1655,6 +1657,7 @@ td.hbt-num:last-child { width: 13%; }
         <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
         Exclude Budgeted Expenses
       </label>
+      <span class="holding-warn" id="ah-holding-warn"></span>
       <div id="acct-history-acct-wrap">
         <div id="acct-history-acct-group">
           <label>Account <select id="acct-history-sel"></select></label>
@@ -4159,6 +4162,7 @@ function renderTable(opts) {
                      undefined, undefined, undefined, undefined, true);
     html += '</tr>';
     cfReconBuckets = [];
+    cfReconCatRefs = [];
     for (var rri = 0; rri < rcRows.length; rri++) {
       var rcR     = rcRows[rri];
       var rcCats  = rcR.cats || [];
@@ -4185,11 +4189,17 @@ function renderTable(opts) {
       }
       html += '</tr>';
       for (var rci = 0; rci < rcCats.length; rci++) {
+        // Group rows carry a bucket, so their categories resolve to a transaction list.
+        // Previously Budgeted rows are derived from balances and have none.
+        var rcCanClick = !!rcR.bucket;
+        if (rcCanClick) cfReconCatRefs.push({ grp: rcR.bucket, cat: rcCats[rci].label });
         html += '<tr class="cat-row cat-row-bordered recon-cat-row"'
               + ' style="' + (rcSubEx ? '' : 'display:none') + '">';
         html += '<td>' + rcCats[rci].label + '</td>';
-        html += valCells(rcCats[rci].vals, mean(rcCats[rci].vals), true, '',
-                         undefined, undefined, undefined, undefined, true);
+        html += valCells(rcCats[rci].vals, mean(rcCats[rci].vals), true,
+                         rcCanClick ? 'recon-cat' : '',
+                         rcCanClick ? cfReconCatRefs.length - 1 : undefined,
+                         undefined, undefined, undefined, true);
         html += '</tr>';
       }
     }
@@ -4243,6 +4253,8 @@ var activeCell   = null;
 // Reconciliation buckets for the current Cash Flow render, indexed by data-gi so a
 // clicked cell can resolve back to its transaction list.
 var cfReconBuckets        = [];
+// { grp, cat } for each reconciliation category row, indexed by data-gi
+var cfReconCatRefs        = [];
 // { grp, cat } for each Other-section category cell in the current render, indexed by data-gi
 var cfOtherCatRefs        = [];
 // Categories whose entries are expected to offset each other, so the click-through hides
@@ -4669,6 +4681,14 @@ function filterUnpairedTxns(txns) {
 }
 
 function getTxns(type, gi, ci, monthKey) {
+  if (type === 'recon-cat') {
+    var cref = cfReconCatRefs[gi];
+    if (!cref) return [];
+    var clist = ((state.data.reconTxns || {})[cref.grp] || {})[monthKey] || [];
+    return rcFilterTxns(clist, cref.grp)
+      .filter(function(t) { return t.category === cref.cat; })
+      .sort(function(a, b) { return parseDateSort(b.date) - parseDateSort(a.date); });
+  }
   if (type === 'other-cat') {
     var oref = cfOtherCatRefs[gi];
     if (!oref) return [];
@@ -4724,6 +4744,10 @@ function getPaneTitle(type, gi, ci) {
     var oref = cfOtherCatRefs[gi];
     if (!oref) return '';
     return oref.cat + (oref.cat.indexOf(CANCEL_OUT_MARKER) !== -1 ? ' (unpaired only)' : '');
+  }
+  if (type === 'recon-cat') {
+    var cref = cfReconCatRefs[gi];
+    return cref ? cref.cat + ' (liquid accounts)' : '';
   }
   if (type === 'recon-uncat') return 'Uncategorised (liquid accounts)';
   if (type === 'recon') {
@@ -5042,6 +5066,17 @@ function lwHoldingMap() {
   return map;
 }
 
+// Both holding toggles are driven entirely by "<name> Holding" rows in the Config workbook.
+// With no config loaded they silently deduct nothing, which reads as a broken toggle — so the
+// count is surfaced to explain it.
+function lwHoldingRuleCount() {
+  var rows = state.catConfig || [], n = 0;
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i].id && / Holding$/.test(rows[i].usedFor || '')) n++;
+  }
+  return n;
+}
+
 function lwHoldingScopeOn(scope) {
   return scope === 'dist' ? !!state.lwExcludeDistribution : !!state.lwExcludeBudgeted;
 }
@@ -5141,6 +5176,14 @@ function syncExclusionToggles() {
   for (var i = 0; i < pairs.length; i++) {
     var el = document.getElementById(pairs[i][0]);
     if (el) el.checked = !!state[pairs[i][1]];
+  }
+  // Without "<name> Holding" rows these two toggles have nothing to deduct and appear broken,
+  // which is what happens whenever the Config workbook has not loaded.
+  var needsCfg = (state.lwExcludeDistribution || state.lwExcludeBudgeted) && lwHoldingRuleCount() === 0;
+  var warnIds  = ['lw-holding-warn', 'ah-holding-warn'];
+  for (var w = 0; w < warnIds.length; w++) {
+    var wEl = document.getElementById(warnIds[w]);
+    if (wEl) wEl.textContent = needsCfg ? '⚠ No "… Holding" keys loaded from Config — nothing to exclude' : '';
   }
 }
 
