@@ -2638,6 +2638,9 @@ function fetchYnabData(apiKey, budgetId, opts) {
   // Same buckets, but carrying transaction detail so reconciliation cells are click-throughable.
   // { grpKey: { monthKey: { acctId: [txn] } } }
   var reconTxnsByAcct  = {};
+  // Untracked groups never reach regTxns, and reconTxns is pruned to liquid accounts, so the
+  // Other section needs its own unpruned index: { grp: { cat: { monthKey: [txn] } } }
+  var otherCatTxns     = {};
   var recovCatAvail    = {}; // { catNm: { key: balance } } for "=" categories
   var recovCatActivity = {}; // { catNm: { key: activity } } for "=" categories
   // Snapshot: { key: day1Value } — highest budgeted value seen per month (pre-move)
@@ -2930,6 +2933,17 @@ function fetchYnabData(apiKey, budgetId, opts) {
             isTrk: catNm ? catNm.slice(-1) === '~' : false
           });
         }
+        if (!t.deleted && !isRTA && grpNm && catNm
+            && grpNm !== 'Hidden Categories' && EXPENSE_GROUPS.indexOf(grpNm) === -1) {
+          if (!otherCatTxns[grpNm])                     otherCatTxns[grpNm]                     = {};
+          if (!otherCatTxns[grpNm][catNm])              otherCatTxns[grpNm][catNm]              = {};
+          if (!otherCatTxns[grpNm][catNm][key])         otherCatTxns[grpNm][catNm][key]         = [];
+          otherCatTxns[grpNm][catNm][key].push({
+            account: acct, date: dispDate,
+            payee: s.payee_name || t.payee_name || '', memo: s.memo || t.memo || '',
+            outflow: amt < 0 ? -amt : 0, inflow: amt > 0 ? amt : 0
+          });
+        }
         // Build per-category transaction list for associated-category analysis
         if (catId && !t.deleted && amt < 0) { // outflows only
           if (!catIdTxns[catId]) catIdTxns[catId] = [];
@@ -3128,7 +3142,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
                upcomingRenewals: upcomingRenewals,
                catActivityPivot: catActivityPivot, catAvailPivot: catAvailPivot,
                otherGroupPivot: otherGroupPivot, otherCatPivot: otherCatPivot, otherActiveCats: otherActiveCats,
-               liqGrpActivity: liqGrpActivity, reconTxns: reconTxns,
+               liqGrpActivity: liqGrpActivity, reconTxns: reconTxns, otherCatTxns: otherCatTxns,
                recovCatAvail: recovCatAvail, recovCatActivity: recovCatActivity,
                glidepathSnapshot: glidepathSnapshot,
                serverKnowledge: { months: newMonthsKnow },
@@ -3882,6 +3896,7 @@ function renderTable(opts) {
 
   // Groups outside EXPENSE_GROUPS. Deployable Cash Pools is surfaced directly under Net Liquid
   // (mirroring Non-Liquid Savings under Net Cash Flow); the rest fall into the Other section.
+  cfOtherCatRefs = [];
   var otherGrpPivot = d.otherGroupPivot || {};
   var otherCtPivot  = d.otherCatPivot   || {};
   var otherActCats  = d.otherActiveCats || {};
@@ -3904,10 +3919,13 @@ function renderTable(opts) {
       var ocVals = (function(c) {
         return keys.map(function(k) { return ((otherCtPivot[oGrp] || {})[c] || {})[k] || 0; });
       })(ocat);
+      cfOtherCatRefs.push({ grp: oGrp, cat: ocat });
       out += '<tr class="cat-row' + (oIsExp ? ' cat-row-bordered' : '')
            + (ci3 === oCats.length - 1 ? ' cat-row-last' : '') + '" ' + oAttr
            + ' style="' + (oIsExp ? '' : 'display:none') + '">'
-           + '<td>' + ocat + '</td>' + valCells(ocVals, mean(ocVals), true) + '</tr>';
+           + '<td>' + ocat + '</td>'
+           + valCells(ocVals, mean(ocVals), true, 'other-cat', cfOtherCatRefs.length - 1)
+           + '</tr>';
     }
     return out;
   };
@@ -4222,6 +4240,11 @@ var activeCell   = null;
 // Reconciliation buckets for the current Cash Flow render, indexed by data-gi so a
 // clicked cell can resolve back to its transaction list.
 var cfReconBuckets        = [];
+// { grp, cat } for each Other-section category cell in the current render, indexed by data-gi
+var cfOtherCatRefs        = [];
+// Categories whose entries are expected to offset each other, so the click-through hides
+// matched pairs and surfaces only what is left unreconciled.
+var CANCEL_OUT_MARKER     = 'Cancel Out';
 var lwChartState          = null;
 var nwChartState          = null;
 var nwDriverTooltipData   = null; // { overall:[{name,delta}], house:[], invest:[], savings:[] }
@@ -4597,7 +4620,42 @@ function rcFilterTxns(list, bucket) {
   });
 }
 
+// Drop entries that cancel each other out: an inflow and an outflow of the same amount, with
+// the same memo, in the same month. Matching is 1:1 — three outflows against one inflow leaves
+// two showing. The caller scopes the list to a single month, so that condition is implicit.
+function filterUnpairedTxns(txns) {
+  var pos = {}, neg = {};
+  var keyOf = function(t) {
+    var amt = (t.inflow || 0) - (t.outflow || 0);
+    return (t.memo || '') + '|' + Math.abs(amt).toFixed(2);
+  };
+  for (var i = 0; i < txns.length; i++) {
+    var amt = (txns[i].inflow || 0) - (txns[i].outflow || 0);
+    if (isZeroish(amt)) continue;
+    var bag = amt > 0 ? pos : neg, k = keyOf(txns[i]);
+    bag[k] = (bag[k] || 0) + 1;
+  }
+  // Whatever exceeds the matched count on each side is what remains unreconciled
+  var leftPos = {}, leftNeg = {};
+  for (var kp in pos) leftPos[kp] = pos[kp] - Math.min(pos[kp], neg[kp] || 0);
+  for (var kn in neg) leftNeg[kn] = neg[kn] - Math.min(neg[kn], pos[kn] || 0);
+  return txns.filter(function(t) {
+    var a = (t.inflow || 0) - (t.outflow || 0);
+    if (isZeroish(a)) return true;
+    var left = a > 0 ? leftPos : leftNeg, k2 = keyOf(t);
+    if (left[k2] > 0) { left[k2]--; return true; }
+    return false;
+  });
+}
+
 function getTxns(type, gi, ci, monthKey) {
+  if (type === 'other-cat') {
+    var oref = cfOtherCatRefs[gi];
+    if (!oref) return [];
+    var olist = (((state.data.otherCatTxns || {})[oref.grp] || {})[oref.cat] || {})[monthKey] || [];
+    if (oref.cat.indexOf(CANCEL_OUT_MARKER) !== -1) olist = filterUnpairedTxns(olist);
+    return olist.slice().sort(function(a, b) { return parseDateSort(b.date) - parseDateSort(a.date); });
+  }
   if (type === 'recon-uncat') {
     var ulist = ((state.data.reconTxns || {})['@UNCAT'] || {})[monthKey] || [];
     return ulist.slice().sort(function(a, b) { return parseDateSort(b.date) - parseDateSort(a.date); });
@@ -4642,6 +4700,11 @@ function getTxns(type, gi, ci, monthKey) {
 }
 
 function getPaneTitle(type, gi, ci) {
+  if (type === 'other-cat') {
+    var oref = cfOtherCatRefs[gi];
+    if (!oref) return '';
+    return oref.cat + (oref.cat.indexOf(CANCEL_OUT_MARKER) !== -1 ? ' (unpaired only)' : '');
+  }
   if (type === 'recon-uncat') return 'Uncategorised (liquid accounts)';
   if (type === 'recon') {
     var rb = cfReconBuckets[gi];
