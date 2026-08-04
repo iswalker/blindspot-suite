@@ -2895,7 +2895,8 @@ function fetchYnabData(apiKey, budgetId, opts) {
             payee: s.payee_name || t.payee_name || '', memo: s.memo || t.memo || '',
             category: catNm || (xferId ? '(transfer)' : '(no category)'),
             outflow: amt < 0 ? -amt : 0, inflow: amt > 0 ? amt : 0,
-            xferAcctId: xferId, amt: amt
+            xferAcctId: xferId, amt: amt,
+            isTrk: catNm ? catNm.slice(-1) === '~' : false
           });
         }
         // Build per-category transaction list for associated-category analysis
@@ -3514,7 +3515,20 @@ function renderTable(opts) {
   var baseOpsVals    = gVals['Base Operations'] || keys.map(function() { return 0; });
   var avgBaseOps     = gAvgs['Base Operations'] || 0;
   var baseOpsCats    = (d.activeCats['Base Operations'] || []).filter(function(c) { return !EXCLUDE_CAT_NAMES[c]; });
-  var actionableVals = keys.map(function(_, idx) { return remainVals[idx] - baseOpsVals[idx]; });
+  // Uncategorised spend is treated as real outflow — it is money gone until a category proves
+  // otherwise — so it reduces cash flow alongside Base Operations rather than sitting in the
+  // reconciliation as an unexplained gap.
+  var uncatVals = keys.map(function(k) {
+    var list = ((d.reconTxns || {})['@UNCAT'] || {})[k] || [];
+    var s = 0;
+    for (var ui = 0; ui < list.length; ui++) s += list[ui].amt;
+    return -s; // outflow rendered positive, matching the expense-group convention
+  });
+  var avgUncat = mean(uncatVals);
+
+  var actionableVals = keys.map(function(_, idx) {
+    return remainVals[idx] - baseOpsVals[idx] - uncatVals[idx];
+  });
   var avgActionable  = mean(actionableVals);
 
   var marginGrpIdx = EXPENSE_GROUPS.indexOf('Margin Reinvestment');
@@ -3529,7 +3543,7 @@ function renderTable(opts) {
         s += gVals[EXPENSE_GROUPS[ti]][idx];
       }
     }
-    return s;
+    return s + uncatVals[idx];
   });
   var avgTotalExp      = mean(totalExpVals);
   var marginPctRef     = { vals: remainVals, avg: avgRemain };
@@ -3717,11 +3731,17 @@ function renderTable(opts) {
     html += valCells(boi.vals, boi.avg, true, 'cat', baseOpsGrpIdx, boi.ci);
     html += '</tr>';
   }
+  // Uncategorised — actual spend with no category, so it never had an assignment to show
+  html += '<tr class="data-row"><td><span class="grp-arrow"></span> Uncategorised</td>'
+        + valCells(uncatVals, avgUncat, true, 'recon-uncat') + '</tr>';
+
   html += '<tr class="total-row"><td>Actionable Income</td>' + valCells(actionableVals, avgActionable, false) + '</tr>';
 
   html += '<tr class="row-spacer"><td></td>' + emptyCells() + '</tr>';
 
-  var decidedExpVals = keys.map(function(_, idx) { return totalExpVals[idx] - baseOpsVals[idx]; });
+  var decidedExpVals = keys.map(function(_, idx) {
+    return totalExpVals[idx] - baseOpsVals[idx] - uncatVals[idx];
+  });
   html += '<tr class="total-row"><td>Decided Expenses</td>' + valCells(decidedExpVals, mean(decidedExpVals), true) + '</tr>';
 
   for (var eg = 0; eg < EXPENSE_GROUPS.length; eg++) {
@@ -3824,8 +3844,21 @@ function renderTable(opts) {
   // Net Liquid is assignment-driven; the Liquid Balances tab is transaction-driven over a
   // restricted account set. These diverge whenever spend != assignment, when activity lands in
   // accounts outside lwAccounts, or when categories fall outside EXPENSE_GROUPS.
-  if (d.lwAccounts && d.allAccountsInfo && d.liqGrpActivity) {
-    var rcLiqAct  = d.liqGrpActivity;
+  if (d.lwAccounts && d.allAccountsInfo && d.reconTxns) {
+    var rcTxnAll = d.reconTxns;
+    // Activity is derived from the same transaction lists the click-through shows, with the
+    // exclusion toggles applied — so a category already filtered out of the Liquid Balances
+    // side is not then reported here as unaccounted for.
+    var rcAct = function(bucket, k) {
+      if (rcBucketExcluded(bucket)) return 0;
+      var list = (rcTxnAll[bucket] || {})[k] || [];
+      var s = 0;
+      for (var i = 0; i < list.length; i++) {
+        if (state.lwExcludeTracking && list[i].isTrk) continue;
+        s += list[i].amt;
+      }
+      return s;
+    };
     var rcSel     = state.lwSelectedAccounts || {};
     var rcAnySel  = false;
     for (var rcq in rcSel) { if (rcSel[rcq]) { rcAnySel = true; break; } }
@@ -3858,31 +3891,30 @@ function renderTable(opts) {
       rcRows.push({ label: label, vals: vals, bucket: bucket || null });
       for (var vj = 0; vj < vals.length; vj++) rcSumVals[vj] += vals[vj];
     };
-    // Uncategorised spend leads — it is the most actionable line, since anything here is
-    // simply missing a category and invisible to Cash Flow as a result.
-    rcAdd('Uncategorised', keys.map(function(k) {
-      return -((rcLiqAct['@UNCAT'] || {})[k] || 0);
-    }), '@UNCAT');
+    // Uncategorised is no longer reconciled here — it is a real expense line above, so it is
+    // already inside Net Liquid and would double-count if repeated as a gap component.
     // Income recognised by Cash Flow but not landing in liquid accounts
     rcAdd('Income not in liquid accounts', keys.map(function(k, i) {
-      return incomeVals[i] - ((rcLiqAct['@INCOME'] || {})[k] || 0);
+      return incomeVals[i] - rcAct('@INCOME', k);
     }), '@INCOME');
     // Tracked groups: actual liquid spend vs assignment
     for (var rgi = 0; rgi < EXPENSE_GROUPS.length; rgi++) {
       (function(grp) {
+        if (rcBucketExcluded(grp)) return;
         rcAdd(grp + ' — spend vs assigned', keys.map(function(k, i) {
-          return -((rcLiqAct[grp] || {})[k] || 0) - (gVals[grp] ? gVals[grp][i] : 0);
+          return -rcAct(grp, k) - (gVals[grp] ? gVals[grp][i] : 0);
         }), grp);
       })(EXPENSE_GROUPS[rgi]);
     }
     // Groups Cash Flow never subtracts
-    var rcUntrackedKeys = Object.keys(rcLiqAct).filter(function(g) {
+    var rcUntrackedKeys = Object.keys(rcTxnAll).filter(function(g) {
       return g.charAt(0) !== '@' && EXPENSE_GROUPS.indexOf(g) === -1;
     });
     for (var rui = 0; rui < rcUntrackedKeys.length; rui++) {
       (function(grp) {
+        if (rcBucketExcluded(grp)) return;
         rcAdd(grp + ' — untracked spend', keys.map(function(k) {
-          return -((rcLiqAct[grp] || {})[k] || 0);
+          return -rcAct(grp, k);
         }), grp);
       })(rcUntrackedKeys[rui]);
     }
@@ -3890,7 +3922,7 @@ function renderTable(opts) {
     // uncategorised, so Cash Flow never sees them even though the cash moves. Liquid-to-liquid
     // transfers are excluded upstream because they net to zero.
     rcAdd('Transfers out of liquid accounts', keys.map(function(k) {
-      return -((rcLiqAct['@TRANSFER'] || {})[k] || 0);
+      return -rcAct('@TRANSFER', k);
     }), '@TRANSFER');
     // Whatever the components do not explain (toggle effects, excluded categories, rounding)
     rcAdd('Unexplained', keys.map(function(_, i) { return rcGapVals[i] - rcSumVals[i]; }));
@@ -4348,15 +4380,31 @@ function parseDateSort(s) {
   return parseInt(p[2],10)*10000 + parseInt(p[0],10)*100 + parseInt(p[1],10);
 }
 
+// A reconciliation bucket already filtered out on the Liquid Balances side has nothing to
+// explain, so it is dropped rather than reported as unaccounted for.
+function rcBucketExcluded(bucket) {
+  return state.lwExcludeDistribution && bucket === 'Distribution';
+}
+
+// Same filtering the reconciliation figures use, so a cell and its pane always agree.
+function rcFilterTxns(list) {
+  if (!state.lwExcludeTracking) return list;
+  return list.filter(function(t) { return !t.isTrk; });
+}
+
 function getTxns(type, gi, ci, monthKey) {
+  if (type === 'recon-uncat') {
+    var ulist = ((state.data.reconTxns || {})['@UNCAT'] || {})[monthKey] || [];
+    return ulist.slice().sort(function(a, b) { return parseDateSort(b.date) - parseDateSort(a.date); });
+  }
   // Reconciliation rows resolve against reconTxns, which is already scoped to the liquid
   // accounts the Liquid Balances tab uses — so it must NOT be re-filtered by the Cash Flow
   // account selection below, and it includes uncategorised transfers regTxns never held.
   if (type === 'recon') {
     var rb = cfReconBuckets[gi];
-    if (!rb) return [];
+    if (!rb || rcBucketExcluded(rb.bucket)) return [];
     var rlist = ((state.data.reconTxns || {})[rb.bucket] || {})[monthKey] || [];
-    return rlist.slice().sort(function(a, b) { return parseDateSort(b.date) - parseDateSort(a.date); });
+    return rcFilterTxns(rlist).slice().sort(function(a, b) { return parseDateSort(b.date) - parseDateSort(a.date); });
   }
   var rt = (state.data.regTxns || {})[monthKey] || {};
   var txns = [];
@@ -4388,6 +4436,7 @@ function getTxns(type, gi, ci, monthKey) {
 }
 
 function getPaneTitle(type, gi, ci) {
+  if (type === 'recon-uncat') return 'Uncategorised (liquid accounts)';
   if (type === 'recon') {
     var rb = cfReconBuckets[gi];
     return rb ? rb.label + ' (liquid accounts)' : 'Reconciliation';
