@@ -4544,27 +4544,33 @@ function renderLwDriverDetail(d, monthKey, prevKey) {
   }
 
   // Exclude Distribution (reserve held in this account)
-  h += '<div class="lwdm-d-sec">Excluded — Distribution reserve</div>';
-  if (!state.lwExcludeDistribution) {
-    h += '<div class="lwdm-empty">Exclude Distribution is off — nothing removed.</div>';
+  // Mirrors lwHoldingReserve: only scopes whose toggle is on, each floored at zero separately.
+  // Categories holding nothing this month are omitted rather than listed as $0.00.
+  h += '<div class="lwdm-d-sec">Excluded — held reserves</div>';
+  var mapped = (lwHoldingMap()[d.id] || []).filter(function(e) { return lwHoldingScopeOn(e.scope); });
+  if (!mapped.length) {
+    h += '<div class="lwdm-empty">'
+      + (state.lwExcludeDistribution || state.lwExcludeBudgeted
+          ? 'No holding categories mapped to this account.'
+          : 'Both exclusion toggles are off — nothing removed.')
+      + '</div>';
   } else {
-    var mapped = lwHoldingMap()[d.id] || [];
-    if (!mapped.length) {
-      h += '<div class="lwdm-empty">No holding categories mapped to this account.</div>';
-    } else {
-      var pivot = ((state.data || {}).catAvailPivot) || {};
-      var sum = 0;
-      for (var m = 0; m < mapped.length; m++) {
-        var av = (((pivot[mapped[m].grp] || {})[mapped[m].cat] || {})[monthKey] || 0);
-        sum += av;
-        h += '<div class="lwdm-txn"><div class="lwdm-txn-l">'
-          +    '<div class="lwdm-txn-cat">' + escHtml(mapped[m].cat) + '</div>'
-          +    '<div class="lwdm-txn-meta">' + escHtml(mapped[m].grp) + ' · available</div></div>'
-          +  '<div class="lwdm-txn-amt">' + lwFmtPlain(av) + '</div></div>';
-      }
-      h += '<div class="lwdm-d-tot"><span>Deducted (floored at $0)</span><span>-'
-        +    lwFmtPlain(Math.max(0, sum)).replace('-', '') + '</span></div>';
+    var pivot = ((state.data || {}).catAvailPivot) || {};
+    var scopeSum = { dist: 0, budget: 0 }, shownCount = 0;
+    for (var m = 0; m < mapped.length; m++) {
+      var av = (((pivot[mapped[m].grp] || {})[mapped[m].cat] || {})[monthKey] || 0);
+      scopeSum[mapped[m].scope] += av;
+      if (isZeroish(av)) continue;
+      shownCount++;
+      h += '<div class="lwdm-txn"><div class="lwdm-txn-l">'
+        +    '<div class="lwdm-txn-cat">' + escHtml(mapped[m].cat) + '</div>'
+        +    '<div class="lwdm-txn-meta">' + escHtml(mapped[m].grp) + ' · available</div></div>'
+        +  '<div class="lwdm-txn-amt">' + lwFmtPlain(av) + '</div></div>';
     }
+    if (!shownCount) h += '<div class="lwdm-empty">Nothing held in these categories this month.</div>';
+    var deducted = Math.max(0, scopeSum.dist) + Math.max(0, scopeSum.budget);
+    h += '<div class="lwdm-d-tot"><span>Deducted (floored at $0)</span><span>'
+      +    (deducted > 0 ? '-' : '') + lwFmtPlain(deducted) + '</span></div>';
   }
   el.innerHTML = h;
 }
