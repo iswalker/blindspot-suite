@@ -344,10 +344,11 @@ tr.cat-row-bordered.cat-row-last > td { border-bottom: 2px solid #777; }
 .grp-arrow { display: inline-block; font-size: 10px; width: 14px; color: #333; }
 
 /* ---- Category sub-rows ---- */
-.cat-row td { font-size: 12px; background: #f8f8f5; border-bottom: 1px solid #eeeeec; }
+.cat-row td { background: #f8f8f5; border-bottom: 1px solid #eeeeec; }
 .cat-row td:first-child { padding-left: 54px; color: #666; background: #f8f8f5; }
 .cat-row .avg-col { background: #f3f3ef; }
-.recon-cat-row td:first-child { padding-left: 34px; color: #777; font-size: 11px; }
+/* Nested one level below .cat-row (54px), so it must indent further, not less */
+.recon-cat-row td:first-child { padding-left: 72px; color: #777; }
 .cat-row:hover td { background: #f2f2ee; }
 .cat-row:hover td:first-child { background: #f2f2ee; }
 .cat-row:hover .avg-col { background: #eeeee9; }
