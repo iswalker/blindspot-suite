@@ -3977,6 +3977,21 @@ function showLwTooltip(clientX, clientY, idx, s) {
         }
       }
     }
+    // Exclude Distribution subtracts a category reserve from total assets rather than from any
+    // single account, so it has no per-account balance to show up in. Without this the drivers
+    // silently fail to reconcile to Monthly Change, which does include it (via netVals).
+    if (!isNwChart && state.lwExcludeDistribution) {
+      var rsvMap = (state.data.catAvailPivot || {})['Distribution'] || {};
+      var rsvAt  = function(mk) {
+        var t = 0;
+        for (var rc in rsvMap) t += (rsvMap[rc][mk] || 0);
+        return -Math.max(0, t); // held back from assets, so it reads as a negative balance
+      };
+      var rsvPrev = rsvAt(s.keys[idx - 1]), rsvCur = rsvAt(s.keys[idx]);
+      if (Math.abs(rsvCur - rsvPrev) >= 0.5) {
+        drivers.push({ name: 'Distribution Reserve', change: rsvCur - rsvPrev, prev: rsvPrev, cur: rsvCur });
+      }
+    }
     // Group Student Loan accounts into one line
     var slTotal = 0, slPrev = 0, slCur = 0, slCount = 0, nonSl = [];
     for (var sli = 0; sli < drivers.length; sli++) {
