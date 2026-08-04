@@ -3849,15 +3849,23 @@ function renderTable(opts) {
     // Activity is derived from the same transaction lists the click-through shows, with the
     // exclusion toggles applied — so a category already filtered out of the Liquid Balances
     // side is not then reported here as unaccounted for.
+    var rcMapped = rcMappedCatSet();
     var rcAct = function(bucket, k) {
-      if (rcBucketExcluded(bucket)) return 0;
-      var list = (rcTxnAll[bucket] || {})[k] || [];
+      var list = rcFilterTxns((rcTxnAll[bucket] || {})[k] || [], bucket);
       var s = 0;
-      for (var i = 0; i < list.length; i++) {
-        if (state.lwExcludeTracking && list[i].isTrk) continue;
-        s += list[i].amt;
-      }
+      for (var i = 0; i < list.length; i++) s += list[i].amt;
       return s;
+    };
+    // Assigned for a group, less any category whose reserve already nets out on the other side
+    var rcAssigned = function(grp, i, k) {
+      var a = gVals[grp] ? gVals[grp][i] : 0;
+      if (rcMapped) {
+        var cmap = (d.catPivot || {})[grp] || {};
+        for (var c in cmap) {
+          if (rcMapped[grp + '||' + c]) a -= (cmap[c][k] || 0);
+        }
+      }
+      return a;
     };
     var rcSel     = state.lwSelectedAccounts || {};
     var rcAnySel  = false;
@@ -3900,9 +3908,8 @@ function renderTable(opts) {
     // Tracked groups: actual liquid spend vs assignment
     for (var rgi = 0; rgi < EXPENSE_GROUPS.length; rgi++) {
       (function(grp) {
-        if (rcBucketExcluded(grp)) return;
         rcAdd(grp + ' — spend vs assigned', keys.map(function(k, i) {
-          return -rcAct(grp, k) - (gVals[grp] ? gVals[grp][i] : 0);
+          return -rcAct(grp, k) - rcAssigned(grp, i, k);
         }), grp);
       })(EXPENSE_GROUPS[rgi]);
     }
@@ -3912,7 +3919,6 @@ function renderTable(opts) {
     });
     for (var rui = 0; rui < rcUntrackedKeys.length; rui++) {
       (function(grp) {
-        if (rcBucketExcluded(grp)) return;
         rcAdd(grp + ' — untracked spend', keys.map(function(k) {
           return -rcAct(grp, k);
         }), grp);
@@ -4380,16 +4386,29 @@ function parseDateSort(s) {
   return parseInt(p[2],10)*10000 + parseInt(p[0],10)*100 + parseInt(p[1],10);
 }
 
-// A reconciliation bucket already filtered out on the Liquid Balances side has nothing to
-// explain, so it is dropped rather than reported as unaccounted for.
-function rcBucketExcluded(bucket) {
-  return state.lwExcludeDistribution && bucket === 'Distribution';
+// Categories whose leftover Available is already deducted from a holding account on the
+// Liquid Balances side. Per the YNAB identity, spend - assigned equals -ΔAvailable, which
+// cancels exactly against that reserve movement — so counting them here would double-report.
+// Categories with no Holding key are NOT neutralised and must stay in the reconciliation:
+// their overspend is a real discrepancy, not an artefact.
+function rcMappedCatSet() {
+  if (!state.lwExcludeDistribution) return null;
+  var map = lwHoldingMap(), out = {};
+  for (var aid in map) {
+    for (var i = 0; i < map[aid].length; i++) out[map[aid][i].grp + '||' + map[aid][i].cat] = true;
+  }
+  return out;
 }
 
 // Same filtering the reconciliation figures use, so a cell and its pane always agree.
-function rcFilterTxns(list) {
-  if (!state.lwExcludeTracking) return list;
-  return list.filter(function(t) { return !t.isTrk; });
+function rcFilterTxns(list, bucket) {
+  var mapped = rcMappedCatSet();
+  if (!state.lwExcludeTracking && !mapped) return list;
+  return list.filter(function(t) {
+    if (state.lwExcludeTracking && t.isTrk) return false;
+    if (mapped && mapped[bucket + '||' + t.category]) return false;
+    return true;
+  });
 }
 
 function getTxns(type, gi, ci, monthKey) {
@@ -4402,9 +4421,10 @@ function getTxns(type, gi, ci, monthKey) {
   // account selection below, and it includes uncategorised transfers regTxns never held.
   if (type === 'recon') {
     var rb = cfReconBuckets[gi];
-    if (!rb || rcBucketExcluded(rb.bucket)) return [];
+    if (!rb) return [];
     var rlist = ((state.data.reconTxns || {})[rb.bucket] || {})[monthKey] || [];
-    return rcFilterTxns(rlist).slice().sort(function(a, b) { return parseDateSort(b.date) - parseDateSort(a.date); });
+    return rcFilterTxns(rlist, rb.bucket).slice()
+      .sort(function(a, b) { return parseDateSort(b.date) - parseDateSort(a.date); });
   }
   var rt = (state.data.regTxns || {})[monthKey] || {};
   var txns = [];
