@@ -2718,10 +2718,6 @@ function fetchYnabData(apiKey, budgetId, opts) {
     var txns    = data.transactions || [];
     var acctTxns = {};
     var acctTxnsTracking = {}; // Tracking-group amounts only, for ExTracking toggle
-    var acctTxnsDistribution = {}; // Distribution-group amounts only, for ExDistribution toggle
-    // Amounts counted by BOTH rules (a Distribution category whose name also ends in '~').
-    // Added back when both toggles are on, so such a transaction is never subtracted twice.
-    var acctTxnsDistTrk = {};
     var acctTxnsList = {};
     var catIdTxns = {}; // { catId: [{ date, account, payee, amount }] } outflows only
     for (var ti = 0; ti < txns.length; ti++) {
@@ -2733,40 +2729,20 @@ function fetchYnabData(apiKey, budgetId, opts) {
         acctTxns[t.account_id][tKey2] = (acctTxns[t.account_id][tKey2] || 0) + (t.amount || 0) / 1000;
         // Accumulate Tracking-group portion for ExTracking toggle.
         // For split transactions sum subtransaction amounts in Tracking; for plain ones check top-level category.
-        // Distribution is accumulated the same way, by category GROUP rather than name suffix, so a
-        // paystub split line lands against the account that actually carried it.
-        var trackingAmt = 0, distAmt = 0, bothAmt = 0;
+        var trackingAmt = 0;
         if (t.subtransactions && t.subtransactions.length) {
           for (var sti = 0; sti < t.subtransactions.length; sti++) {
-            var stx    = t.subtransactions[sti];
-            var stxNm  = catIdToName[stx.category_id] || '';
-            var stxAmt = (stx.amount || 0) / 1000;
-            var stxTrk = stxNm.slice(-1) === '~';
-            var stxDst = catIdToGroup[stx.category_id] === 'Distribution';
-            if (stxTrk) trackingAmt += stxAmt;
-            if (stxDst) distAmt     += stxAmt;
-            if (stxTrk && stxDst) bothAmt += stxAmt;
+            var stx = t.subtransactions[sti];
+            var stxNm = catIdToName[stx.category_id] || '';
+            if (stxNm.slice(-1) === '~') trackingAmt += (stx.amount || 0) / 1000;
           }
         } else {
-          var tNm  = catIdToName[t.category_id] || '';
-          var tAmt = (t.amount || 0) / 1000;
-          var tTrk = tNm.slice(-1) === '~';
-          var tDst = catIdToGroup[t.category_id] === 'Distribution';
-          if (tTrk) trackingAmt = tAmt;
-          if (tDst) distAmt     = tAmt;
-          if (tTrk && tDst) bothAmt = tAmt;
+          var tNm = catIdToName[t.category_id] || '';
+          if (tNm.slice(-1) === '~') trackingAmt = (t.amount || 0) / 1000;
         }
         if (trackingAmt !== 0) {
           if (!acctTxnsTracking[t.account_id]) acctTxnsTracking[t.account_id] = {};
           acctTxnsTracking[t.account_id][tKey2] = (acctTxnsTracking[t.account_id][tKey2] || 0) + trackingAmt;
-        }
-        if (distAmt !== 0) {
-          if (!acctTxnsDistribution[t.account_id]) acctTxnsDistribution[t.account_id] = {};
-          acctTxnsDistribution[t.account_id][tKey2] = (acctTxnsDistribution[t.account_id][tKey2] || 0) + distAmt;
-        }
-        if (bothAmt !== 0) {
-          if (!acctTxnsDistTrk[t.account_id]) acctTxnsDistTrk[t.account_id] = {};
-          acctTxnsDistTrk[t.account_id][tKey2] = (acctTxnsDistTrk[t.account_id][tKey2] || 0) + bothAmt;
         }
         if (!t.deleted) {
           if (!acctTxnsList[t.account_id]) acctTxnsList[t.account_id] = [];
@@ -2945,12 +2921,6 @@ function fetchYnabData(apiKey, budgetId, opts) {
       for (var trkAcctId in acctTxnsTracking) {
         if (!lwAcctIdSet[trkAcctId]) delete acctTxnsTracking[trkAcctId];
       }
-      for (var dstAcctId in acctTxnsDistribution) {
-        if (!lwAcctIdSet[dstAcctId]) delete acctTxnsDistribution[dstAcctId];
-      }
-      for (var dtAcctId in acctTxnsDistTrk) {
-        if (!lwAcctIdSet[dtAcctId]) delete acctTxnsDistTrk[dtAcctId];
-      }
       // Collapse per-account group activity down to liquid accounts only
       var liqGrpActivity = {}; // { grpKey: { monthKey: amt } }
       for (var lgk in grpActByAcct) {
@@ -2992,7 +2962,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
                groupPivot: groupPivot, catPivot: catPivot, activeCats: activeCats,
                regTxns: regTxns, allAccounts: allAccounts,
                allAccountsInfo: allAccountsInfo, lwAccounts: lwAccounts,
-               nwAccounts: nwAccounts, acctTxns: acctTxns, acctTxnsTracking: acctTxnsTracking, acctTxnsDistribution: acctTxnsDistribution, acctTxnsDistTrk: acctTxnsDistTrk, acctTxnsList: acctTxnsList, catIdTxns: catIdTxns, catIdToName: catIdToName,
+               nwAccounts: nwAccounts, acctTxns: acctTxns, acctTxnsTracking: acctTxnsTracking, acctTxnsList: acctTxnsList, catIdTxns: catIdTxns, catIdToName: catIdToName,
                pendingTxns: pendingTxns,
                upcomingRenewals: upcomingRenewals,
                catActivityPivot: catActivityPivot, catAvailPivot: catAvailPivot,
@@ -4334,6 +4304,65 @@ function switchTab(tab) {
   if (tab === 'reconcile')    renderReconcile();
 }
 
+// Exclude Distribution deducts each category's leftover Available from the account that
+// actually holds that cash. The mapping comes from "<name> Holding" keys in the YNAB Config
+// workbook, whose ID column carries the target Account ID.
+// Rules are evaluated in order; the first match wins.
+var LW_HOLDING_RULES = [
+  { key: 'Tithe Holding',        group: 'Distribution', match: 'Tithe' },
+  { key: 'First Fruits Holding', group: 'Distribution', match: 'First Fruit' },
+  { key: 'Taxes Holding',        group: null,           match: 'Taxes' } // any group
+];
+
+var _lwHoldCache = null, _lwHoldToken = null;
+
+// { acctId: [ { grp, cat }, ... ] } — categories whose reserve sits in that account
+function lwHoldingMap() {
+  var token = String(state.loadedAt || 0) + '|' + ((state.catConfig || []).length);
+  if (_lwHoldCache && _lwHoldToken === token) return _lwHoldCache;
+  var cfgRows = state.catConfig || [];
+  var acctForKey = {};
+  for (var ri = 0; ri < LW_HOLDING_RULES.length; ri++) {
+    var rKey = LW_HOLDING_RULES[ri].key;
+    for (var ci = 0; ci < cfgRows.length; ci++) {
+      if (cfgRows[ci].usedFor === rKey && cfgRows[ci].id) { acctForKey[rKey] = cfgRows[ci].id; break; }
+    }
+  }
+  var map   = {};
+  var pivot = ((state.data || {}).catAvailPivot) || {};
+  for (var grp in pivot) {
+    for (var cat in pivot[grp]) {
+      for (var rj = 0; rj < LW_HOLDING_RULES.length; rj++) {
+        var rule = LW_HOLDING_RULES[rj];
+        if (rule.group && grp !== rule.group) continue;
+        if (cat.indexOf(rule.match) === -1) continue;
+        var aid = acctForKey[rule.key];
+        if (aid) {
+          if (!map[aid]) map[aid] = [];
+          map[aid].push({ grp: grp, cat: cat });
+        }
+        break; // first matching rule wins, mapped or not
+      }
+    }
+  }
+  _lwHoldToken = token;
+  _lwHoldCache = map;
+  return map;
+}
+
+// Leftover Available held in acctId at monthKey. Summed across that account's mapped
+// categories then floored at 0, so an overspent category cannot offset a funded one.
+function lwHoldingReserve(acctId, monthKey) {
+  var entries = lwHoldingMap()[acctId];
+  if (!entries || !entries.length) return 0;
+  var pivot = ((state.data || {}).catAvailPivot) || {};
+  var sum = 0;
+  for (var i = 0; i < entries.length; i++) {
+    sum += (((pivot[entries[i].grp] || {})[entries[i].cat] || {})[monthKey] || 0);
+  }
+  return Math.max(0, sum);
+}
+
 function acctBalanceAt(acctId, monthKey) {
   var info = (state.data.allAccountsInfo || {})[acctId];
   if (!info) return 0;
@@ -4347,18 +4376,7 @@ function acctBalanceAt(acctId, monthKey) {
     }
   }
   if (state.lwExcludeDistribution) {
-    var dst = (state.data.acctTxnsDistribution || {})[acctId] || {};
-    for (var k3 in dst) {
-      if (k3 <= monthKey) bal -= dst[k3];
-    }
-  }
-  // A Distribution category ending in '~' matches both rules; add it back once so it is
-  // subtracted a single time rather than twice when both toggles are on.
-  if (state.lwExcludeTracking && state.lwExcludeDistribution) {
-    var ovl = (state.data.acctTxnsDistTrk || {})[acctId] || {};
-    for (var k4 in ovl) {
-      if (k4 <= monthKey) bal += ovl[k4];
-    }
+    bal -= lwHoldingReserve(acctId, monthKey);
   }
   return bal;
 }
