@@ -3973,7 +3973,7 @@ function showLwTooltip(clientX, clientY, idx, s) {
     if (slCount > 0) nonSl.push({ name: 'Student Loans', change: slTotal, prev: slPrev, cur: slCur });
     drivers = nonSl;
     drivers.sort(function(a, b) { return Math.abs(b.change) - Math.abs(a.change); });
-    var shown = Math.min(drivers.length, 7);
+    var shown = Math.min(drivers.length, 12);
     if (shown > 0) {
       var prevDateLbl = lwMonthEndLabel(s.keys[idx - 1]);
       var curDateLbl  = lwMonthEndLabel(s.keys[idx]);
