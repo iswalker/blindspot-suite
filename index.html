@@ -347,6 +347,7 @@ tr.cat-row-bordered.cat-row-last > td { border-bottom: 2px solid #777; }
 .cat-row td { font-size: 12px; background: #f8f8f5; border-bottom: 1px solid #eeeeec; }
 .cat-row td:first-child { padding-left: 54px; color: #666; background: #f8f8f5; }
 .cat-row .avg-col { background: #f3f3ef; }
+.recon-cat-row td:first-child { padding-left: 34px; color: #777; font-size: 11px; }
 .cat-row:hover td { background: #f2f2ee; }
 .cat-row:hover td:first-child { background: #f2f2ee; }
 .cat-row:hover .avg-col { background: #eeeee9; }
@@ -3959,11 +3960,54 @@ function renderTable(opts) {
     var rcRows = [], rcSumVals = keys.map(function() { return 0; });
     // hidden: fold the term into the running total without surfacing a row, for movement that
     // is accounted for by construction and so should not land in Unexplained.
-    var rcAdd = function(label, vals, bucket, hidden) {
-      var any = false;
-      for (var vi = 0; vi < vals.length; vi++) { if (Math.abs(vals[vi]) > 0.005) { any = true; break; } }
-      if (!any) return;
-      if (!hidden) rcRows.push({ label: label, vals: vals, bucket: bucket || null });
+    var rcNonZero = function(vals) {
+      for (var i = 0; i < vals.length; i++) { if (Math.abs(vals[i]) > 0.005) return true; }
+      return false;
+    };
+    // Per-category split of a bucket's filtered activity, keyed by category name
+    var rcActByCat = function(bucket, k) {
+      var list = rcFilterTxns((rcTxnAll[bucket] || {})[k] || [], bucket);
+      var out = {};
+      for (var i = 0; i < list.length; i++) {
+        out[list[i].category] = (out[list[i].category] || 0) + list[i].amt;
+      }
+      return out;
+    };
+    // Category rows behind a group's contribution. Tracked groups net off their assignment;
+    // untracked ones have none. Categories that net to zero across the range are omitted.
+    var rcCatRows = function(grp, isTracked) {
+      var catSet = {};
+      var perKey = keys.map(function(k) {
+        var mp = rcActByCat(grp, k);
+        for (var c in mp) catSet[c] = 1;
+        return mp;
+      });
+      var cp = (d.catPivot || {})[grp] || {};
+      if (isTracked) {
+        for (var c2 in cp) {
+          if (rcMapped && rcMapped[grp + '||' + c2]) continue;
+          if (EXCLUDE_CAT_NAMES[c2]) continue;
+          for (var ki = 0; ki < keys.length; ki++) {
+            if (cp[c2][keys[ki]]) { catSet[c2] = 1; break; }
+          }
+        }
+      }
+      var rows = [];
+      Object.keys(catSet).sort().forEach(function(c) {
+        var vals = keys.map(function(k, i) {
+          var asg = 0;
+          if (isTracked && !EXCLUDE_CAT_NAMES[c] && !(rcMapped && rcMapped[grp + '||' + c])) {
+            asg = ((cp[c] || {})[k] || 0);
+          }
+          return -(perKey[i][c] || 0) - asg;
+        });
+        if (rcNonZero(vals)) rows.push({ label: c, vals: vals });
+      });
+      return rows;
+    };
+    var rcAdd = function(label, vals, bucket, hidden, cats) {
+      if (!rcNonZero(vals)) return;
+      if (!hidden) rcRows.push({ label: label, vals: vals, bucket: bucket || null, cats: cats || null });
       for (var vj = 0; vj < vals.length; vj++) rcSumVals[vj] += vals[vj];
     };
     // Uncategorised is no longer reconciled here — it is a real expense line above, so it is
@@ -3977,7 +4021,7 @@ function renderTable(opts) {
       (function(grp) {
         rcAdd(grp + ' — assigned vs spend', keys.map(function(k, i) {
           return -rcAct(grp, k) - rcAssigned(grp, i, k);
-        }), grp);
+        }), grp, false, rcCatRows(grp, true));
       })(EXPENSE_GROUPS[rgi]);
     }
     // Groups Cash Flow never subtracts
@@ -3989,7 +4033,7 @@ function renderTable(opts) {
       (function(grp) {
         rcAdd(grp + ' — untracked spend', keys.map(function(k) {
           return -rcAct(grp, k);
-        }), grp);
+        }), grp, false, rcCatRows(grp, false));
       })(rcUntrackedKeys[rui]);
     }
     // Transfers leaving the liquid set. YNAB leaves on-budget to on-budget transfers
@@ -4007,23 +4051,33 @@ function renderTable(opts) {
     // Whatever the components do not explain (toggle effects, excluded categories, rounding)
     rcAdd('Unexplained', keys.map(function(_, i) { return rcGapVals[i] - rcSumVals[i]; }));
 
+    // Two levels of expansion, both driven from state and re-rendered on toggle so the nested
+    // visibility stays correct (DOM-only toggling cannot express parent/child here).
     var rcIsExp = !!state.expanded['__reconciliation'];
-    var rcAttr  = 'data-other-group="__reconciliation"';
     var rcArrow = rcRows.length
-      ? '<span class="grp-arrow" ' + rcAttr + '>' + (rcIsExp ? '&#9660;' : '&#9654;') + '</span> '
+      ? '<span class="grp-arrow">' + (rcIsExp ? '&#9660;' : '&#9654;') + '</span> '
       : '<span class="grp-arrow"></span> ';
-    html += '<tr class="data-row exp-group' + (rcIsExp ? ' grp-bordered' : '') + '" ' + rcAttr + '>';
+    html += '<tr class="data-row exp-group' + (rcIsExp ? ' grp-bordered' : '')
+          + '" data-recon-toggle="__reconciliation">';
     html += '<td>' + rcArrow + 'Cash Flow vs. Actual Gap</td>';
     html += valCells(rcGapVals, mean(rcGapVals), true, '',
                      undefined, undefined, undefined, undefined, true);
     html += '</tr>';
     cfReconBuckets = [];
     for (var rri = 0; rri < rcRows.length; rri++) {
-      var rcR = rcRows[rri];
+      var rcR     = rcRows[rri];
+      var rcCats  = rcR.cats || [];
+      var rcKey   = '__recon:' + rcR.label;
+      var rcSubEx = rcIsExp && !!state.expanded[rcKey];
+      var rcSubArrow = rcCats.length
+        ? '<span class="grp-arrow">' + (rcSubEx ? '&#9660;' : '&#9654;') + '</span> '
+        : '';
       html += '<tr class="cat-row' + (rcIsExp ? ' cat-row-bordered' : '')
-            + (rri === rcRows.length - 1 ? ' cat-row-last' : '') + '" ' + rcAttr
+            + (rcCats.length ? ' exp-group' : '')
+            + (rri === rcRows.length - 1 && !rcSubEx ? ' cat-row-last' : '') + '"'
+            + (rcCats.length ? ' data-recon-toggle="' + escAttr(rcKey) + '"' : '')
             + ' style="' + (rcIsExp ? '' : 'display:none') + '">';
-      html += '<td>' + rcR.label + '</td>';
+      html += '<td>' + rcSubArrow + rcR.label + '</td>';
       // neg: a positive contribution means Cash Flow overstated cash, so it reads as an
       // outflow. diverge: colour by direction — shortfall red, over-assignment green.
       if (rcR.bucket) {
@@ -4035,6 +4089,14 @@ function renderTable(opts) {
                          undefined, undefined, undefined, undefined, true);
       }
       html += '</tr>';
+      for (var rci = 0; rci < rcCats.length; rci++) {
+        html += '<tr class="cat-row cat-row-bordered recon-cat-row"'
+              + ' style="' + (rcSubEx ? '' : 'display:none') + '">';
+        html += '<td>' + rcCats[rci].label + '</td>';
+        html += valCells(rcCats[rci].vals, mean(rcCats[rci].vals), true, '',
+                         undefined, undefined, undefined, undefined, true);
+        html += '</tr>';
+      }
     }
   }
 
@@ -4599,6 +4661,14 @@ function expandAllGroups(expand) {
   for (var i = 0; i < EXPENSE_GROUPS.length; i++) {
     state.expanded[EXPENSE_GROUPS[i]] = expand;
   }
+  localStorage.setItem('ynab-expanded-groups', JSON.stringify(state.expanded));
+  renderTable();
+}
+
+// Reconciliation nests two levels, so visibility is recomputed from state on each render
+// rather than toggled in the DOM the way flat groups are.
+function toggleReconRow(key) {
+  state.expanded[key] = !state.expanded[key];
   localStorage.setItem('ynab-expanded-groups', JSON.stringify(state.expanded));
   renderTable();
 }
@@ -10003,6 +10073,8 @@ document.addEventListener('DOMContentLoaded', function() {
       if (idx !== null) toggleGroup(parseInt(idx, 10));
       var otherGrpName = row.getAttribute('data-other-group');
       if (otherGrpName) toggleOtherGroup(otherGrpName);
+      var reconKey = row.getAttribute('data-recon-toggle');
+      if (reconKey) toggleReconRow(reconKey);
     }
   });
 
