@@ -2718,6 +2718,10 @@ function fetchYnabData(apiKey, budgetId, opts) {
     var txns    = data.transactions || [];
     var acctTxns = {};
     var acctTxnsTracking = {}; // Tracking-group amounts only, for ExTracking toggle
+    var acctTxnsDistribution = {}; // Distribution-group amounts only, for ExDistribution toggle
+    // Amounts counted by BOTH rules (a Distribution category whose name also ends in '~').
+    // Added back when both toggles are on, so such a transaction is never subtracted twice.
+    var acctTxnsDistTrk = {};
     var acctTxnsList = {};
     var catIdTxns = {}; // { catId: [{ date, account, payee, amount }] } outflows only
     for (var ti = 0; ti < txns.length; ti++) {
@@ -2729,20 +2733,40 @@ function fetchYnabData(apiKey, budgetId, opts) {
         acctTxns[t.account_id][tKey2] = (acctTxns[t.account_id][tKey2] || 0) + (t.amount || 0) / 1000;
         // Accumulate Tracking-group portion for ExTracking toggle.
         // For split transactions sum subtransaction amounts in Tracking; for plain ones check top-level category.
-        var trackingAmt = 0;
+        // Distribution is accumulated the same way, by category GROUP rather than name suffix, so a
+        // paystub split line lands against the account that actually carried it.
+        var trackingAmt = 0, distAmt = 0, bothAmt = 0;
         if (t.subtransactions && t.subtransactions.length) {
           for (var sti = 0; sti < t.subtransactions.length; sti++) {
-            var stx = t.subtransactions[sti];
-            var stxNm = catIdToName[stx.category_id] || '';
-            if (stxNm.slice(-1) === '~') trackingAmt += (stx.amount || 0) / 1000;
+            var stx    = t.subtransactions[sti];
+            var stxNm  = catIdToName[stx.category_id] || '';
+            var stxAmt = (stx.amount || 0) / 1000;
+            var stxTrk = stxNm.slice(-1) === '~';
+            var stxDst = catIdToGroup[stx.category_id] === 'Distribution';
+            if (stxTrk) trackingAmt += stxAmt;
+            if (stxDst) distAmt     += stxAmt;
+            if (stxTrk && stxDst) bothAmt += stxAmt;
           }
         } else {
-          var tNm = catIdToName[t.category_id] || '';
-          if (tNm.slice(-1) === '~') trackingAmt = (t.amount || 0) / 1000;
+          var tNm  = catIdToName[t.category_id] || '';
+          var tAmt = (t.amount || 0) / 1000;
+          var tTrk = tNm.slice(-1) === '~';
+          var tDst = catIdToGroup[t.category_id] === 'Distribution';
+          if (tTrk) trackingAmt = tAmt;
+          if (tDst) distAmt     = tAmt;
+          if (tTrk && tDst) bothAmt = tAmt;
         }
         if (trackingAmt !== 0) {
           if (!acctTxnsTracking[t.account_id]) acctTxnsTracking[t.account_id] = {};
           acctTxnsTracking[t.account_id][tKey2] = (acctTxnsTracking[t.account_id][tKey2] || 0) + trackingAmt;
+        }
+        if (distAmt !== 0) {
+          if (!acctTxnsDistribution[t.account_id]) acctTxnsDistribution[t.account_id] = {};
+          acctTxnsDistribution[t.account_id][tKey2] = (acctTxnsDistribution[t.account_id][tKey2] || 0) + distAmt;
+        }
+        if (bothAmt !== 0) {
+          if (!acctTxnsDistTrk[t.account_id]) acctTxnsDistTrk[t.account_id] = {};
+          acctTxnsDistTrk[t.account_id][tKey2] = (acctTxnsDistTrk[t.account_id][tKey2] || 0) + bothAmt;
         }
         if (!t.deleted) {
           if (!acctTxnsList[t.account_id]) acctTxnsList[t.account_id] = [];
@@ -2921,6 +2945,12 @@ function fetchYnabData(apiKey, budgetId, opts) {
       for (var trkAcctId in acctTxnsTracking) {
         if (!lwAcctIdSet[trkAcctId]) delete acctTxnsTracking[trkAcctId];
       }
+      for (var dstAcctId in acctTxnsDistribution) {
+        if (!lwAcctIdSet[dstAcctId]) delete acctTxnsDistribution[dstAcctId];
+      }
+      for (var dtAcctId in acctTxnsDistTrk) {
+        if (!lwAcctIdSet[dtAcctId]) delete acctTxnsDistTrk[dtAcctId];
+      }
       // Collapse per-account group activity down to liquid accounts only
       var liqGrpActivity = {}; // { grpKey: { monthKey: amt } }
       for (var lgk in grpActByAcct) {
@@ -2962,7 +2992,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
                groupPivot: groupPivot, catPivot: catPivot, activeCats: activeCats,
                regTxns: regTxns, allAccounts: allAccounts,
                allAccountsInfo: allAccountsInfo, lwAccounts: lwAccounts,
-               nwAccounts: nwAccounts, acctTxns: acctTxns, acctTxnsTracking: acctTxnsTracking, acctTxnsList: acctTxnsList, catIdTxns: catIdTxns, catIdToName: catIdToName,
+               nwAccounts: nwAccounts, acctTxns: acctTxns, acctTxnsTracking: acctTxnsTracking, acctTxnsDistribution: acctTxnsDistribution, acctTxnsDistTrk: acctTxnsDistTrk, acctTxnsList: acctTxnsList, catIdTxns: catIdTxns, catIdToName: catIdToName,
                pendingTxns: pendingTxns,
                upcomingRenewals: upcomingRenewals,
                catActivityPivot: catActivityPivot, catAvailPivot: catAvailPivot,
@@ -3701,8 +3731,6 @@ function renderTable(opts) {
     var rcAnySel  = false;
     for (var rcq in rcSel) { if (rcSel[rcq]) { rcAnySel = true; break; } }
     var rcAccts = d.lwAccounts.filter(function(a) { return !rcAnySel || rcSel[a.id]; });
-    var rcDistAvail = state.lwExcludeDistribution
-      ? ((d.catAvailPivot || {})['Distribution'] || {}) : null;
     var rcPrevKey = function(k) {
       var kp = k.split('-'); var py = parseInt(kp[0], 10), pm = parseInt(kp[1], 10) - 1;
       if (pm < 1) { pm = 12; py--; }
@@ -3711,11 +3739,6 @@ function renderTable(opts) {
     var rcBalAt = function(mk) {
       var tot = 0;
       for (var ri = 0; ri < rcAccts.length; ri++) tot += acctBalanceAt(rcAccts[ri].id, mk);
-      if (rcDistAvail) {
-        var da = 0;
-        for (var dc in rcDistAvail) da += (rcDistAvail[dc][mk] || 0);
-        tot -= Math.max(0, da);
-      }
       return tot;
     };
     var rcActualVals = keys.map(function(k) { return rcBalAt(k) - rcBalAt(rcPrevKey(k)); });
@@ -3796,10 +3819,8 @@ function renderTable(opts) {
   }
 
   // Last Month Liquid Balances (API only — reference row)
-  // Respects Exclude Tracking (via acctBalanceAt) and Exclude Distribution (mirroring renderLiquidWorth)
+  // Both Exclude Tracking and Exclude Distribution are applied inside acctBalanceAt
   if (d.lwAccounts && d.allAccountsInfo) {
-    var lwPrevDistCatAvail = state.lwExcludeDistribution
-      ? ((d.catAvailPivot || {})['Distribution'] || {}) : null;
     var lwPrevVals = keys.map(function(k) {
       var kp = k.split('-');
       var pyr = parseInt(kp[0]), pmo = parseInt(kp[1]) - 1;
@@ -3807,11 +3828,6 @@ function renderTable(opts) {
       var prevKey = pyr + '-' + (pmo < 10 ? '0' + pmo : '' + pmo);
       var total = 0;
       for (var li = 0; li < d.lwAccounts.length; li++) { total += acctBalanceAt(d.lwAccounts[li].id, prevKey); }
-      if (lwPrevDistCatAvail) {
-        var distAvail = 0;
-        for (var dcat in lwPrevDistCatAvail) distAvail += (lwPrevDistCatAvail[dcat][prevKey] || 0);
-        total -= Math.max(0, distAvail);
-      }
       return total;
     });
     html += '<tr class="data-row"><td>Last Month Liquid Balances</td>' + valCells(lwPrevVals, mean(lwPrevVals), false, '') + '</tr>';
@@ -3975,21 +3991,6 @@ function showLwTooltip(clientX, clientY, idx, s) {
         if (Math.abs(dCh) >= 0.5) {
           drivers.push({ name: s.accounts[di].name, change: dCh, prev: acPrev, cur: acCur });
         }
-      }
-    }
-    // Exclude Distribution subtracts a category reserve from total assets rather than from any
-    // single account, so it has no per-account balance to show up in. Without this the drivers
-    // silently fail to reconcile to Monthly Change, which does include it (via netVals).
-    if (!isNwChart && state.lwExcludeDistribution) {
-      var rsvMap = (state.data.catAvailPivot || {})['Distribution'] || {};
-      var rsvAt  = function(mk) {
-        var t = 0;
-        for (var rc in rsvMap) t += (rsvMap[rc][mk] || 0);
-        return -Math.max(0, t); // held back from assets, so it reads as a negative balance
-      };
-      var rsvPrev = rsvAt(s.keys[idx - 1]), rsvCur = rsvAt(s.keys[idx]);
-      if (Math.abs(rsvCur - rsvPrev) >= 0.5) {
-        drivers.push({ name: 'Distribution Reserve', change: rsvCur - rsvPrev, prev: rsvPrev, cur: rsvCur });
       }
     }
     // Group Student Loan accounts into one line
@@ -4345,6 +4346,20 @@ function acctBalanceAt(acctId, monthKey) {
       if (k2 <= monthKey) bal -= trk[k2];
     }
   }
+  if (state.lwExcludeDistribution) {
+    var dst = (state.data.acctTxnsDistribution || {})[acctId] || {};
+    for (var k3 in dst) {
+      if (k3 <= monthKey) bal -= dst[k3];
+    }
+  }
+  // A Distribution category ending in '~' matches both rules; add it back once so it is
+  // subtracted a single time rather than twice when both toggles are on.
+  if (state.lwExcludeTracking && state.lwExcludeDistribution) {
+    var ovl = (state.data.acctTxnsDistTrk || {})[acctId] || {};
+    for (var k4 in ovl) {
+      if (k4 <= monthKey) bal += ovl[k4];
+    }
+  }
   return bal;
 }
 
@@ -4461,19 +4476,14 @@ function renderLiquidWorth() {
     return;
   }
 
+  // Exclude Distribution is applied per account inside acctBalanceAt, so no aggregate
+  // reserve adjustment is needed here.
   var assetVals = [], debtVals = [], netVals = [];
-  var distCatAvail = state.lwExcludeDistribution
-    ? ((state.data.catAvailPivot || {})['Distribution'] || {}) : null;
   for (var ki = 0; ki < keys.length; ki++) {
     var assets = 0, debts = 0;
     for (var ai = 0; ai < accts.length; ai++) {
       var bal = acctBalanceAt(accts[ai].id, keys[ki]);
       if (bal >= 0) assets += bal; else debts += bal;
-    }
-    if (distCatAvail) {
-      var distAvail = 0;
-      for (var dcat in distCatAvail) distAvail += (distCatAvail[dcat][keys[ki]] || 0);
-      assets -= Math.max(0, distAvail);
     }
     assetVals.push(assets);
     debtVals.push(debts);
