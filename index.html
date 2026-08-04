@@ -1389,23 +1389,6 @@ td.hbt-num:last-child { width: 13%; }
               </label>
             </div>
           </div>
-          <div class="settings-tab-block" data-tab="acct-history">
-            <div class="settings-divider"></div>
-            <div class="settings-row">
-              <label class="ios-toggle-wrap">
-                <input type="checkbox" id="ah-exclude-tracking">
-                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
-                Exclude Tracking
-              </label>
-            </div>
-            <div class="settings-row">
-              <label class="ios-toggle-wrap">
-                <input type="checkbox" id="ah-exclude-distribution">
-                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
-                Exclude Distribution
-              </label>
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -1650,6 +1633,16 @@ td.hbt-num:last-child { width: 13%; }
           <label>To <select id="acct-history-to-sel"></select></label>
         </div>
       </div>
+      <label class="ios-toggle-wrap">
+        <input type="checkbox" id="ah-exclude-tracking">
+        <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+        Exclude Tracking
+      </label>
+      <label class="ios-toggle-wrap">
+        <input type="checkbox" id="ah-exclude-distribution">
+        <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+        Exclude Distribution
+      </label>
       <div id="acct-history-acct-wrap">
         <div id="acct-history-acct-group">
           <label>Account <select id="acct-history-sel"></select></label>
@@ -2611,6 +2604,9 @@ function fetchYnabData(apiKey, budgetId, opts) {
   // { grpKey: { monthKey: { acctId: amt } } } — collapsed to liquid accounts once /accounts loads.
   // grpKey is '@INCOME' for Ready to Assign, '@UNCAT' for transfers/uncategorized, else group name.
   var grpActByAcct     = {};
+  // Same buckets, but carrying transaction detail so reconciliation cells are click-throughable.
+  // { grpKey: { monthKey: { acctId: [txn] } } }
+  var reconTxnsByAcct  = {};
   var recovCatAvail    = {}; // { catNm: { key: balance } } for "=" categories
   var recovCatActivity = {}; // { catNm: { key: activity } } for "=" categories
   // Snapshot: { key: day1Value } — highest budgeted value seen per month (pre-move)
@@ -2887,6 +2883,15 @@ function fetchYnabData(apiKey, budgetId, opts) {
           if (!grpActByAcct[gActKey])      grpActByAcct[gActKey]      = {};
           if (!grpActByAcct[gActKey][key]) grpActByAcct[gActKey][key] = {};
           grpActByAcct[gActKey][key][t.account_id] = (grpActByAcct[gActKey][key][t.account_id] || 0) + amt;
+          if (!reconTxnsByAcct[gActKey])      reconTxnsByAcct[gActKey]      = {};
+          if (!reconTxnsByAcct[gActKey][key]) reconTxnsByAcct[gActKey][key] = {};
+          if (!reconTxnsByAcct[gActKey][key][t.account_id]) reconTxnsByAcct[gActKey][key][t.account_id] = [];
+          reconTxnsByAcct[gActKey][key][t.account_id].push({
+            account: acct, date: dispDate,
+            payee: s.payee_name || t.payee_name || '', memo: s.memo || t.memo || '',
+            category: catNm || '(no category)',
+            outflow: amt < 0 ? -amt : 0, inflow: amt > 0 ? amt : 0
+          });
         }
         // Build per-category transaction list for associated-category analysis
         if (catId && !t.deleted && amt < 0) { // outflows only
@@ -3024,6 +3029,18 @@ function fetchYnabData(apiKey, budgetId, opts) {
           if (lgSum !== 0) liqGrpActivity[lgk][lgm] = lgSum;
         }
       }
+      // Matching transaction lists, liquid accounts only, for reconciliation click-through
+      var reconTxns = {}; // { grpKey: { monthKey: [txn] } }
+      for (var rtk in reconTxnsByAcct) {
+        reconTxns[rtk] = {};
+        for (var rtm in reconTxnsByAcct[rtk]) {
+          var rtList = [], rtMap = reconTxnsByAcct[rtk][rtm];
+          for (var rtAid in rtMap) {
+            if (lwAcctIdSet[rtAid]) rtList = rtList.concat(rtMap[rtAid]);
+          }
+          if (rtList.length) reconTxns[rtk][rtm] = rtList;
+        }
+      }
       // Upcoming Renewals: scheduled transactions due within 30 days with no flag
       var todayMid = new Date(); todayMid.setHours(0, 0, 0, 0);
       var cutoff   = new Date(todayMid.getTime() + 30 * 86400000);
@@ -3060,7 +3077,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
                upcomingRenewals: upcomingRenewals,
                catActivityPivot: catActivityPivot, catAvailPivot: catAvailPivot,
                otherGroupPivot: otherGroupPivot, otherCatPivot: otherCatPivot, otherActiveCats: otherActiveCats,
-               liqGrpActivity: liqGrpActivity,
+               liqGrpActivity: liqGrpActivity, reconTxns: reconTxns,
                recovCatAvail: recovCatAvail, recovCatActivity: recovCatActivity,
                glidepathSnapshot: glidepathSnapshot,
                serverKnowledge: { months: newMonthsKnow },
@@ -3815,23 +3832,23 @@ function renderTable(opts) {
     // Build bridge components. Sign convention: each term is what it adds to the gap
     // (gap = Net Liquid - Actual Liquid Change).
     var rcRows = [], rcSumVals = keys.map(function() { return 0; });
-    var rcAdd = function(label, vals) {
+    var rcAdd = function(label, vals, bucket) {
       var any = false;
       for (var vi = 0; vi < vals.length; vi++) { if (Math.abs(vals[vi]) > 0.005) { any = true; break; } }
       if (!any) return;
-      rcRows.push({ label: label, vals: vals });
+      rcRows.push({ label: label, vals: vals, bucket: bucket || null });
       for (var vj = 0; vj < vals.length; vj++) rcSumVals[vj] += vals[vj];
     };
     // Income recognised by Cash Flow but not landing in liquid accounts
     rcAdd('Income not in liquid accounts', keys.map(function(k, i) {
       return incomeVals[i] - ((rcLiqAct['@INCOME'] || {})[k] || 0);
-    }));
+    }), '@INCOME');
     // Tracked groups: actual liquid spend vs assignment
     for (var rgi = 0; rgi < EXPENSE_GROUPS.length; rgi++) {
       (function(grp) {
         rcAdd(grp + ' — spend vs assigned', keys.map(function(k, i) {
           return -((rcLiqAct[grp] || {})[k] || 0) - (gVals[grp] ? gVals[grp][i] : 0);
-        }));
+        }), grp);
       })(EXPENSE_GROUPS[rgi]);
     }
     // Groups Cash Flow never subtracts
@@ -3842,13 +3859,14 @@ function renderTable(opts) {
       (function(grp) {
         rcAdd(grp + ' — untracked spend', keys.map(function(k) {
           return -((rcLiqAct[grp] || {})[k] || 0);
-        }));
+        }), grp);
       })(rcUntrackedKeys[rui]);
     }
-    // Transfers and uncategorised movement
-    rcAdd('Transfers / uncategorised', keys.map(function(k) {
+    // Mostly transfers OUT of the liquid account set — YNAB leaves on-budget to on-budget
+    // transfers uncategorised, so Cash Flow never sees them even though the cash moves.
+    rcAdd('Transfers out of liquid / uncategorised', keys.map(function(k) {
       return -((rcLiqAct['@UNCAT'] || {})[k] || 0);
-    }));
+    }), '@UNCAT');
     // Whatever the components do not explain (toggle effects, excluded categories, rounding)
     rcAdd('Unexplained', keys.map(function(_, i) { return rcGapVals[i] - rcSumVals[i]; }));
 
@@ -3861,13 +3879,19 @@ function renderTable(opts) {
     html += '<td>' + rcArrow + 'Cash Flow vs. Actual Gap</td>';
     html += valCells(rcGapVals, mean(rcGapVals), false, '');
     html += '</tr>';
+    cfReconBuckets = [];
     for (var rri = 0; rri < rcRows.length; rri++) {
       var rcR = rcRows[rri];
       html += '<tr class="cat-row' + (rcIsExp ? ' cat-row-bordered' : '')
             + (rri === rcRows.length - 1 ? ' cat-row-last' : '') + '" ' + rcAttr
             + ' style="' + (rcIsExp ? '' : 'display:none') + '">';
       html += '<td>' + rcR.label + '</td>';
-      html += valCells(rcR.vals, mean(rcR.vals), false, '');
+      if (rcR.bucket) {
+        cfReconBuckets.push({ bucket: rcR.bucket, label: rcR.label });
+        html += valCells(rcR.vals, mean(rcR.vals), false, 'recon', cfReconBuckets.length - 1);
+      } else {
+        html += valCells(rcR.vals, mean(rcR.vals), false, '');
+      }
       html += '</tr>';
     }
   }
@@ -3950,6 +3974,9 @@ function renderTable(opts) {
 // DETAIL PANE
 // ============================================================
 var activeCell   = null;
+// Reconciliation buckets for the current Cash Flow render, indexed by data-gi so a
+// clicked cell can resolve back to its transaction list.
+var cfReconBuckets        = [];
 var lwChartState          = null;
 var nwChartState          = null;
 var nwDriverTooltipData   = null; // { overall:[{name,delta}], house:[], invest:[], savings:[] }
@@ -4297,6 +4324,15 @@ function parseDateSort(s) {
 }
 
 function getTxns(type, gi, ci, monthKey) {
+  // Reconciliation rows resolve against reconTxns, which is already scoped to the liquid
+  // accounts the Liquid Balances tab uses — so it must NOT be re-filtered by the Cash Flow
+  // account selection below, and it includes uncategorised transfers regTxns never held.
+  if (type === 'recon') {
+    var rb = cfReconBuckets[gi];
+    if (!rb) return [];
+    var rlist = ((state.data.reconTxns || {})[rb.bucket] || {})[monthKey] || [];
+    return rlist.slice().sort(function(a, b) { return parseDateSort(b.date) - parseDateSort(a.date); });
+  }
   var rt = (state.data.regTxns || {})[monthKey] || {};
   var txns = [];
   if (type === 'income') {
@@ -4327,6 +4363,10 @@ function getTxns(type, gi, ci, monthKey) {
 }
 
 function getPaneTitle(type, gi, ci) {
+  if (type === 'recon') {
+    var rb = cfReconBuckets[gi];
+    return rb ? rb.label + ' (liquid accounts)' : 'Reconciliation';
+  }
   if (type === 'income')     return 'Income';
   if (type === 'total-dist')   return 'Total Distribution';
   if (type === 'total-margin') return 'Total Margin Reinvestment';
