@@ -3096,6 +3096,26 @@ function fetchYnabData(apiKey, budgetId, opts) {
           if (rtList.length) reconTxns[rtk][rtm] = rtList;
         }
       }
+      // Activity sitting in NON-liquid accounts, per category. YNAB's catActivityPivot covers
+      // every account, so this is what gets backed out to reach the liquid-only figure —
+      // rather than re-deriving the whole total by summing transactions, which drifts.
+      var nonLiqCatAct = {}; // { grp: { cat: { monthKey: amt } } }
+      for (var nlk in reconTxnsByAcct) {
+        if (nlk.charAt(0) === '@') continue;
+        for (var nlm in reconTxnsByAcct[nlk]) {
+          var nlMap = reconTxnsByAcct[nlk][nlm];
+          for (var nlAid in nlMap) {
+            if (lwAcctIdSet[nlAid]) continue;
+            var nlArr = nlMap[nlAid];
+            for (var nli = 0; nli < nlArr.length; nli++) {
+              var nlCat = nlArr[nli].category;
+              if (!nonLiqCatAct[nlk])              nonLiqCatAct[nlk]              = {};
+              if (!nonLiqCatAct[nlk][nlCat])       nonLiqCatAct[nlk][nlCat]       = {};
+              nonLiqCatAct[nlk][nlCat][nlm] = (nonLiqCatAct[nlk][nlCat][nlm] || 0) + nlArr[nli].amt;
+            }
+          }
+        }
+      }
       var liqGrpActivity = {}; // { grpKey: { monthKey: amt } }
       for (var lgk in grpActByAcct) {
         liqGrpActivity[lgk] = {};
@@ -3149,6 +3169,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
                catActivityPivot: catActivityPivot, catAvailPivot: catAvailPivot,
                otherGroupPivot: otherGroupPivot, otherCatPivot: otherCatPivot, otherActiveCats: otherActiveCats,
                liqGrpActivity: liqGrpActivity, reconTxns: reconTxns, otherCatTxns: otherCatTxns,
+               nonLiqCatAct: nonLiqCatAct,
                recovCatAvail: recovCatAvail, recovCatActivity: recovCatActivity,
                glidepathSnapshot: glidepathSnapshot,
                serverKnowledge: { months: newMonthsKnow },
@@ -3955,6 +3976,12 @@ function renderTable(opts) {
     // side is not then reported here as unaccounted for.
     var rcMapped = rcMappedCatSet();
     var rcAct = function(bucket, k) {
+      if (bucket.charAt(0) !== '@') {
+        // Sum the per-category figures so the group total and its rows cannot disagree
+        var byCat = rcActByCat(bucket, k), s2 = 0;
+        for (var c in byCat) s2 += byCat[c];
+        return s2;
+      }
       var list = rcFilterTxns((rcTxnAll[bucket] || {})[k] || [], bucket);
       var s = 0;
       for (var i = 0; i < list.length; i++) s += list[i].amt;
@@ -4003,12 +4030,27 @@ function renderTable(opts) {
       for (var i = 0; i < vals.length; i++) { if (Math.abs(vals[i]) > 0.005) return true; }
       return false;
     };
-    // Per-category split of a bucket's filtered activity, keyed by category name
+    // Per-category liquid activity. YNAB's own reported activity is authoritative for a
+    // category-month, so it is the base and only the non-liquid portion is backed out.
+    // Summing transactions instead drifts from what the budget reports.
+    // Exclusion filters apply per category rather than per transaction, which is equivalent:
+    // tracking is a property of the category name, and holding rules map whole categories.
     var rcActByCat = function(bucket, k) {
-      var list = rcFilterTxns((rcTxnAll[bucket] || {})[k] || [], bucket);
       var out = {};
-      for (var i = 0; i < list.length; i++) {
-        out[list[i].category] = (out[list[i].category] || 0) + list[i].amt;
+      if (bucket.charAt(0) === '@') { // synthetic buckets have no category-level counterpart
+        var list = rcFilterTxns((rcTxnAll[bucket] || {})[k] || [], bucket);
+        for (var i = 0; i < list.length; i++) {
+          out[list[i].category] = (out[list[i].category] || 0) + list[i].amt;
+        }
+        return out;
+      }
+      var actPivot = ((d.catActivityPivot || {})[bucket]) || {};
+      var nonLiq   = ((d.nonLiqCatAct    || {})[bucket]) || {};
+      for (var cat in actPivot) {
+        if (state.lwExcludeTracking && cat.slice(-1) === '~') continue;
+        if (rcMapped && rcMapped[bucket + '||' + cat]) continue;
+        var v = (actPivot[cat][k] || 0) - (((nonLiq[cat]) || {})[k] || 0);
+        if (!isZeroish(v)) out[cat] = v;
       }
       return out;
     };
