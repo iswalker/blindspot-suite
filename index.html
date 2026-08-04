@@ -2858,7 +2858,8 @@ function fetchYnabData(apiKey, budgetId, opts) {
                      payee_name: st.payee_name || t.payee_name,
                      memo: st.memo || t.memo,
                      amount: st.amount, category_id: st.category_id,
-                     category_name: st.category_name || '' };
+                     category_name: st.category_name || '',
+                     transfer_account_id: st.transfer_account_id || null };
           })
         : [t];
       for (var si = 0; si < subs.length; si++) {
@@ -2879,7 +2880,10 @@ function fetchYnabData(apiKey, budgetId, opts) {
         // Per-group activity keyed by account, so the Cash Flow reconciliation row can
         // restrict actual activity to the same liquid accounts the Liquid Balances tab uses.
         if (t.account_id && !t.deleted) {
-          var gActKey = isRTA ? '@INCOME' : (grpNm || '@UNCAT');
+          // A categorised transfer (on-budget -> off-budget) keeps its group, since Cash Flow
+          // does see it. Only uncategorised movement splits into transfer vs. plain uncategorised.
+          var xferId  = s.transfer_account_id || null;
+          var gActKey = isRTA ? '@INCOME' : (grpNm ? grpNm : (xferId ? '@TRANSFER' : '@UNCAT'));
           if (!grpActByAcct[gActKey])      grpActByAcct[gActKey]      = {};
           if (!grpActByAcct[gActKey][key]) grpActByAcct[gActKey][key] = {};
           grpActByAcct[gActKey][key][t.account_id] = (grpActByAcct[gActKey][key][t.account_id] || 0) + amt;
@@ -2889,8 +2893,9 @@ function fetchYnabData(apiKey, budgetId, opts) {
           reconTxnsByAcct[gActKey][key][t.account_id].push({
             account: acct, date: dispDate,
             payee: s.payee_name || t.payee_name || '', memo: s.memo || t.memo || '',
-            category: catNm || '(no category)',
-            outflow: amt < 0 ? -amt : 0, inflow: amt > 0 ? amt : 0
+            category: catNm || (xferId ? '(transfer)' : '(no category)'),
+            outflow: amt < 0 ? -amt : 0, inflow: amt > 0 ? amt : 0,
+            xferAcctId: xferId, amt: amt
           });
         }
         // Build per-category transaction list for associated-category analysis
@@ -3020,25 +3025,39 @@ function fetchYnabData(apiKey, budgetId, opts) {
         if (!lwAcctIdSet[trkDetailId]) delete acctTrkTxns[trkDetailId];
       }
       // Collapse per-account group activity down to liquid accounts only
-      var liqGrpActivity = {}; // { grpKey: { monthKey: amt } }
-      for (var lgk in grpActByAcct) {
-        liqGrpActivity[lgk] = {};
-        for (var lgm in grpActByAcct[lgk]) {
-          var lgSum = 0, lgMap = grpActByAcct[lgk][lgm];
-          for (var lgAid in lgMap) { if (lwAcctIdSet[lgAid]) lgSum += lgMap[lgAid]; }
-          if (lgSum !== 0) liqGrpActivity[lgk][lgm] = lgSum;
-        }
-      }
-      // Matching transaction lists, liquid accounts only, for reconciliation click-through
+      // Matching transaction lists, liquid accounts only, for reconciliation click-through.
+      // Transfers between two liquid accounts net to zero across the set, so they are dropped
+      // entirely rather than shown as offsetting noise.
       var reconTxns = {}; // { grpKey: { monthKey: [txn] } }
       for (var rtk in reconTxnsByAcct) {
         reconTxns[rtk] = {};
         for (var rtm in reconTxnsByAcct[rtk]) {
           var rtList = [], rtMap = reconTxnsByAcct[rtk][rtm];
           for (var rtAid in rtMap) {
-            if (lwAcctIdSet[rtAid]) rtList = rtList.concat(rtMap[rtAid]);
+            if (!lwAcctIdSet[rtAid]) continue;
+            var rtSrc = rtMap[rtAid];
+            for (var rti = 0; rti < rtSrc.length; rti++) {
+              if (rtk === '@TRANSFER' && lwAcctIdSet[rtSrc[rti].xferAcctId]) continue;
+              rtList.push(rtSrc[rti]);
+            }
           }
           if (rtList.length) reconTxns[rtk][rtm] = rtList;
+        }
+      }
+      var liqGrpActivity = {}; // { grpKey: { monthKey: amt } }
+      for (var lgk in grpActByAcct) {
+        liqGrpActivity[lgk] = {};
+        for (var lgm in grpActByAcct[lgk]) {
+          var lgSum = 0;
+          if (lgk === '@TRANSFER') {
+            // Derive from the filtered list so the figure matches the click-through exactly
+            var lgTx = (reconTxns[lgk] || {})[lgm] || [];
+            for (var lgi = 0; lgi < lgTx.length; lgi++) lgSum += lgTx[lgi].amt;
+          } else {
+            var lgMap = grpActByAcct[lgk][lgm];
+            for (var lgAid in lgMap) { if (lwAcctIdSet[lgAid]) lgSum += lgMap[lgAid]; }
+          }
+          if (lgSum !== 0) liqGrpActivity[lgk][lgm] = lgSum;
         }
       }
       // Upcoming Renewals: scheduled transactions due within 30 days with no flag
@@ -3839,6 +3858,11 @@ function renderTable(opts) {
       rcRows.push({ label: label, vals: vals, bucket: bucket || null });
       for (var vj = 0; vj < vals.length; vj++) rcSumVals[vj] += vals[vj];
     };
+    // Uncategorised spend leads — it is the most actionable line, since anything here is
+    // simply missing a category and invisible to Cash Flow as a result.
+    rcAdd('Uncategorised', keys.map(function(k) {
+      return -((rcLiqAct['@UNCAT'] || {})[k] || 0);
+    }), '@UNCAT');
     // Income recognised by Cash Flow but not landing in liquid accounts
     rcAdd('Income not in liquid accounts', keys.map(function(k, i) {
       return incomeVals[i] - ((rcLiqAct['@INCOME'] || {})[k] || 0);
@@ -3853,7 +3877,7 @@ function renderTable(opts) {
     }
     // Groups Cash Flow never subtracts
     var rcUntrackedKeys = Object.keys(rcLiqAct).filter(function(g) {
-      return g !== '@INCOME' && g !== '@UNCAT' && EXPENSE_GROUPS.indexOf(g) === -1;
+      return g.charAt(0) !== '@' && EXPENSE_GROUPS.indexOf(g) === -1;
     });
     for (var rui = 0; rui < rcUntrackedKeys.length; rui++) {
       (function(grp) {
@@ -3862,11 +3886,12 @@ function renderTable(opts) {
         }), grp);
       })(rcUntrackedKeys[rui]);
     }
-    // Mostly transfers OUT of the liquid account set — YNAB leaves on-budget to on-budget
-    // transfers uncategorised, so Cash Flow never sees them even though the cash moves.
-    rcAdd('Transfers out of liquid / uncategorised', keys.map(function(k) {
-      return -((rcLiqAct['@UNCAT'] || {})[k] || 0);
-    }), '@UNCAT');
+    // Transfers leaving the liquid set. YNAB leaves on-budget to on-budget transfers
+    // uncategorised, so Cash Flow never sees them even though the cash moves. Liquid-to-liquid
+    // transfers are excluded upstream because they net to zero.
+    rcAdd('Transfers out of liquid accounts', keys.map(function(k) {
+      return -((rcLiqAct['@TRANSFER'] || {})[k] || 0);
+    }), '@TRANSFER');
     // Whatever the components do not explain (toggle effects, excluded categories, rounding)
     rcAdd('Unexplained', keys.map(function(_, i) { return rcGapVals[i] - rcSumVals[i]; }));
 
