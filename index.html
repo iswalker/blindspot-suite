@@ -4119,7 +4119,9 @@ function renderTable(opts) {
       var src = ((d.nonLiqCatAct || {})[grp]) || {}, out = {};
       for (var cat in src) {
         if (state.lwExcludeTracking && cat.slice(-1) === '~') continue;
-        if (rcMapped && rcMapped[grp + '||' + cat]) continue;
+        // Holding-mapped categories are NOT skipped here. The reserve cancels their budget
+        // variance, not the portion sitting in an excluded account — that still has to be
+        // reported, or a Planned~ leg under a mapped group goes missing.
         var v = src[cat][k] || 0;
         if (!isZeroish(v)) out[cat] = v;
       }
@@ -4222,15 +4224,15 @@ function renderTable(opts) {
     // Transfers leaving the liquid set. YNAB leaves on-budget to on-budget transfers
     // uncategorised, so Cash Flow never sees them even though the cash moves. Liquid-to-liquid
     // transfers are excluded upstream because they net to zero.
-    rcAdd('Transfers out of liquid accounts', keys.map(function(k) {
+    rcAdd('Transfers in/out of liquid accounts', keys.map(function(k) {
       return -rcAct('@TRANSFER', k);
     }), '@TRANSFER');
-    // Deployable Cash Pools is spendable cash already sitting in liquid accounts — assigning to
-    // it is a budget formality with the same outcome as leaving the money in checking. It still
-    // moves the raw gap, so its term is folded in silently to keep it out of Unexplained.
-    rcAdd(CF_POST_NET_LIQUID_GROUP, keys.map(function(k) {
+    // Cash moving between liquid and excluded accounts under this group — typically a transfer
+    // in from an off-budget account, which raises the liquid balance with no assignment behind
+    // it. Previously folded in silently, which left visible rows short of the gap by its value.
+    rcAdd(CF_POST_NET_LIQUID_GROUP + ' — moved in/out of liquid', keys.map(function(k) {
       return -rcAct(CF_POST_NET_LIQUID_GROUP, k);
-    }), CF_POST_NET_LIQUID_GROUP, true);
+    }), CF_POST_NET_LIQUID_GROUP);
     // Whatever the components do not explain (toggle effects, excluded categories, rounding)
     rcAdd('Unexplained', keys.map(function(_, i) { return rcGapVals[i] - rcSumVals[i]; }));
 
