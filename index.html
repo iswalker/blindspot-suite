@@ -2845,6 +2845,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
         if (t.subtransactions && t.subtransactions.length) {
           for (var sti = 0; sti < t.subtransactions.length; sti++) {
             var stx = t.subtransactions[sti];
+            if (stx.deleted) continue; // YNAB drops these from category activity
             var stxNm = catIdToName[stx.category_id] || '';
             if (stxNm.slice(-1) === '~') {
               var stxTrkAmt = (stx.amount || 0) / 1000;
@@ -2871,7 +2872,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
           // Store sub-transaction memo+amount breakdown so Payee-type speedometers can
           // correctly split e.g. a $100 inflow into $10 Shipping / $90 Sales.
           var subDetails = (t.subtransactions && t.subtransactions.length)
-            ? t.subtransactions.map(function(st) {
+            ? t.subtransactions.filter(function(st) { return !st.deleted; }).map(function(st) {
                 return { amount: (st.amount || 0) / 1000, memo: (st.memo || t.memo || '') };
               })
             : null;
@@ -2885,8 +2886,10 @@ function fetchYnabData(apiKey, budgetId, opts) {
           });
         }
       }
+      // Deleted subtransactions survive on a live split, and YNAB excludes them from category
+      // activity — counting them here made spend exceed what the budget reports.
       var subs = (t.subtransactions && t.subtransactions.length)
-        ? t.subtransactions.map(function(st) {
+        ? t.subtransactions.filter(function(st) { return !st.deleted; }).map(function(st) {
             // category_name carried through so hidden/archived categories are still matchable
             return { date: t.date, account_name: t.account_name,
                      payee_name: st.payee_name || t.payee_name,
