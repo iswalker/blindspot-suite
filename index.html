@@ -4623,11 +4623,21 @@ function rcFilterTxns(list, bucket) {
 // Drop entries that cancel each other out: an inflow and an outflow of the same amount, with
 // the same memo, in the same month. Matching is 1:1 — three outflows against one inflow leaves
 // two showing. The caller scopes the list to a single month, so that condition is implicit.
+// "Adjusted from 7/20" can be tacked onto either end of a memo when a transaction is re-dated,
+// which would otherwise stop an entry matching its own counterpart. Stripped before comparing,
+// case-insensitively, with the surrounding whitespace collapsed.
+function normaliseMemo(memo) {
+  return String(memo || '')
+    .replace(/adjusted from \d{1,2}\/\d{1,2}(\/\d{2,4})?/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function filterUnpairedTxns(txns) {
   var pos = {}, neg = {};
   var keyOf = function(t) {
     var amt = (t.inflow || 0) - (t.outflow || 0);
-    return (t.memo || '') + '|' + Math.abs(amt).toFixed(2);
+    return normaliseMemo(t.memo) + '|' + Math.abs(amt).toFixed(2);
   };
   for (var i = 0; i < txns.length; i++) {
     var amt = (txns[i].inflow || 0) - (txns[i].outflow || 0);
