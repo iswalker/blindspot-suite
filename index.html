@@ -931,6 +931,49 @@ td.hbt-num:last-child { width: 13%; }
 .lwtt-driver-detail { font-size: 10px; color: #999; margin: -1px 0 5px; white-space: nowrap; }
 .lwtt-drivers-more { font-size: 11px; color: #bbb; margin-top: 2px; }
 .lwtt-asof { font-size: 10px; font-weight: 400; color: #aaa; }
+.lwtt-hint { font-size: 10px; color: #bbb; margin-top: 6px; border-top: 1px solid #eee; padding-top: 5px; }
+
+/* ---- Change Drivers modal ---- */
+#lw-driver-modal {
+  position: fixed; inset: 0; display: none; z-index: 400;
+  background: rgba(0,0,0,.32); align-items: center; justify-content: center;
+}
+#lw-driver-modal.open { display: flex; }
+.lwdm-box {
+  background: #fff; border-radius: 10px; width: min(1020px, 94vw); max-height: 86vh;
+  display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,.28); overflow: hidden;
+}
+.lwdm-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-bottom: 1px solid #eee; font-size: 14px; font-weight: 700; color: #333;
+}
+#lwdm-close { background: none; border: none; font-size: 22px; line-height: 1; color: #999; cursor: pointer; padding: 0 4px; }
+#lwdm-close:hover { color: #444; }
+.lwdm-body { display: flex; gap: 0; min-height: 0; flex: 1; }
+.lwdm-list { width: 44%; overflow-y: auto; border-right: 1px solid #eee; padding: 6px 0; }
+.lwdm-detail { flex: 1; overflow-y: auto; padding: 12px 16px; background: #fbfbf9; }
+.lwdm-row { padding: 7px 16px; cursor: default; border-left: 3px solid transparent; }
+.lwdm-row:hover, .lwdm-row.active { background: #f2f4fb; border-left-color: #3f51b5; }
+.lwdm-row-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.lwdm-row-name { font-size: 12px; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lwdm-row-val { font-size: 12px; font-weight: 700; white-space: nowrap; }
+.lwdm-row-sub { font-size: 10px; color: #999; margin-top: 1px; }
+.lwdm-badge {
+  display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  padding: 1px 5px; border-radius: 3px; margin-left: 6px; vertical-align: middle;
+}
+.lwdm-badge-trk  { background: #fdecea; color: #c62828; }
+.lwdm-badge-dist { background: #e8f0fe; color: #1557b0; }
+.lwdm-d-hdr { font-size: 13px; font-weight: 700; color: #333; margin-bottom: 2px; }
+.lwdm-d-sub { font-size: 11px; color: #888; margin-bottom: 12px; }
+.lwdm-d-sec { font-size: 10px; font-weight: 700; color: #bbb; letter-spacing: .08em; text-transform: uppercase; margin: 14px 0 5px; }
+.lwdm-d-tot { font-size: 12px; font-weight: 700; color: #333; margin-top: 6px; padding-top: 6px; border-top: 1px solid #e6e6e2; display: flex; justify-content: space-between; }
+.lwdm-txn { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; border-bottom: 1px solid #f0f0ec; }
+.lwdm-txn-l { min-width: 0; }
+.lwdm-txn-cat { font-size: 11px; color: #333; }
+.lwdm-txn-meta { font-size: 10px; color: #999; overflow: hidden; text-overflow: ellipsis; }
+.lwdm-txn-amt { font-size: 11px; font-weight: 600; white-space: nowrap; }
+.lwdm-empty { font-size: 11px; color: #aaa; font-style: italic; }
 
 /* ---- LW chart ---- */
 .lw-chart-wrap {
@@ -1764,6 +1807,20 @@ td.hbt-num:last-child { width: 13%; }
 
 <!-- LW chart tooltip -->
 <div id="lw-tooltip"></div>
+
+<!-- Change Drivers modal (click a chart point) -->
+<div id="lw-driver-modal">
+  <div class="lwdm-box">
+    <div class="lwdm-hdr">
+      <span id="lwdm-title"></span>
+      <button id="lwdm-close" title="Close">&times;</button>
+    </div>
+    <div class="lwdm-body">
+      <div class="lwdm-list" id="lwdm-list"></div>
+      <div class="lwdm-detail" id="lwdm-detail"></div>
+    </div>
+  </div>
+</div>
 
 <!-- Home recoverable costs hover tooltip -->
 <div id="home-recov-tooltip"></div>
@@ -2718,6 +2775,14 @@ function fetchYnabData(apiKey, budgetId, opts) {
     var txns    = data.transactions || [];
     var acctTxns = {};
     var acctTxnsTracking = {}; // Tracking-group amounts only, for ExTracking toggle
+    // Line-level detail behind acctTxnsTracking, so the driver modal can show exactly which
+    // transactions Exclude Tracking removed: { acctId: { monthKey: [ {date,cat,payee,memo,amount} ] } }
+    var acctTrkTxns = {};
+    function pushTrkTxn(aid, mKey, date, cat, payee, memo, amt) {
+      if (!acctTrkTxns[aid]) acctTrkTxns[aid] = {};
+      if (!acctTrkTxns[aid][mKey]) acctTrkTxns[aid][mKey] = [];
+      acctTrkTxns[aid][mKey].push({ date: date, cat: cat, payee: payee, memo: memo, amount: amt });
+    }
     var acctTxnsList = {};
     var catIdTxns = {}; // { catId: [{ date, account, payee, amount }] } outflows only
     for (var ti = 0; ti < txns.length; ti++) {
@@ -2734,11 +2799,19 @@ function fetchYnabData(apiKey, budgetId, opts) {
           for (var sti = 0; sti < t.subtransactions.length; sti++) {
             var stx = t.subtransactions[sti];
             var stxNm = catIdToName[stx.category_id] || '';
-            if (stxNm.slice(-1) === '~') trackingAmt += (stx.amount || 0) / 1000;
+            if (stxNm.slice(-1) === '~') {
+              var stxTrkAmt = (stx.amount || 0) / 1000;
+              trackingAmt += stxTrkAmt;
+              pushTrkTxn(t.account_id, tKey2, t.date, stxNm,
+                         stx.payee_name || t.payee_name || '', stx.memo || t.memo || '', stxTrkAmt);
+            }
           }
         } else {
           var tNm = catIdToName[t.category_id] || '';
-          if (tNm.slice(-1) === '~') trackingAmt = (t.amount || 0) / 1000;
+          if (tNm.slice(-1) === '~') {
+            trackingAmt = (t.amount || 0) / 1000;
+            pushTrkTxn(t.account_id, tKey2, t.date, tNm, t.payee_name || '', t.memo || '', trackingAmt);
+          }
         }
         if (trackingAmt !== 0) {
           if (!acctTxnsTracking[t.account_id]) acctTxnsTracking[t.account_id] = {};
@@ -2921,6 +2994,9 @@ function fetchYnabData(apiKey, budgetId, opts) {
       for (var trkAcctId in acctTxnsTracking) {
         if (!lwAcctIdSet[trkAcctId]) delete acctTxnsTracking[trkAcctId];
       }
+      for (var trkDetailId in acctTrkTxns) {
+        if (!lwAcctIdSet[trkDetailId]) delete acctTrkTxns[trkDetailId];
+      }
       // Collapse per-account group activity down to liquid accounts only
       var liqGrpActivity = {}; // { grpKey: { monthKey: amt } }
       for (var lgk in grpActByAcct) {
@@ -2962,7 +3038,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
                groupPivot: groupPivot, catPivot: catPivot, activeCats: activeCats,
                regTxns: regTxns, allAccounts: allAccounts,
                allAccountsInfo: allAccountsInfo, lwAccounts: lwAccounts,
-               nwAccounts: nwAccounts, acctTxns: acctTxns, acctTxnsTracking: acctTxnsTracking, acctTxnsList: acctTxnsList, catIdTxns: catIdTxns, catIdToName: catIdToName,
+               nwAccounts: nwAccounts, acctTxns: acctTxns, acctTxnsTracking: acctTxnsTracking, acctTrkTxns: acctTrkTxns, acctTxnsList: acctTxnsList, catIdTxns: catIdTxns, catIdToName: catIdToName,
                pendingTxns: pendingTxns,
                upcomingRenewals: upcomingRenewals,
                catActivityPivot: catActivityPivot, catAvailPivot: catAvailPivot,
@@ -3907,6 +3983,55 @@ function lwMonthEndLabel(key) {
   return m + '/' + last + '/' + String(y).slice(2);
 }
 
+// Per-account balance change between the two hovered months, sorted by magnitude.
+// Shared by the hover tooltip (top 12) and the click-through modal (all).
+// acctId is carried where a row maps to a single account, so the modal can look up
+// exactly which transactions the exclusion toggles removed. Grouped rows carry null.
+function lwComputeDrivers(idx, s) {
+  if (!(idx > 0 && s && s.accounts && s.accounts.length && state.data && state.data.acctTxns)) return [];
+  var isNwChart = s.canvasId === 'nw-canvas';
+  var drivers = [];
+  if (isNwChart) {
+    // For NW chart: sum all on_budget accounts into one "Liquid Accounts" line
+    var liquidChange = 0, liquidPrev = 0, liquidCur = 0;
+    for (var di = 0; di < s.accounts.length; di++) {
+      var a = s.accounts[di];
+      var aPrev = acctBalanceAt(a.id, s.keys[idx - 1]);
+      var aCur  = acctBalanceAt(a.id, s.keys[idx]);
+      var dCh   = aCur - aPrev;
+      if (a.on_budget) {
+        liquidChange += dCh; liquidPrev += aPrev; liquidCur += aCur;
+      } else {
+        if (Math.abs(dCh) >= 0.5) drivers.push({ name: a.name, id: a.id, change: dCh, prev: aPrev, cur: aCur });
+      }
+    }
+    if (Math.abs(liquidChange) >= 0.5) {
+      drivers.push({ name: 'Liquid Accounts', id: null, change: liquidChange, prev: liquidPrev, cur: liquidCur });
+    }
+  } else {
+    for (var dj2 = 0; dj2 < s.accounts.length; dj2++) {
+      var acId   = s.accounts[dj2].id;
+      var acPrev = acctBalanceAt(acId, s.keys[idx - 1]);
+      var acCur  = acctBalanceAt(acId, s.keys[idx]);
+      var dCh2   = acCur - acPrev;
+      if (Math.abs(dCh2) >= 0.5) {
+        drivers.push({ name: s.accounts[dj2].name, id: acId, change: dCh2, prev: acPrev, cur: acCur });
+      }
+    }
+  }
+  // Group Student Loan accounts into one line
+  var slTotal = 0, slPrev = 0, slCur = 0, slCount = 0, nonSl = [];
+  for (var sli = 0; sli < drivers.length; sli++) {
+    if (drivers[sli].name.indexOf('Student Loan') !== -1) {
+      slTotal += drivers[sli].change; slPrev += drivers[sli].prev; slCur += drivers[sli].cur; slCount++;
+    } else { nonSl.push(drivers[sli]); }
+  }
+  if (slCount > 0) nonSl.push({ name: 'Student Loans', id: null, change: slTotal, prev: slPrev, cur: slCur });
+  drivers = nonSl;
+  drivers.sort(function(x, y) { return Math.abs(y.change) - Math.abs(x.change); });
+  return drivers;
+}
+
 function showLwTooltip(clientX, clientY, idx, s) {
   var tt = document.getElementById('lw-tooltip');
   if (!tt) return;
@@ -3933,46 +4058,7 @@ function showLwTooltip(clientX, clientY, idx, s) {
   // Change drivers (top accounts by absolute balance change)
   var driversHtml = '';
   if (idx > 0 && s.accounts && s.accounts.length > 0 && state.data && state.data.acctTxns) {
-    var isNwChart = s.canvasId === 'nw-canvas';
-    var drivers = [];
-    if (isNwChart) {
-      // For NW chart: sum all on_budget accounts into one "Liquid Accounts" line
-      var liquidChange = 0, liquidPrev = 0, liquidCur = 0;
-      for (var di = 0; di < s.accounts.length; di++) {
-        var a = s.accounts[di];
-        var aPrev = acctBalanceAt(a.id, s.keys[idx - 1]);
-        var aCur  = acctBalanceAt(a.id, s.keys[idx]);
-        var dCh   = aCur - aPrev;
-        if (a.on_budget) {
-          liquidChange += dCh; liquidPrev += aPrev; liquidCur += aCur;
-        } else {
-          if (Math.abs(dCh) >= 0.5) drivers.push({ name: a.name, change: dCh, prev: aPrev, cur: aCur });
-        }
-      }
-      if (Math.abs(liquidChange) >= 0.5) {
-        drivers.push({ name: 'Liquid Accounts', change: liquidChange, prev: liquidPrev, cur: liquidCur });
-      }
-    } else {
-      for (var di = 0; di < s.accounts.length; di++) {
-        var acId  = s.accounts[di].id;
-        var acPrev = acctBalanceAt(acId, s.keys[idx - 1]);
-        var acCur  = acctBalanceAt(acId, s.keys[idx]);
-        var dCh    = acCur - acPrev;
-        if (Math.abs(dCh) >= 0.5) {
-          drivers.push({ name: s.accounts[di].name, change: dCh, prev: acPrev, cur: acCur });
-        }
-      }
-    }
-    // Group Student Loan accounts into one line
-    var slTotal = 0, slPrev = 0, slCur = 0, slCount = 0, nonSl = [];
-    for (var sli = 0; sli < drivers.length; sli++) {
-      if (drivers[sli].name.indexOf('Student Loan') !== -1) {
-        slTotal += drivers[sli].change; slPrev += drivers[sli].prev; slCur += drivers[sli].cur; slCount++;
-      } else { nonSl.push(drivers[sli]); }
-    }
-    if (slCount > 0) nonSl.push({ name: 'Student Loans', change: slTotal, prev: slPrev, cur: slCur });
-    drivers = nonSl;
-    drivers.sort(function(a, b) { return Math.abs(b.change) - Math.abs(a.change); });
+    var drivers = lwComputeDrivers(idx, s);
     var shown = Math.min(drivers.length, 12);
     if (shown > 0) {
       var prevDateLbl = lwMonthEndLabel(s.keys[idx - 1]);
@@ -3997,6 +4083,7 @@ function showLwTooltip(clientX, clientY, idx, s) {
       if (drivers.length > shown) {
         driversHtml += '<div class="lwtt-drivers-more">+ ' + (drivers.length - shown) + ' more</div>';
       }
+      driversHtml += '<div class="lwtt-hint">Click for all drivers &amp; excluded transactions</div>';
     }
   }
 
@@ -4021,6 +4108,156 @@ function showLwTooltip(clientX, clientY, idx, s) {
   if (top < 8) top = 8;
   tt.style.left = left + 'px';
   tt.style.top  = top  + 'px';
+}
+
+// ---- Change Drivers modal: full driver list + why a balance was adjusted ----
+var lwModalCtx = null; // { idx, s }
+
+function lwFmtSigned(v) {
+  return (v >= 0 ? '+' : '-') + '$'
+       + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function lwFmtPlain(v) {
+  return (v < 0 ? '-' : '') + '$'
+       + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// Tracking is removed cumulatively (every month <= monthKey), so the balance reflects the
+// running total while the month-over-month change reflects only that month.
+function lwTrkTxnsFor(acctId, monthKey) {
+  var byMonth = ((state.data || {}).acctTrkTxns || {})[acctId] || {};
+  var thisMonth = byMonth[monthKey] || [];
+  var prior = 0;
+  for (var k in byMonth) {
+    if (k < monthKey) {
+      for (var i = 0; i < byMonth[k].length; i++) prior += byMonth[k][i].amount;
+    }
+  }
+  return { txns: thisMonth, priorTotal: prior };
+}
+
+function openLwDriverModal(idx, s) {
+  if (!(idx > 0)) return;
+  lwModalCtx = { idx: idx, s: s };
+  var modal = document.getElementById('lw-driver-modal');
+  var list  = document.getElementById('lwdm-list');
+  if (!modal || !list) return;
+  var drivers = lwComputeDrivers(idx, s);
+  var pp = s.keys[idx].split('-');
+  document.getElementById('lwdm-title').textContent =
+    LW_MONTH_SHORT[parseInt(pp[1], 10) - 1] + ' ' + pp[0] + ' · Change Drivers ('
+    + drivers.length + ') · ' + lwMonthEndLabel(s.keys[idx - 1]) + ' → ' + lwMonthEndLabel(s.keys[idx]);
+
+  var html = '';
+  for (var i = 0; i < drivers.length; i++) {
+    var d = drivers[i];
+    var col = d.change >= 0 ? '#2e7d32' : '#c62828';
+    var badges = '';
+    if (d.id) {
+      var trk = lwTrkTxnsFor(d.id, s.keys[idx]);
+      if (trk.txns.length) badges += '<span class="lwdm-badge lwdm-badge-trk">trk ' + trk.txns.length + '</span>';
+      if (lwHoldingReserve(d.id, s.keys[idx]) > 0) badges += '<span class="lwdm-badge lwdm-badge-dist">dist</span>';
+    }
+    html += '<div class="lwdm-row" data-di="' + i + '">'
+         +    '<div class="lwdm-row-top">'
+         +      '<span class="lwdm-row-name">' + escHtml(d.name) + badges + '</span>'
+         +      '<span class="lwdm-row-val" style="color:' + col + '">' + lwFmtSigned(d.change) + '</span>'
+         +    '</div>'
+         +    '<div class="lwdm-row-sub">' + lwFmtPlain(d.prev) + ' → ' + lwFmtPlain(d.cur) + '</div>'
+         +  '</div>';
+  }
+  list.innerHTML = html || '<div class="lwdm-empty" style="padding:12px 16px">No drivers above $0.50 this month.</div>';
+  modal.classList.add('open');
+
+  var rows = list.querySelectorAll('.lwdm-row');
+  for (var r = 0; r < rows.length; r++) {
+    (function(row) {
+      row.addEventListener('mouseenter', function() {
+        for (var q = 0; q < rows.length; q++) rows[q].classList.remove('active');
+        row.classList.add('active');
+        renderLwDriverDetail(drivers[parseInt(row.getAttribute('data-di'), 10)], s.keys[idx], s.keys[idx - 1]);
+      });
+    })(rows[r]);
+  }
+  if (drivers.length) renderLwDriverDetail(drivers[0], s.keys[idx], s.keys[idx - 1]);
+  else document.getElementById('lwdm-detail').innerHTML = '';
+}
+
+function renderLwDriverDetail(d, monthKey, prevKey) {
+  var el = document.getElementById('lwdm-detail');
+  if (!el || !d) return;
+  var h = '<div class="lwdm-d-hdr">' + escHtml(d.name) + '</div>'
+        + '<div class="lwdm-d-sub">' + lwFmtPlain(d.prev) + ' on ' + lwMonthEndLabel(prevKey)
+        + ' → ' + lwFmtPlain(d.cur) + ' on ' + lwMonthEndLabel(monthKey)
+        + ' · <strong>' + lwFmtSigned(d.change) + '</strong></div>';
+
+  if (!d.id) {
+    h += '<div class="lwdm-empty">Grouped row — hover an individual account for exclusion detail.</div>';
+    el.innerHTML = h;
+    return;
+  }
+
+  // Exclude Tracking
+  h += '<div class="lwdm-d-sec">Excluded — Tracking (~)</div>';
+  if (!state.lwExcludeTracking) {
+    h += '<div class="lwdm-empty">Exclude Tracking is off — nothing removed.</div>';
+  } else {
+    var trk = lwTrkTxnsFor(d.id, monthKey);
+    if (!trk.txns.length && !trk.priorTotal) {
+      h += '<div class="lwdm-empty">No tracking transactions in this account.</div>';
+    } else {
+      var tot = 0;
+      for (var i = 0; i < trk.txns.length; i++) {
+        var t = trk.txns[i];
+        tot += t.amount;
+        var meta = [t.date, t.payee, t.memo].filter(Boolean).join(' · ');
+        h += '<div class="lwdm-txn"><div class="lwdm-txn-l">'
+          +    '<div class="lwdm-txn-cat">' + escHtml(t.cat) + '</div>'
+          +    '<div class="lwdm-txn-meta">' + escHtml(meta) + '</div></div>'
+          +  '<div class="lwdm-txn-amt" style="color:' + (t.amount >= 0 ? '#2e7d32' : '#c62828') + '">'
+          +    lwFmtSigned(t.amount) + '</div></div>';
+      }
+      if (!trk.txns.length) h += '<div class="lwdm-empty">None this month.</div>';
+      h += '<div class="lwdm-d-tot"><span>This month</span><span>' + lwFmtSigned(tot) + '</span></div>';
+      if (trk.priorTotal) {
+        h += '<div class="lwdm-d-tot" style="border:none;font-weight:400;color:#888">'
+          +    '<span>Carried in from earlier months</span><span>' + lwFmtSigned(trk.priorTotal) + '</span></div>'
+          +  '<div class="lwdm-d-tot"><span>Total removed from balance</span><span>'
+          +    lwFmtSigned(tot + trk.priorTotal) + '</span></div>';
+      }
+    }
+  }
+
+  // Exclude Distribution (reserve held in this account)
+  h += '<div class="lwdm-d-sec">Excluded — Distribution reserve</div>';
+  if (!state.lwExcludeDistribution) {
+    h += '<div class="lwdm-empty">Exclude Distribution is off — nothing removed.</div>';
+  } else {
+    var mapped = lwHoldingMap()[d.id] || [];
+    if (!mapped.length) {
+      h += '<div class="lwdm-empty">No holding categories mapped to this account.</div>';
+    } else {
+      var pivot = ((state.data || {}).catAvailPivot) || {};
+      var sum = 0;
+      for (var m = 0; m < mapped.length; m++) {
+        var av = (((pivot[mapped[m].grp] || {})[mapped[m].cat] || {})[monthKey] || 0);
+        sum += av;
+        h += '<div class="lwdm-txn"><div class="lwdm-txn-l">'
+          +    '<div class="lwdm-txn-cat">' + escHtml(mapped[m].cat) + '</div>'
+          +    '<div class="lwdm-txn-meta">' + escHtml(mapped[m].grp) + ' · available</div></div>'
+          +  '<div class="lwdm-txn-amt">' + lwFmtPlain(av) + '</div></div>';
+      }
+      h += '<div class="lwdm-d-tot"><span>Deducted (floored at $0)</span><span>-'
+        +    lwFmtPlain(Math.max(0, sum)).replace('-', '') + '</span></div>';
+    }
+  }
+  el.innerHTML = h;
+}
+
+function closeLwDriverModal() {
+  var m = document.getElementById('lw-driver-modal');
+  if (m) m.classList.remove('open');
+  lwModalCtx = null;
 }
 
 function hideLwTooltip() {
@@ -9732,9 +9969,38 @@ document.addEventListener('DOMContentLoaded', function() {
       }
       hideLwTooltip();
     });
+    canvasEl.style.cursor = 'pointer';
+    canvasEl.addEventListener('click', function(e) {
+      var s = getState();
+      if (!s || s.n === 0) return;
+      var rect = canvasEl.getBoundingClientRect();
+      var mx   = e.clientX - rect.left;
+      var best = 0, bestDist = Infinity;
+      for (var ci5 = 0; ci5 < s.n; ci5++) {
+        var cx5 = s.L_PAD + s.SIDE_PAD + ci5 * (s.grpW + s.GRP_GAP) + s.grpW / 2;
+        var d5  = Math.abs(mx - cx5);
+        if (d5 < bestDist) { bestDist = d5; best = ci5; }
+      }
+      if (best <= 0) return; // first point has no prior month to compare against
+      hideLwTooltip();
+      openLwDriverModal(best, s);
+    });
   }
   wireChartTooltip(document.getElementById('lw-canvas'), function() { return lwChartState; });
   wireChartTooltip(document.getElementById('nw-canvas'), function() { return nwChartState; });
+
+  // Change Drivers modal dismissal
+  (function() {
+    var modal = document.getElementById('lw-driver-modal');
+    var btn   = document.getElementById('lwdm-close');
+    if (btn)   btn.addEventListener('click', closeLwDriverModal);
+    if (modal) modal.addEventListener('click', function(e) {
+      if (e.target === modal) closeLwDriverModal(); // backdrop only
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && modal && modal.classList.contains('open')) closeLwDriverModal();
+    });
+  })();
 
   // NW driver row hover tooltip
   (function() {
