@@ -1389,6 +1389,23 @@ td.hbt-num:last-child { width: 13%; }
               </label>
             </div>
           </div>
+          <div class="settings-tab-block" data-tab="acct-history">
+            <div class="settings-divider"></div>
+            <div class="settings-row">
+              <label class="ios-toggle-wrap">
+                <input type="checkbox" id="ah-exclude-tracking">
+                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+                Exclude Tracking
+              </label>
+            </div>
+            <div class="settings-row">
+              <label class="ios-toggle-wrap">
+                <input type="checkbox" id="ah-exclude-distribution">
+                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+                Exclude Distribution
+              </label>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -4663,10 +4680,22 @@ function populateLwRangeFilter() {
   // Sync toggle visual states
   var chk = document.getElementById('lw-include-current');
   if (chk) chk.checked = !!state.lwIncludeCurrent;
-  var chkTrk = document.getElementById('lw-exclude-tracking');
-  if (chkTrk) chkTrk.checked = !!state.lwExcludeTracking;
-  var chkDist = document.getElementById('lw-exclude-distribution');
-  if (chkDist) chkDist.checked = !!state.lwExcludeDistribution;
+  syncExclusionToggles();
+}
+
+// Both tabs expose the same two exclusions, so every checkbox bound to them is
+// refreshed from state together rather than only the one that was clicked.
+function syncExclusionToggles() {
+  var pairs = [
+    ['lw-exclude-tracking',     'lwExcludeTracking'],
+    ['ah-exclude-tracking',     'lwExcludeTracking'],
+    ['lw-exclude-distribution', 'lwExcludeDistribution'],
+    ['ah-exclude-distribution', 'lwExcludeDistribution']
+  ];
+  for (var i = 0; i < pairs.length; i++) {
+    var el = document.getElementById(pairs[i][0]);
+    if (el) el.checked = !!state[pairs[i][1]];
+  }
 }
 
 function populateLwAccountFilter() {
@@ -7370,6 +7399,7 @@ function renderAccountHistory() {
   }
   if (chartWrap) chartWrap.style.display = '';
 
+  syncExclusionToggles();
   populateAcctHistoryFilter();
 
   var acctId = state.acctHistoryId;
@@ -7403,7 +7433,11 @@ function renderAccountHistory() {
   var fY = parseInt(fParts[0], 10), fM = parseInt(fParts[1], 10) - 1;
   if (fM < 1) { fM = 12; fY--; }
   var prevMonthKey = fY + '-' + (fM < 10 ? '0' + fM : '' + fM);
+  // acctBalanceAt already nets out cumulative tracking and the Distribution reserve. The daily
+  // walk below re-derives the reserve per day (it is a monthly figure that steps at month
+  // boundaries), so add back the start month's reserve to avoid subtracting it twice.
   var startBal = acctBalanceAt(acctId, prevMonthKey);
+  if (state.lwExcludeDistribution) startBal += lwHoldingReserve(acctId, prevMonthKey);
 
   // Today as YYYY-MM-DD
   var todayD = new Date();
@@ -7424,8 +7458,11 @@ function renderAccountHistory() {
   var txnList = (d.acctTxnsList || {})[acctId] || [];
   for (var dti = 0; dti < txnList.length; dti++) {
     var tdate = txnList[dti].date;
-    if (tdate >= fromDateStr && tdate <= toDateStr)
-      dailyNet[tdate] = (dailyNet[tdate] || 0) + txnList[dti].amount;
+    if (tdate >= fromDateStr && tdate <= toDateStr) {
+      var dayAmt = txnList[dti].amount;
+      if (state.lwExcludeTracking) dayAmt -= (txnList[dti].trackingAmount || 0);
+      dailyNet[tdate] = (dailyNet[tdate] || 0) + dayAmt;
+    }
   }
 
   // Walk forward day by day accumulating balance
@@ -7438,8 +7475,11 @@ function renderAccountHistory() {
       + (curD.getMonth() < 9 ? '0' : '') + (curD.getMonth() + 1) + '-'
       + (curD.getDate() < 10 ? '0' : '') + curD.getDate();
     bal += (dailyNet[ds] || 0);
+    var shownBal = bal;
+    // Reserve is a monthly Available figure, so it steps at month boundaries
+    if (state.lwExcludeDistribution) shownBal -= lwHoldingReserve(acctId, ds.slice(0, 7));
     keys.push(ds);
-    values.push(bal);
+    values.push(shownBal);
     curD.setDate(curD.getDate() + 1);
   }
 
@@ -7464,8 +7504,12 @@ function renderAccountHistory() {
         var ahCcTxns = (d.acctTxnsList || {})[ahCcId] || [];
         for (var ahcti = 0; ahcti < ahCcTxns.length; ahcti++) {
           var ahCcDate = ahCcTxns[ahcti].date;
-          if (ahCcDate >= fromDateStr && ahCcDate <= toDateStr)
-            creditDailyNetsAH[ahCcId][ahCcDate] = (creditDailyNetsAH[ahCcId][ahCcDate] || 0) + ahCcTxns[ahcti].amount;
+          if (ahCcDate >= fromDateStr && ahCcDate <= toDateStr) {
+            // Mirror the cash-side exclusion so the ratio compares like with like
+            var ahCcAmt = ahCcTxns[ahcti].amount;
+            if (state.lwExcludeTracking) ahCcAmt -= (ahCcTxns[ahcti].trackingAmount || 0);
+            creditDailyNetsAH[ahCcId][ahCcDate] = (creditDailyNetsAH[ahCcId][ahCcDate] || 0) + ahCcAmt;
+          }
         }
       }
       var creditBalsAH = {};
@@ -9472,18 +9516,27 @@ document.addEventListener('DOMContentLoaded', function() {
     renderLiquidWorth();
   });
 
+  // Exclude Tracking / Exclude Distribution are shared between the Liquid Balances and
+  // Account History tabs so the two views always reconcile against the same basis.
+  function applyExclusionToggle(key, storageKey, checked) {
+    state[key] = checked;
+    localStorage.setItem(storageKey, checked ? '1' : '0');
+    syncExclusionToggles();
+    renderLiquidWorth();
+    renderTable();
+    if (state.activeTab === 'acct-history') renderAccountHistory();
+  }
   document.getElementById('lw-exclude-tracking').addEventListener('change', function() {
-    state.lwExcludeTracking = this.checked;
-    localStorage.setItem('lw-exclude-tracking', this.checked ? '1' : '0');
-    renderLiquidWorth();
-    renderTable();
+    applyExclusionToggle('lwExcludeTracking', 'lw-exclude-tracking', this.checked);
   });
-
   document.getElementById('lw-exclude-distribution').addEventListener('change', function() {
-    state.lwExcludeDistribution = this.checked;
-    localStorage.setItem('lw-exclude-distribution', this.checked ? '1' : '0');
-    renderLiquidWorth();
-    renderTable();
+    applyExclusionToggle('lwExcludeDistribution', 'lw-exclude-distribution', this.checked);
+  });
+  document.getElementById('ah-exclude-tracking').addEventListener('change', function() {
+    applyExclusionToggle('lwExcludeTracking', 'lw-exclude-tracking', this.checked);
+  });
+  document.getElementById('ah-exclude-distribution').addEventListener('change', function() {
+    applyExclusionToggle('lwExcludeDistribution', 'lw-exclude-distribution', this.checked);
   });
 
   // NW range filter
