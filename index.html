@@ -151,7 +151,7 @@ body {
   background: #fff;
   border: 1px solid #ccc;
   border-radius: 5px;
-  font-size: 12px;
+  font-size: 15px;
   cursor: pointer;
   color: #555;
   white-space: nowrap;
@@ -542,7 +542,7 @@ td.cell-active {
 }
 .toggle-wrap input:checked ~ .toggle-track { background: #555; }
 .toggle-wrap input:checked ~ .toggle-track .toggle-thumb { left: 18px; }
-.toggle-label { font-size: 12px; color: #555; white-space: nowrap; }
+.toggle-label { font-size: 15px; color: #555; white-space: nowrap; }
 
 /* ---- Panel header (h1 + inline controls) ---- */
 .panel-hdr {
@@ -576,11 +576,13 @@ td.cell-active {
 .tab-btn.tab-active { background: #fff; color: #222; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
 .tab-btn:hover:not(.tab-active) { background: rgba(255,255,255,.5); color: #333; }
 
+button { font-size: 14px; font-family: inherit; }
+
 /* ---- LW / NW / Lessons controls (shared) ---- */
 #lw-range-wrap, #nw-range-wrap, #lessons-range-wrap, #leverage-range-wrap, #acct-history-range-wrap { display: flex; align-items: center; gap: 8px; }
 #lw-range-group, #nw-range-group, #lessons-range-group, #leverage-range-group, #acct-history-range-group {
   display: flex; align-items: center; gap: 8px;
-  font-size: 13px; color: #555;
+  font-size: 16px; color: #555;
   background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 5px 12px;
 }
 #lw-range-group label, #nw-range-group label, #lessons-range-group label, #leverage-range-group label, #acct-history-range-group label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
@@ -591,7 +593,7 @@ td.cell-active {
 #lw-acct-filter-wrap, #nw-acct-filter-wrap { position: relative; }
 #lw-acct-filter-btn, #nw-acct-filter-btn {
   padding: 6px 12px; background: #fff; border: 1px solid #ccc;
-  border-radius: 5px; font-size: 12px; cursor: pointer; color: #555; white-space: nowrap;
+  border-radius: 5px; font-size: 15px; cursor: pointer; color: #555; white-space: nowrap;
 }
 #lw-acct-filter-btn:hover, #nw-acct-filter-btn:hover { background: #f0f0f0; }
 #lw-acct-filter-btn.active, #nw-acct-filter-btn.active { border-color: #333; background: #f0f0f0; }
@@ -1059,7 +1061,7 @@ td.hbt-num:last-child { width: 13%; }
 .leverage-speedo-foot { display: flex; justify-content: space-between; font-size: 11px; color: #999; }
 
 /* ---- iOS-style toggle switch ---- */
-.ios-toggle-wrap { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #666; cursor: pointer; white-space: nowrap; user-select: none; }
+.ios-toggle-wrap { display: flex; align-items: center; gap: 7px; font-size: 15px; color: #666; cursor: pointer; white-space: nowrap; user-select: none; }
 .ios-toggle-wrap input { display: none; }
 .ios-toggle-track {
   width: 34px; height: 20px; border-radius: 10px; background: #ccc;
@@ -1391,6 +1393,27 @@ td.hbt-num:last-child { width: 13%; }
                 Exclude Income with No Payee
               </label>
             </div>
+            <div class="settings-row">
+              <label class="ios-toggle-wrap">
+                <input type="checkbox" id="cf-show-glidepath">
+                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+                Show Day 1 Glidepath
+              </label>
+            </div>
+            <div class="settings-row">
+              <label class="ios-toggle-wrap">
+                <input type="checkbox" id="shade-toggle">
+                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+                Row Shading
+              </label>
+            </div>
+            <div class="settings-row">
+              <label class="ios-toggle-wrap">
+                <input type="checkbox" id="total-exp-toggle">
+                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+                Total Expenses
+              </label>
+            </div>
           </div>
         </div>
       </div>
@@ -1410,35 +1433,17 @@ td.hbt-num:last-child { width: 13%; }
           <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
           Preview Current Month
         </label>
-        <label class="ios-toggle-wrap">
-          <input type="checkbox" id="cf-show-glidepath">
-          <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
-          Show Day 1 Glidepath
-        </label>
-        <div id="acct-filter-wrap">
-          <button id="acct-filter-btn">Accounts &#9660;</button>
-          <div id="acct-filter-panel"></div>
-        </div>
-      </div>
-      <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
-        <button id="expand-all-btn">Expand All</button>
-        <button id="collapse-all-btn">Collapse All</button>
-        <div style="width:8px"></div>
         <label class="toggle-wrap" id="cat-sort-toggle-wrap">
           <input type="checkbox" id="cat-sort-toggle">
           <span class="toggle-track"><span class="toggle-thumb"></span></span>
           <span class="toggle-label">Sort by Avg</span>
         </label>
-        <label class="toggle-wrap" id="shade-toggle-wrap">
-          <input type="checkbox" id="shade-toggle">
-          <span class="toggle-track"><span class="toggle-thumb"></span></span>
-          <span class="toggle-label">Row Shading</span>
-        </label>
-        <label class="toggle-wrap" id="total-exp-toggle-wrap">
-          <input type="checkbox" id="total-exp-toggle">
-          <span class="toggle-track"><span class="toggle-thumb"></span></span>
-          <span class="toggle-label">Total Expenses</span>
-        </label>
+        <div id="acct-filter-wrap">
+          <button id="acct-filter-btn">Accounts &#9660;</button>
+          <div id="acct-filter-panel"></div>
+        </div>
+        <button id="expand-all-btn" style="margin-left:auto">Expand All</button>
+        <button id="collapse-all-btn">Collapse All</button>
       </div>
     </div>
     <div class="scroll-wrap">
@@ -1976,7 +1981,7 @@ var state = {
   reconcileAcctId:     localStorage.getItem('sel-reconcile-acct')    || null,
   rowShading:          localStorage.getItem('row-shading') !== '0',
   catSortMode:         localStorage.getItem('cat-sort') || 'ynab',
-  showTotalExp:        localStorage.getItem('show-total-exp') === '1',
+  showTotalExp:        localStorage.getItem('show-total-exp') !== '0',
   showRecovTrend:      localStorage.getItem('show-recov-trend') === '1',
   showGlidepath:       localStorage.getItem('show-glidepath') === '1',
   excludeUnknownIncome: localStorage.getItem('cf-exclude-unknown-income') !== '0',
@@ -3599,7 +3604,7 @@ function renderTable(opts) {
   var avgUncat = mean(uncatVals);
 
   var actionableVals = keys.map(function(_, idx) {
-    return remainVals[idx] - baseOpsVals[idx] - uncatVals[idx];
+    return remainVals[idx] - baseOpsVals[idx];
   });
   var avgActionable  = mean(actionableVals);
 
@@ -3824,16 +3829,12 @@ function renderTable(opts) {
     html += valCells(boi.vals, boi.avg, true, 'cat', baseOpsGrpIdx, boi.ci);
     html += '</tr>';
   }
-  // Uncategorised — actual spend with no category, so it never had an assignment to show
-  html += '<tr class="data-row"><td><span class="grp-arrow"></span> Uncategorised</td>'
-        + valCells(uncatVals, avgUncat, true, 'recon-uncat') + '</tr>';
-
   html += '<tr class="total-row"><td>Actionable Income</td>' + valCells(actionableVals, avgActionable, false) + '</tr>';
 
   html += '<tr class="row-spacer"><td></td>' + emptyCells() + '</tr>';
 
   var decidedExpVals = keys.map(function(_, idx) {
-    return totalExpVals[idx] - baseOpsVals[idx] - uncatVals[idx];
+    return totalExpVals[idx] - baseOpsVals[idx];
   });
   html += '<tr class="total-row"><td>Decided Expenses</td>' + valCells(decidedExpVals, mean(decidedExpVals), true) + '</tr>';
 
@@ -3866,6 +3867,11 @@ function renderTable(opts) {
       html += '</tr>';
     }
   }
+
+  // Uncategorised closes out Decided Expenses — real spend with no category, so it never had
+  // an assignment to show against, but it is money out all the same
+  html += '<tr class="data-row"><td><span class="grp-arrow"></span> Uncategorised</td>'
+        + valCells(uncatVals, avgUncat, true, 'recon-uncat') + '</tr>';
 
   if (state.showTotalExp) {
     html += '<tr class="row-spacer"><td></td>' + emptyCells() + '</tr>';
