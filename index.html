@@ -4115,13 +4115,15 @@ function renderTable(opts) {
     // Category activity sitting in excluded accounts (e.g. Planned~). YNAB counts it toward the
     // category, the Liquid Balances side cannot see it, so it belongs on its own line rather
     // than inflating the group's budget variance.
-    var rcNonLiqByCat = function(grp, k) {
+    // includeMapped distinguishes two different needs. The reported row wants every category,
+    // since a holding rule cancels budget variance but not a leg sitting in an excluded
+    // account. Peeling the amount back off a group row must NOT include mapped categories —
+    // rcActByCat already dropped those wholesale, so subtracting them again double-counts.
+    var rcNonLiqByCat = function(grp, k, includeMapped) {
       var src = ((d.nonLiqCatAct || {})[grp]) || {}, out = {};
       for (var cat in src) {
         if (state.lwExcludeTracking && cat.slice(-1) === '~') continue;
-        // Holding-mapped categories are NOT skipped here. The reserve cancels their budget
-        // variance, not the portion sitting in an excluded account — that still has to be
-        // reported, or a Planned~ leg under a mapped group goes missing.
+        if (!includeMapped && rcMapped && rcMapped[grp + '||' + cat]) continue;
         var v = src[cat][k] || 0;
         if (!isZeroish(v)) out[cat] = v;
       }
@@ -4136,7 +4138,7 @@ function renderTable(opts) {
     // already inside Net Liquid and would double-count if repeated as a gap component.
     // Carry-funded spend is resolved up front so Previously Budgeted can lead the list; the
     // tracked-group loop below reuses rcCarry rather than recomputing it.
-    var rcCarry = {}, rcNonLiq = {}, pbCats = {}, pbTotals = keys.map(function() { return 0; });
+    var rcCarry = {}, pbCats = {}, pbTotals = keys.map(function() { return 0; });
     for (var pgi = 0; pgi < EXPENSE_GROUPS.length; pgi++) {
       (function(grp) {
         var byKey = keys.map(function(k) { return rcCarryByCat(grp, k); });
@@ -4161,8 +4163,7 @@ function renderTable(opts) {
     var plCats = {}, plTotals = keys.map(function() { return 0; });
     for (var pli = 0; pli < EXPENSE_GROUPS.length; pli++) {
       (function(grp) {
-        var byKey = keys.map(function(k) { return rcNonLiqByCat(grp, k); });
-        rcNonLiq[grp] = byKey;
+        var byKey = keys.map(function(k) { return rcNonLiqByCat(grp, k, true); });
         for (var i = 0; i < keys.length; i++) {
           for (var c in byKey[i]) {
             plTotals[i] += byKey[i][c];
@@ -4177,6 +4178,12 @@ function renderTable(opts) {
       Object.keys(plCats).sort().map(function(l) { return { label: l, vals: plCats[l] }; })
         .filter(function(r) { return rcNonZero(r.vals); }));
 
+    // Cash crossing the liquid boundary in either direction — typically a transfer in from an
+    // off-budget account, which lifts the liquid balance with no assignment behind it.
+    rcAdd('Transfers in/out of liquid accounts', keys.map(function(k) {
+      return -rcAct(CF_POST_NET_LIQUID_GROUP, k);
+    }), CF_POST_NET_LIQUID_GROUP);
+
     // Income recognised by Cash Flow but not landing in liquid accounts
     rcAdd('Income not in liquid accounts', keys.map(function(k, i) {
       return incomeVals[i] - rcAct('@INCOME', k);
@@ -4188,8 +4195,9 @@ function renderTable(opts) {
         var carryTot   = carryByKey.map(function(mp) {
           var s = 0; for (var c in mp) s += mp[c]; return s;
         });
-        // Reported on its own line above, so peel it off to leave the pure budget variance
-        var nlByKey = rcNonLiq[grp] || keys.map(function() { return {}; });
+        // Reported on its own line above, so peel it off to leave the pure budget variance.
+        // Mapped categories are excluded here — rcActByCat never included them.
+        var nlByKey = keys.map(function(k) { return rcNonLiqByCat(grp, k, false); });
         var nlTot   = nlByKey.map(function(mp) {
           var s = 0; for (var c in mp) s += mp[c]; return s;
         });
@@ -4224,15 +4232,11 @@ function renderTable(opts) {
     // Transfers leaving the liquid set. YNAB leaves on-budget to on-budget transfers
     // uncategorised, so Cash Flow never sees them even though the cash moves. Liquid-to-liquid
     // transfers are excluded upstream because they net to zero.
-    rcAdd('Transfers in/out of liquid accounts', keys.map(function(k) {
+    // Distinct from the row above: those carry a category, these are YNAB's uncategorised
+    // on-budget-to-on-budget transfers, which Cash Flow never sees.
+    rcAdd('Uncategorised transfers out of liquid', keys.map(function(k) {
       return -rcAct('@TRANSFER', k);
     }), '@TRANSFER');
-    // Cash moving between liquid and excluded accounts under this group — typically a transfer
-    // in from an off-budget account, which raises the liquid balance with no assignment behind
-    // it. Previously folded in silently, which left visible rows short of the gap by its value.
-    rcAdd(CF_POST_NET_LIQUID_GROUP + ' — moved in/out of liquid', keys.map(function(k) {
-      return -rcAct(CF_POST_NET_LIQUID_GROUP, k);
-    }), CF_POST_NET_LIQUID_GROUP);
     // Whatever the components do not explain (toggle effects, excluded categories, rounding)
     rcAdd('Unexplained', keys.map(function(_, i) { return rcGapVals[i] - rcSumVals[i]; }));
 
