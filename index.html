@@ -8243,6 +8243,30 @@ function processCSVRows(allRows) {
   return { txns: txns };
 }
 
+// "Adjusted from 7/20" in a memo means the entry was re-dated in YNAB but represents activity
+// that hit the bank on the original date, so reconciliation should match against that instead.
+// The phrase carries no year, so the candidate year closest to the entry's own date wins —
+// which resolves a December/January adjustment to the right side of the boundary.
+function recAdjustedDate(dateStr, memo) {
+  var m = /adjusted from (\d{1,2})\/(\d{1,2})/i.exec(memo || '');
+  if (!m) return dateStr;
+  var p = (dateStr || '').split('-');
+  if (p.length < 3) return dateStr;
+  var mo = parseInt(m[1], 10), dy = parseInt(m[2], 10), yr = parseInt(p[0], 10);
+  if (!(mo >= 1 && mo <= 12 && dy >= 1 && dy <= 31)) return dateStr;
+  var base = dateStrToDays(dateStr), best = null, bestDist = Infinity;
+  for (var off = -1; off <= 1; off++) {
+    var cand = (yr + off) + '-' + (mo < 10 ? '0' + mo : mo) + '-' + (dy < 10 ? '0' + dy : dy);
+    var dist = Math.abs(dateStrToDays(cand) - base);
+    if (dist < bestDist) { bestDist = dist; best = cand; }
+  }
+  return best || dateStr;
+}
+
+function recEffDays(t) {
+  return dateStrToDays(recAdjustedDate(t.date, t.memo));
+}
+
 function dateStrToDays(s) {
   var p = s.split('-');
   return Math.floor(new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10)).getTime() / 86400000);
@@ -8273,7 +8297,7 @@ function reconcileTxns(ynabTxns, csvTxns) {
       for (var gi = 0; gi < g.yIdxs.length; gi++) {
         if (yUsed[gi]) continue;
         var yIdx = g.yIdxs[gi];
-        var yDays = dateStrToDays(ynabTxns[yIdx].date);
+        var yDays = recEffDays(ynabTxns[yIdx]);
         for (var gj = 0; gj < g.cIdxs.length; gj++) {
           if (cUsed[gj]) continue;
           if (Math.abs(yDays - dateStrToDays(csvTxns[g.cIdxs[gj]].date)) === d) {
@@ -8391,8 +8415,10 @@ function runReconcile() {
   // Pre-start YNAB entries may absorb a bank-side match but are never flagged suspect.
   var minDays = dateStrToDays(minDate) - 5;
   var maxDays = dateStrToDays(maxDate) + 5;
+  // Windowed on the effective date, so an entry re-dated into range is not filtered out
+  // before matching ever gets a chance to see it.
   var ynabFiltered = ynabAll.filter(function(t) {
-    var d = dateStrToDays(t.date);
+    var d = recEffDays(t);
     return d >= minDays && d <= maxDays;
   });
 
