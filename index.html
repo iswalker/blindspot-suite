@@ -262,7 +262,6 @@ h1 { font-size: 22px; font-weight: 700; margin: 0; letter-spacing: -0.3px; }
 /* ---- Table wrapper ---- */
 .scroll-wrap {
   overflow: auto;
-  max-height: calc(100vh - 200px);
   border-radius: 6px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.08);
   scrollbar-width: thin;
@@ -364,9 +363,9 @@ tr.cat-row-bordered.cat-row-last > td { border-bottom: 2px solid #777; }
 .row-spacer td { padding: 7px 0; background: #fff; border: none; }
 
 /* ---- Net Liquid ---- */
-.net-val td { font-size: 15px; font-weight: 700; border-top: 2px solid #333; border-bottom: 2px solid #333; background: #fff; }
-.net-val td:first-child { border-left: 2px solid #333; }
-.net-val td:last-child { border-right: 2px solid #333; }
+.net-val td { font-size: 15px; font-weight: 700; border-top: 3px solid #777; border-bottom: 3px solid #777; background: #fff; }
+.net-val td:first-child { border-left: 3px solid #777; }
+.net-val td:last-child { border-right: 3px solid #777; }
 .net-val td:first-child { background: #fff; }
 
 /* ---- Color classes ---- */
@@ -3530,6 +3529,33 @@ function loadYnabBudget(apiKey, budgetId) {
 // ============================================================
 // RENDER TABLE
 // ============================================================
+// The Cash Flow table is its own scroll area, so its height is measured from where it actually
+// sits rather than guessed against a fixed chrome offset.
+function sizeCfScrollWrap() {
+  var wrap = document.querySelector('#margin-panel .scroll-wrap');
+  if (!wrap) return;
+  var top = wrap.getBoundingClientRect().top + (window.pageYOffset || 0);
+  wrap.style.maxHeight = Math.max(240, window.innerHeight - top - 20) + 'px';
+}
+
+// The pinned header keeps a section label in its first cell. It tracks whichever section
+// heading has scrolled past the header, so the label matches what is on screen.
+function updateCfSectionLabel() {
+  var wrap = document.querySelector('#margin-panel .scroll-wrap');
+  var lbl  = document.getElementById('cf-section-label');
+  if (!wrap || !lbl) return;
+  var head = wrap.querySelector('thead');
+  var cut  = wrap.getBoundingClientRect().top + (head ? head.offsetHeight : 0) + 1;
+  var rows = wrap.querySelectorAll('tr.sec-hdr');
+  var cur  = 'Income';
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i].getBoundingClientRect().top <= cut && rows[i].cells.length) {
+      cur = (rows[i].cells[0].textContent || '').trim() || cur;
+    }
+  }
+  if (lbl.textContent !== cur) lbl.textContent = cur;
+}
+
 function renderTable(opts) {
   opts = opts || {};
   var acctSel = opts.acctMap || state.selectedAccounts;
@@ -3729,7 +3755,7 @@ function renderTable(opts) {
   var html = '';
 
   // Header
-  html += '<thead><tr><th style="font-size:14px;font-weight:700;color:#2e7d32;padding-top:6px;padding-bottom:5px;text-align:left">Income</th>';
+  html += '<thead><tr><th id="cf-section-label" style="font-size:14px;font-weight:700;color:#2e7d32;padding-top:6px;padding-bottom:5px;text-align:left">Income</th>';
   for (var hi = 0; hi < keys.length; hi++) html += '<th>' + keyLabel(keys[hi]) + '</th>';
   html += '<th class="avg-th">AVERAGE</th></tr></thead>';
 
@@ -4360,6 +4386,8 @@ function renderTable(opts) {
   html += '</tbody>';
 
   document.getElementById(tableId).innerHTML = html;
+  sizeCfScrollWrap();
+  updateCfSectionLabel();
 }
 
 // ============================================================
@@ -10695,6 +10723,13 @@ document.addEventListener('DOMContentLoaded', function() {
       openLwDriverModal(best, s);
     });
   }
+  // Section label follows the scroll; height re-measures when the viewport changes
+  (function() {
+    var wrap = document.querySelector('#margin-panel .scroll-wrap');
+    if (wrap) wrap.addEventListener('scroll', updateCfSectionLabel);
+    window.addEventListener('resize', function() { sizeCfScrollWrap(); updateCfSectionLabel(); });
+  })();
+
   wireChartTooltip(document.getElementById('lw-canvas'), function() { return lwChartState; });
   wireChartTooltip(document.getElementById('nw-canvas'), function() { return nwChartState; });
 
