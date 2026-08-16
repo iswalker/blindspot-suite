@@ -3535,7 +3535,7 @@ function sizeCfScrollWrap() {
   var wrap = document.querySelector('#margin-panel .scroll-wrap');
   if (!wrap) return;
   var top = wrap.getBoundingClientRect().top + (window.pageYOffset || 0);
-  wrap.style.maxHeight = Math.max(240, window.innerHeight - top - 20) + 'px';
+  wrap.style.maxHeight = Math.max(240, window.innerHeight - top - 2) + 'px';
 }
 
 // The pinned header keeps a section label in its first cell. It tracks whichever section
@@ -3547,13 +3547,17 @@ function updateCfSectionLabel() {
   var head = wrap.querySelector('thead');
   var cut  = wrap.getBoundingClientRect().top + (head ? head.offsetHeight : 0) + 1;
   var rows = wrap.querySelectorAll('tr.sec-hdr');
-  var cur  = 'Income';
+  var cur  = 'Income', col = '#2e7d32';
   for (var i = 0; i < rows.length; i++) {
     if (rows[i].getBoundingClientRect().top <= cut && rows[i].cells.length) {
       cur = (rows[i].cells[0].textContent || '').trim() || cur;
+      // Take the colour off the section's own cell rather than mapping names here, so a new
+      // section picks up its styling without touching this function
+      col = window.getComputedStyle(rows[i].cells[0]).color || col;
     }
   }
   if (lbl.textContent !== cur) lbl.textContent = cur;
+  if (lbl.style.color !== col) lbl.style.color = col;
 }
 
 function renderTable(opts) {
