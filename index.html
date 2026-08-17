@@ -7382,11 +7382,17 @@ function renderLeverageSpeedometers() {
       var tickA   = Math.PI - Math.PI * timeFrac;
       var tickInX = cx + (r - 14) * Math.cos(tickA), tickInY = cy - (r - 14) * Math.sin(tickA);
       var tickOuX = cx + (r + 8)  * Math.cos(tickA), tickOuY = cy - (r + 8)  * Math.sin(tickA);
+      var expectedAmt   = maxAmt * timeFrac;
+      var expectedLabel = fmtSpeedoDollar(expectedAmt);
+      var lblR = r + 22;
+      var lblX = Math.max(16, Math.min(184, cx + lblR * Math.cos(tickA)));
+      var lblY = Math.max(-14, cy - lblR * Math.sin(tickA));
       svgBlock = '<div class="leverage-speedo-svg-wrap">'
-        + '<svg viewBox="0 0 200 110" preserveAspectRatio="xMidYMid meet">'
+        + '<svg viewBox="0 -22 200 132" preserveAspectRatio="xMidYMid meet">'
         +   '<path d="' + trackPath + '" fill="none" stroke="#e6e6e2" stroke-width="18" stroke-linecap="round"/>'
         +   '<path d="' + fillPath  + '" fill="none" stroke="' + fillColor + '" stroke-width="18" stroke-linecap="round"/>'
         +   '<line x1="' + tickInX.toFixed(2) + '" y1="' + tickInY.toFixed(2) + '" x2="' + tickOuX.toFixed(2) + '" y2="' + tickOuY.toFixed(2) + '" stroke="#333" stroke-width="2.5" stroke-linecap="round"/>'
+        +   '<text x="' + lblX.toFixed(2) + '" y="' + lblY.toFixed(2) + '" text-anchor="middle" font-size="10" font-weight="700" fill="#666">' + escAttr(expectedLabel) + '</text>'
         + '</svg></div>';
     }
 
