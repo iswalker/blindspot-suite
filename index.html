@@ -1617,7 +1617,7 @@ td.hbt-num:last-child { width: 13%; }
       </div>
       <div id="leverage-pos-widget">
         <div id="leverage-pos-hdr">
-          <span id="leverage-pos-title">POS Withdrawals</span>
+          <span id="leverage-pos-title">Debit Card Transactions</span>
           <input type="password" id="leverage-pos-secret" placeholder="Plaid secret key">
           <button id="leverage-pos-fetch-btn">Fetch &#9654;</button>
           <span id="leverage-pos-status"></span>
@@ -6832,18 +6832,43 @@ function populateLeverageRangeFilter(allKeys) {
   state.leverageToKey   = toSel.value;
 }
 
+// Resolves which account + name-prefix the "Debit Card Transactions" widget should read from,
+// via Config rows "Card Transactions 1" (tried first) and "Card Transactions 2" (fallback).
+// Each row's ID column holds a substring to match against a Plaid connection's name, and its
+// Track Against column holds the transaction-name prefix to filter on (e.g. "Card purchase /").
+function resolveLeveragePosSource() {
+  var cfgs = (state.catConfig || []).filter(function(c) {
+    return /^Card Transactions \d+$/i.test(c.usedFor || '');
+  }).sort(function(a, b) {
+    var an = parseInt((a.usedFor.match(/\d+/) || [0])[0], 10);
+    var bn = parseInt((b.usedFor.match(/\d+/) || [0])[0], 10);
+    return an - bn;
+  });
+  var conns = getPlaidConnections();
+  var tried = [];
+  for (var ci = 0; ci < cfgs.length; ci++) {
+    var cfg = cfgs[ci];
+    var nameFrag = (cfg.id || '').toLowerCase();
+    if (!nameFrag) continue;
+    tried.push(cfg.id);
+    for (var i = 0; i < conns.length; i++) {
+      if ((conns[i].name || '').toLowerCase().indexOf(nameFrag) !== -1) {
+        return { conn: conns[i], prefix: cfg.trackAgainst || '', label: cfg.id };
+      }
+    }
+  }
+  return { conn: null, tried: tried };
+}
+
 function renderLeveragePosWidget() {
   var tbl    = document.getElementById('leverage-pos-table');
   var status = document.getElementById('leverage-pos-status');
   if (!tbl) return;
   if (!leveragePosData) {
-    var conns = getPlaidConnections();
-    var presConn = null;
-    for (var i = 0; i < conns.length; i++) {
-      if ((conns[i].name || '').toLowerCase().indexOf('presidential') !== -1) { presConn = conns[i]; break; }
-    }
-    if (!presConn) {
-      tbl.innerHTML = '<tr><td colspan="2" id="leverage-pos-empty">No "Presidential Checking" Plaid connection found</td></tr>';
+    var src = resolveLeveragePosSource();
+    if (!src.conn) {
+      var triedMsg = src.tried && src.tried.length ? src.tried.map(function(t) { return '"' + t + '"'; }).join(' / ') : '"Card Transactions 1/2"';
+      tbl.innerHTML = '<tr><td colspan="2" id="leverage-pos-empty">No Plaid connection found matching ' + escHtml(triedMsg) + ' (configure via the Card Transactions 1/2 Config rows)</td></tr>';
       return;
     }
     // Connection exists — auto-fetch if a secret is already available in the session
@@ -6859,7 +6884,7 @@ function renderLeveragePosWidget() {
   }
   var html = '<thead><tr><th>Month</th><th>Count</th></tr></thead><tbody>';
   if (!leveragePosData.length) {
-    html += '<tr><td colspan="2" id="leverage-pos-empty">No POS Withdrawal transactions found</td></tr>';
+    html += '<tr><td colspan="2" id="leverage-pos-empty">No Debit Card Transactions found</td></tr>';
   } else {
     for (var j = 0; j < leveragePosData.length; j++) {
       var row = leveragePosData[j];
@@ -6889,7 +6914,7 @@ function renderLeveragePosWidget() {
         var parts2 = row.month.split('-');
         var mLabel = new Date(parseInt(parts2[0]), parseInt(parts2[1]) - 1, 1)
           .toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
-        var h = '<div class="lwtt-month">' + escHtml(mLabel) + ' — POS Withdrawals</div>';
+        var h = '<div class="lwtt-month">' + escHtml(mLabel) + ' — Debit Card Transactions</div>';
         var totCount = 0, totAmt = 0;
         for (var pi = 0; pi < row.payees.length; pi++) {
           var py = row.payees[pi];
@@ -6926,19 +6951,18 @@ function renderLeveragePosWidget() {
 function fetchLeveragePosData(secret) {
   var statusEl = document.getElementById('leverage-pos-status');
   var fetchBtn = document.getElementById('leverage-pos-fetch-btn');
-  var conns = getPlaidConnections();
-  var presConn = null;
-  for (var i = 0; i < conns.length; i++) {
-    if ((conns[i].name || '').toLowerCase().indexOf('presidential') !== -1) { presConn = conns[i]; break; }
-  }
-  if (!presConn) {
-    if (statusEl) statusEl.textContent = 'No "Presidential Checking" connection found';
+  var src = resolveLeveragePosSource();
+  var posConn = src.conn;
+  if (!posConn) {
+    var triedMsg = src.tried && src.tried.length ? src.tried.map(function(t) { return '"' + t + '"'; }).join(' / ') : '"Card Transactions 1/2"';
+    if (statusEl) statusEl.textContent = 'No Plaid connection found matching ' + triedMsg;
     return;
   }
-  if (!presConn.accessToken) {
+  if (!posConn.accessToken) {
     if (statusEl) statusEl.textContent = '⚠ Stored connection is missing its access token — try reconnecting in the Reconcile panel.';
     return;
   }
+  var posPrefix = src.prefix;
   if (fetchBtn) fetchBtn.disabled = true;
   if (statusEl) statusEl.textContent = 'Fetching…';
 
@@ -6954,11 +6978,11 @@ function fetchLeveragePosData(secret) {
 
   var payload = {
     client_id: PLAID_CLIENT_ID, secret: secret,
-    access_token: presConn.accessToken,
+    access_token: posConn.accessToken,
     start_date: fmt(startD), end_date: fmt(endD),
     options: { count: 500 }
   };
-  if (presConn.accountId) payload.options.account_ids = [presConn.accountId];
+  if (posConn.accountId) payload.options.account_ids = [posConn.accountId];
 
   var attempt = 0, maxAttempts = 5;
   function tryFetch() {
@@ -6981,7 +7005,7 @@ function fetchLeveragePosData(secret) {
       for (var ti = 0; ti < txns.length; ti++) {
         var pt = txns[ti];
         var name = pt.name || '';
-        if (name.toLowerCase().indexOf('point of sale withdrawal') === -1) continue;
+        if (!posPrefix || name.toLowerCase().indexOf(posPrefix) !== 0) continue;
         var monthKey = pt.date.substring(0, 7);
         if (!counts.hasOwnProperty(monthKey)) continue;
         counts[monthKey]++;
