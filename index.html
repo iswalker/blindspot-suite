@@ -1087,9 +1087,9 @@ td.hbt-num:last-child { width: 13%; }
 
 /* ---- Leverage metrics / layout (mirrors Lessons, blue accent) ---- */
 #leverage-summary-row { display: flex; gap: 16px; margin-bottom: 14px; align-items: flex-start; }
-#leverage-metrics-left { display: flex; gap: 16px; flex-shrink: 0; }
+#leverage-metrics-left { display: flex; flex-direction: column; gap: 16px; flex-shrink: 0; }
 .leverage-metric-value { font-size: 24px; font-weight: 700; color: #1565c0; }
-#leverage-pos-widget { flex: 1; min-width: 260px; background: #fff; border: 1px solid #e8e8e4; border-radius: 10px; padding: 12px 16px; }
+#leverage-pos-widget { flex: 0 1 25%; min-width: 220px; background: #fff; border: 1px solid #e8e8e4; border-radius: 10px; padding: 12px 16px; }
 #leverage-pos-hdr { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
 #leverage-pos-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #888; flex: 1; white-space: nowrap; }
 #leverage-pos-acct-sel { font-size: 12px; padding: 4px 6px; border: 1px solid #ddd; border-radius: 5px; max-width: 160px; }
@@ -1104,9 +1104,9 @@ td.hbt-num:last-child { width: 13%; }
 #leverage-pos-table td:last-child { text-align: right; font-weight: 600; color: #1565c0; }
 #leverage-pos-table tr:last-child td { border-bottom: none; }
 #leverage-pos-empty { font-size: 12px; color: #bbb; padding: 8px 0; }
-#leverage-charts-row { display: flex; gap: 16px; align-items: stretch; margin-bottom: 14px; }
 #leverage-chart-wrap { flex: 3; min-width: 0; margin-bottom: 0; }
 #leverage-year-chart-wrap { flex: 1; min-width: 120px; margin-bottom: 0; }
+.lw-chart-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #888; margin: 0 0 4px 2px; }
 
 /* ---- Lessons transaction table ---- */
 #lessons-txn-table { border-collapse: collapse; width: 100%; }
@@ -1181,7 +1181,7 @@ td.hbt-num:last-child { width: 13%; }
   #lessons-summary-row,
   #leverage-summary-row,
   #nw-summary-row { flex-wrap: wrap; gap: 10px; }
-  #leverage-metrics-left { flex-wrap: wrap; gap: 10px; flex: 1 1 100%; }
+  #leverage-metrics-left { flex-direction: row; flex-wrap: wrap; gap: 10px; flex: 1 1 100%; }
   #leverage-pos-widget { flex: 1 1 100%; min-width: 0; }
   .lessons-metric-card { min-width: 0; flex: 1 1 calc(50% - 6px); padding: 10px 14px; }
   #lw-summary-card, #nw-summary-card { min-width: 0; flex: 1 1 100%; }
@@ -1190,7 +1190,6 @@ td.hbt-num:last-child { width: 13%; }
   .lw-chart-wrap { padding: 10px 8px 10px 0; }
 
   /* Charts row (Leverage etc.) stacks */
-  #leverage-charts-row { flex-direction: column; }
   #leverage-speedo-row { grid-auto-flow: row; grid-template-columns: repeat(2, 1fr); }
   #leverage-chart-wrap, #leverage-year-chart-wrap { flex: 1 1 100%; }
 
@@ -1628,12 +1627,12 @@ td.hbt-num:last-child { width: 13%; }
           <tr><td colspan="2" id="leverage-pos-empty">Enter secret key and click Fetch</td></tr>
         </table>
       </div>
-    </div>
-    <div id="leverage-charts-row">
       <div class="lw-chart-wrap" id="leverage-chart-wrap">
+        <div class="lw-chart-title">Month Breakdown</div>
         <canvas id="leverage-canvas"></canvas>
       </div>
       <div class="lw-chart-wrap" id="leverage-year-chart-wrap">
+        <div class="lw-chart-title">Year Breakdown</div>
         <canvas id="leverage-year-canvas"></canvas>
       </div>
     </div>
@@ -6917,7 +6916,8 @@ function renderLeveragePosWidget() {
     return;
   }
   var posTarget = src.amount || null;
-  var html = '<thead><tr><th>Month</th><th>Count</th></tr></thead><tbody>';
+  var countHdr = 'Count' + (posTarget ? ' (Target ' + posTarget + ')' : '');
+  var html = '<thead><tr><th>Month</th><th>' + escHtml(countHdr) + '</th></tr></thead><tbody>';
   if (!leveragePosData.length) {
     html += '<tr><td colspan="2" id="leverage-pos-empty">No Debit Card Transactions found</td></tr>';
   } else {
