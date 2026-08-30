@@ -1092,6 +1092,7 @@ td.hbt-num:last-child { width: 13%; }
 #leverage-pos-widget { flex: 1; min-width: 260px; background: #fff; border: 1px solid #e8e8e4; border-radius: 10px; padding: 12px 16px; }
 #leverage-pos-hdr { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
 #leverage-pos-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #888; flex: 1; white-space: nowrap; }
+#leverage-pos-acct-sel { font-size: 12px; padding: 4px 6px; border: 1px solid #ddd; border-radius: 5px; max-width: 160px; }
 #leverage-pos-secret { font-size: 12px; padding: 4px 8px; border: 1px solid #ddd; border-radius: 5px; width: 130px; }
 #leverage-pos-fetch-btn { font-size: 12px; padding: 4px 10px; background: #1565c0; color: #fff; border: none; border-radius: 5px; cursor: pointer; white-space: nowrap; }
 #leverage-pos-fetch-btn:hover { background: #0d47a1; }
@@ -1618,6 +1619,7 @@ td.hbt-num:last-child { width: 13%; }
       <div id="leverage-pos-widget">
         <div id="leverage-pos-hdr">
           <span id="leverage-pos-title">Debit Card Transactions</span>
+          <select id="leverage-pos-acct-sel" style="display:none"></select>
           <input type="password" id="leverage-pos-secret" placeholder="Plaid secret key">
           <button id="leverage-pos-fetch-btn">Fetch &#9654;</button>
           <span id="leverage-pos-status"></span>
@@ -1987,6 +1989,7 @@ var state = {
   acctHistoryFromKey:  localStorage.getItem('sel-acct-history-from') || null,
   acctHistoryToKey:    localStorage.getItem('sel-acct-history-to')   || null,
   reconcileAcctId:     localStorage.getItem('sel-reconcile-acct')    || null,
+  leveragePosAcctLabel: localStorage.getItem('sel-leverage-pos-acct') || null,
   rowShading:          localStorage.getItem('row-shading') !== '0',
   catSortMode:         localStorage.getItem('cat-sort') || 'ynab',
   showTotalExp:        localStorage.getItem('show-total-exp') !== '0',
@@ -6832,40 +6835,71 @@ function populateLeverageRangeFilter(allKeys) {
   state.leverageToKey   = toSel.value;
 }
 
-// Resolves which account + name-prefix the "Debit Card Transactions" widget should read from,
-// via Config rows "Card Transactions 1" (tried first) and "Card Transactions 2" (fallback).
-// Each row's ID column holds a substring to match against a Plaid connection's name, and its
-// Track Against column holds the transaction-name prefix to filter on (e.g. "Card purchase /").
-function resolveLeveragePosSource() {
-  var cfgs = (state.catConfig || []).filter(function(c) {
+function leveragePosCfgs() {
+  return (state.catConfig || []).filter(function(c) {
     return /^Card Transactions \d+$/i.test(c.usedFor || '');
   }).sort(function(a, b) {
     var an = parseInt((a.usedFor.match(/\d+/) || [0])[0], 10);
     var bn = parseInt((b.usedFor.match(/\d+/) || [0])[0], 10);
     return an - bn;
   });
+}
+
+// Resolves which account + name-prefix the "Debit Card Transactions" widget should read from,
+// via Config rows "Card Transactions 1" (tried first) and "Card Transactions 2" (fallback).
+// Each row's ID (aka "Text") column holds a substring to match against a Plaid connection's
+// name, and its Track Against column holds the transaction-name prefix to filter on (e.g.
+// "Card purchase /"). If the user has explicitly picked one via the account dropdown
+// (state.leveragePosAcctLabel), only that row is tried — no falling back to another.
+function resolveLeveragePosSource() {
+  var cfgs = leveragePosCfgs();
   var conns = getPlaidConnections();
-  var tried = [];
-  for (var ci = 0; ci < cfgs.length; ci++) {
-    var cfg = cfgs[ci];
+  function findConn(cfg) {
     var nameFrag = (cfg.id || '').toLowerCase();
-    if (!nameFrag) continue;
-    tried.push(cfg.id);
+    if (!nameFrag) return null;
     for (var i = 0; i < conns.length; i++) {
-      if ((conns[i].name || '').toLowerCase().indexOf(nameFrag) !== -1) {
-        return { conn: conns[i], prefix: cfg.trackAgainst || '', label: cfg.id };
-      }
+      if ((conns[i].name || '').toLowerCase().indexOf(nameFrag) !== -1) return conns[i];
+    }
+    return null;
+  }
+  var selLabel = state.leveragePosAcctLabel, selCfg = null;
+  if (selLabel) {
+    for (var si = 0; si < cfgs.length; si++) {
+      if ((cfgs[si].id || '').toLowerCase() === selLabel.toLowerCase()) { selCfg = cfgs[si]; break; }
     }
   }
-  return { conn: null, tried: tried };
+  var orderedCfgs = selCfg ? [selCfg] : cfgs;
+  var tried = [];
+  for (var ci = 0; ci < orderedCfgs.length; ci++) {
+    var cfg = orderedCfgs[ci];
+    if (!cfg.id) continue;
+    tried.push(cfg.id);
+    var conn = findConn(cfg);
+    if (conn) return { conn: conn, prefix: cfg.trackAgainst || '', label: cfg.id, cfgs: cfgs };
+  }
+  return { conn: null, tried: tried, cfgs: cfgs };
+}
+
+function populateLeveragePosAcctSelector(cfgs) {
+  var sel = document.getElementById('leverage-pos-acct-sel');
+  if (!sel) return;
+  var labels = (cfgs || []).map(function(c) { return c.id; }).filter(Boolean);
+  if (labels.length < 2) { sel.style.display = 'none'; sel.innerHTML = ''; return; }
+  sel.style.display = '';
+  var curVal = state.leveragePosAcctLabel && labels.indexOf(state.leveragePosAcctLabel) !== -1
+    ? state.leveragePosAcctLabel : labels[0];
+  sel.innerHTML = labels.map(function(l) { return '<option value="' + escAttr(l) + '">' + escHtml(l) + '</option>'; }).join('');
+  sel.value = curVal;
+  state.leveragePosAcctLabel = curVal;
 }
 
 function renderLeveragePosWidget() {
   var tbl    = document.getElementById('leverage-pos-table');
   var status = document.getElementById('leverage-pos-status');
   if (!tbl) return;
+  populateLeveragePosAcctSelector(leveragePosCfgs());
+  var src = resolveLeveragePosSource();
   if (!leveragePosData) {
-    var src = resolveLeveragePosSource();
     if (!src.conn) {
       var triedMsg = src.tried && src.tried.length ? src.tried.map(function(t) { return '"' + t + '"'; }).join(' / ') : '"Card Transactions 1/2"';
       tbl.innerHTML = '<tr><td colspan="2" id="leverage-pos-empty">No Plaid connection found matching ' + escHtml(triedMsg) + ' (configure via the Card Transactions 1/2 Config rows)</td></tr>';
@@ -7014,7 +7048,7 @@ function fetchLeveragePosData(secret) {
         byMonthPayee[monthKey][payeeName].count++;
         byMonthPayee[monthKey][payeeName].total += pt.amount || 0; // Plaid: positive = debit
       }
-      leveragePosData = Object.keys(counts).sort().map(function(k) {
+      leveragePosData = Object.keys(counts).sort().reverse().map(function(k) {
         var payees = Object.keys(byMonthPayee[k] || {}).map(function(p) {
           return { name: p, count: byMonthPayee[k][p].count, total: byMonthPayee[k][p].total };
         }).sort(function(a, b) { return b.total - a.total; });
@@ -10045,10 +10079,12 @@ document.addEventListener('DOMContentLoaded', function() {
     state.acctHistoryId      = null;
     state.acctHistoryFromKey = null;
     state.acctHistoryToKey   = null;
+    state.leveragePosAcctLabel = null;
     ['sel-from','sel-to','sel-accts','sel-lw-from','sel-lw-to','sel-lw-accts',
      'sel-nw-from','sel-nw-to','sel-nw-accts','sel-home-accts','sel-tab',
      'sel-lessons-from','sel-lessons-to','sel-leverage-from','sel-leverage-to',
-     'sel-acct-history-id','sel-acct-history-from','sel-acct-history-to'].forEach(function(k) {
+     'sel-acct-history-id','sel-acct-history-from','sel-acct-history-to',
+     'sel-leverage-pos-acct'].forEach(function(k) {
       localStorage.removeItem(k);
     });
     showUpload();
@@ -10391,6 +10427,13 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
     fetchLeveragePosData(secret);
+  });
+
+  document.getElementById('leverage-pos-acct-sel').addEventListener('change', function() {
+    state.leveragePosAcctLabel = this.value;
+    localStorage.setItem('sel-leverage-pos-acct', state.leveragePosAcctLabel);
+    leveragePosData = null;
+    renderLeveragePosWidget();
   });
 
   // Account History range filter
