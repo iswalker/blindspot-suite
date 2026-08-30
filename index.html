@@ -2283,7 +2283,7 @@ function parseConfigCsv(text) {
       var m = rawAmt.match(/(\d+(?:\.\d+)?)/);
       if (m) {
         var parsed = parseFloat(m[1]);
-        var isLev  = /^leverage/i.test(usedFor);
+        var isLev  = /^leverage/i.test(usedFor) || /^card transactions/i.test(usedFor);
         if (unit === '$' || isLev) { amount = parsed; } else { dueDays = Math.round(parsed); }
       }
     }
@@ -6875,7 +6875,7 @@ function resolveLeveragePosSource() {
     if (!cfg.id) continue;
     tried.push(cfg.id);
     var conn = findConn(cfg);
-    if (conn) return { conn: conn, prefix: cfg.trackAgainst || '', label: cfg.id, cfgs: cfgs };
+    if (conn) return { conn: conn, prefix: cfg.trackAgainst || '', label: cfg.id, amount: cfg.amount, cfgs: cfgs };
   }
   return { conn: null, tried: tried, cfgs: cfgs };
 }
@@ -6916,6 +6916,7 @@ function renderLeveragePosWidget() {
     }
     return;
   }
+  var posTarget = src.amount || null;
   var html = '<thead><tr><th>Month</th><th>Count</th></tr></thead><tbody>';
   if (!leveragePosData.length) {
     html += '<tr><td colspan="2" id="leverage-pos-empty">No Debit Card Transactions found</td></tr>';
@@ -6926,9 +6927,12 @@ function renderLeveragePosWidget() {
       var label = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1)
         .toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
       var hasPayees = row.payees && row.payees.length > 0;
+      // Below target = blue (default), at/above target = green (matches Speedometers), 0 = grey
+      var countColor = row.count === 0 ? '#bbb' : (posTarget && row.count >= posTarget ? '#2e7d32' : '#1565c0');
+      var countStyle = 'color:' + countColor + (hasPayees ? ';cursor:default' : '');
       html += '<tr><td>' + escHtml(label) + '</td>'
-        + '<td class="pos-count-cell"'
-        + (hasPayees ? ' data-idx="' + j + '" style="cursor:default"' : '')
+        + '<td class="pos-count-cell" style="' + countStyle + '"'
+        + (hasPayees ? ' data-idx="' + j + '"' : '')
         + '>' + row.count + '</td></tr>';
     }
   }
