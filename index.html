@@ -5629,10 +5629,16 @@ function renderNetWorth() {
           + '</div>';
       }
 
-      var dHtml = driverRow('Overall', 'overall', true)
-        + driverRow('House', 'house', false)
-        + driverRow('Investments', 'invest', false)
-        + driverRow('Savings / Debt Payoff', 'savings', false);
+      var subDrivers = [
+        { label: 'House', key: 'house' },
+        { label: 'Investments', key: 'invest' },
+        { label: 'Savings / Debt Payoff', key: 'savings' }
+      ].sort(function(a, b) { return Math.abs(bktDelta[b.key]) - Math.abs(bktDelta[a.key]); });
+
+      var dHtml = driverRow('Overall', 'overall', true);
+      for (var sdi = 0; sdi < subDrivers.length; sdi++) {
+        dHtml += driverRow(subDrivers[sdi].label, subDrivers[sdi].key, false);
+      }
       driverCard.innerHTML = dHtml;
       driverCard.style.display = '';
     } else {
