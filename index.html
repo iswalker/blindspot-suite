@@ -4052,7 +4052,7 @@ function renderTable(opts) {
 
   // Net Cash Flow = Remaining Margin - Reinvestment - Giving
   html += '<tr class="row-spacer"><td></td>' + emptyCells() + '</tr>';
-  html += '<tr class="total-row"><td>Net Cash Flow</td>' + netValCells(netCashFlowVals, avgNetCashFlow, marginPctRef) + '</tr>';
+  html += '<tr class="net-val"><td>Net Cash Flow</td>' + netValCells(netCashFlowVals, avgNetCashFlow, marginPctRef) + '</tr>';
 
   // Non-Liquid Savings group
   var nlsIsExp   = !!state.expanded['Non-Liquid Savings'];
