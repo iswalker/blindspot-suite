@@ -1941,6 +1941,27 @@ var EXCLUDE_CAT_NAMES = {'Large Bills Liquidity   [Financial]$': true};
 // reconciliation breakout since it is visible in its own right.
 var CF_POST_NET_LIQUID_GROUP = 'Deployable Cash Pools';
 
+// The "Margin Reinvestment" row's underlying category group is Config-driven (Metric =
+// "Margin Reinvestment", value in the Text/ID column) rather than hardcoded, so it can be
+// repointed at a differently-named YNAB group without a code change. MARGIN_GRP_IDX is the
+// group's fixed structural position in EXPENSE_GROUPS, captured once before any override is
+// ever applied; applyMarginGroupOverride() patches that slot in place each render so every
+// lookup keyed by group index (toggleGroup, getTxns, getPaneTitle, click handlers) picks up
+// the configured name automatically.
+var MARGIN_GRP_IDX = EXPENSE_GROUPS.indexOf('Margin Reinvestment');
+function resolveMarginGroupName() {
+  for (var i = 0; i < (state.catConfig || []).length; i++) {
+    var c = state.catConfig[i];
+    if (/^margin reinvestment$/i.test(c.usedFor || '') && c.id) return c.id;
+  }
+  return 'Margin Reinvestment';
+}
+function applyMarginGroupOverride() {
+  var name = resolveMarginGroupName();
+  if (MARGIN_GRP_IDX !== -1) EXPENSE_GROUPS[MARGIN_GRP_IDX] = name;
+  return name;
+}
+
 var LIQUID_TYPES = { checking: 1, savings: 1, cash: 1, creditCard: 1, lineOfCredit: 1 };
 // Pending category rules are loaded from Config.csv at runtime (see parseConfigCsv / state.catConfig).
 // For the API path, categories are matched by ID. For CSV, usedFor is matched as a name substring.
@@ -3595,6 +3616,8 @@ function renderTable(opts) {
     return;
   }
 
+  var marginGrpName = applyMarginGroupOverride();
+
   // Compute values
   var excludeUnknown = !!state.excludeUnknownIncome;
   var incomeVals = keys.map(function(k) {
@@ -3664,15 +3687,15 @@ function renderTable(opts) {
   });
   var avgActionable  = mean(actionableVals);
 
-  var marginGrpIdx = EXPENSE_GROUPS.indexOf('Margin Reinvestment');
-  var marginVals   = gVals['Margin Reinvestment'] || keys.map(function() { return 0; });
-  var avgMargin    = gAvgs['Margin Reinvestment'] || 0;
-  var marginCats   = (d.activeCats['Margin Reinvestment'] || []).filter(function(c) { return !EXCLUDE_CAT_NAMES[c]; });
+  var marginGrpIdx = EXPENSE_GROUPS.indexOf(marginGrpName);
+  var marginVals   = gVals[marginGrpName] || keys.map(function() { return 0; });
+  var avgMargin    = gAvgs[marginGrpName] || 0;
+  var marginCats   = (d.activeCats[marginGrpName] || []).filter(function(c) { return !EXCLUDE_CAT_NAMES[c]; });
 
   var totalExpVals = keys.map(function(_, idx) {
     var s = 0;
     for (var ti = 0; ti < EXPENSE_GROUPS.length; ti++) {
-      if (EXPENSE_GROUPS[ti] !== 'Distribution' && EXPENSE_GROUPS[ti] !== 'Margin Reinvestment' && EXPENSE_GROUPS[ti] !== 'Non-Liquid Savings') {
+      if (EXPENSE_GROUPS[ti] !== 'Distribution' && EXPENSE_GROUPS[ti] !== marginGrpName && EXPENSE_GROUPS[ti] !== 'Non-Liquid Savings') {
         s += gVals[EXPENSE_GROUPS[ti]][idx];
       }
     }
@@ -3896,7 +3919,7 @@ function renderTable(opts) {
 
   for (var eg = 0; eg < EXPENSE_GROUPS.length; eg++) {
     var grp = EXPENSE_GROUPS[eg];
-    if (grp === 'Distribution' || grp === 'Margin Reinvestment' || grp === 'Base Operations' || grp === 'Non-Liquid Savings') continue;
+    if (grp === 'Distribution' || grp === marginGrpName || grp === 'Base Operations' || grp === 'Non-Liquid Savings') continue;
     var cats = (d.activeCats[grp] || []).filter(function(c) { return !EXCLUDE_CAT_NAMES[c]; });
     var isExp = !!state.expanded[grp];
     var hasCategories = cats.length > 0;
@@ -3935,7 +3958,7 @@ function renderTable(opts) {
   }
 
   // Margin section
-  var marginIsExp   = !!state.expanded['Margin Reinvestment'];
+  var marginIsExp   = !!state.expanded[marginGrpName];
   var marginHasCats = marginCats.length > 0;
   var marginArrow   = marginHasCats
     ? '<span class="grp-arrow" data-group="' + marginGrpIdx + '">' + (marginIsExp ? '&#9660;' : '&#9654;') + '</span> '
@@ -3950,7 +3973,7 @@ function renderTable(opts) {
   html += '</tr>';
 
   var marginCatItems = marginCats.map(function(mcat, mci) {
-    var mcatVals = keys.map(function(k) { return ((d.catPivot['Margin Reinvestment'] || {})[mcat] || {})[k] || 0; });
+    var mcatVals = keys.map(function(k) { return ((d.catPivot[marginGrpName] || {})[mcat] || {})[k] || 0; });
     return { cat: mcat, ci: mci, vals: mcatVals, avg: mean(mcatVals) };
   });
   if (state.catSortMode === 'avg') marginCatItems.sort(function(a, b) { return b.avg - a.avg; });
@@ -4905,11 +4928,11 @@ function getTxns(type, gi, ci, monthKey) {
     var dmap = rt['Distribution'] || {};
     for (var dc in dmap) txns = txns.concat(dmap[dc]);
   } else if (type === 'total-margin') {
-    var mmap = rt['Margin Reinvestment'] || {};
+    var mmap = rt[resolveMarginGroupName()] || {};
     for (var mc in mmap) txns = txns.concat(mmap[mc]);
   } else if (type === 'total-exp') {
     for (var eg = 0; eg < EXPENSE_GROUPS.length; eg++) {
-      if (EXPENSE_GROUPS[eg] === 'Distribution' || EXPENSE_GROUPS[eg] === 'Margin Reinvestment') continue;
+      if (EXPENSE_GROUPS[eg] === 'Distribution' || EXPENSE_GROUPS[eg] === resolveMarginGroupName()) continue;
       var egmap = rt[EXPENSE_GROUPS[eg]] || {};
       for (var ec in egmap) txns = txns.concat(egmap[ec]);
     }
@@ -9019,12 +9042,13 @@ function renderHome() {
         if (state.selectedAccounts[pian]) pIncome += pIncomeAcctMap[pian];
       }
     }
-    var pDist   = (d.groupPivot['Distribution']       || {})[curKey] || 0;
-    var pMargin = (d.groupPivot['Margin Reinvestment'] || {})[curKey] || 0;
+    var pMarginGrpName = applyMarginGroupOverride();
+    var pDist   = (d.groupPivot['Distribution']    || {})[curKey] || 0;
+    var pMargin = (d.groupPivot[pMarginGrpName]    || {})[curKey] || 0;
     var pTotalExp = 0;
     for (var pei = 0; pei < EXPENSE_GROUPS.length; pei++) {
       var peg = EXPENSE_GROUPS[pei];
-      if (peg === 'Distribution' || peg === 'Margin Reinvestment' || peg === 'Non-Liquid Savings') continue;
+      if (peg === 'Distribution' || peg === pMarginGrpName || peg === 'Non-Liquid Savings') continue;
       var pev = (d.groupPivot[peg] || {})[curKey] || 0;
       var pexmap = d.catPivot[peg] || {};
       for (var pexcn in EXCLUDE_CAT_NAMES) {
