@@ -1941,8 +1941,8 @@ var EXCLUDE_CAT_NAMES = {'Large Bills Liquidity   [Financial]$': true};
 // reconciliation breakout since it is visible in its own right.
 var CF_POST_NET_LIQUID_GROUP = 'Deployable Cash Pools';
 
-// The "Margin Reinvestment" row's underlying category group is Config-driven (Metric =
-// "Margin Reinvestment", value in the Text/ID column) rather than hardcoded, so it can be
+// The "Reinvestment" row's underlying category group is Config-driven (Metric =
+// "Reinvestment", value in the Text/ID column) rather than hardcoded, so it can be
 // repointed at a differently-named YNAB group without a code change. MARGIN_GRP_IDX is the
 // group's fixed structural position in EXPENSE_GROUPS, captured once before any override is
 // ever applied; applyMarginGroupOverride() patches that slot in place each render so every
@@ -1952,13 +1952,31 @@ var MARGIN_GRP_IDX = EXPENSE_GROUPS.indexOf('Margin Reinvestment');
 function resolveMarginGroupName() {
   for (var i = 0; i < (state.catConfig || []).length; i++) {
     var c = state.catConfig[i];
-    if (/^margin reinvestment$/i.test(c.usedFor || '') && c.id) return c.id;
+    if (/^reinvestment$/i.test(c.usedFor || '') && c.id) return c.id;
   }
   return 'Margin Reinvestment';
 }
 function applyMarginGroupOverride() {
   var name = resolveMarginGroupName();
   if (MARGIN_GRP_IDX !== -1) EXPENSE_GROUPS[MARGIN_GRP_IDX] = name;
+  return name;
+}
+
+// Same pattern as Reinvestment above, for the "Giving" row (Config Metric = "Giving").
+// Defaults to the literal "Giving & Growth" group -- the row's own label changed to "Giving",
+// but that is a display change only; the underlying group it reads from is unaffected unless
+// a Config row repoints it.
+var GIVING_GRP_IDX = EXPENSE_GROUPS.indexOf('Giving & Growth');
+function resolveGivingGroupName() {
+  for (var i = 0; i < (state.catConfig || []).length; i++) {
+    var c = state.catConfig[i];
+    if (/^giving$/i.test(c.usedFor || '') && c.id) return c.id;
+  }
+  return 'Giving & Growth';
+}
+function applyGivingGroupOverride() {
+  var name = resolveGivingGroupName();
+  if (GIVING_GRP_IDX !== -1) EXPENSE_GROUPS[GIVING_GRP_IDX] = name;
   return name;
 }
 
@@ -2138,6 +2156,10 @@ function fmtAbs(v) {
 // Anything rounding to $0.00 is treated as zero, so residual float dust cannot render as a
 // signed, shaded value. Exact === 0 checks let -0.004 through as a red "-$0.00".
 function isZeroish(v) { return !(Math.abs(v) >= 0.005); }
+function allZeroish(vals) {
+  for (var i = 0; i < vals.length; i++) { if (!isZeroish(vals[i])) return false; }
+  return true;
+}
 function fmtMoney(v) {
   if (isZeroish(v)) return '<span class="zero">$0.00</span>';
   return '<span class="' + (v > 0 ? 'pos' : 'neg') + '">' + (v < 0 ? '-' : '') + fmtAbs(v) + '</span>';
@@ -2413,6 +2435,7 @@ function processData(planText, regText) {
   // group's transactions land in groupPivot (an "expense group") or otherGroupPivot at all,
   // so the Config override has to be in place before that split happens, not just before render.
   applyMarginGroupOverride();
+  applyGivingGroupOverride();
   var planRows = parseCSV(planText);
   var regRows  = parseCSV(regText);
 
@@ -2671,6 +2694,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
   // Same reasoning as processData(): the group/category split below must see the Config
   // override before it runs, not just before render.
   applyMarginGroupOverride();
+  applyGivingGroupOverride();
   opts = opts || {};
   var prevMonthsKnowledge   = (opts.serverKnowledge && opts.serverKnowledge.months) || null;
   var prevRawMonthCache     = opts.rawMonthCache       || {};
@@ -3624,6 +3648,7 @@ function renderTable(opts) {
   }
 
   var marginGrpName = applyMarginGroupOverride();
+  var givingGrpName = applyGivingGroupOverride();
 
   // Compute values
   var excludeUnknown = !!state.excludeUnknownIncome;
@@ -3699,10 +3724,15 @@ function renderTable(opts) {
   var avgMargin    = gAvgs[marginGrpName] || 0;
   var marginCats   = (d.activeCats[marginGrpName] || []).filter(function(c) { return !EXCLUDE_CAT_NAMES[c]; });
 
+  var givingGrpIdx = EXPENSE_GROUPS.indexOf(givingGrpName);
+  var givingVals   = gVals[givingGrpName] || keys.map(function() { return 0; });
+  var avgGiving    = gAvgs[givingGrpName] || 0;
+  var givingCats   = (d.activeCats[givingGrpName] || []).filter(function(c) { return !EXCLUDE_CAT_NAMES[c]; });
+
   var totalExpVals = keys.map(function(_, idx) {
     var s = 0;
     for (var ti = 0; ti < EXPENSE_GROUPS.length; ti++) {
-      if (EXPENSE_GROUPS[ti] !== 'Distribution' && EXPENSE_GROUPS[ti] !== marginGrpName && EXPENSE_GROUPS[ti] !== 'Non-Liquid Savings') {
+      if (EXPENSE_GROUPS[ti] !== 'Distribution' && EXPENSE_GROUPS[ti] !== marginGrpName && EXPENSE_GROUPS[ti] !== 'Non-Liquid Savings' && EXPENSE_GROUPS[ti] !== givingGrpName) {
         s += gVals[EXPENSE_GROUPS[ti]][idx];
       }
     }
@@ -3718,7 +3748,8 @@ function renderTable(opts) {
   var avgNls    = gAvgs['Non-Liquid Savings'] || 0;
   var nlsCats   = (d.activeCats['Non-Liquid Savings'] || []).filter(function(c) { return !EXCLUDE_CAT_NAMES[c]; });
 
-  var netCashFlowVals = keys.map(function(_, idx) { return remainMarginVals[idx] - marginVals[idx]; });
+  // Net Cash Flow = Remaining Margin - Reinvestment - Giving
+  var netCashFlowVals = keys.map(function(_, idx) { return remainMarginVals[idx] - marginVals[idx] - givingVals[idx]; });
   var avgNetCashFlow  = mean(netCashFlowVals);
 
   var netVals = keys.map(function(_, idx) { return netCashFlowVals[idx] - nlsVals[idx]; });
@@ -3926,7 +3957,9 @@ function renderTable(opts) {
 
   for (var eg = 0; eg < EXPENSE_GROUPS.length; eg++) {
     var grp = EXPENSE_GROUPS[eg];
-    if (grp === 'Distribution' || grp === marginGrpName || grp === 'Base Operations' || grp === 'Non-Liquid Savings') continue;
+    if (grp === 'Distribution' || grp === marginGrpName || grp === 'Base Operations' || grp === 'Non-Liquid Savings' || grp === givingGrpName) continue;
+    // No activity anywhere in the filtered range -- nothing to show or expand into.
+    if (allZeroish(gVals[grp])) continue;
     var cats = (d.activeCats[grp] || []).filter(function(c) { return !EXCLUDE_CAT_NAMES[c]; });
     var isExp = !!state.expanded[grp];
     var hasCategories = cats.length > 0;
@@ -3975,7 +4008,7 @@ function renderTable(opts) {
 
   html += '<tr class="total-row"><td>Remaining Margin</td>' + netValCells(remainMarginVals, avgRemainMargin, marginPctRef) + '</tr>';
   html += '<tr class="data-row exp-group' + (marginIsExp ? ' grp-bordered' : '') + '" data-group="' + marginGrpIdx + '">';
-  html += '<td>' + marginArrow + 'Margin Reinvestment</td>';
+  html += '<td>' + marginArrow + 'Reinvestment</td>';
   html += valCells(marginVals, avgMargin, true, 'group', marginGrpIdx);
   html += '</tr>';
 
@@ -3993,7 +4026,31 @@ function renderTable(opts) {
     html += '</tr>';
   }
 
-  // Net Cash Flow = Remaining Margin - Margin Reinvestment
+  var givingIsExp   = !!state.expanded[givingGrpName];
+  var givingHasCats = givingCats.length > 0;
+  var givingArrow   = givingHasCats
+    ? '<span class="grp-arrow" data-group="' + givingGrpIdx + '">' + (givingIsExp ? '&#9660;' : '&#9654;') + '</span> '
+    : '<span class="grp-arrow"></span> ';
+  html += '<tr class="data-row exp-group' + (givingIsExp ? ' grp-bordered' : '') + '" data-group="' + givingGrpIdx + '">';
+  html += '<td>' + givingArrow + 'Giving</td>';
+  html += valCells(givingVals, avgGiving, true, 'group', givingGrpIdx);
+  html += '</tr>';
+
+  var givingCatItems = givingCats.map(function(gcat, gci) {
+    var gcatVals = keys.map(function(k) { return ((d.catPivot[givingGrpName] || {})[gcat] || {})[k] || 0; });
+    return { cat: gcat, ci: gci, vals: gcatVals, avg: mean(gcatVals) };
+  });
+  if (state.catSortMode === 'avg') givingCatItems.sort(function(a, b) { return b.avg - a.avg; });
+  for (var gci2 = 0; gci2 < givingCatItems.length; gci2++) {
+    var gi2 = givingCatItems[gci2];
+    var isLastGiving = gci2 === givingCatItems.length - 1;
+    html += '<tr class="cat-row' + (givingIsExp ? ' cat-row-bordered' : '') + (isLastGiving ? ' cat-row-last' : '') + '" data-group="' + givingGrpIdx + '" style="' + (givingIsExp ? '' : 'display:none') + '">';
+    html += '<td>' + gi2.cat + '</td>';
+    html += valCells(gi2.vals, gi2.avg, true, 'cat', givingGrpIdx, gi2.ci);
+    html += '</tr>';
+  }
+
+  // Net Cash Flow = Remaining Margin - Reinvestment - Giving
   html += '<tr class="row-spacer"><td></td>' + emptyCells() + '</tr>';
   html += '<tr class="total-row"><td>Net Cash Flow</td>' + netValCells(netCashFlowVals, avgNetCashFlow, marginPctRef) + '</tr>';
 
@@ -4939,7 +4996,7 @@ function getTxns(type, gi, ci, monthKey) {
     for (var mc in mmap) txns = txns.concat(mmap[mc]);
   } else if (type === 'total-exp') {
     for (var eg = 0; eg < EXPENSE_GROUPS.length; eg++) {
-      if (EXPENSE_GROUPS[eg] === 'Distribution' || EXPENSE_GROUPS[eg] === resolveMarginGroupName()) continue;
+      if (EXPENSE_GROUPS[eg] === 'Distribution' || EXPENSE_GROUPS[eg] === resolveMarginGroupName() || EXPENSE_GROUPS[eg] === resolveGivingGroupName()) continue;
       var egmap = rt[EXPENSE_GROUPS[eg]] || {};
       for (var ec in egmap) txns = txns.concat(egmap[ec]);
     }
@@ -4971,7 +5028,7 @@ function getPaneTitle(type, gi, ci) {
   }
   if (type === 'income')     return 'Income';
   if (type === 'total-dist')   return 'Total Distribution';
-  if (type === 'total-margin') return 'Total Margin Reinvestment';
+  if (type === 'total-margin') return 'Total Reinvestment';
   if (type === 'total-exp')    return 'Total Expenses';
   if (type === 'group')     return EXPENSE_GROUPS[gi] || '';
   if (type === 'cat') {
@@ -9050,12 +9107,14 @@ function renderHome() {
       }
     }
     var pMarginGrpName = applyMarginGroupOverride();
+    var pGivingGrpName = applyGivingGroupOverride();
     var pDist   = (d.groupPivot['Distribution']    || {})[curKey] || 0;
     var pMargin = (d.groupPivot[pMarginGrpName]    || {})[curKey] || 0;
+    var pGiving = (d.groupPivot[pGivingGrpName]    || {})[curKey] || 0;
     var pTotalExp = 0;
     for (var pei = 0; pei < EXPENSE_GROUPS.length; pei++) {
       var peg = EXPENSE_GROUPS[pei];
-      if (peg === 'Distribution' || peg === pMarginGrpName || peg === 'Non-Liquid Savings') continue;
+      if (peg === 'Distribution' || peg === pMarginGrpName || peg === 'Non-Liquid Savings' || peg === pGivingGrpName) continue;
       var pev = (d.groupPivot[peg] || {})[curKey] || 0;
       var pexmap = d.catPivot[peg] || {};
       for (var pexcn in EXCLUDE_CAT_NAMES) {
@@ -9064,7 +9123,7 @@ function renderHome() {
       pTotalExp += pev;
     }
     var pNonLiqSavings = (d.groupPivot['Non-Liquid Savings'] || {})[curKey] || 0;
-    plannedNetLiq = pIncome - pDist - pTotalExp - pMargin - pNonLiqSavings;
+    plannedNetLiq = pIncome - pDist - pTotalExp - pMargin - pGiving - pNonLiqSavings;
   }
   var plannedLiqEl = document.getElementById('home-planned-liq-value');
   if (plannedLiqEl) {
@@ -10329,7 +10388,7 @@ document.addEventListener('DOMContentLoaded', function() {
       state.catConfig  = parseConfigCsv(state.configText);
       localStorage.setItem('cat-config-csv', state.configText);
       document.getElementById('cache-label').textContent = 'Config loaded (' + state.catConfig.length + ' rules)';
-      // Some Config rows (e.g. "Margin Reinvestment") change which category group raw
+      // Some Config rows (e.g. "Reinvestment") change which category group raw
       // transactions were classified under during ingestion, not just how they're rendered --
       // re-run ingestion so that change actually takes effect instead of rendering against
       // pivots built under the old grouping.
