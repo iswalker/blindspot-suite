@@ -884,10 +884,13 @@ td.hbt-num:last-child { width: 13%; }
 .nw-driver-label { font-size: 14px; flex: 1; }
 .nw-driver-overall .nw-driver-label { font-size: 15px; }
 .nw-driver-vals { display: flex; align-items: baseline; gap: 8px; flex-shrink: 0; }
-.nw-driver-total { font-size: 14px; font-weight: 600; color: #333; white-space: nowrap; min-width: 90px; text-align: right; }
-.nw-driver-amt { font-size: 15px; font-weight: 600; white-space: nowrap; }
-.nw-driver-pct { font-size: 13px; font-weight: 600; white-space: nowrap; }
-.nw-driver-avg { font-size: 12px; color: #888; white-space: nowrap; min-width: 90px; text-align: right; }
+/* Fixed (not min-) widths so every row's columns land at the same x position -- with only
+   .nw-driver-label left flexible, its computed width is constant across rows (everything to
+   its right sums to a fixed total), which is what actually keeps these columns aligned. */
+.nw-driver-total { font-size: 14px; font-weight: 600; color: #333; white-space: nowrap; width: 110px; flex: 0 0 110px; text-align: right; }
+.nw-driver-amt { font-size: 15px; font-weight: 600; white-space: nowrap; width: 115px; flex: 0 0 115px; text-align: right; }
+.nw-driver-pct { font-size: 13px; font-weight: 600; white-space: nowrap; width: 62px; flex: 0 0 62px; text-align: right; }
+.nw-driver-avg { font-size: 12px; color: #888; white-space: nowrap; width: 95px; flex: 0 0 95px; text-align: right; }
 .nw-driver-sep { width: 1px; background: #eee; align-self: stretch; margin: 0 2px; }
 /* Driver row tooltip */
 #nw-driver-tt {
@@ -1220,6 +1223,11 @@ td.hbt-num:last-child { width: 13%; }
   /* Range filter wraps */
   #lw-range-wrap, #nw-range-wrap, #lessons-range-wrap,
   #leverage-range-wrap, #acct-history-range-wrap { flex-wrap: wrap; }
+
+  /* Driver rows: the fixed-width value columns (needed for column alignment on desktop) don't
+     fit beside the label on a narrow screen -- wrap them onto their own right-aligned line. */
+  .nw-driver-row { flex-wrap: wrap; row-gap: 4px; }
+  .nw-driver-vals { flex: 1 1 100%; justify-content: flex-end; }
 }
 
 @media (max-width: 480px) {
@@ -1228,6 +1236,12 @@ td.hbt-num:last-child { width: 13%; }
   .home-metric-row { grid-template-columns: 1fr; }
   .lessons-metric-card { flex: 1 1 100%; }
   .home-metric-value { font-size: 20px; }
+
+  /* Shrink the driver-row value columns further so they fit a phone-width line */
+  .nw-driver-total { width: 85px; flex-basis: 85px; }
+  .nw-driver-amt { width: 90px; flex-basis: 90px; }
+  .nw-driver-pct { width: 50px; flex-basis: 50px; }
+  .nw-driver-avg { width: 75px; flex-basis: 75px; }
 }
 
 @media print {
@@ -5617,16 +5631,20 @@ function renderNetWorth() {
         var arrow = dAmt >= 0 ? '&#8593;' : '&#8595;';
         var avgSign = dAvg >= 0 ? '+' : '';
         var avgCls  = dAvg >= 0 ? 'lw-change-up' : 'lw-change-dn';
-        // Overall: % relative to starting NW; sub-drivers: share of total change in parens
-        var pctStr = '';
+        // Overall: % relative to starting NW; sub-drivers: share of total change in parens.
+        // Always render the span (even empty) so the pct column keeps a fixed width whether
+        // or not a % could be computed for this row (e.g. startingNw or changeAmt is 0).
+        var pctInner = '', pctCls = '';
         if (isOverall && startingNw) {
           var oPct = dAmt / Math.abs(startingNw) * 100;
           var oPctSign = oPct >= 0 ? '+' : '';
-          pctStr = '<span class="nw-driver-pct ' + cls + '">' + oPctSign + oPct.toFixed(1) + '%</span>';
+          pctInner = oPctSign + oPct.toFixed(1) + '%';
+          pctCls   = cls;
         } else if (!isOverall && changeAmt) {
           var dPct = dAmt / Math.abs(changeAmt) * 100;
-          pctStr = '<span class="nw-driver-pct" style="color:#aaa">(' + Math.abs(dPct).toFixed(1) + '%)</span>';
+          pctInner = '(' + Math.abs(dPct).toFixed(1) + '%)';
         }
+        var pctStr = '<span class="nw-driver-pct ' + pctCls + '"' + (pctCls ? '' : ' style="color:#aaa"') + '>' + pctInner + '</span>';
         return '<div class="nw-driver-row' + (isOverall ? ' nw-driver-overall' : '') + '" data-bucket="' + key + '">'
           + '<span class="nw-driver-label">' + label + '</span>'
           + '<span class="nw-driver-vals">'
