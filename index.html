@@ -884,6 +884,7 @@ td.hbt-num:last-child { width: 13%; }
 .nw-driver-label { font-size: 14px; flex: 1; }
 .nw-driver-overall .nw-driver-label { font-size: 15px; }
 .nw-driver-vals { display: flex; align-items: baseline; gap: 8px; flex-shrink: 0; }
+.nw-driver-total { font-size: 14px; font-weight: 600; color: #333; white-space: nowrap; min-width: 90px; text-align: right; }
 .nw-driver-amt { font-size: 15px; font-weight: 600; white-space: nowrap; }
 .nw-driver-pct { font-size: 13px; font-weight: 600; white-space: nowrap; }
 .nw-driver-avg { font-size: 12px; color: #888; white-space: nowrap; min-width: 90px; text-align: right; }
@@ -5580,6 +5581,12 @@ function renderNetWorth() {
         invest:  bktEnd.invest  - bktStart.invest,
         savings: bktEnd.savings - bktStart.savings
       };
+      var bktTotal = {
+        overall: netVals[lastIdx],
+        house:   bktEnd.house,
+        invest:  bktEnd.invest,
+        savings: bktEnd.savings
+      };
       var nMonths = keys.length - 1; // intervals between data points
 
       // Per-account deltas for tooltip
@@ -5601,7 +5608,9 @@ function renderNetWorth() {
       var startingNw = netVals[0];
 
       function driverRow(label, key, isOverall) {
-        var dAmt  = bktDelta[key];
+        var dAmt   = bktDelta[key];
+        var dTotal = bktTotal[key];
+        var totalStr = (dTotal < 0 ? '-' : '') + fmtAbs(dTotal);
         var dAvg  = nMonths > 0 ? dAmt / nMonths : 0;
         var cls   = dAmt >= 0 ? 'lw-change-up' : 'lw-change-dn';
         var sign  = dAmt >= 0 ? '+' : '';
@@ -5621,6 +5630,7 @@ function renderNetWorth() {
         return '<div class="nw-driver-row' + (isOverall ? ' nw-driver-overall' : '') + '" data-bucket="' + key + '">'
           + '<span class="nw-driver-label">' + label + '</span>'
           + '<span class="nw-driver-vals">'
+          + '<span class="nw-driver-total">' + totalStr + '</span>'
           + '<span class="nw-driver-amt ' + cls + '">' + arrow + ' ' + sign + fmtAbs(dAmt) + '</span>'
           + pctStr
           + '<span class="nw-driver-sep"></span>'
@@ -9756,11 +9766,34 @@ function renderLwTable(keys, netVals, targetId) {
     }
     var pp        = keys[i].split('-');
     var monthName = MONTH_NAMES[parseInt(pp[1], 10) - 1] + ' ' + pp[0];
-    h += '<tr><td>' + monthName + '</td><td>' + nwStr + '</td><td>' + chStr + '</td>'
+    var chTdAttrs = i > 0 ? ' class="lw-hover-cell" data-key="' + keys[i] + '" style="cursor:pointer"' : '';
+    h += '<tr><td>' + monthName + '</td><td>' + nwStr + '</td><td' + chTdAttrs + '>' + chStr + '</td>'
        + (nwDeltaPct !== null ? '<td>' + deltaStr + '</td>' : '') + '</tr>';
   }
   h += '</tbody>';
   document.getElementById(targetId).innerHTML = h;
+  wireLwTableHover(targetId);
+}
+
+// Reuses the chart's own hover tooltip (Assets/Debts/Liquid Balances/Monthly Change/Change
+// Drivers) when hovering the Monthly Change cell in the table beneath the chart, so the same
+// detail is available without having to find the matching point on the chart above.
+function wireLwTableHover(targetId) {
+  var tbl = document.getElementById(targetId);
+  if (!tbl) return;
+  var cells = tbl.querySelectorAll('.lw-hover-cell[data-key]');
+  for (var i = 0; i < cells.length; i++) {
+    (function(cell) {
+      cell.addEventListener('mousemove', function(e) {
+        var s = targetId === 'nw-table' ? nwChartState : lwChartState;
+        if (!s) return;
+        var idx = s.keys.indexOf(cell.getAttribute('data-key'));
+        if (idx < 0) return;
+        showLwTooltip(e.clientX, e.clientY, idx, s);
+      });
+      cell.addEventListener('mouseleave', hideLwTooltip);
+    })(cells[i]);
+  }
 }
 
 // ============================================================
