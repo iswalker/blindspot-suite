@@ -1181,6 +1181,10 @@ td.hbt-num:last-child { width: 13%; }
   .home-pending-side { width: 100%; }
   .home-table-side { width: 100%; }
 
+  /* Purchase Loops / Recoverable Cost Areas ahead of the metric cards on mobile */
+  #home-panel-body { display: flex; flex-direction: column; }
+  #home-panel-body > .home-body { order: -1; }
+
   /* All summary metric rows wrap on mobile */
   #lessons-summary-row,
   #leverage-summary-row,
@@ -1759,6 +1763,7 @@ td.hbt-num:last-child { width: 13%; }
         <div id="home-acct-filter-panel"></div>
       </div>
     </div>
+    <div id="home-panel-body">
     <div class="home-metric-row">
       <div class="home-metric-card" style="cursor:default">
         <div class="home-metric-label">Cash Basis</div>
@@ -1828,10 +1833,6 @@ td.hbt-num:last-child { width: 13%; }
       </div>
     </div>
     <div class="home-body">
-      <div class="home-table-side">
-        <div style="font-size:13px;font-weight:600;color:#555;padding:0 0 6px 2px;letter-spacing:0.03em;text-transform:uppercase">Recoverable Cost Areas</div>
-        <div class="scroll-wrap" id="home-budget-wrap"></div>
-      </div>
       <div class="home-pending-side">
         <div class="pending-card">
           <div class="pending-card-hdr">
@@ -1855,6 +1856,11 @@ td.hbt-num:last-child { width: 13%; }
           <div id="opps-list"></div>
         </div>
       </div>
+      <div class="home-table-side">
+        <div style="font-size:13px;font-weight:600;color:#555;padding:0 0 6px 2px;letter-spacing:0.03em;text-transform:uppercase">Recoverable Cost Areas</div>
+        <div class="scroll-wrap" id="home-budget-wrap"></div>
+      </div>
+    </div>
     </div>
   </div>
 </div>
