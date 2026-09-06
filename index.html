@@ -1015,11 +1015,11 @@ td.hbt-num:last-child { width: 13%; }
 /* NW table shares the same style pattern */
 #nw-table { border-collapse: collapse; width: 100%; }
 #nw-table th { text-align: left; font-size: 11px; font-weight: 600; color: #333; letter-spacing: .06em; padding: 10px 20px; border-bottom: 1px solid #e4e4e0; background: #fff; white-space: nowrap; }
-#nw-table th:nth-child(2), #nw-table th:last-child { text-align: right; }
+#nw-table th:nth-child(2), #nw-table th:nth-child(3), #nw-table th:last-child { text-align: right; }
 #nw-table td { padding: 10px 20px; font-size: 13px; border-bottom: 1px solid #f0f0ec; white-space: nowrap; }
 #nw-table td:first-child { white-space: normal; }
 #nw-table td:nth-child(2) { text-align: right; font-weight: 500; }
-#nw-table td:last-child { text-align: right; }
+#nw-table td:nth-child(3), #nw-table td:last-child { text-align: right; }
 #nw-table tr:last-child td { border-bottom: none; }
 #nw-table tr:hover td { background: #fafaf7; }
 
@@ -2282,7 +2282,7 @@ function parseConfigCsv(text) {
       var m = rawAmt.match(/(\d+(?:\.\d+)?)/);
       if (m) {
         var parsed = parseFloat(m[1]);
-        var isLev  = /^leverage/i.test(usedFor) || /^card transactions/i.test(usedFor);
+        var isLev  = /^leverage/i.test(usedFor) || /^card transactions/i.test(usedFor) || /^net worth delta$/i.test(usedFor);
         if (unit === '$' || isLev) { amount = parsed; } else { dueDays = Math.round(parsed); }
       }
     }
@@ -9714,13 +9714,26 @@ function renderLwTable(keys, netVals, targetId) {
   var MONTH_NAMES = ['January','February','March','April','May','June',
                      'July','August','September','October','November','December'];
   var lwColLabel = (targetId === 'nw-table') ? 'Net Worth' : 'Liquid Balances';
-  var h = '<thead><tr><th>Month</th><th>' + lwColLabel + '</th><th>Monthly Change</th></tr></thead><tbody>';
+
+  // Net Worth Delta target: a configured % increase expected relative to the prior month's
+  // ending balance. Only shown on the Net Worth table.
+  var nwDeltaPct = null;
+  if (targetId === 'nw-table') {
+    for (var ndi = 0; ndi < (state.catConfig || []).length; ndi++) {
+      var ndcfg = state.catConfig[ndi];
+      if (/^net worth delta$/i.test(ndcfg.usedFor || '') && ndcfg.amount !== null) { nwDeltaPct = ndcfg.amount; break; }
+    }
+  }
+
+  var h = '<thead><tr><th>Month</th><th>' + lwColLabel + '</th><th>Monthly Change</th>'
+        + (nwDeltaPct !== null ? '<th>Net Worth Delta</th>' : '') + '</tr></thead><tbody>';
   for (var i = keys.length - 1; i >= 0; i--) {
     var nw      = netVals[i];
     var nwStr   = (nw < 0 ? '-' : '') + fmtAbs(nw);
     var chStr   = '<span style="color:#aaa">—</span>';
+    var ch      = null;
     if (i > 0) {
-      var ch    = nw - netVals[i - 1];
+      ch        = nw - netVals[i - 1];
       var pct   = netVals[i - 1] !== 0 ? ch / Math.abs(netVals[i - 1]) * 100 : null;
       var isPos = ch >= 0;
       var cls   = isPos ? 'lw-change-up' : 'lw-change-dn';
@@ -9729,9 +9742,22 @@ function renderLwTable(keys, netVals, targetId) {
       chStr = '<span class="' + cls + '">' + arrow + ' ' + sign + fmtAbs(ch)
             + (pct !== null ? ' (' + sign + pct.toFixed(1) + '%)' : '') + '</span>';
     }
+    var deltaStr = '';
+    if (nwDeltaPct !== null) {
+      deltaStr = '<span style="color:#aaa">—</span>';
+      if (i > 0) {
+        var target     = netVals[i - 1] * nwDeltaPct / 100;
+        var targetSign = target >= 0 ? '+' : '';
+        var metTarget  = ch >= target;
+        var deltaColor = metTarget ? '#2e7d32' : '#d97706';
+        deltaStr = '<span style="color:' + deltaColor + '">' + targetSign + fmtAbs(target)
+                 + ' (' + targetSign + nwDeltaPct.toFixed(1) + '%)</span>';
+      }
+    }
     var pp        = keys[i].split('-');
     var monthName = MONTH_NAMES[parseInt(pp[1], 10) - 1] + ' ' + pp[0];
-    h += '<tr><td>' + monthName + '</td><td>' + nwStr + '</td><td>' + chStr + '</td></tr>';
+    h += '<tr><td>' + monthName + '</td><td>' + nwStr + '</td><td>' + chStr + '</td>'
+       + (nwDeltaPct !== null ? '<td>' + deltaStr + '</td>' : '') + '</tr>';
   }
   h += '</tbody>';
   document.getElementById(targetId).innerHTML = h;
