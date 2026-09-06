@@ -2409,6 +2409,10 @@ function computePeriodProgress(dateRange, now) {
 }
 
 function processData(planText, regText) {
+  // Must run before any row is classified below -- this is what decides whether a category
+  // group's transactions land in groupPivot (an "expense group") or otherGroupPivot at all,
+  // so the Config override has to be in place before that split happens, not just before render.
+  applyMarginGroupOverride();
   var planRows = parseCSV(planText);
   var regRows  = parseCSV(regText);
 
@@ -2664,6 +2668,9 @@ function ynabGet(path, apiKey) {
 }
 
 function fetchYnabData(apiKey, budgetId, opts) {
+  // Same reasoning as processData(): the group/category split below must see the Config
+  // override before it runs, not just before render.
+  applyMarginGroupOverride();
   opts = opts || {};
   var prevMonthsKnowledge   = (opts.serverKnowledge && opts.serverKnowledge.months) || null;
   var prevRawMonthCache     = opts.rawMonthCache       || {};
@@ -10322,7 +10329,23 @@ document.addEventListener('DOMContentLoaded', function() {
       state.catConfig  = parseConfigCsv(state.configText);
       localStorage.setItem('cat-config-csv', state.configText);
       document.getElementById('cache-label').textContent = 'Config loaded (' + state.catConfig.length + ' rules)';
-      if (state.data) renderHome();
+      // Some Config rows (e.g. "Margin Reinvestment") change which category group raw
+      // transactions were classified under during ingestion, not just how they're rendered --
+      // re-run ingestion so that change actually takes effect instead of rendering against
+      // pivots built under the old grouping.
+      if (state.data) {
+        var apiKey   = localStorage.getItem('ynab-api-key');
+        var budgetId = localStorage.getItem('ynab-budget-id');
+        if (apiKey && budgetId) {
+          refreshYnab();
+        } else if (state.planText && state.regText) {
+          state.data     = processData(state.planText, state.regText);
+          state.loadedAt = Date.now();
+          showReport();
+        } else {
+          renderHome();
+        }
+      }
     };
     r.readAsText(f);
     this.value = '';
