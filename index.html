@@ -1181,9 +1181,25 @@ td.hbt-num:last-child { width: 13%; }
   .home-pending-side { width: 100%; }
   .home-table-side { width: 100%; }
 
-  /* Purchase Loops / Recoverable Cost Areas ahead of the metric cards on mobile */
+  /* Purchase Loops ahead of the metric cards on mobile; Recoverable Cost Areas
+     table becomes the last element on the page, underneath all stacked cards. */
   #home-panel-body { display: flex; flex-direction: column; }
-  #home-panel-body > .home-body { order: -1; }
+  .home-body { display: contents; }
+  .home-pending-side { order: -1; }
+
+  /* Recoverable Cost Areas table: drop secondary columns and free-form min-width so it
+     fits a phone screen without horizontal scrolling. */
+  #home-budget-wrap .hbt { min-width: 0; }
+  #home-budget-wrap .hbt th:nth-child(2),
+  #home-budget-wrap .hbt th:nth-child(3),
+  #home-budget-wrap .hbt th:nth-child(4),
+  #home-budget-wrap .hbt th:nth-child(5),
+  #home-budget-wrap .hbt td:nth-child(2),
+  #home-budget-wrap .hbt td:nth-child(3),
+  #home-budget-wrap .hbt td:nth-child(4),
+  #home-budget-wrap .hbt td:nth-child(5) { display: none; }
+  #home-budget-wrap .hbt th, #home-budget-wrap .hbt td { padding: 8px 10px; font-size: 12px; }
+  #home-budget-wrap .hbt th.hbt-name { min-width: 0; }
 
   /* All summary metric rows wrap on mobile */
   #lessons-summary-row,
@@ -1825,7 +1841,7 @@ td.hbt-num:last-child { width: 13%; }
       </div>
       <div class="home-metric-card" style="cursor:default">
         <div class="home-metric-label">Breakfix Exposure</div>
-        <div class="home-metric-sub">Readiness for equipment failure</div>
+        <div class="home-metric-sub">Readiness for large medical bill or equipment failure</div>
         <div style="display:flex;align-items:baseline;justify-content:flex-end;gap:6px">
           <div class="home-metric-value na" id="home-breakfix-value">&#8212;</div>
           <div id="home-breakfix-range" style="display:none;font-size:12px;color:#bbb;font-weight:400;white-space:nowrap"></div>
@@ -9367,7 +9383,13 @@ function renderHome() {
   // First pass: collect per-group data and accumulate grand totals
   var hasApiData  = !!(d.catActivityPivot);
   var grandAssigned = 0, grandActivity = 0, grandAvail = 0, grandProjSpend = 0, grandEstRecov = 0;
-  var groupRows = [];
+  var allCatData = [];
+  // Est. Recoverable display threshold: Config.csv row with Metric = "Recoverable Costs", column Amount
+  var estRecovThreshold = 75;
+  for (var tci = 0; tci < (state.catConfig || []).length; tci++) {
+    var tcfg = state.catConfig[tci];
+    if (tcfg.usedFor === 'Recoverable Costs' && tcfg.amount !== null) { estRecovThreshold = tcfg.amount; break; }
+  }
   for (var gi = 0; gi < EXPENSE_GROUPS.length; gi++) {
     var grp     = EXPENSE_GROUPS[gi];
     var allCats = d.activeCats[grp] || [];
@@ -9382,7 +9404,6 @@ function renderHome() {
     if (cats.length === 0) continue;
 
     var grpAssigned = 0, grpActivity = 0, grpAvail = 0, grpProjSpend = 0, grpEstRecov = 0;
-    var catData = [];
     for (var ci = 0; ci < cats.length; ci++) {
       var cat      = cats[ci];
       var assigned = ((d.catPivot[grp] || {})[cat] || {})[curKey] || 0;
@@ -9400,15 +9421,19 @@ function renderHome() {
       grpAvail     += avail;
       grpProjSpend += catProjSpend;
       grpEstRecov  += catEstRecov;
-      catData.push({ name: cat, assigned: assigned, activity: activity, avail: avail, projSpend: catProjSpend, estRecov: catEstRecov });
+      allCatData.push({ name: cat, assigned: assigned, activity: activity, avail: avail, projSpend: catProjSpend, estRecov: catEstRecov });
     }
     grandAssigned  += grpAssigned;
     grandActivity  += grpActivity;
     grandAvail     += grpAvail;
     grandProjSpend += grpProjSpend;
     grandEstRecov  += grpEstRecov;
-    groupRows.push({ grp: grp, grpAssigned: grpAssigned, grpActivity: grpActivity, grpAvail: grpAvail, grpProjSpend: grpProjSpend, grpEstRecov: grpEstRecov, cats: catData });
   }
+
+  // Only show categories whose Est. Recoverable exceeds the configured threshold,
+  // sorted largest to smallest by Est. Recoverable. Category Group rows are omitted.
+  var visibleCatData = allCatData.filter(function(cd) { return cd.estRecov > estRecovThreshold; });
+  visibleCatData.sort(function(a, b) { return b.estRecov - a.estRecov; });
 
   // Second pass: render table with Total row first
   var html = '<table class="hbt">';
@@ -9431,32 +9456,18 @@ function renderHome() {
         : '')
     + '</tr>';
 
-  for (var gri = 0; gri < groupRows.length; gri++) {
-    var gr = groupRows[gri];
-    html += '<tr class="hbt-group-row">'
-      + '<td class="hbt-name">' + escAttr(gr.grp) + '</td>'
-      + '<td class="hbt-num">' + fmtHbtAmt(gr.grpAssigned) + '</td>'
-      + '<td class="hbt-num">' + fmtHbtAmt(gr.grpActivity) + '</td>'
-      + '<td class="hbt-num">' + renderAvailPill(gr.grpAvail) + '</td>'
+  for (var cdi = 0; cdi < visibleCatData.length; cdi++) {
+    var cd = visibleCatData[cdi];
+    html += '<tr class="hbt-cat-row">'
+      + '<td class="hbt-name">' + escAttr(cd.name) + '</td>'
+      + '<td class="hbt-num">' + fmtHbtAmt(cd.assigned) + '</td>'
+      + '<td class="hbt-num">' + fmtHbtAmt(cd.activity) + '</td>'
+      + '<td class="hbt-num">' + renderAvailPill(cd.avail) + '</td>'
       + (hasTrendData
-          ? '<td class="hbt-num">' + fmtProjSpendAmt(-gr.grpProjSpend) + '</td>'
-          + '<td class="hbt-num">' + renderAvailPill(gr.grpEstRecov) + '</td>'
+          ? '<td class="hbt-num">' + fmtProjSpendAmt(-cd.projSpend) + '</td>'
+          + '<td class="hbt-num">' + renderAvailPill(cd.estRecov) + '</td>'
           : '')
       + '</tr>';
-
-    for (var cdi = 0; cdi < gr.cats.length; cdi++) {
-      var cd = gr.cats[cdi];
-      html += '<tr class="hbt-cat-row">'
-        + '<td class="hbt-name hbt-indent">' + escAttr(cd.name) + '</td>'
-        + '<td class="hbt-num">' + fmtHbtAmt(cd.assigned) + '</td>'
-        + '<td class="hbt-num">' + fmtHbtAmt(cd.activity) + '</td>'
-        + '<td class="hbt-num">' + renderAvailPill(cd.avail) + '</td>'
-        + (hasTrendData
-            ? '<td class="hbt-num">' + fmtProjSpendAmt(-cd.projSpend) + '</td>'
-            + '<td class="hbt-num">' + renderAvailPill(cd.estRecov) + '</td>'
-            : '')
-        + '</tr>';
-    }
   }
 
   html += '</tbody></table>';
