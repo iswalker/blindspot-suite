@@ -1191,9 +1191,11 @@ td.hbt-num:last-child { width: 13%; }
      to 0 and hides the table entirely. */
   .home-table-side { flex: none; }
 
-  /* Recoverable Cost Areas table: drop secondary columns and free-form min-width so it
-     fits a phone screen without horizontal scrolling. */
-  #home-budget-wrap .hbt { min-width: 0; }
+  /* Recoverable Cost Areas table: drop secondary columns and lay the remaining two out as a
+     fixed 2-column table (name flexes, amount is a fixed right-aligned width) so the row
+     fits a phone screen with the category name ellipsizing instead of the table scrolling. */
+  #home-budget-wrap { overflow-x: hidden; }
+  #home-budget-wrap .hbt { min-width: 0; width: 100%; table-layout: fixed; }
   #home-budget-wrap .hbt th:nth-child(2),
   #home-budget-wrap .hbt th:nth-child(3),
   #home-budget-wrap .hbt th:nth-child(4),
@@ -1203,7 +1205,12 @@ td.hbt-num:last-child { width: 13%; }
   #home-budget-wrap .hbt td:nth-child(4),
   #home-budget-wrap .hbt td:nth-child(5) { display: none; }
   #home-budget-wrap .hbt th, #home-budget-wrap .hbt td { padding: 8px 10px; font-size: 12px; }
-  #home-budget-wrap .hbt th.hbt-name { min-width: 0; }
+  #home-budget-wrap .hbt td:first-child, #home-budget-wrap .hbt th:first-child { position: static; }
+  #home-budget-wrap .hbt td:first-child::after, #home-budget-wrap .hbt th:first-child::after { display: none; }
+  #home-budget-wrap .hbt th.hbt-name, #home-budget-wrap .hbt td.hbt-name {
+    min-width: 0; width: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #home-budget-wrap .hbt th:last-child, #home-budget-wrap .hbt td:last-child { width: 108px; }
 
   /* All summary metric rows wrap on mobile */
   #lessons-summary-row,
