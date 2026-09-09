@@ -1186,6 +1186,10 @@ td.hbt-num:last-child { width: 13%; }
   #home-panel-body { display: flex; flex-direction: column; }
   .home-body { display: contents; }
   .home-pending-side { order: -1; }
+  /* Reset the desktop flex-row sizing (flex-basis:0 + overflow-x:auto) which, once this
+     becomes a direct item of the column-direction #home-panel-body, collapses its height
+     to 0 and hides the table entirely. */
+  .home-table-side { flex: none; }
 
   /* Recoverable Cost Areas table: drop secondary columns and free-form min-width so it
      fits a phone screen without horizontal scrolling. */
