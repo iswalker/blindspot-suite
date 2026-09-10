@@ -7081,8 +7081,15 @@ function renderLeveragePosWidget() {
       var label = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1)
         .toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
       var hasPayees = row.payees && row.payees.length > 0;
-      // Below target = blue (default), at/above target = green (matches Speedometers), 0 = grey
-      var countColor = row.count === 0 ? '#bbb' : (posTarget && row.count >= posTarget ? '#2e7d32' : '#1565c0');
+      // At/above target = green (matches Speedometers), 0 = grey. Below target: blue while the
+      // month is still in progress, orange once the month is complete (i.e. in the past).
+      var now = new Date();
+      var isPastMonth = parseInt(parts[0]) < now.getFullYear()
+        || (parseInt(parts[0]) === now.getFullYear() && (parseInt(parts[1]) - 1) < now.getMonth());
+      var countColor = row.count === 0 ? '#bbb'
+        : (posTarget && row.count >= posTarget) ? '#2e7d32'
+        : (posTarget && isPastMonth) ? '#e65100'
+        : '#1565c0';
       var countStyle = 'color:' + countColor + (hasPayees ? ';cursor:default' : '');
       html += '<tr><td>' + escHtml(label) + '</td>'
         + '<td class="pos-count-cell" style="' + countStyle + '"'
