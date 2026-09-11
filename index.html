@@ -4942,12 +4942,14 @@ function rcFilterTxns(list, bucket) {
 // the same memo, in the same month. Matching is 1:1 — three outflows against one inflow leaves
 // two showing. The caller scopes the list to a single month, so that condition is implicit.
 // "Adjusted from 7/20" can be tacked onto either end of a memo when a transaction is re-dated,
-// which would otherwise stop an entry matching its own counterpart. Stripped before comparing,
-// case-insensitively, along with any hyphens joining it to the rest of the memo. Hyphens used
-// inside the memo itself survive, since only those adjacent to the phrase are consumed.
+// and "#messup" can be tacked on to flag a correction — both would otherwise stop an entry
+// matching its own counterpart. Stripped before comparing, case-insensitively, along with any
+// hyphens joining them to the rest of the memo. Hyphens used inside the memo itself survive,
+// since only those adjacent to the phrase are consumed.
 function normaliseMemo(memo) {
   return String(memo || '')
     .replace(/[\s-]*adjusted from \d{1,2}\/\d{1,2}(\/\d{2,4})?[\s-]*/gi, ' ')
+    .replace(/[\s-]*#messup[\s-]*/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
