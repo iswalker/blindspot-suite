@@ -7069,12 +7069,13 @@ function leveragePosCfgs() {
   });
 }
 
-// Resolves which account + name-prefix the "Debit Card Transactions" widget should read from,
+// Resolves which account + name-filter the "Debit Card Transactions" widget should read from,
 // via Config rows "Card Transactions 1" (tried first) and "Card Transactions 2" (fallback).
 // Each row's ID (aka "Text") column holds a substring to match against a Plaid connection's
-// name, and its Track Against column holds the transaction-name prefix to filter on (e.g.
-// "Card purchase /"). If the user has explicitly picked one via the account dropdown
-// (state.leveragePosAcctLabel), only that row is tried — no falling back to another.
+// name, and its Track Against column holds a substring to match anywhere within the
+// transaction name (e.g. "Card purchase /"). If the user has explicitly picked one via the
+// account dropdown (state.leveragePosAcctLabel), only that row is tried — no falling back to
+// another.
 function resolveLeveragePosSource() {
   var cfgs = leveragePosCfgs();
   var conns = getPlaidConnections();
@@ -7275,7 +7276,7 @@ function fetchLeveragePosData(secret) {
       for (var ti = 0; ti < txns.length; ti++) {
         var pt = txns[ti];
         var name = pt.name || '';
-        if (!posPrefix || name.toLowerCase().indexOf(posPrefix) !== 0) continue;
+        if (!posPrefix || name.toLowerCase().indexOf(posPrefix) === -1) continue;
         var monthKey = pt.date.substring(0, 7);
         if (!counts.hasOwnProperty(monthKey)) continue;
         counts[monthKey]++;
