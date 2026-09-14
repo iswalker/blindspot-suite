@@ -7251,7 +7251,11 @@ function fetchLeveragePosData(secret) {
     client_id: PLAID_CLIENT_ID, secret: secret,
     access_token: posConn.accessToken,
     start_date: fmt(startD), end_date: fmt(endD),
-    options: { count: 500, offset: 0 }
+    // include_original_description: a phrase like "Card purchase /" is raw bank-statement
+    // text. Plaid's cleaned `name` field often replaces that with just the merchant name
+    // (e.g. "Starbucks"), so matching against `name` alone silently misses any transaction
+    // Plaid successfully cleaned up — the raw text only survives in original_description.
+    options: { count: 500, offset: 0, include_original_description: true }
   };
   if (posConn.accountId) payload.options.account_ids = [posConn.accountId];
 
@@ -7294,8 +7298,8 @@ function fetchLeveragePosData(secret) {
     }
     for (var ti = 0; ti < txns.length; ti++) {
       var pt = txns[ti];
-      var name = pt.name || '';
-      if (!posPrefix || name.toLowerCase().indexOf(posPrefix) === -1) continue;
+      var name = ((pt.name || '') + ' ' + (pt.original_description || '')).toLowerCase();
+      if (!posPrefix || name.indexOf(posPrefix) === -1) continue;
       var monthKey = pt.date.substring(0, 7);
       if (!counts.hasOwnProperty(monthKey)) continue;
       counts[monthKey]++;
