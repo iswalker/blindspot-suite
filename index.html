@@ -7251,54 +7251,71 @@ function fetchLeveragePosData(secret) {
     client_id: PLAID_CLIENT_ID, secret: secret,
     access_token: posConn.accessToken,
     start_date: fmt(startD), end_date: fmt(endD),
-    options: { count: 500 }
+    options: { count: 500, offset: 0 }
   };
   if (posConn.accountId) payload.options.account_ids = [posConn.accountId];
 
-  var attempt = 0, maxAttempts = 5;
-  function tryFetch() {
+  // /transactions/get paginates: a single request only returns up to `count` of the
+  // account's transactions (ALL types, not just card purchases), reported via
+  // total_transactions. An active account can easily exceed 500 in a 6-month window, which
+  // silently truncated the result and undercounted card purchases. Keep paging (bumping
+  // offset) until every transaction Plaid has for the range has been collected.
+  var allTxns = [], attempt = 0, maxAttempts = 5, maxPages = 20, pages = 0;
+  function fetchPage() {
     attempt++;
-    plaidPost('/transactions/get', payload).then(function(data) {
+    return plaidPost('/transactions/get', payload).then(function(data) {
       if (data.error_code === 'PRODUCT_NOT_READY' && attempt < maxAttempts) {
         if (statusEl) statusEl.textContent = 'Waiting for Plaid… (' + attempt + ')';
-        return new Promise(function(res) { setTimeout(res, 3000); }).then(tryFetch);
+        return new Promise(function(res) { setTimeout(res, 3000); }).then(fetchPage);
       }
       if (data.error_code) throw new Error(data.error_message || data.error_code);
-      var txns = data.transactions || [];
-      var counts = {}, byMonthPayee = {};
-      // Pre-populate all 6 months with 0
-      for (var m = 0; m < 6; m++) {
-        var d2 = new Date(now.getFullYear(), now.getMonth() - 5 + m, 1);
-        var key = d2.getFullYear() + '-' + String(d2.getMonth() + 1).padStart(2, '0');
-        counts[key] = 0;
-        byMonthPayee[key] = {};
+      var page = data.transactions || [];
+      allTxns = allTxns.concat(page);
+      pages++;
+      var total = data.total_transactions || allTxns.length;
+      if (page.length > 0 && allTxns.length < total && pages < maxPages) {
+        attempt = 0;
+        payload.options.offset = allTxns.length;
+        if (statusEl) statusEl.textContent = 'Fetching… (' + allTxns.length + '/' + total + ')';
+        return fetchPage();
       }
-      for (var ti = 0; ti < txns.length; ti++) {
-        var pt = txns[ti];
-        var name = pt.name || '';
-        if (!posPrefix || name.toLowerCase().indexOf(posPrefix) === -1) continue;
-        var monthKey = pt.date.substring(0, 7);
-        if (!counts.hasOwnProperty(monthKey)) continue;
-        counts[monthKey]++;
-        var payeeName = (pt.merchant_name || pt.name || '(Unknown)').trim();
-        if (!byMonthPayee[monthKey][payeeName]) byMonthPayee[monthKey][payeeName] = { count: 0, total: 0 };
-        byMonthPayee[monthKey][payeeName].count++;
-        byMonthPayee[monthKey][payeeName].total += pt.amount || 0; // Plaid: positive = debit
-      }
-      leveragePosData = Object.keys(counts).sort().reverse().map(function(k) {
-        var payees = Object.keys(byMonthPayee[k] || {}).map(function(p) {
-          return { name: p, count: byMonthPayee[k][p].count, total: byMonthPayee[k][p].total };
-        }).sort(function(a, b) { return b.total - a.total; });
-        return { month: k, count: counts[k], payees: payees };
-      });
-      renderLeveragePosWidget();
-      if (fetchBtn) fetchBtn.disabled = false;
-    }).catch(function(e) {
-      if (statusEl) statusEl.textContent = '⚠ ' + (e && e.message || String(e));
-      if (fetchBtn) fetchBtn.disabled = false;
+      return allTxns;
     });
   }
-  tryFetch();
+
+  fetchPage().then(function(txns) {
+    var counts = {}, byMonthPayee = {};
+    // Pre-populate all 6 months with 0
+    for (var m = 0; m < 6; m++) {
+      var d2 = new Date(now.getFullYear(), now.getMonth() - 5 + m, 1);
+      var key = d2.getFullYear() + '-' + String(d2.getMonth() + 1).padStart(2, '0');
+      counts[key] = 0;
+      byMonthPayee[key] = {};
+    }
+    for (var ti = 0; ti < txns.length; ti++) {
+      var pt = txns[ti];
+      var name = pt.name || '';
+      if (!posPrefix || name.toLowerCase().indexOf(posPrefix) === -1) continue;
+      var monthKey = pt.date.substring(0, 7);
+      if (!counts.hasOwnProperty(monthKey)) continue;
+      counts[monthKey]++;
+      var payeeName = (pt.merchant_name || pt.name || '(Unknown)').trim();
+      if (!byMonthPayee[monthKey][payeeName]) byMonthPayee[monthKey][payeeName] = { count: 0, total: 0 };
+      byMonthPayee[monthKey][payeeName].count++;
+      byMonthPayee[monthKey][payeeName].total += pt.amount || 0; // Plaid: positive = debit
+    }
+    leveragePosData = Object.keys(counts).sort().reverse().map(function(k) {
+      var payees = Object.keys(byMonthPayee[k] || {}).map(function(p) {
+        return { name: p, count: byMonthPayee[k][p].count, total: byMonthPayee[k][p].total };
+      }).sort(function(a, b) { return b.total - a.total; });
+      return { month: k, count: counts[k], payees: payees };
+    });
+    renderLeveragePosWidget();
+    if (fetchBtn) fetchBtn.disabled = false;
+  }).catch(function(e) {
+    if (statusEl) statusEl.textContent = '⚠ ' + (e && e.message || String(e));
+    if (fetchBtn) fetchBtn.disabled = false;
+  });
 }
 
 // Build an SVG path for a semicircular arc from fracStart..fracEnd (0=left, 1=right going clockwise over the top).
