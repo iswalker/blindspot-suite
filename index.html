@@ -1273,9 +1273,15 @@ td.hbt-num:last-child { width: 13%; }
   .lessons-metric-card { flex: 1 1 100%; }
   .home-metric-value { font-size: 20px; }
 
-  /* At phone width, 2 speedometers side by side shrink the dial/labels past legibility --
-     stack to 1 per row here. Still capped at 2 per row from 481-820px (see above). */
-  #leverage-speedo-row { grid-template-columns: 1fr; }
+  /* Keep 2 per row even at phone width (rather than dropping to 1) -- just tighten the
+     card's padding/gap and shrink its text so the numbers still fit at half width. */
+  #leverage-speedo-row { gap: 8px; }
+  .leverage-speedo { padding: 10px 10px 8px; }
+  .leverage-speedo-label { font-size: 10px; }
+  .leverage-speedo-value { font-size: 14px; margin-top: -20px; }
+  .leverage-speedo-benefit { font-size: 11px; }
+  .leverage-speedo-benefit .lev-sp-benefit-tag { display: block; margin-left: 0; }
+  .leverage-speedo-foot { font-size: 9px; flex-wrap: wrap; gap: 2px; }
 
   /* Shrink the driver-row value columns further so they fit a phone-width line */
   .nw-driver-total { width: 85px; flex-basis: 85px; }
