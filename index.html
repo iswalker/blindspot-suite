@@ -1162,6 +1162,10 @@ td.hbt-num:last-child { width: 13%; }
   #tab-nav::-webkit-scrollbar { display: none; }
   .tab-btn { padding: 6px 14px; font-size: 13px; flex-shrink: 0; }
   #controls-bar { position: absolute; top: 0; right: 0; }
+  /* Gear sits pinned on top of the scrolling tab row here, so give it the same
+     background/border it gets on hover/active at all times -- otherwise it's a transparent
+     square and tab labels show through behind it as the row scrolls. */
+  #settings-gear-btn { background: #f0f0f0; border-color: #ddd; }
 
   /* Panel headers: tighten and allow wrapping */
   .panel-hdr { gap: 8px 12px; }
