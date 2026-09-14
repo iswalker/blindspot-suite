@@ -7757,9 +7757,9 @@ function renderLeverageSpeedometers() {
       +    '</div>'
       +    '</div>';
   }
-  // All full tiles are equal width
-  row.style.gridTemplateColumns = fullCfgs.map(function() { return '1fr'; }).join(' ');
-  row.style.gridAutoFlow = 'unset';
+  // Column count/wrapping is left to the stylesheet (all-in-one-row on desktop, capped at
+  // 2 per row on mobile, 1 per row on phones) -- an inline grid-template-columns here would
+  // outrank those media queries and always force every tile into a single row.
 
   row.innerHTML = html;
 
