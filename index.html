@@ -1269,6 +1269,10 @@ td.hbt-num:last-child { width: 13%; }
   .lessons-metric-card { flex: 1 1 100%; }
   .home-metric-value { font-size: 20px; }
 
+  /* At phone width, 2 speedometers side by side shrink the dial/labels past legibility --
+     stack to 1 per row here. Still capped at 2 per row from 481-820px (see above). */
+  #leverage-speedo-row { grid-template-columns: 1fr; }
+
   /* Shrink the driver-row value columns further so they fit a phone-width line */
   .nw-driver-total { width: 85px; flex-basis: 85px; }
   .nw-driver-amt { width: 90px; flex-basis: 90px; }
@@ -4577,16 +4581,18 @@ var leveragePayeeChartState = null;
 var acctHistoryChartState    = null;
 var acctHistoryLastAcctId    = null;
 var reconcileCSVTxns         = null;
-var PLAID_CLIENT_ID          = '69fe8a6def2ece000e2425f0';
-var PLAID_STORAGE_KEY        = 'plaid-connections';
-var PLAID_SECRET_SESSION_KEY = 'plaid-secret';
+var PLAID_CLIENT_ID     = '69fe8a6def2ece000e2425f0';
+var PLAID_STORAGE_KEY   = 'plaid-connections';
+var PLAID_SECRET_KEY    = 'plaid-secret';
 
+// Persisted the same way as the YNAB API key (localStorage, not sessionStorage) so it
+// survives closing the tab/browser instead of needing to be re-entered every visit.
 function getPlaidSecret() {
-  return sessionStorage.getItem(PLAID_SECRET_SESSION_KEY) || '';
+  return localStorage.getItem(PLAID_SECRET_KEY) || '';
 }
 function savePlaidSecret(v) {
-  if (v) sessionStorage.setItem(PLAID_SECRET_SESSION_KEY, v);
-  else sessionStorage.removeItem(PLAID_SECRET_SESSION_KEY);
+  if (v) localStorage.setItem(PLAID_SECRET_KEY, v);
+  else localStorage.removeItem(PLAID_SECRET_KEY);
 }
 function syncPlaidSecretInputs(value) {
   var r = document.getElementById('plaid-secret-input');
@@ -7158,15 +7164,20 @@ function renderLeveragePosWidget() {
       var now = new Date();
       var isPastMonth = parseInt(parts[0]) < now.getFullYear()
         || (parseInt(parts[0]) === now.getFullYear() && (parseInt(parts[1]) - 1) < now.getMonth());
+      var metTarget = posTarget && row.count >= posTarget;
+      var missedTarget = posTarget && row.count > 0 && !metTarget && isPastMonth;
       var countColor = row.count === 0 ? '#bbb'
-        : (posTarget && row.count >= posTarget) ? '#2e7d32'
-        : (posTarget && isPastMonth) ? '#e65100'
+        : metTarget ? '#2e7d32'
+        : missedTarget ? '#e65100'
         : '#1565c0';
+      // Green (target met) gets a checkmark, orange (target missed, month over) gets an
+      // "x" — makes the two easy to tell apart at a glance instead of relying on color alone.
+      var countIcon = metTarget ? '✓ ' : missedTarget ? '✕ ' : '';
       var countStyle = 'color:' + countColor + (hasPayees ? ';cursor:default' : '');
       html += '<tr><td>' + escHtml(label) + '</td>'
         + '<td class="pos-count-cell" style="' + countStyle + '"'
         + (hasPayees ? ' data-idx="' + j + '"' : '')
-        + '>' + row.count + '</td></tr>';
+        + '>' + countIcon + row.count + '</td></tr>';
     }
   }
   html += '</tbody>';
@@ -10205,7 +10216,7 @@ function init() {
 // ============================================================
 document.addEventListener('DOMContentLoaded', function() {
 
-  // Restore Plaid secret from sessionStorage and keep both inputs in sync
+  // Restore Plaid secret from localStorage and keep both inputs in sync
   var _storedSecret = getPlaidSecret();
   if (_storedSecret) syncPlaidSecretInputs(_storedSecret);
   ['plaid-secret-input', 'leverage-pos-secret'].forEach(function(id) {
