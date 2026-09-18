@@ -8563,10 +8563,15 @@ function parseCSVLine(line) {
 
 function parseCSVDate(str) {
   str = (str || '').trim().replace(/^["']|["']$/g, '');
+  // Drop a trailing time-of-day component, comma- or space-separated
+  // (e.g. "2026/09/09, 17:26:06" or "2026-09-09 17:26:06 AM").
+  str = str.replace(/[,\s]+\d{1,2}:\d{2}(:\d{2})?\s*(am|pm)?\s*$/i, '').trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
-  var m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  var m = str.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/); // YYYY/MM/DD
+  if (m) return m[1] + '-' + (m[2].length < 2 ? '0' : '') + m[2] + '-' + (m[3].length < 2 ? '0' : '') + m[3];
+  m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); // M/D/YYYY
   if (m) return m[3] + '-' + (m[1].length < 2 ? '0' : '') + m[1] + '-' + (m[2].length < 2 ? '0' : '') + m[2];
-  m = str.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  m = str.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/); // M-D-YYYY
   if (m) return m[3] + '-' + (m[1].length < 2 ? '0' : '') + m[1] + '-' + (m[2].length < 2 ? '0' : '') + m[2];
   return null;
 }
