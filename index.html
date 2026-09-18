@@ -5912,28 +5912,37 @@ function renderNwOutlook(startNw) {
     return;
   }
 
+  var birthYear = getNwBirthYear();
+  var startYear = new Date().getFullYear();
+  var startAge  = birthYear !== null ? startYear - birthYear : null;
+  var axisUnit  = startAge !== null ? 'age' : 'year';
+
   wrap.innerHTML =
       '<div id="nw-outlook-hdr">'
     +   '<div id="nw-outlook-title"></div>'
-    +   '<div id="nw-outlook-sub">Hover any point to see values at that year &middot; log scale</div>'
+    +   '<div id="nw-outlook-sub">Hover any point to see values at that ' + axisUnit + ' &middot; log scale</div>'
     + '</div>'
     + '<div id="nw-outlook-legend"></div>'
     + '<canvas id="nw-outlook-canvas"></canvas>';
 
-  var series    = computeNwOutlookSeries(startNw, targetPct);
-  var startYear = new Date().getFullYear();
+  var series = computeNwOutlookSeries(startNw, targetPct);
 
-  document.getElementById('nw-outlook-title').textContent =
-    'Net Worth Growth: ' + fmtNwOutlookY(startNw) + ' Starting ' + startYear;
+  document.getElementById('nw-outlook-title').textContent = 'Net Worth Growth: ' + fmtNwOutlookY(startNw)
+    + (startAge !== null ? ' Starting at Age ' + startAge : ' Starting ' + startYear);
   document.getElementById('nw-outlook-legend').innerHTML = series.map(function(ser) {
     return '<span class="nwo-leg-item"><span class="nwo-leg-dot" style="background:' + ser.color + '"></span>'
       + escAttr(ser.label) + '</span>';
   }).join('');
 
-  nwOutlookChartState = { series: series, startYear: startYear, canvasId: 'nw-outlook-canvas' };
+  nwOutlookChartState = { series: series, startYear: startYear, startAge: startAge, canvasId: 'nw-outlook-canvas' };
   var canvas = document.getElementById('nw-outlook-canvas');
   wireNwOutlookHover(canvas);
   requestAnimationFrame(function() { drawNwOutlookChart(nwOutlookChartState, -1); });
+}
+
+// X-axis label for year index i (0..30): age if a Birth Year is configured, else calendar year.
+function nwOutlookXLabel(s, i) {
+  return s.startAge !== null ? String(s.startAge + i) : String(s.startYear + i);
 }
 
 function drawNwOutlookChart(s, hoveredIdx) {
@@ -6021,10 +6030,10 @@ function drawNwOutlookChart(s, hoveredIdx) {
   ctx.textBaseline = 'top';
   ctx.fillStyle = '#999';
   for (var xi = 0; xi < nYears; xi += xStep) {
-    ctx.fillText(String(s.startYear + xi), xPos(xi), H - B_PAD + 6);
+    ctx.fillText(nwOutlookXLabel(s, xi), xPos(xi), H - B_PAD + 6);
   }
   if ((nYears - 1) % xStep !== 0) {
-    ctx.fillText(String(s.startYear + nYears - 1), xPos(nYears - 1), H - B_PAD + 6);
+    ctx.fillText(nwOutlookXLabel(s, nYears - 1), xPos(nYears - 1), H - B_PAD + 6);
   }
 
   if (hoveredIdx >= 0 && hoveredIdx < nYears) {
@@ -6064,13 +6073,16 @@ function drawNwOutlookChart(s, hoveredIdx) {
 function showNwOutlookTooltip(clientX, clientY, yearIdx, s) {
   var tt = document.getElementById('lw-tooltip');
   if (!tt) return;
-  var year = s.startYear + yearIdx;
-  var rowsHtml = s.series.map(function(ser) {
+  var headline = s.startAge !== null ? 'Age ' + nwOutlookXLabel(s, yearIdx) : nwOutlookXLabel(s, yearIdx);
+  // Sort by value at this point (descending) so the rows read top-to-bottom in the same order
+  // the lines stack visually on the chart, rather than by their fixed rate order.
+  var sortedForTt = s.series.slice().sort(function(a, b) { return b.vals[yearIdx] - a.vals[yearIdx]; });
+  var rowsHtml = sortedForTt.map(function(ser) {
     return '<div class="lwtt-row"><span class="lwtt-dot" style="background:' + ser.color + '"></span>'
       + '<div><div class="lwtt-label">' + escAttr(ser.label) + '</div>'
       + '<div class="lwtt-val" style="color:' + ser.color + '">' + fmtNwOutlookY(ser.vals[yearIdx]) + '</div></div></div>';
   }).join('');
-  tt.innerHTML = '<div class="lwtt-month">' + year + ' <span class="lwtt-asof">' + (yearIdx === 0 ? 'Now' : '+' + yearIdx + 'y') + '</span></div>' + rowsHtml;
+  tt.innerHTML = '<div class="lwtt-month">' + headline + ' <span class="lwtt-asof">' + (yearIdx === 0 ? 'Now' : '+' + yearIdx + 'y') + '</span></div>' + rowsHtml;
   tt.style.display = 'block';
   var ttRect = tt.getBoundingClientRect();
   var ttW = ttRect.width || 160, ttH = ttRect.height || 120;
@@ -10282,6 +10294,20 @@ function getNwDeltaTargetPct() {
   for (var i = 0; i < (state.catConfig || []).length; i++) {
     var c = state.catConfig[i];
     if (/^net worth delta$/i.test(c.usedFor || '') && c.amount !== null) return c.amount;
+  }
+  return null;
+}
+
+// Config row with Metric = "Birth Year" (Amount = the year, e.g. 1993): when present, the
+// 30y Outlook axis is labeled by age instead of calendar year. A plain year in the Amount
+// column (no "$" Unit) parses into dueDays rather than amount -- check both.
+function getNwBirthYear() {
+  for (var i = 0; i < (state.catConfig || []).length; i++) {
+    var c = state.catConfig[i];
+    if (/^birth year$/i.test(c.usedFor || '')) {
+      var v = c.amount !== null ? c.amount : c.dueDays;
+      if (v !== null) return Math.round(v);
+    }
   }
   return null;
 }
