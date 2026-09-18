@@ -6015,12 +6015,12 @@ function drawNwOutlookChart(s, hoveredIdx) {
   ctx.textAlign = 'right';
   for (var ti = 0; ti < ticks.length; ti++) {
     var ty = yPos(ticks[ti]);
-    ctx.strokeStyle = '#efefef';
+    ctx.strokeStyle = '#b0b0b0';
     ctx.lineWidth = 1;
     ctx.setLineDash([3, 3]);
     ctx.beginPath(); ctx.moveTo(L_PAD, ty); ctx.lineTo(totalW - R_PAD, ty); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = '#999';
+    ctx.fillStyle = '#777';
     ctx.fillText(fmtNwOutlookY(ticks[ti]), L_PAD - 8, ty);
   }
 
