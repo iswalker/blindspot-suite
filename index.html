@@ -1113,6 +1113,16 @@ td.hbt-num:last-child { width: 13%; }
 #leverage-year-chart-wrap { flex: 1; min-width: 120px; margin-bottom: 0; }
 .lw-chart-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #888; margin: 0 0 4px 16px; }
 
+/* ---- Net Worth 30y Outlook ---- */
+#nw-outlook-hdr { margin: 0 0 6px 16px; }
+#nw-outlook-title { font-size: 15px; font-weight: 700; color: #222; }
+#nw-outlook-sub { font-size: 11px; color: #999; margin-top: 2px; }
+#nw-outlook-legend { display: flex; gap: 16px; margin: 8px 0 6px 16px; font-size: 12px; font-weight: 600; }
+#nw-outlook-legend .nwo-leg-item { display: flex; align-items: center; gap: 6px; }
+#nw-outlook-legend .nwo-leg-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+#nw-outlook-canvas { display: block; }
+#nw-outlook-empty { font-size: 12px; color: #999; padding: 12px 16px; }
+
 /* ---- Lessons transaction table ---- */
 #lessons-txn-table { border-collapse: collapse; width: 100%; }
 #lessons-txn-table th {
@@ -1580,6 +1590,11 @@ td.hbt-num:last-child { width: 13%; }
           <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
           Preview Current Month
         </label>
+        <label class="ios-toggle-wrap">
+          <input type="checkbox" id="nw-30y-toggle">
+          <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+          Preview 30y Outlook
+        </label>
         <div id="nw-acct-filter-wrap">
           <button id="nw-acct-filter-btn">Accounts &#9660;</button>
           <div id="nw-acct-filter-panel"></div>
@@ -1593,8 +1608,16 @@ td.hbt-num:last-child { width: 13%; }
     <div class="lw-chart-wrap" id="nw-chart-wrap">
       <canvas id="nw-canvas"></canvas>
     </div>
-    <div class="lw-table-wrap">
+    <div class="lw-table-wrap" id="nw-table-wrap">
       <table id="nw-table"></table>
+    </div>
+    <div class="lw-chart-wrap" id="nw-outlook-wrap" style="display:none">
+      <div id="nw-outlook-hdr">
+        <div id="nw-outlook-title"></div>
+        <div id="nw-outlook-sub">Hover any point to see values at that year &middot; log scale</div>
+      </div>
+      <div id="nw-outlook-legend"></div>
+      <canvas id="nw-outlook-canvas"></canvas>
     </div>
   </div>
   <div id="lessons-panel" style="display:none">
@@ -5697,6 +5720,8 @@ function renderNetWorth() {
       + 'Net Worth requires a YNAB API connection. Use <strong>Connect to YNAB</strong> on the start screen.</p>';
     if (chartWrap) chartWrap.style.display = 'none';
     tableEl.innerHTML = '';
+    var outlookWrapNoData = document.getElementById('nw-outlook-wrap');
+    if (outlookWrapNoData) outlookWrapNoData.style.display = 'none';
     return;
   }
   if (chartWrap) chartWrap.style.display = '';
@@ -5707,6 +5732,8 @@ function renderNetWorth() {
     summaryEl.innerHTML = '<p style="color:#aaa;font-size:13px">No data in selected range.</p>';
     if (chartWrap) chartWrap.style.display = 'none';
     tableEl.innerHTML = '';
+    var outlookWrapEmpty = document.getElementById('nw-outlook-wrap');
+    if (outlookWrapEmpty) outlookWrapEmpty.style.display = 'none';
     return;
   }
   var assetVals = [], debtVals = [], netVals = [];
@@ -5822,10 +5849,266 @@ function renderNetWorth() {
     }
   }
 
-  renderLwTable(keys, netVals, 'nw-table');
-  (function(k, a, d, n, ac) {
-    requestAnimationFrame(function() { drawLwChart(k, a, d, n, -1, 'nw-canvas', ac); });
-  })(keys, assetVals, debtVals, netVals, accts);
+  var outlookToggle = document.getElementById('nw-30y-toggle');
+  var outlookWrap    = document.getElementById('nw-outlook-wrap');
+  var showOutlook    = !!(outlookToggle && outlookToggle.checked);
+  if (chartWrap)   chartWrap.style.display = showOutlook ? 'none' : '';
+  var tableWrapEl = document.getElementById('nw-table-wrap');
+  if (tableWrapEl) tableWrapEl.style.display = showOutlook ? 'none' : '';
+  if (outlookWrap) outlookWrap.style.display = showOutlook ? '' : 'none';
+
+  if (showOutlook) {
+    renderNwOutlook(netVals[lastIdx]);
+  } else {
+    renderLwTable(keys, netVals, 'nw-table');
+    (function(k, a, d, n, ac) {
+      requestAnimationFrame(function() { drawLwChart(k, a, d, n, -1, 'nw-canvas', ac); });
+    })(keys, assetVals, debtVals, netVals, accts);
+  }
+}
+
+// ---- Net Worth "30y Outlook" projection ----
+var nwOutlookChartState = null;
+
+function fmtNwOutlookY(v) {
+  if (v >= 1e9) return '$' + (v / 1e9).toFixed(v >= 1e10 ? 0 : 1) + 'B';
+  if (v >= 1e6) return '$' + (v / 1e6).toFixed(v >= 1e7 ? 0 : 1) + 'M';
+  if (v >= 1e3) return '$' + (v / 1e3).toFixed(v >= 1e4 ? 0 : 1) + 'K';
+  return '$' + Math.round(v).toLocaleString('en-US');
+}
+
+// One point per year (0..30) for the target rate and +/-0.5 either side, compounded monthly.
+// Colors reuse the app's existing meet/miss-target convention (green above, orange below,
+// blue at the configured target) rather than the arbitrary palette of any one reference chart.
+function computeNwOutlookSeries(startNw, targetPct) {
+  var rateDefs = [
+    { pct: targetPct - 0.5, color: '#e65100' },
+    { pct: targetPct,       color: '#1565c0' },
+    { pct: targetPct + 0.5, color: '#2e7d32' }
+  ];
+  return rateDefs.map(function(rd) {
+    var vals = [startNw];
+    var v = startNw;
+    var mult = 1 + rd.pct / 100;
+    for (var m = 1; m <= 360; m++) {
+      v *= mult;
+      if (m % 12 === 0) vals.push(v);
+    }
+    var pctLbl = Math.round(rd.pct * 10) / 10;
+    return { pct: rd.pct, color: rd.color, label: pctLbl + '% / month', vals: vals };
+  });
+}
+
+function renderNwOutlook(startNw) {
+  var wrap = document.getElementById('nw-outlook-wrap');
+  if (!wrap) return;
+
+  var targetPct = getNwDeltaTargetPct();
+  if (targetPct === null || !(startNw > 0)) {
+    wrap.innerHTML = '<div id="nw-outlook-empty">' + (targetPct === null
+      ? 'Configure a Config.csv row with Metric = "Net Worth Delta" (Amount = target %/month) to see the 30-year outlook.'
+      : 'Net worth must be positive to project a 30-year outlook.') + '</div>';
+    nwOutlookChartState = null;
+    return;
+  }
+
+  wrap.innerHTML =
+      '<div id="nw-outlook-hdr">'
+    +   '<div id="nw-outlook-title"></div>'
+    +   '<div id="nw-outlook-sub">Hover any point to see values at that year &middot; log scale</div>'
+    + '</div>'
+    + '<div id="nw-outlook-legend"></div>'
+    + '<canvas id="nw-outlook-canvas"></canvas>';
+
+  var series    = computeNwOutlookSeries(startNw, targetPct);
+  var startYear = new Date().getFullYear();
+
+  document.getElementById('nw-outlook-title').textContent =
+    'Net Worth Growth: ' + fmtNwOutlookY(startNw) + ' Starting ' + startYear;
+  document.getElementById('nw-outlook-legend').innerHTML = series.map(function(ser) {
+    return '<span class="nwo-leg-item"><span class="nwo-leg-dot" style="background:' + ser.color + '"></span>'
+      + escAttr(ser.label) + '</span>';
+  }).join('');
+
+  nwOutlookChartState = { series: series, startYear: startYear, canvasId: 'nw-outlook-canvas' };
+  var canvas = document.getElementById('nw-outlook-canvas');
+  wireNwOutlookHover(canvas);
+  requestAnimationFrame(function() { drawNwOutlookChart(nwOutlookChartState, -1); });
+}
+
+function drawNwOutlookChart(s, hoveredIdx) {
+  if (hoveredIdx === undefined) hoveredIdx = -1;
+  var canvas = document.getElementById(s.canvasId);
+  if (!canvas) return;
+  var series = s.series;
+  var nYears = series[0].vals.length; // years 0..30 inclusive
+
+  var dpr    = window.devicePixelRatio || 1;
+  var L_PAD  = 64, R_PAD = 16, T_PAD = 14, B_PAD = 26;
+  var H      = 300;
+  var containerW = canvas.parentElement ? canvas.parentElement.clientWidth - 32 : 0;
+  if (containerW < 100) containerW = 800;
+  var totalW = containerW;
+
+  canvas.width        = Math.round(totalW * dpr);
+  canvas.height       = Math.round(H * dpr);
+  canvas.style.width  = totalW + 'px';
+  canvas.style.height = H + 'px';
+  var ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, totalW, H);
+
+  var chartW = totalW - L_PAD - R_PAD;
+  var chartH = H - T_PAD - B_PAD;
+
+  var minV = Infinity, maxV = -Infinity;
+  for (var si = 0; si < series.length; si++) {
+    for (var yi = 0; yi < series[si].vals.length; yi++) {
+      var vv = series[si].vals[yi];
+      if (vv < minV) minV = vv;
+      if (vv > maxV) maxV = vv;
+    }
+  }
+  if (!(minV > 0)) minV = 1;
+
+  // Scale bounds come from the actual data (with a little padding) so every point -- including
+  // the shared starting value -- is guaranteed to land inside the plotted area. Ticks are then
+  // generated separately, purely for the gridlines/labels, and may sit inside those bounds.
+  var logMinV = Math.log(minV) / Math.LN10;
+  var logMaxV = Math.log(maxV) / Math.LN10;
+  var logPad  = (logMaxV - logMinV) * 0.05 || 0.15;
+  var logLo   = logMinV - logPad;
+  var logHi   = logMaxV + logPad;
+
+  function niceLogTicks(lo, hi) {
+    var ticks = [];
+    var startExp = Math.floor(Math.log(lo) / Math.LN10);
+    var endExp   = Math.ceil(Math.log(hi) / Math.LN10);
+    var mults = [1, 2, 5];
+    for (var e = startExp; e <= endExp; e++) {
+      for (var mi = 0; mi < mults.length; mi++) {
+        var t = mults[mi] * Math.pow(10, e);
+        if (t >= lo && t <= hi) ticks.push(t);
+      }
+    }
+    return ticks.length ? ticks : [lo, hi];
+  }
+  var ticks = niceLogTicks(Math.pow(10, logLo), Math.pow(10, logHi));
+
+  function yPos(v) { return T_PAD + chartH * (1 - (Math.log(v) / Math.LN10 - logLo) / (logHi - logLo)); }
+  function xPos(yearIdx) { return L_PAD + chartW * (yearIdx / (nYears - 1)); }
+
+  // Persist geometry so the hover handler can hit-test without redoing this layout math.
+  s.L_PAD = L_PAD; s.chartW = chartW; s.nYears = nYears;
+
+  ctx.font = '10px system-ui, -apple-system, sans-serif';
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'right';
+  for (var ti = 0; ti < ticks.length; ti++) {
+    var ty = yPos(ticks[ti]);
+    ctx.strokeStyle = '#efefef';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(L_PAD, ty); ctx.lineTo(totalW - R_PAD, ty); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#999';
+    ctx.fillText(fmtNwOutlookY(ticks[ti]), L_PAD - 8, ty);
+  }
+
+  var maxLabels = Math.max(4, Math.floor(chartW / 55));
+  var xStep = Math.max(1, Math.ceil((nYears - 1) / maxLabels));
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = '#999';
+  for (var xi = 0; xi < nYears; xi += xStep) {
+    ctx.fillText(String(s.startYear + xi), xPos(xi), H - B_PAD + 6);
+  }
+  if ((nYears - 1) % xStep !== 0) {
+    ctx.fillText(String(s.startYear + nYears - 1), xPos(nYears - 1), H - B_PAD + 6);
+  }
+
+  if (hoveredIdx >= 0 && hoveredIdx < nYears) {
+    var hx = xPos(hoveredIdx);
+    ctx.strokeStyle = '#ccc';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(hx, T_PAD); ctx.lineTo(hx, H - B_PAD); ctx.stroke();
+  }
+
+  for (var pIdx = 0; pIdx < series.length; pIdx++) {
+    var ser = series[pIdx];
+    ctx.strokeStyle = ser.color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (var vi = 0; vi < ser.vals.length; vi++) {
+      var px = xPos(vi), py = yPos(ser.vals[vi]);
+      if (vi === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+    for (var mi2 = 0; mi2 < ser.vals.length; mi2++) {
+      var mx = xPos(mi2), my = yPos(ser.vals[mi2]);
+      var isHovered = mi2 === hoveredIdx;
+      ctx.beginPath();
+      ctx.arc(mx, my, isHovered ? 5 : 3, 0, Math.PI * 2);
+      ctx.fillStyle = isHovered ? ser.color : '#fff';
+      ctx.fill();
+      if (!isHovered) {
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = ser.color;
+        ctx.stroke();
+      }
+    }
+  }
+}
+
+function showNwOutlookTooltip(clientX, clientY, yearIdx, s) {
+  var tt = document.getElementById('lw-tooltip');
+  if (!tt) return;
+  var year = s.startYear + yearIdx;
+  var rowsHtml = s.series.map(function(ser) {
+    return '<div class="lwtt-row"><span class="lwtt-dot" style="background:' + ser.color + '"></span>'
+      + '<div><div class="lwtt-label">' + escAttr(ser.label) + '</div>'
+      + '<div class="lwtt-val" style="color:' + ser.color + '">' + fmtNwOutlookY(ser.vals[yearIdx]) + '</div></div></div>';
+  }).join('');
+  tt.innerHTML = '<div class="lwtt-month">' + year + ' <span class="lwtt-asof">' + (yearIdx === 0 ? 'Now' : '+' + yearIdx + 'y') + '</span></div>' + rowsHtml;
+  tt.style.display = 'block';
+  var ttRect = tt.getBoundingClientRect();
+  var ttW = ttRect.width || 160, ttH = ttRect.height || 120;
+  var vw = window.innerWidth, vh = window.innerHeight;
+  var left = clientX + 16, top = clientY - 20;
+  if (left + ttW > vw - 8) left = clientX - ttW - 16;
+  if (top + ttH > vh - 8)  top  = vh - ttH - 8;
+  if (top < 8) top = 8;
+  tt.style.left = left + 'px';
+  tt.style.top  = top  + 'px';
+}
+
+function wireNwOutlookHover(canvas) {
+  if (!canvas) return;
+  var hoveredIdx = -1;
+  canvas.addEventListener('mousemove', function(e) {
+    var s = nwOutlookChartState;
+    if (!s || !s.nYears) { hideLwTooltip(); return; }
+    var rect = canvas.getBoundingClientRect();
+    var mx   = e.clientX - rect.left;
+    var frac = (mx - s.L_PAD) / s.chartW;
+    var best = Math.round(frac * (s.nYears - 1));
+    if (best < 0) best = 0;
+    if (best > s.nYears - 1) best = s.nYears - 1;
+    if (best !== hoveredIdx) {
+      hoveredIdx = best;
+      drawNwOutlookChart(s, best);
+    }
+    showNwOutlookTooltip(e.clientX, e.clientY, best, s);
+  });
+  canvas.addEventListener('mouseleave', function() {
+    if (hoveredIdx !== -1) {
+      hoveredIdx = -1;
+      var s = nwOutlookChartState;
+      if (s) drawNwOutlookChart(s, -1);
+    }
+    hideLwTooltip();
+  });
 }
 
 function renderLwSummary(nw, assets, debts, changeAmt, changePct, targetId) {
@@ -9994,6 +10277,15 @@ function drawLwChart(keys, assetVals, debtVals, netVals, hoveredIdx, canvasId, a
   if (canvasId === 'nw-canvas') nwChartState = chartState; else lwChartState = chartState;
 }
 
+// Config row with Metric = "Net Worth Delta": a % increase expected month over month.
+function getNwDeltaTargetPct() {
+  for (var i = 0; i < (state.catConfig || []).length; i++) {
+    var c = state.catConfig[i];
+    if (/^net worth delta$/i.test(c.usedFor || '') && c.amount !== null) return c.amount;
+  }
+  return null;
+}
+
 function renderLwTable(keys, netVals, targetId) {
   if (!targetId) targetId = 'lw-table';
   var MONTH_NAMES = ['January','February','March','April','May','June',
@@ -10002,13 +10294,7 @@ function renderLwTable(keys, netVals, targetId) {
 
   // Net Worth Delta target: a configured % increase expected relative to the prior month's
   // ending balance. Only shown on the Net Worth table.
-  var nwDeltaPct = null;
-  if (targetId === 'nw-table') {
-    for (var ndi = 0; ndi < (state.catConfig || []).length; ndi++) {
-      var ndcfg = state.catConfig[ndi];
-      if (/^net worth delta$/i.test(ndcfg.usedFor || '') && ndcfg.amount !== null) { nwDeltaPct = ndcfg.amount; break; }
-    }
-  }
+  var nwDeltaPct = targetId === 'nw-table' ? getNwDeltaTargetPct() : null;
 
   var h = '<thead><tr><th>Month</th><th>' + lwColLabel + '</th><th>Monthly Change</th>'
         + (nwDeltaPct !== null ? '<th>Net Worth Delta</th>' : '') + '</tr></thead><tbody>';
@@ -10705,6 +10991,10 @@ document.addEventListener('DOMContentLoaded', function() {
         localStorage.setItem('sel-nw-to', prevKey);
       }
     }
+    renderNetWorth();
+  });
+
+  document.getElementById('nw-30y-toggle').addEventListener('change', function() {
     renderNetWorth();
   });
 
