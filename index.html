@@ -10865,12 +10865,12 @@ document.addEventListener('DOMContentLoaded', function() {
     var id = opt ? opt.value : '';
     document.getElementById('plaid-acct-remove-btn').style.display = id ? '' : 'none';
     document.getElementById('plaid-acct-rename-btn').style.display = id ? '' : 'none';
-    if (!id) {
-      reconcileCSVTxns = null;
-      document.getElementById('reconcile-status').innerHTML = '';
-      document.getElementById('reconcile-results').style.display = 'none';
-      document.getElementById('plaid-status-msg').textContent = '';
-    }
+    // Either picking a real Plaid account or deselecting back to "none" is a deliberate
+    // switch away from whatever CSV was loaded -- clear it so Go re-evaluates fresh.
+    reconcileCSVTxns = null;
+    document.getElementById('reconcile-status').innerHTML = '';
+    document.getElementById('reconcile-results').style.display = 'none';
+    document.getElementById('plaid-status-msg').textContent = '';
   });
   document.getElementById('plaid-acct-remove-btn').addEventListener('click', function() {
     var sel = document.getElementById('plaid-acct-sel');
@@ -10908,10 +10908,13 @@ document.addEventListener('DOMContentLoaded', function() {
     if (e.key === 'Escape') closePlaidRename(false);
   });
   document.getElementById('reconcile-go-btn').addEventListener('click', function() {
+    // A freshly-loaded CSV always wins over whatever Plaid account happens to be selected
+    // in the dropdown (which can be a stale leftover from an earlier session) -- uploading
+    // a CSV shouldn't require a working Plaid connection to reconcile against it.
+    if (reconcileCSVTxns) { runReconcile(); return; }
     var plaidSel = document.getElementById('plaid-acct-sel');
     var opt = plaidSel.options[plaidSel.selectedIndex];
     if (opt && opt.value) {
-      reconcileCSVTxns = null;
       loadPlaidConnection(opt.dataset.accessToken, opt.dataset.accountId, opt.textContent);
     } else {
       runReconcile();
