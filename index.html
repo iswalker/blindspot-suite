@@ -8804,6 +8804,15 @@ function runReconcile() {
     return;
   }
 
+  // Credit card statements list a charge as a positive amount and a payment/credit as
+  // negative -- the opposite of YNAB's outflow-negative convention for the same account.
+  // Flip the sign so a $97 charge lines up with YNAB's -$97 outflow instead of showing up
+  // as a phantom mismatch.
+  var acctType = (d.allAccountsInfo[acctId] || {}).type;
+  if (acctType === 'creditCard') {
+    csvTxns = csvTxns.map(function(t) { return { date: t.date, amount: -t.amount, desc: t.desc }; });
+  }
+
   var ynabAll = d.acctTxnsList[acctId] || [];
   var dates   = csvTxns.map(function(t) { return t.date; }).sort();
   var minDate = dates[0], maxDate = dates[dates.length - 1];
