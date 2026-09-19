@@ -4640,7 +4640,6 @@ var leverageCatChartState  = null;
 var leverageYearChartState = null;
 var leveragePayeeChartState = null;
 var acctHistoryChartState    = null;
-var acctHistoryLastAcctId    = null;
 var reconcileCSVTxns         = null;
 var PLAID_CLIENT_ID     = '69fe8a6def2ece000e2425f0';
 var PLAID_STORAGE_KEY   = 'plaid-connections';
@@ -8841,12 +8840,6 @@ function renderAccountHistory() {
 
   var acctId = state.acctHistoryId;
   if (!acctId) return;
-
-  if (acctId !== acctHistoryLastAcctId) {
-    state.acctHistoryFromKey = null;
-    localStorage.removeItem('sel-acct-history-from');
-  }
-  acctHistoryLastAcctId = acctId;
 
   var allK = lwAllKeys();
   if (!allK.length) return;
