@@ -8273,6 +8273,10 @@ function renderLeverageSpeedometers() {
     if (!el) return;
     var data = leverageSpeedoTxns[spId];
     el.addEventListener('mousemove', function(e) {
+      // A history bar sits inside its parent tile, which is itself a registered hover target
+      // (the main/selected-month tooltip) -- without this, hovering a bar would bubble up to
+      // the tile's own listener afterward and get overwritten by the tile's own data.
+      e.stopPropagation();
       if (leverageTooltipPinned) return;
       if (!data.txns.length && !data.otherAcctTxns.length && !data.noMatchTxns.length) return;
       buildAndShowSpeedoTt(e.clientX, e.clientY, data, '#1d4f5f');
