@@ -1065,7 +1065,7 @@ td.hbt-num:last-child { width: 13%; }
    the same map/lookup the main speedometer tiles use, so it reuses the exact same tooltip. */
 .leverage-speedo-history { display: flex; align-items: flex-end; gap: 3px; flex-shrink: 0; padding-top: 1px; }
 .lev-sp-hist-bar {
-  width: 5px; height: 22px; border-radius: 2px; background: #ececE6;
+  width: 7px; height: 22px; border-radius: 2px; background: #ececE6;
   position: relative; overflow: hidden; cursor: default; box-sizing: border-box;
   border: 1px solid transparent; /* reserved so the hover border below doesn't shift layout */
 }
@@ -1264,6 +1264,16 @@ td.hbt-num:last-child { width: 13%; }
   /* Tables: allow horizontal scroll within the rounded card */
   .lw-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   #lw-table th, #lw-table td { padding: 8px 10px; font-size: 12px; }
+
+  /* Cash Flow table: cap the (sticky) first column to a static width so expanding a category
+     with a long name doesn't reflow the whole table and squeeze the month columns illegibly --
+     it ellipsizes instead. Also un-stick the Average column here specifically (it stays sticky
+     everywhere else) so the freed width goes to the month columns; scroll right to see it. */
+  #lw-table td:first-child, #lw-table th:first-child {
+    width: 130px; max-width: 130px; min-width: 130px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  #lw-table .avg-col, #lw-table .avg-th { position: static; }
   #lessons-txn-table th, #lessons-txn-table td,
   #leverage-txn-table th, #leverage-txn-table td { padding: 8px 10px; font-size: 12px; }
 
@@ -8696,6 +8706,25 @@ function drawAcctHistoryChart(keys, values, hoveredIdx, floatValues) {
   ctx.strokeStyle = '#4285f4';
   ctx.lineWidth   = 2;
   ctx.stroke();
+
+  // Average line — dashed dark grey, spans the full plot width with a value label above it
+  var avgVal = 0;
+  for (var avi = 0; avi < n; avi++) avgVal += values[avi];
+  avgVal /= n;
+  var avgY = yAt(avgVal);
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth   = 1;
+  ctx.setLineDash([5, 3]);
+  ctx.beginPath();
+  ctx.moveTo(L_PAD, avgY);
+  ctx.lineTo(L_PAD + plotW, avgY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle    = '#555';
+  ctx.font         = '11px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.textAlign    = 'right';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText('Avg ' + fmtBalLabel(avgVal), L_PAD + plotW, Math.max(T_PAD + 10, avgY - 5));
 
   // Float ratio overlay
   if (hasFloat) {
