@@ -1058,7 +1058,20 @@ td.hbt-num:last-child { width: 13%; }
   min-width: 0; background: #fff; border: 1px solid #e8e8e4;
   border-radius: 10px; padding: 14px 18px 10px;
 }
-.leverage-speedo-label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #888; margin-bottom: 4px; }
+.leverage-speedo-top-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.leverage-speedo-label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #888; }
+/* Per-month history strip: one bar per prior month, most recent on the right, filled to that
+   month's spend/max fraction. Hover is wired generically off leverageSpeedoTxns by element id,
+   the same map/lookup the main speedometer tiles use, so it reuses the exact same tooltip. */
+.leverage-speedo-history { display: flex; align-items: flex-end; gap: 3px; flex-shrink: 0; padding-top: 1px; }
+.lev-sp-hist-bar {
+  width: 5px; height: 22px; border-radius: 2px; background: #ececE6;
+  position: relative; overflow: hidden; cursor: default;
+}
+.lev-sp-hist-bar::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0;
+  height: calc(var(--frac, 0) * 100%); background: var(--clr, #2e7d32); border-radius: 2px;
+}
 .leverage-speedo-svg-wrap { position: relative; }
 .leverage-speedo svg { display: block; width: 100%; height: auto; }
 .leverage-speedo-value { text-align: center; font-size: 18px; font-weight: 700; margin-top: -28px; margin-bottom: 2px; }
@@ -7838,53 +7851,69 @@ function renderLeverageSpeedometers() {
   var includeTbd = !!state.leverageIncludeTbd;
   var matchesMetric = function(e, col) { return !!(e && (e[col] === true || (includeTbd && e[col] === 'tbd'))); };
 
-  var html = '';
-  for (var ci = 0; ci < fullCfgs.length; ci++) {
-    var cfg     = fullCfgs[ci];
-    var idxMatch = (cfg.usedFor || '').match(/(\d+)/);
-    var lvIdx    = idxMatch ? parseInt(idxMatch[1], 10) : (ci + 1);
-    var colHdr   = mHeaders[lvIdx - 1] || '';
-    var title    = colHdr || cfg.usedFor;
+  // Ascending list of known budget months, used to pick the last few months before selMonth
+  // for the per-tile history strip.
+  var allMonthKeysAsc = (function() {
+    var set = {};
+    var ks = (state.data && state.data.allKeys) || [];
+    for (var aki = 0; aki < ks.length; aki++) set[ks[aki]] = 1;
+    set[todayKey] = 1;
+    return Object.keys(set).sort();
+  })();
+
+  // Computes the same spend/benefit figures the main tile computes for selMonth, but for an
+  // arbitrary month -- reused both for the selected tile (allowPartialCurrent=true, so the
+  // current month can be a partial/in-progress period) and for each bar in the history strip
+  // (allowPartialCurrent=false, since history months are always fully in the past).
+  function computeMonthStats(cfg, colHdr, monthKey, allowPartialCurrent) {
     var maxAmt      = (cfg.amount !== null && cfg.amount > 0) ? cfg.amount : 0;
     var mult        = (cfg.multiplier != null) ? cfg.multiplier : 1;
     var isPayeeType = (cfg.type || '').toLowerCase() === 'payee';
     var acctId      = isPayeeType ? '' : (cfg.id || '');
     var payeeName   = isPayeeType ? (cfg.id || '') : '';
-    var period      = computePeriodProgress(cfg.dateRange, asOfDate);
 
-    // For Payee type, override the title to the payee name when no merchants-tab header exists
-    if (isPayeeType && !colHdr) title = payeeName || cfg.usedFor;
+    var mAsOfDate;
+    if (allowPartialCurrent && monthKey >= todayKey) {
+      mAsOfDate = new Date();
+    } else {
+      var mmp = monthKey.split('-');
+      mAsOfDate = new Date(parseInt(mmp[0], 10), parseInt(mmp[1], 10), 0);
+    }
+    var mAsOfStr = mAsOfDate.toISOString().slice(0, 10);
+    var mep = monthKey.split('-');
+    var mEndOfMonth = new Date(parseInt(mep[0], 10), parseInt(mep[1], 10), 0);
+    var mEndOfMonthStr = mEndOfMonth.getFullYear() + '-'
+      + String(mEndOfMonth.getMonth() + 1).padStart(2, '0') + '-'
+      + String(mEndOfMonth.getDate()).padStart(2, '0');
+    var mUpperStr = (allowPartialCurrent && state.leverageExcludeForecasted) ? mAsOfStr : mEndOfMonthStr;
+    var mMonthStartStr = monthKey + '-01';
 
-    var rawSum = 0;
-    var txnCount = 0;
-    var contribTxns = [];
+    var period   = computePeriodProgress(cfg.dateRange, mAsOfDate);
     var startStr = period ? period.start.toISOString().slice(0, 10) : '';
 
+    var rawSum = 0, txnCount = 0, contribTxns = [];
+
     if (isPayeeType && payeeName && period) {
-      // Sum transactions across ALL accounts where payee matches, filtered by trackAgainst mode.
-      // trackAgainst: 'all' = outflows; anything containing 'inflow' = positive YNAB amounts,
-      // then optionally filtered by whether memo contains 'shipping'.
-      var targetPayeeLc = payeeName.toLowerCase();
-      var trackMode       = cfg.trackAgainst || 'all';
-      var wantInflow      = trackMode.indexOf('inflow') !== -1;
-      var excludeShipping = wantInflow && (trackMode.indexOf('minus') !== -1 || trackMode.indexOf('no ') !== -1 || trackMode.indexOf('without') !== -1);
-      var wantShipping    = wantInflow && !excludeShipping && trackMode.indexOf('shipping') !== -1;
+      var targetPayeeLc   = payeeName.toLowerCase();
+      var trackMode        = cfg.trackAgainst || 'all';
+      var wantInflow        = trackMode.indexOf('inflow') !== -1;
+      var excludeShipping  = wantInflow && (trackMode.indexOf('minus') !== -1 || trackMode.indexOf('no ') !== -1 || trackMode.indexOf('without') !== -1);
+      var wantShipping     = wantInflow && !excludeShipping && trackMode.indexOf('shipping') !== -1;
       for (var allAid in acctList) {
         var aTxs = acctList[allAid] || [];
         for (var ati2 = 0; ati2 < aTxs.length; ati2++) {
           var at2 = aTxs[ati2];
-          if (!at2.date || at2.date < startStr || at2.date > upperStr) continue;
+          if (!at2.date || at2.date < startStr || at2.date > mUpperStr) continue;
           if ((at2.payee || '').toLowerCase() !== targetPayeeLc) continue;
           var rawAmt2 = at2.amount || 0;
-          if (wantInflow && rawAmt2 <= 0) continue; // only inflows
-          if (!wantInflow && rawAmt2 >= 0) continue; // only outflows
+          if (wantInflow && rawAmt2 <= 0) continue;
+          if (!wantInflow && rawAmt2 >= 0) continue;
           var spend2 = 0;
           if (wantInflow) {
             if (at2.subs) {
-              // Split transaction: sum only the sub-amounts whose memo matches the filter
               for (var si2 = 0; si2 < at2.subs.length; si2++) {
                 var sub2 = at2.subs[si2];
-                if (sub2.amount <= 0) continue; // skip outflow subs
+                if (sub2.amount <= 0) continue;
                 var subMemoLc = (sub2.memo || '').toLowerCase();
                 var subHasShip = subMemoLc.indexOf('shipping') !== -1;
                 if (excludeShipping && subHasShip) continue;
@@ -7892,7 +7921,6 @@ function renderLeverageSpeedometers() {
                 spend2 += sub2.amount;
               }
             } else {
-              // Non-split: apply filter to top-level memo
               var memoLc = (at2.memo || '').toLowerCase();
               var hasShip = memoLc.indexOf('shipping') !== -1;
               if (excludeShipping && hasShip) continue;
@@ -7913,7 +7941,7 @@ function renderLeverageSpeedometers() {
       var txs = acctList[acctId];
       for (var ti = 0; ti < txs.length; ti++) {
         var t = txs[ti];
-        if (!t.date || t.date < startStr || t.date > upperStr) continue;
+        if (!t.date || t.date < startStr || t.date > mUpperStr) continue;
         var payeeKey = (t.payee || '').toLowerCase();
         var mEntry = merchants[payeeKey];
         if (!matchesMetric(mEntry, colHdr)) continue;
@@ -7925,15 +7953,14 @@ function renderLeverageSpeedometers() {
       }
     }
 
-    // "Other Account Used": only relevant for Account type (Payee type already spans all accounts)
     var otherAcctByPayee = {};
-    if (!isPayeeType && colHdr && monthStartStr) {
+    if (!isPayeeType && colHdr && mMonthStartStr) {
       for (var otherAcctId in acctList) {
         if (otherAcctId === acctId) continue;
         var otherTxs = acctList[otherAcctId] || [];
         for (var oti = 0; oti < otherTxs.length; oti++) {
           var ot = otherTxs[oti];
-          if (!ot.date || ot.date < monthStartStr || ot.date > upperStr) continue;
+          if (!ot.date || ot.date < mMonthStartStr || ot.date > mUpperStr) continue;
           var opk = (ot.payee || '').toLowerCase();
           if (!matchesMetric(merchants[opk], colHdr)) continue;
           var ospend = -(ot.amount || 0);
@@ -7948,7 +7975,6 @@ function renderLeverageSpeedometers() {
       return { payee: p, budget: otherAcctByPayee[p], amount: otherAcctByPayee[p] * mult };
     }).sort(function(a, b) { return b.budget - a.budget; });
 
-    // "No Match" section: transactions in the associated categories via other accounts, not merchant-eligible
     var noMatchByPayee = {};
     var assocCatIds = cfg.assocCatIds || [];
     if (assocCatIds.length && state.data.catIdTxns && startStr) {
@@ -7962,12 +7988,12 @@ function renderLeverageSpeedometers() {
         var assocTxns = state.data.catIdTxns[assocCatIds[cai]] || [];
         for (var ati = 0; ati < assocTxns.length; ati++) {
           var at = assocTxns[ati];
-          if (!at.date || at.date < startStr || at.date > upperStr) continue;
+          if (!at.date || at.date < startStr || at.date > mUpperStr) continue;
           if (leverageAcctName && at.account === leverageAcctName) continue;
           var aspend = -at.amount;
           if (aspend <= 0) continue;
           var apk = (at.payee || '').toLowerCase();
-          if (matchesMetric(merchants[apk], colHdr)) continue; // merchant-eligible → already in Other Account Used
+          if (matchesMetric(merchants[apk], colHdr)) continue;
           if (!noMatchByPayee[at.payee]) noMatchByPayee[at.payee] = 0;
           noMatchByPayee[at.payee] += aspend;
         }
@@ -7977,17 +8003,53 @@ function renderLeverageSpeedometers() {
       return { payee: p, budget: noMatchByPayee[p] };
     }).sort(function(a, b) { return b.budget - a.budget; });
 
-    // Apply Past Value offset (backfill from pre-fresh-start transactions)
     rawSum += (cfg.pastValue || 0);
 
     var hasLimit = cfg.amount !== null && cfg.amount > 0;
     var hasAcct  = isPayeeType ? !!payeeName : !!acctId;
-
     var cappedSpend   = hasLimit ? Math.min(Math.max(rawSum, 0), maxAmt) : Math.max(rawSum, 0);
     var cappedBenefit = cappedSpend * mult;
     var maxBenefit    = maxAmt * mult;
     var fillFrac = hasLimit && maxAmt > 0 ? cappedSpend / maxAmt : 0;
     var timeFrac = period ? period.frac : 0;
+
+    return {
+      rawSum: rawSum, cappedSpend: cappedSpend, cappedBenefit: cappedBenefit,
+      maxAmt: maxAmt, maxBenefit: maxBenefit, mult: mult, fillFrac: fillFrac, timeFrac: timeFrac,
+      contribTxns: contribTxns, otherAcctTxns: otherAcctTxns, noMatchTxns: noMatchTxns,
+      period: period, hasLimit: hasLimit, hasAcct: hasAcct, txnCount: txnCount
+    };
+  }
+
+  var html = '';
+  for (var ci = 0; ci < fullCfgs.length; ci++) {
+    var cfg     = fullCfgs[ci];
+    var idxMatch = (cfg.usedFor || '').match(/(\d+)/);
+    var lvIdx    = idxMatch ? parseInt(idxMatch[1], 10) : (ci + 1);
+    var colHdr   = mHeaders[lvIdx - 1] || '';
+    var title    = colHdr || cfg.usedFor;
+    var isPayeeType = (cfg.type || '').toLowerCase() === 'payee';
+    var payeeName   = isPayeeType ? (cfg.id || '') : '';
+
+    // For Payee type, override the title to the payee name when no merchants-tab header exists
+    if (isPayeeType && !colHdr) title = payeeName || cfg.usedFor;
+
+    var stats = computeMonthStats(cfg, colHdr, selMonth, true);
+    var maxAmt        = stats.maxAmt;
+    var mult          = stats.mult;
+    var period        = stats.period;
+    var rawSum        = stats.rawSum;
+    var txnCount      = stats.txnCount;
+    var contribTxns   = stats.contribTxns;
+    var otherAcctTxns = stats.otherAcctTxns;
+    var noMatchTxns   = stats.noMatchTxns;
+    var hasLimit      = stats.hasLimit;
+    var hasAcct       = stats.hasAcct;
+    var cappedSpend   = stats.cappedSpend;
+    var cappedBenefit = stats.cappedBenefit;
+    var maxBenefit    = stats.maxBenefit;
+    var fillFrac      = stats.fillFrac;
+    var timeFrac      = stats.timeFrac;
 
     var speedoId = 'leverage-speedo-' + ci;
     leverageSpeedoTxns[speedoId] = {
@@ -8000,6 +8062,37 @@ function renderLeverageSpeedometers() {
       otherAcctTxns: otherAcctTxns,
       noMatchTxns:   noMatchTxns
     };
+
+    // History strip: last few months before selMonth, one bar each, filled to that month's
+    // spend/max fraction (green under the limit, orange once maxed out). Hover on a bar is
+    // wired generically below (same as the main tile) since its id is registered in
+    // leverageSpeedoTxns, so it shows the identical tooltip a Speedometer Month change +
+    // hover on the primary graphic would produce for that month.
+    var histHtml = '';
+    if (hasLimit && hasAcct) {
+      var histMonths = allMonthKeysAsc.filter(function(k) { return k < selMonth; });
+      histMonths = histMonths.slice(Math.max(0, histMonths.length - 6));
+      var histBars = '';
+      for (var hi = 0; hi < histMonths.length; hi++) {
+        var hk = histMonths[hi];
+        var hStats = computeMonthStats(cfg, colHdr, hk, false);
+        var hFrac  = Math.max(0, Math.min(1, hStats.fillFrac));
+        var hColor = hStats.fillFrac >= 0.999 ? '#ef6c00' : '#2e7d32';
+        var hId = speedoId + '-hist-' + hi;
+        leverageSpeedoTxns[hId] = {
+          title:         (title || '') + ' — ' + keyLabel(hk),
+          txns:          hStats.contribTxns,
+          rawSum:        hStats.rawSum,
+          maxAmt:        hStats.maxAmt,
+          mult:          hStats.mult,
+          pastValue:     cfg.pastValue || 0,
+          otherAcctTxns: hStats.otherAcctTxns,
+          noMatchTxns:   hStats.noMatchTxns
+        };
+        histBars += '<div class="lev-sp-hist-bar" id="' + hId + '" style="--frac:' + hFrac.toFixed(3) + ';--clr:' + hColor + '" title="' + escAttr(keyLabel(hk)) + '"></div>';
+      }
+      if (histBars) histHtml = '<div class="leverage-speedo-history">' + histBars + '</div>';
+    }
 
     var periodLabel = period ? (fmtSpeedoDate(period.start) + ' – ' + fmtSpeedoDate(new Date(period.end.getTime() - 86400000))) : '';
     var footRight   = hasLimit && period
@@ -8052,7 +8145,10 @@ function renderLeverageSpeedometers() {
           + '</div>');
 
     html += '<div class="leverage-speedo" id="' + speedoId + '" style="cursor:default">'
-      +    '<div class="leverage-speedo-label">' + escAttr(title) + (hasAcct ? '' : ' <span style="font-size:10px;color:#bbb;font-weight:400;text-transform:none">(no account)</span>') + '</div>'
+      +    '<div class="leverage-speedo-top-row">'
+      +      '<div class="leverage-speedo-label">' + escAttr(title) + (hasAcct ? '' : ' <span style="font-size:10px;color:#bbb;font-weight:400;text-transform:none">(no account)</span>') + '</div>'
+      +      histHtml
+      +    '</div>'
       +    svgBlock
       +    valueBlock
       +    '<div class="leverage-speedo-foot">'
