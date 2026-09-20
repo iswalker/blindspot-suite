@@ -1269,7 +1269,14 @@ td.hbt-num:last-child { width: 13%; }
   /* Cash Flow table: cap the (sticky) first column to a static width so expanding a category
      with a long name doesn't reflow the whole table and squeeze the month columns illegibly --
      it ellipsizes instead. Also un-stick the Average column here specifically (it stays sticky
-     everywhere else) so the freed width goes to the month columns; scroll right to see it. */
+     everywhere else) so the freed width goes to the month columns; scroll right to see it.
+     The table also has to give up its normal width:100% here -- with a fixed first column,
+     100% forces the browser's auto-layout to stretch the remaining columns to fill the leftover
+     space, and it hands most of that stretch to whichever column has the widest content (the
+     Average column, thanks to its stddev note), ballooning it while squeezing the month columns.
+     width:auto lets every other column keep its natural size and the row overflow horizontally
+     for the wrapper to scroll, instead of being force-fit into the viewport. */
+  #lw-table { width: auto; }
   #lw-table td:first-child, #lw-table th:first-child {
     width: 130px; max-width: 130px; min-width: 130px;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
