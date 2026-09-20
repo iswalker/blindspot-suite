@@ -1129,6 +1129,24 @@ td.hbt-num:last-child { width: 13%; }
 #leverage-year-chart-wrap { flex: 1; min-width: 120px; margin-bottom: 0; }
 .lw-chart-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #888; margin: 0 0 4px 16px; }
 
+/* ---- Runway ---- */
+#runway-tagline { font-size: 15px; color: #555; margin: 2px 0 26px; max-width: 760px; line-height: 1.4; }
+#runway-body { display: flex; gap: 48px; flex-wrap: wrap; }
+#runway-empty { font-size: 12px; color: #999; padding: 12px 0; }
+.runway-col { flex: 1 1 320px; min-width: 280px; }
+.runway-step { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 26px; }
+.runway-step:last-child { margin-bottom: 0; }
+.runway-circle {
+  flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 700; box-sizing: border-box;
+}
+.runway-circle.rw-done    { background: #2e7d32; border: 2px solid #2e7d32; color: #fff; }
+.runway-circle.rw-current { background: #fff; border: 2px dashed #1565c0; color: #1565c0; }
+.runway-circle.rw-future  { background: #fff; border: 2px solid #ccc; color: #ccc; }
+.runway-title { font-size: 16px; font-weight: 700; color: #222; line-height: 1.3; }
+.runway-subtext { font-size: 13px; color: #888; margin-top: 3px; line-height: 1.35; }
+
 /* ---- Net Worth 30y Outlook ---- */
 #nw-outlook-hdr { margin: 0 0 6px 16px; }
 #nw-outlook-title { font-size: 15px; font-weight: 700; color: #222; }
@@ -1440,6 +1458,7 @@ td.hbt-num:last-child { width: 13%; }
       <button class="tab-btn" data-tab="lessons">Lessons Learned</button>
       <button class="tab-btn" data-tab="leverage">Leverage</button>
       <button class="tab-btn" data-tab="acct-history">Account History</button>
+      <button class="tab-btn" data-tab="runway">Runway</button>
       <button class="tab-btn" data-tab="reconcile">Reconcile</button>
     </div>
     <div id="controls-bar">
@@ -1862,6 +1881,13 @@ td.hbt-num:last-child { width: 13%; }
         </table>
       </div>
     </div>
+  </div>
+  <div id="runway-panel" style="display:none">
+    <div class="panel-hdr">
+      <h1>Runway</h1>
+    </div>
+    <div id="runway-tagline"></div>
+    <div id="runway-body"></div>
   </div>
   <div id="home-panel">
     <div class="panel-hdr">
@@ -5373,6 +5399,7 @@ function switchTab(tab) {
   document.getElementById('lessons-panel').style.display  = tab === 'lessons'  ? 'block' : 'none';
   document.getElementById('leverage-panel').style.display     = tab === 'leverage'     ? 'block' : 'none';
   document.getElementById('acct-history-panel').style.display = tab === 'acct-history' ? 'block' : 'none';
+  document.getElementById('runway-panel').style.display       = tab === 'runway'       ? 'block' : 'none';
   document.getElementById('reconcile-panel').style.display    = tab === 'reconcile'     ? 'block' : 'none';
   if (tab === 'home')         renderHome();
   if (tab === 'lw')           renderLiquidWorth();
@@ -5380,6 +5407,7 @@ function switchTab(tab) {
   if (tab === 'lessons')      renderLessonsLearned();
   if (tab === 'leverage')     renderLeverage();
   if (tab === 'acct-history') renderAccountHistory();
+  if (tab === 'runway')       renderRunway();
   if (tab === 'reconcile')    renderReconcile();
 }
 
@@ -10446,6 +10474,94 @@ function getNwBirthYear() {
   return null;
 }
 
+// Runway tab: driven entirely by Config.csv rows.
+//   "Runway Goal"              Text    = tagline shown above both columns
+//   "Runway Step <n>"          Text    = that step's title; Track Against picks its column
+//                                        (2/"right" -> right column, anything else -> left)
+//   "Runway Step <n> Subtext"  Text    = smaller text shown under step <n>'s title
+//   "Runway Step"              Amount  = the step number the user is currently on
+// A plain step number (no "$" Unit) parses into dueDays rather than amount -- check both,
+// mirroring the same quirk worked around for Birth Year above.
+var RUNWAY_GOAL_RE    = /^runway goal$/i;
+var RUNWAY_CURRENT_RE = /^runway step$/i;
+var RUNWAY_SUBTEXT_RE = /^runway step\s+(\d+)\s+subtext$/i;
+var RUNWAY_TITLE_RE   = /^runway step\s+(\d+)$/i;
+
+function getRunwayData() {
+  var goal = '', currentStep = null, byNum = {};
+  var cfgRows = state.catConfig || [];
+  for (var i = 0; i < cfgRows.length; i++) {
+    var c = cfgRows[i];
+    var usedFor = (c.usedFor || '').trim();
+    if (!usedFor) continue;
+    var mSub, mTitle;
+    if (RUNWAY_GOAL_RE.test(usedFor)) {
+      goal = c.id || '';
+    } else if (RUNWAY_CURRENT_RE.test(usedFor)) {
+      var v = c.amount !== null ? c.amount : c.dueDays;
+      if (v !== null) currentStep = Math.round(v);
+    } else if ((mSub = usedFor.match(RUNWAY_SUBTEXT_RE))) {
+      var sn = parseInt(mSub[1], 10);
+      if (!byNum[sn]) byNum[sn] = { num: sn, title: '', subtext: '', column: 1 };
+      byNum[sn].subtext = c.id || '';
+    } else if ((mTitle = usedFor.match(RUNWAY_TITLE_RE))) {
+      var tn = parseInt(mTitle[1], 10);
+      if (!byNum[tn]) byNum[tn] = { num: tn, title: '', subtext: '', column: 1 };
+      byNum[tn].title = c.id || '';
+      var colRaw = (c.trackAgainstRaw || '').trim();
+      byNum[tn].column = /^(2|right)$/i.test(colRaw) ? 2 : 1;
+    }
+  }
+  var steps = Object.keys(byNum).map(function(k) { return byNum[k]; })
+    .sort(function(a, b) { return a.num - b.num; });
+  return { goal: goal, currentStep: currentStep, steps: steps };
+}
+
+function renderRunway() {
+  var body = document.getElementById('runway-body');
+  if (!body) return;
+  var data = getRunwayData();
+
+  var taglineEl = document.getElementById('runway-tagline');
+  if (taglineEl) {
+    taglineEl.textContent = data.goal;
+    taglineEl.style.display = data.goal ? '' : 'none';
+  }
+
+  if (!data.steps.length) {
+    body.innerHTML = '<div id="runway-empty">Configure Config.csv rows with Metric = "Runway Step &lt;n&gt;" '
+      + '(Text = title), "Runway Step &lt;n&gt; Subtext" (Text = subtext), and "Runway Step" '
+      + '(Amount = current step) to see your Runway.</div>';
+    return;
+  }
+
+  function renderCol(steps) {
+    var h = '';
+    for (var i = 0; i < steps.length; i++) {
+      var s = steps[i];
+      var stepState = 'future';
+      if (data.currentStep !== null) {
+        if (s.num < data.currentStep) stepState = 'done';
+        else if (s.num === data.currentStep) stepState = 'current';
+      }
+      var icon = stepState === 'done' ? '&#10003;' : stepState === 'current' ? '&#8594;' : '';
+      h += '<div class="runway-step">'
+        +   '<div class="runway-circle rw-' + stepState + '">' + icon + '</div>'
+        +   '<div class="runway-step-text">'
+        +     '<div class="runway-title">' + escAttr(s.title) + '</div>'
+        +     (s.subtext ? '<div class="runway-subtext">' + escAttr(s.subtext) + '</div>' : '')
+        +   '</div>'
+        + '</div>';
+    }
+    return h;
+  }
+
+  var col1 = data.steps.filter(function(s) { return s.column !== 2; });
+  var col2 = data.steps.filter(function(s) { return s.column === 2; });
+  body.innerHTML = '<div class="runway-col">' + renderCol(col1) + '</div>'
+    + '<div class="runway-col">' + renderCol(col2) + '</div>';
+}
+
 function renderLwTable(keys, netVals, targetId) {
   if (!targetId) targetId = 'lw-table';
   var MONTH_NAMES = ['January','February','March','April','May','June',
@@ -10538,6 +10654,7 @@ function showReport() {
   document.getElementById('lessons-panel').style.display  = tab === 'lessons'  ? 'block' : 'none';
   document.getElementById('leverage-panel').style.display     = tab === 'leverage'     ? 'block' : 'none';
   document.getElementById('acct-history-panel').style.display = tab === 'acct-history' ? 'block' : 'none';
+  document.getElementById('runway-panel').style.display       = tab === 'runway'       ? 'block' : 'none';
   document.getElementById('reconcile-panel').style.display    = tab === 'reconcile'     ? 'block' : 'none';
   var initTabBlocks = document.querySelectorAll('.settings-tab-block');
   for (var stib = 0; stib < initTabBlocks.length; stib++) {
@@ -10566,6 +10683,7 @@ function showReport() {
   if (tab === 'lessons')      renderLessonsLearned();
   if (tab === 'leverage')     renderLeverage();
   if (tab === 'acct-history') renderAccountHistory();
+  if (tab === 'runway')       renderRunway();
   if (tab === 'reconcile')    renderReconcile();
 
   var hasYnab = !!(localStorage.getItem('ynab-api-key') && localStorage.getItem('ynab-budget-id'));
