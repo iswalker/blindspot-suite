@@ -310,7 +310,7 @@ th {
   background: #fff;
 }
 th:first-child { text-align: left; }
-.avg-th { background: #f8f8f4 !important; border-left: 1px solid #e2e2e2; position: sticky; right: 0; top: 0; z-index: 4; }
+.avg-th { background: #f8f8f4 !important; border-left: 1px solid #e2e2e2; z-index: 4; }
 
 /* ---- td ---- */
 td {
@@ -1268,8 +1268,10 @@ td.hbt-num:last-child { width: 13%; }
 
   /* Cash Flow table: cap the (sticky) first column to a static width so expanding a category
      with a long name doesn't reflow the whole table and squeeze the month columns illegibly --
-     it ellipsizes instead. Also un-stick the Average column here specifically (it stays sticky
-     everywhere else) so the freed width goes to the month columns; scroll right to see it.
+     it ellipsizes instead. The Average column's header (.avg-th) is never horizontally sticky
+     at all now (its position/right/top were dropped at the source); its data cells (.avg-col)
+     still are elsewhere, so un-stick them here so the freed width goes to the month columns;
+     scroll right to see the Average column.
      The table also has to give up its normal width:100% here -- with a fixed first column,
      100% forces the browser's auto-layout to stretch the remaining columns to fill the leftover
      space, and it hands most of that stretch to whichever column has the widest content (the
@@ -1281,7 +1283,7 @@ td.hbt-num:last-child { width: 13%; }
     width: 130px; max-width: 130px; min-width: 130px;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  #lw-table .avg-col, #lw-table .avg-th { position: static; }
+  #lw-table .avg-col { position: static; }
   #lessons-txn-table th, #lessons-txn-table td,
   #leverage-txn-table th, #leverage-txn-table td { padding: 8px 10px; font-size: 12px; }
 
