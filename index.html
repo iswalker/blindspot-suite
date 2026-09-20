@@ -1135,7 +1135,7 @@ td.hbt-num:last-child { width: 13%; }
 #runway-empty { font-size: 12px; color: #999; padding: 12px 0; }
 .runway-col { flex: 1 1 260px; min-width: 240px; }
 .runway-col-hdr {
-  font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  font-size: 26px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
   color: #888; margin: 0 0 16px; padding-bottom: 6px; border-bottom: 2px solid #eee;
 }
 .runway-step { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 26px; }
@@ -1148,7 +1148,11 @@ td.hbt-num:last-child { width: 13%; }
 .runway-circle.rw-done    { background: #2e7d32; border: 2px solid #2e7d32; color: #fff; }
 .runway-circle.rw-current { background: #fff; border: 2px dashed #1565c0; color: #1565c0; }
 .runway-circle.rw-future  { background: #fff; border: 2px solid #ccc; color: #ccc; }
-.runway-step-num { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #999; margin-bottom: 2px; }
+.runway-step-num {
+  flex-shrink: 0; width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 25px; font-weight: 700; color: #bbb; box-sizing: border-box; padding-bottom: 3px;
+}
 .runway-title { font-size: 16px; font-weight: 700; color: #222; line-height: 1.3; }
 .runway-subtext { font-size: 13px; color: #888; margin-top: 3px; line-height: 1.35; }
 
@@ -10558,8 +10562,8 @@ function renderRunway() {
       var icon = stepState === 'done' ? '&#10003;' : stepState === 'current' ? '&#10132;' : '';
       h += '<div class="runway-step">'
         +   '<div class="runway-circle rw-' + stepState + '">' + icon + '</div>'
+        +   '<div class="runway-step-num">' + s.num + '</div>'
         +   '<div class="runway-step-text">'
-        +     '<div class="runway-step-num">Step ' + s.num + '</div>'
         +     '<div class="runway-title">' + escAttr(s.title) + '</div>'
         +     (s.subtext ? '<div class="runway-subtext">' + escAttr(s.subtext) + '</div>' : '')
         +   '</div>'
