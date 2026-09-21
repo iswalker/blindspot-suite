@@ -1157,6 +1157,11 @@ td.hbt-num:last-child { width: 13%; }
 }
 .runway-title { font-size: 18px; font-weight: 700; color: #222; line-height: 1.3; }
 .runway-subtext { font-size: 15px; color: #888; margin-top: 3px; line-height: 1.35; }
+.runway-amt-pill {
+  display: inline-block; padding: 2px 8px; border-radius: 12px;
+  background: #e8f5e9; color: #2e7d32; font-weight: 600; font-size: 14px;
+  margin-left: 4px; vertical-align: middle;
+}
 
 /* ---- Net Worth 30y Outlook ---- */
 #nw-outlook-hdr { margin: 0 0 6px 16px; }
@@ -10535,14 +10540,16 @@ function getRunwayData() {
       byAlpha[sa].subtext = c.id || '';
     } else if ((mTitle = usedFor.match(RUNWAY_TITLE_RE))) {
       var tn = parseInt(mTitle[1], 10);
-      if (!byNum[tn]) byNum[tn] = { kind: 'num', num: tn, title: '', subtext: '', col: '' };
+      if (!byNum[tn]) byNum[tn] = { kind: 'num', num: tn, title: '', subtext: '', col: '', amount: null };
       byNum[tn].title = c.id || '';
       byNum[tn].col = (c.trackAgainstRaw || '').trim();
+      byNum[tn].amount = c.amount;
     } else if ((mAlphaTitle = usedFor.match(RUNWAY_ALPHA_TITLE_RE))) {
       var ta = mAlphaTitle[1].toUpperCase();
-      if (!byAlpha[ta]) byAlpha[ta] = { kind: 'alpha', letter: ta, title: '', subtext: '', col: '' };
+      if (!byAlpha[ta]) byAlpha[ta] = { kind: 'alpha', letter: ta, title: '', subtext: '', col: '', amount: null };
       byAlpha[ta].title = c.id || '';
       byAlpha[ta].col = (c.trackAgainstRaw || '').trim();
+      byAlpha[ta].amount = c.amount;
     }
   }
   var alphaSteps = Object.keys(byAlpha).map(function(k) { return byAlpha[k]; })
@@ -10597,11 +10604,14 @@ function renderRunway() {
         var icon = stepState === 'done' ? '&#10003;' : stepState === 'current' ? '&#10132;' : '';
         circleHtml = '<div class="runway-circle rw-' + stepState + '">' + icon + '</div>';
       }
+      var amtPill = (s.amount !== null && s.amount !== undefined)
+        ? ' <span class="runway-amt-pill">$' + s.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</span>'
+        : '';
       h += '<div class="runway-step">'
         +   circleHtml
         +   '<div class="runway-step-num">' + (s.kind === 'alpha' ? s.letter : s.num) + '</div>'
         +   '<div class="runway-step-text">'
-        +     '<div class="runway-title">' + escAttr(s.title) + '</div>'
+        +     '<div class="runway-title">' + escAttr(s.title) + amtPill + '</div>'
         +     (s.subtext ? '<div class="runway-subtext">' + escAttr(s.subtext) + '</div>' : '')
         +   '</div>'
         + '</div>';
