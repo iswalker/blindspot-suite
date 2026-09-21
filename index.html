@@ -1163,6 +1163,11 @@ td.hbt-num:last-child { width: 13%; }
   background: #e8f5e9; color: #2e7d32; font-weight: 600; font-size: 14px;
   margin-left: 4px; vertical-align: middle;
 }
+.runway-tag-pill {
+  display: inline-block; padding: 2px 8px; border-radius: 12px;
+  background: #eee; color: #777; font-weight: 600; font-size: 14px;
+  margin-right: 6px; vertical-align: middle;
+}
 
 /* ---- Net Worth 30y Outlook ---- */
 #nw-outlook-hdr { margin: 0 0 6px 16px; }
@@ -10664,11 +10669,15 @@ function renderRunway() {
         circleHtml = '<div class="runway-circle rw-' + stepState + '">' + icon + '</div>';
       }
       var amtPill = s.amount ? ' <span class="runway-amt-pill">' + escAttr(s.amount) + '</span>' : '';
+      // A "[Tag] Title" prefix in the Text column becomes a grey tag pill before the title.
+      var tagMatch = s.title.match(/^\[([^\]]+)\]\s*/);
+      var tagPill = tagMatch ? '<span class="runway-tag-pill">' + escAttr(tagMatch[1]) + '</span>' : '';
+      var titleText = tagMatch ? s.title.slice(tagMatch[0].length) : s.title;
       h += '<div class="runway-step">'
         +   circleHtml
         +   '<div class="runway-step-num">' + (s.kind === 'alpha' ? s.letter : s.num) + '</div>'
         +   '<div class="runway-step-text">'
-        +     '<div class="runway-title">' + escAttr(s.title) + amtPill + '</div>'
+        +     '<div class="runway-title">' + tagPill + escAttr(titleText) + amtPill + '</div>'
         +     (s.subtext ? '<div class="runway-subtext">' + escAttr(s.subtext) + '</div>' : '')
         +   '</div>'
         + '</div>';
