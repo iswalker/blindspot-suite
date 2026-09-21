@@ -10627,6 +10627,17 @@ function getRunwayData() {
   var factors = state.runwayFactors || {};
   var steps = allSteps.filter(function(s) { return !s.tag || factors[s.tag] !== false; });
 
+  // A visible numbered step's badge is its literal "Step <n>" number, minus however many
+  // hidden (filtered-out) numbered steps come before it -- so a gap-free config (nothing
+  // filtered, or a deliberate "Step 0") still shows its real numbers, while hiding a Factor
+  // closes just the gap it leaves (steps 8, 9, 10 with 9 hidden render as 8, 9).
+  var hiddenBefore = 0;
+  for (var rni = 0; rni < numSteps.length; rni++) {
+    var ns = numSteps[rni];
+    if (ns.tag && factors[ns.tag] === false) { hiddenBefore++; continue; }
+    ns.displayNum = ns.num - hiddenBefore;
+  }
+
   // Group steps into sections (one per distinct column key), preserving first-appearance order.
   var sectionOrder = [], sectionsByKey = {};
   for (var si = 0; si < steps.length; si++) {
@@ -10662,19 +10673,6 @@ function getRunwayData() {
       .sort(function(a, b) { return a.letter < b.letter ? -1 : a.letter > b.letter ? 1 : 0; })
       .map(function(s) { return s.section; });
   }).concat(legacyCols.map(function(lc) { return lc.sections; }));
-
-  // Numbered steps get a fresh badge number counting only currently visible steps, in render
-  // order (column by column, section by section) -- so hiding a Factor closes any gap it leaves
-  // (e.g. steps 8, 9, 10 with 9 hidden renders as 8, 9). Lettered steps always show their letter.
-  var displayNum = 1;
-  for (var dci = 0; dci < columns.length; dci++) {
-    for (var dsi = 0; dsi < columns[dci].length; dsi++) {
-      var secSteps = columns[dci][dsi].steps;
-      for (var dpi = 0; dpi < secSteps.length; dpi++) {
-        if (secSteps[dpi].kind === 'num') secSteps[dpi].displayNum = displayNum++;
-      }
-    }
-  }
 
   return { goal: goal, currentStep: currentStep, steps: steps, columns: columns, allTags: allTags };
 }
