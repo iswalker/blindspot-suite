@@ -2490,7 +2490,8 @@ function parseConfigCsv(text) {
     var isLeverageRow = /^leverage\s+\d+$/i.test(usedFor);
     if (!id && !isLeverageRow && (type !== 'Target' || !usedFor)) continue;
     // Support both "Amount" (new) and "Due Date" (legacy) column names
-    var rawAmt  = (r['Amount'] || r['Due Date'] || '').trim().toLowerCase();
+    var amountRaw = (r['Amount'] || r['Due Date'] || '').trim();
+    var rawAmt  = amountRaw.toLowerCase();
     var dueDays = null;
     var amount  = null;
     if (rawAmt !== 'n/a' && rawAmt !== '') {
@@ -2515,7 +2516,7 @@ function parseConfigCsv(text) {
     var pastValueRaw = (r['Past Value'] || '').trim().replace(/[$,]/g, '');
     var pastValue = pastValueRaw !== '' ? parseFloat(pastValueRaw) : 0;
     if (isNaN(pastValue)) pastValue = 0;
-    result.push({ id: id, type: type, usedFor: usedFor, section: section, dueDays: dueDays, amount: amount, unit: unit, multiplier: multiplier, dateRange: dateRange, assocCatIds: assocCatIds, trackAgainst: trackAgainst, trackAgainstRaw: trackAgainstRaw, pastValue: pastValue });
+    result.push({ id: id, type: type, usedFor: usedFor, section: section, dueDays: dueDays, amount: amount, amountRaw: amountRaw, unit: unit, multiplier: multiplier, dateRange: dateRange, assocCatIds: assocCatIds, trackAgainst: trackAgainst, trackAgainstRaw: trackAgainstRaw, pastValue: pastValue });
   }
   return result;
 }
@@ -10559,26 +10560,25 @@ function getRunwayData() {
       colDefs[hdrKey].header = c.id || '';
     } else if ((mSub = usedFor.match(RUNWAY_SUBTEXT_RE))) {
       var sn = parseInt(mSub[1], 10);
-      if (!byNum[sn]) byNum[sn] = { kind: 'num', num: sn, title: '', subtext: '', col: null, amount: null };
+      if (!byNum[sn]) byNum[sn] = { kind: 'num', num: sn, title: '', subtext: '', col: null, amount: '' };
       byNum[sn].subtext = c.id || '';
     } else if ((mAlphaSub = usedFor.match(RUNWAY_ALPHA_SUBTEXT_RE))) {
       var sa = mAlphaSub[1].toUpperCase();
-      if (!byAlpha[sa]) byAlpha[sa] = { kind: 'alpha', letter: sa, title: '', subtext: '', col: null, amount: null };
+      if (!byAlpha[sa]) byAlpha[sa] = { kind: 'alpha', letter: sa, title: '', subtext: '', col: null, amount: '' };
       byAlpha[sa].subtext = c.id || '';
     } else if ((mTitle = usedFor.match(RUNWAY_TITLE_RE))) {
       var tn = parseInt(mTitle[1], 10);
-      if (!byNum[tn]) byNum[tn] = { kind: 'num', num: tn, title: '', subtext: '', col: null, amount: null };
+      if (!byNum[tn]) byNum[tn] = { kind: 'num', num: tn, title: '', subtext: '', col: null, amount: '' };
       byNum[tn].title = c.id || '';
       byNum[tn].col = runwayColKey(c.trackAgainstRaw, legacyOrder);
-      // A plain dollar figure with no "$" Unit parses into dueDays rather than amount --
-      // check both, mirroring the same quirk worked around for Birth Year/current step above.
-      byNum[tn].amount = c.amount !== null ? c.amount : c.dueDays;
+      // Shown as-is (plain text), not reformatted -- the Amount column isn't always a dollar figure.
+      byNum[tn].amount = c.amountRaw || '';
     } else if ((mAlphaTitle = usedFor.match(RUNWAY_ALPHA_TITLE_RE))) {
       var ta = mAlphaTitle[1].toUpperCase();
-      if (!byAlpha[ta]) byAlpha[ta] = { kind: 'alpha', letter: ta, title: '', subtext: '', col: null, amount: null };
+      if (!byAlpha[ta]) byAlpha[ta] = { kind: 'alpha', letter: ta, title: '', subtext: '', col: null, amount: '' };
       byAlpha[ta].title = c.id || '';
       byAlpha[ta].col = runwayColKey(c.trackAgainstRaw, legacyOrder);
-      byAlpha[ta].amount = c.amount !== null ? c.amount : c.dueDays;
+      byAlpha[ta].amount = c.amountRaw || '';
     }
   }
   var alphaSteps = Object.keys(byAlpha).map(function(k) { return byAlpha[k]; })
@@ -10663,9 +10663,7 @@ function renderRunway() {
         var icon = stepState === 'done' ? '&#10003;' : stepState === 'current' ? '&#10132;' : '';
         circleHtml = '<div class="runway-circle rw-' + stepState + '">' + icon + '</div>';
       }
-      var amtPill = (s.amount !== null && s.amount !== undefined)
-        ? ' <span class="runway-amt-pill">$' + s.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</span>'
-        : '';
+      var amtPill = s.amount ? ' <span class="runway-amt-pill">' + escAttr(s.amount) + '</span>' : '';
       h += '<div class="runway-step">'
         +   circleHtml
         +   '<div class="runway-step-num">' + (s.kind === 'alpha' ? s.letter : s.num) + '</div>'
