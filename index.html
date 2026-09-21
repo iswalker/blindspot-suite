@@ -1130,6 +1130,19 @@ td.hbt-num:last-child { width: 13%; }
 .lw-chart-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #888; margin: 0 0 4px 16px; }
 
 /* ---- Runway ---- */
+#runway-factors-wrap { position: relative; margin-left: auto; }
+#runway-factors-btn {
+  padding: 6px 12px; background: #fff; border: 1px solid #ccc;
+  border-radius: 5px; font-size: 12px; cursor: pointer; color: #555; white-space: nowrap;
+}
+#runway-factors-btn:hover { background: #f0f0f0; }
+#runway-factors-btn.active { border-color: #333; background: #f0f0f0; }
+#runway-factors-panel {
+  display: none; position: absolute; top: calc(100% + 4px); right: 0;
+  background: #fff; border: 1px solid #ddd; border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.13); min-width: 180px; max-height: 300px;
+  overflow-y: auto; z-index: 300; padding: 6px 0;
+}
 #runway-tagline { font-size: 15px; color: #555; margin: 2px 0 26px; max-width: 760px; line-height: 1.4; }
 #runway-body { display: flex; gap: 48px; flex-wrap: wrap; padding-bottom: 50px; }
 #runway-empty { font-size: 12px; color: #999; padding: 12px 0; }
@@ -1166,7 +1179,7 @@ td.hbt-num:last-child { width: 13%; }
 .runway-tag-pill {
   display: inline-block; padding: 2px 8px; border-radius: 12px;
   background: #eee; color: #777; font-weight: 600; font-size: 14px;
-  margin-right: 6px; vertical-align: middle;
+  margin-left: 4px; vertical-align: middle;
 }
 
 /* ---- Net Worth 30y Outlook ---- */
@@ -1907,6 +1920,10 @@ td.hbt-num:last-child { width: 13%; }
   <div id="runway-panel" style="display:none">
     <div class="panel-hdr">
       <h1>Runway</h1>
+      <div id="runway-factors-wrap" style="display:none">
+        <button id="runway-factors-btn">Factors &#9660;</button>
+        <div id="runway-factors-panel"></div>
+      </div>
     </div>
     <div id="runway-tagline"></div>
     <div id="runway-body"></div>
@@ -2211,7 +2228,8 @@ var state = {
   showRecovTrend:      localStorage.getItem('show-recov-trend') === '1',
   showGlidepath:       localStorage.getItem('show-glidepath') === '1',
   excludeUnknownIncome: localStorage.getItem('cf-exclude-unknown-income') !== '0',
-  homeSelectedAccounts: parseJsonLS('sel-home-accts') || {}
+  homeSelectedAccounts: parseJsonLS('sel-home-accts') || {},
+  runwayFactors:        parseJsonLS('sel-runway-factors') || {}
 };
 
 // ============================================================
@@ -10528,6 +10546,8 @@ var RUNWAY_ALPHA_SUBTEXT_RE = /^runway step\s+([a-z])\s+subtext$/i;
 var RUNWAY_ALPHA_TITLE_RE   = /^runway step\s+([a-z])$/i;
 var RUNWAY_COL_SUBTEXT_RE   = /^runway column\s+(\d+)([a-z]?)\s+subtext$/i;
 var RUNWAY_COL_HDR_RE       = /^runway column\s+(\d+)([a-z]?)$/i;
+// A "[Tag] Title" prefix on a step's Text column splits into a tag pill and the title itself.
+var RUNWAY_TAG_RE           = /^\[([^\]]+)\]\s*/;
 
 // Parses a step's Track Against value ("Runway Column <n>" / "Runway Column <n><a>") into the
 // section key it belongs to. Anything else falls back to its own single-section column, keyed
@@ -10565,23 +10585,27 @@ function getRunwayData() {
       colDefs[hdrKey].header = c.id || '';
     } else if ((mSub = usedFor.match(RUNWAY_SUBTEXT_RE))) {
       var sn = parseInt(mSub[1], 10);
-      if (!byNum[sn]) byNum[sn] = { kind: 'num', num: sn, title: '', subtext: '', col: null, amount: '' };
+      if (!byNum[sn]) byNum[sn] = { kind: 'num', num: sn, title: '', tag: null, subtext: '', col: null, amount: '' };
       byNum[sn].subtext = c.id || '';
     } else if ((mAlphaSub = usedFor.match(RUNWAY_ALPHA_SUBTEXT_RE))) {
       var sa = mAlphaSub[1].toUpperCase();
-      if (!byAlpha[sa]) byAlpha[sa] = { kind: 'alpha', letter: sa, title: '', subtext: '', col: null, amount: '' };
+      if (!byAlpha[sa]) byAlpha[sa] = { kind: 'alpha', letter: sa, title: '', tag: null, subtext: '', col: null, amount: '' };
       byAlpha[sa].subtext = c.id || '';
     } else if ((mTitle = usedFor.match(RUNWAY_TITLE_RE))) {
       var tn = parseInt(mTitle[1], 10);
-      if (!byNum[tn]) byNum[tn] = { kind: 'num', num: tn, title: '', subtext: '', col: null, amount: '' };
-      byNum[tn].title = c.id || '';
+      if (!byNum[tn]) byNum[tn] = { kind: 'num', num: tn, title: '', tag: null, subtext: '', col: null, amount: '' };
+      var tagM1 = (c.id || '').match(RUNWAY_TAG_RE);
+      byNum[tn].tag = tagM1 ? tagM1[1] : null;
+      byNum[tn].title = tagM1 ? (c.id || '').slice(tagM1[0].length) : (c.id || '');
       byNum[tn].col = runwayColKey(c.trackAgainstRaw, legacyOrder);
       // Shown as-is (plain text), not reformatted -- the Amount column isn't always a dollar figure.
       byNum[tn].amount = c.amountRaw || '';
     } else if ((mAlphaTitle = usedFor.match(RUNWAY_ALPHA_TITLE_RE))) {
       var ta = mAlphaTitle[1].toUpperCase();
-      if (!byAlpha[ta]) byAlpha[ta] = { kind: 'alpha', letter: ta, title: '', subtext: '', col: null, amount: '' };
-      byAlpha[ta].title = c.id || '';
+      if (!byAlpha[ta]) byAlpha[ta] = { kind: 'alpha', letter: ta, title: '', tag: null, subtext: '', col: null, amount: '' };
+      var tagM2 = (c.id || '').match(RUNWAY_TAG_RE);
+      byAlpha[ta].tag = tagM2 ? tagM2[1] : null;
+      byAlpha[ta].title = tagM2 ? (c.id || '').slice(tagM2[0].length) : (c.id || '');
       byAlpha[ta].col = runwayColKey(c.trackAgainstRaw, legacyOrder);
       byAlpha[ta].amount = c.amountRaw || '';
     }
@@ -10591,7 +10615,17 @@ function getRunwayData() {
   var numSteps = Object.keys(byNum).map(function(k) { return byNum[k]; })
     .sort(function(a, b) { return a.num - b.num; });
   // Lettered steps sort before numbered steps within a section.
-  var steps = alphaSteps.concat(numSteps);
+  var allSteps = alphaSteps.concat(numSteps);
+
+  // Distinct tags across every step (not just visible ones), in first-appearance order -- the
+  // Factors filter needs to offer a toggle for a tag even while its steps are hidden.
+  var allTags = [];
+  for (var ti = 0; ti < allSteps.length; ti++) {
+    var tg = allSteps[ti].tag;
+    if (tg && allTags.indexOf(tg) === -1) allTags.push(tg);
+  }
+  var factors = state.runwayFactors || {};
+  var steps = allSteps.filter(function(s) { return !s.tag || factors[s.tag] !== false; });
 
   // Group steps into sections (one per distinct column key), preserving first-appearance order.
   var sectionOrder = [], sectionsByKey = {};
@@ -10629,13 +10663,58 @@ function getRunwayData() {
       .map(function(s) { return s.section; });
   }).concat(legacyCols.map(function(lc) { return lc.sections; }));
 
-  return { goal: goal, currentStep: currentStep, steps: steps, columns: columns };
+  // Numbered steps get a fresh badge number counting only currently visible steps, in render
+  // order (column by column, section by section) -- so hiding a Factor closes any gap it leaves
+  // (e.g. steps 8, 9, 10 with 9 hidden renders as 8, 9). Lettered steps always show their letter.
+  var displayNum = 1;
+  for (var dci = 0; dci < columns.length; dci++) {
+    for (var dsi = 0; dsi < columns[dci].length; dsi++) {
+      var secSteps = columns[dci][dsi].steps;
+      for (var dpi = 0; dpi < secSteps.length; dpi++) {
+        if (secSteps[dpi].kind === 'num') secSteps[dpi].displayNum = displayNum++;
+      }
+    }
+  }
+
+  return { goal: goal, currentStep: currentStep, steps: steps, columns: columns, allTags: allTags };
+}
+
+// Rebuilds the "Factors" dropdown -- one checkbox per distinct [Tag] found across all Runway
+// Step rows, all enabled by default. Unchecking one hides its steps and closes the numbering gap.
+function populateRunwayFactorsFilter(tags) {
+  var wrap = document.getElementById('runway-factors-wrap');
+  var panel = document.getElementById('runway-factors-panel');
+  if (!wrap || !panel) return;
+  if (!tags.length) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+  var h = '';
+  for (var i = 0; i < tags.length; i++) {
+    var tg = tags[i];
+    h += '<label class="acct-chk-row">'
+       + '<input type="checkbox" value="' + escAttr(tg) + '"' + (state.runwayFactors[tg] !== false ? ' checked' : '') + '>'
+       + escAttr(tg)
+       + '</label>';
+  }
+  panel.innerHTML = h;
+  var inputs = panel.querySelectorAll('input[type=checkbox]');
+  for (var k = 0; k < inputs.length; k++) {
+    inputs[k].addEventListener('change', function() {
+      state.runwayFactors[this.value] = this.checked;
+      localStorage.setItem('sel-runway-factors', JSON.stringify(state.runwayFactors));
+      renderRunway();
+    });
+  }
+  var total = tags.length, sel = 0;
+  for (var j = 0; j < tags.length; j++) { if (state.runwayFactors[tags[j]] !== false) sel++; }
+  var btn = document.getElementById('runway-factors-btn');
+  if (btn) btn.textContent = 'Factors (' + sel + '/' + total + ') ▾';
 }
 
 function renderRunway() {
   var body = document.getElementById('runway-body');
   if (!body) return;
   var data = getRunwayData();
+  populateRunwayFactorsFilter(data.allTags);
 
   var taglineEl = document.getElementById('runway-tagline');
   if (taglineEl) {
@@ -10669,15 +10748,14 @@ function renderRunway() {
         circleHtml = '<div class="runway-circle rw-' + stepState + '">' + icon + '</div>';
       }
       var amtPill = s.amount ? ' <span class="runway-amt-pill">' + escAttr(s.amount) + '</span>' : '';
-      // A "[Tag] Title" prefix in the Text column becomes a grey tag pill before the title.
-      var tagMatch = s.title.match(/^\[([^\]]+)\]\s*/);
-      var tagPill = tagMatch ? '<span class="runway-tag-pill">' + escAttr(tagMatch[1]) + '</span>' : '';
-      var titleText = tagMatch ? s.title.slice(tagMatch[0].length) : s.title;
+      // A "[Tag] Title" prefix in the Text column becomes a grey tag pill, shown after the
+      // amount pill (title, then amount, then tag).
+      var tagPill = s.tag ? ' <span class="runway-tag-pill">' + escAttr(s.tag) + '</span>' : '';
       h += '<div class="runway-step">'
         +   circleHtml
-        +   '<div class="runway-step-num">' + (s.kind === 'alpha' ? s.letter : s.num) + '</div>'
+        +   '<div class="runway-step-num">' + (s.kind === 'alpha' ? s.letter : s.displayNum) + '</div>'
         +   '<div class="runway-step-text">'
-        +     '<div class="runway-title">' + tagPill + escAttr(titleText) + amtPill + '</div>'
+        +     '<div class="runway-title">' + escAttr(s.title) + amtPill + tagPill + '</div>'
         +     (s.subtext ? '<div class="runway-subtext">' + escAttr(s.subtext) + '</div>' : '')
         +   '</div>'
         + '</div>';
@@ -11808,6 +11886,13 @@ document.addEventListener('DOMContentLoaded', function() {
     panel.style.display = open ? 'none' : 'block';
     document.getElementById('home-acct-filter-btn').classList.toggle('active', !open);
   });
+  document.getElementById('runway-factors-btn').addEventListener('click', function(e) {
+    e.stopPropagation();
+    var panel = document.getElementById('runway-factors-panel');
+    var open  = panel.style.display === 'block';
+    panel.style.display = open ? 'none' : 'block';
+    document.getElementById('runway-factors-btn').classList.toggle('active', !open);
+  });
   document.addEventListener('click', function(e) {
     var wrap = document.getElementById('acct-filter-wrap');
     if (wrap && !wrap.contains(e.target)) {
@@ -11828,6 +11913,11 @@ document.addEventListener('DOMContentLoaded', function() {
     if (homeWrap && !homeWrap.contains(e.target)) {
       document.getElementById('home-acct-filter-panel').style.display = 'none';
       document.getElementById('home-acct-filter-btn').classList.remove('active');
+    }
+    var runwayFactorsWrap = document.getElementById('runway-factors-wrap');
+    if (runwayFactorsWrap && !runwayFactorsWrap.contains(e.target)) {
+      document.getElementById('runway-factors-panel').style.display = 'none';
+      document.getElementById('runway-factors-btn').classList.remove('active');
     }
   });
 
