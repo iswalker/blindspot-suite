@@ -1138,6 +1138,7 @@ td.hbt-num:last-child { width: 13%; }
   font-size: 26px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
   color: #888; margin: 0 0 16px; padding-bottom: 6px; border-bottom: 2px solid #eee;
 }
+.runway-col-subtext { font-size: 13px; color: #999; line-height: 1.4; margin: -12px 0 16px; }
 .runway-step { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 26px; }
 .runway-step:last-child { margin-bottom: 0; }
 .runway-circle {
@@ -10496,6 +10497,8 @@ function getNwBirthYear() {
 //                                        the letter (no checkbox/checkmark/arrow circle). Sorted
 //                                        before the numbered steps within its column.
 //   "Runway Step <a> Subtext"  Text    = smaller text shown under lettered step <a>'s title
+//   "Runway Column <n> Subtext" Text   = tagline shown under column <n>'s header, where <n> is
+//                                        the column's 1-based position (1, 2, 3...) left to right
 //   "Runway Step"              Amount  = the step number the user is currently on
 // A plain step number (no "$" Unit) parses into dueDays rather than amount -- check both,
 // mirroring the same quirk worked around for Birth Year above.
@@ -10505,20 +10508,23 @@ var RUNWAY_SUBTEXT_RE     = /^runway step\s+(\d+)\s+subtext$/i;
 var RUNWAY_TITLE_RE       = /^runway step\s+(\d+)$/i;
 var RUNWAY_ALPHA_SUBTEXT_RE = /^runway step\s+([a-z])\s+subtext$/i;
 var RUNWAY_ALPHA_TITLE_RE   = /^runway step\s+([a-z])$/i;
+var RUNWAY_COL_SUBTEXT_RE   = /^runway column\s+(\d+)\s+subtext$/i;
 
 function getRunwayData() {
-  var goal = '', currentStep = null, byNum = {}, byAlpha = {};
+  var goal = '', currentStep = null, byNum = {}, byAlpha = {}, colSubtexts = {};
   var cfgRows = state.catConfig || [];
   for (var i = 0; i < cfgRows.length; i++) {
     var c = cfgRows[i];
     var usedFor = (c.usedFor || '').trim();
     if (!usedFor) continue;
-    var mSub, mTitle, mAlphaSub, mAlphaTitle;
+    var mSub, mTitle, mAlphaSub, mAlphaTitle, mColSub;
     if (RUNWAY_GOAL_RE.test(usedFor)) {
       goal = c.id || '';
     } else if (RUNWAY_CURRENT_RE.test(usedFor)) {
       var v = c.amount !== null ? c.amount : c.dueDays;
       if (v !== null) currentStep = Math.round(v);
+    } else if ((mColSub = usedFor.match(RUNWAY_COL_SUBTEXT_RE))) {
+      colSubtexts[parseInt(mColSub[1], 10)] = c.id || '';
     } else if ((mSub = usedFor.match(RUNWAY_SUBTEXT_RE))) {
       var sn = parseInt(mSub[1], 10);
       if (!byNum[sn]) byNum[sn] = { kind: 'num', num: sn, title: '', subtext: '', col: '' };
@@ -10550,7 +10556,7 @@ function getRunwayData() {
   for (var si = 0; si < steps.length; si++) {
     if (columns.indexOf(steps[si].col) === -1) columns.push(steps[si].col);
   }
-  return { goal: goal, currentStep: currentStep, steps: steps, columns: columns };
+  return { goal: goal, currentStep: currentStep, steps: steps, columns: columns, colSubtexts: colSubtexts };
 }
 
 function renderRunway() {
@@ -10571,9 +10577,11 @@ function renderRunway() {
     return;
   }
 
-  function renderCol(colName) {
+  function renderCol(colName, colPos) {
     var steps = data.steps.filter(function(s) { return s.col === colName; });
-    var h = '<div class="runway-col-hdr">' + escAttr(colName) + '</div>';
+    var colSubtext = data.colSubtexts[colPos];
+    var h = '<div class="runway-col-hdr">' + escAttr(colName) + '</div>'
+      + (colSubtext ? '<div class="runway-col-subtext">' + escAttr(colSubtext) + '</div>' : '');
     for (var i = 0; i < steps.length; i++) {
       var s = steps[i];
       var circleHtml;
@@ -10603,7 +10611,7 @@ function renderRunway() {
 
   var html = '';
   for (var ci = 0; ci < data.columns.length; ci++) {
-    html += '<div class="runway-col">' + renderCol(data.columns[ci]) + '</div>';
+    html += '<div class="runway-col">' + renderCol(data.columns[ci], ci + 1) + '</div>';
   }
   body.innerHTML = html;
 }
