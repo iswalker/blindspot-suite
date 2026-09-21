@@ -1139,6 +1139,7 @@ td.hbt-num:last-child { width: 13%; }
   color: #888; margin: 0 0 16px; padding-bottom: 6px; border-bottom: 2px solid #eee;
 }
 .runway-col-subtext { font-size: 13px; color: #999; line-height: 1.4; margin: -12px 0 16px; }
+.runway-section:not(:first-child) { margin-top: 32px; }
 .runway-step { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 26px; }
 .runway-step:last-child { margin-bottom: 0; }
 .runway-circle {
@@ -10491,19 +10492,25 @@ function getNwBirthYear() {
 }
 
 // Runway tab: driven entirely by Config.csv rows.
-//   "Runway Goal"              Text    = tagline shown above all columns
-//   "Runway Step <n>"          Text    = that step's title; the Track Against text picks its
-//                                        column (verbatim -- one column per distinct value,
-//                                        column header = that text, in first-appearance order)
+//   "Runway Goal"                Text  = tagline shown above all columns
+//   "Runway Column <n>"          Text  = header shown for column <n> (1, 2, 3... left to right)
+//   "Runway Column <n> Subtext"  Text  = tagline shown under that header
+//   "Runway Column <n><a>"       Text  = a second (third, ...) header+step-list section stacked
+//                                        inside column <n>, after "Runway Column <n>" -- <a> is a
+//                                        single letter (b, c...) and sections within a column are
+//                                        ordered "Runway Column <n>" first, then by <a>
+//   "Runway Column <n><a> Subtext" Text = tagline shown under that section's header
+//   "Runway Step <n>"          Text    = that step's title; its Track Against must name the
+//                                        section it belongs to -- the literal key, e.g.
+//                                        "Runway Column 2" or "Runway Column 1b" -- not the
+//                                        display text from that section's own Text column
 //   "Runway Step <n> Subtext"  Text    = smaller text shown under step <n>'s title
 //   "Runway Step <a>"          Text    = same as "Runway Step <n>" but <a> is a single letter
 //                                        (A, B, ...) instead of a number -- an unnumbered step
 //                                        with no done/current/future state; its badge just shows
 //                                        the letter (no checkbox/checkmark/arrow circle). Sorted
-//                                        before the numbered steps within its column.
+//                                        before the numbered steps within its section.
 //   "Runway Step <a> Subtext"  Text    = smaller text shown under lettered step <a>'s title
-//   "Runway Column <n> Subtext" Text   = tagline shown under column <n>'s header, where <n> is
-//                                        the column's 1-based position (1, 2, 3...) left to right
 //   "Runway Step"              Amount  = the step number the user is currently on
 // A plain step number (no "$" Unit) parses into dueDays rather than amount -- check both,
 // mirroring the same quirk worked around for Birth Year above.
@@ -10513,42 +10520,62 @@ var RUNWAY_SUBTEXT_RE     = /^runway step\s+(\d+)\s+subtext$/i;
 var RUNWAY_TITLE_RE       = /^runway step\s+(\d+)$/i;
 var RUNWAY_ALPHA_SUBTEXT_RE = /^runway step\s+([a-z])\s+subtext$/i;
 var RUNWAY_ALPHA_TITLE_RE   = /^runway step\s+([a-z])$/i;
-var RUNWAY_COL_SUBTEXT_RE   = /^runway column\s+(\d+)\s+subtext$/i;
+var RUNWAY_COL_SUBTEXT_RE   = /^runway column\s+(\d+)([a-z]?)\s+subtext$/i;
+var RUNWAY_COL_HDR_RE       = /^runway column\s+(\d+)([a-z]?)$/i;
+
+// Parses a step's Track Against value ("Runway Column <n>" / "Runway Column <n><a>") into the
+// section key it belongs to. Anything else falls back to its own single-section column, keyed
+// by that raw text, in first-appearance order -- kept only as a graceful fallback for rows that
+// haven't been migrated to the new key-based convention.
+function runwayColKey(raw, legacyOrder) {
+  var t = (raw || '').trim();
+  var m = t.match(RUNWAY_COL_HDR_RE);
+  if (m) return { key: 'n' + m[1] + m[2].toLowerCase(), num: parseInt(m[1], 10), letter: m[2].toLowerCase(), raw: t };
+  var idx = legacyOrder.indexOf(t);
+  if (idx === -1) { idx = legacyOrder.length; legacyOrder.push(t); }
+  return { key: 'l' + idx, num: null, letter: '', raw: t, legacyIdx: idx };
+}
 
 function getRunwayData() {
-  var goal = '', currentStep = null, byNum = {}, byAlpha = {}, colSubtexts = {};
+  var goal = '', currentStep = null, byNum = {}, byAlpha = {}, colDefs = {}, legacyOrder = [];
   var cfgRows = state.catConfig || [];
   for (var i = 0; i < cfgRows.length; i++) {
     var c = cfgRows[i];
     var usedFor = (c.usedFor || '').trim();
     if (!usedFor) continue;
-    var mSub, mTitle, mAlphaSub, mAlphaTitle, mColSub;
+    var mSub, mTitle, mAlphaSub, mAlphaTitle, mColSub, mColHdr;
     if (RUNWAY_GOAL_RE.test(usedFor)) {
       goal = c.id || '';
     } else if (RUNWAY_CURRENT_RE.test(usedFor)) {
       var v = c.amount !== null ? c.amount : c.dueDays;
       if (v !== null) currentStep = Math.round(v);
     } else if ((mColSub = usedFor.match(RUNWAY_COL_SUBTEXT_RE))) {
-      colSubtexts[parseInt(mColSub[1], 10)] = c.id || '';
+      var subKey = 'n' + mColSub[1] + mColSub[2].toLowerCase();
+      if (!colDefs[subKey]) colDefs[subKey] = { header: '', subtext: '' };
+      colDefs[subKey].subtext = c.id || '';
+    } else if ((mColHdr = usedFor.match(RUNWAY_COL_HDR_RE))) {
+      var hdrKey = 'n' + mColHdr[1] + mColHdr[2].toLowerCase();
+      if (!colDefs[hdrKey]) colDefs[hdrKey] = { header: '', subtext: '' };
+      colDefs[hdrKey].header = c.id || '';
     } else if ((mSub = usedFor.match(RUNWAY_SUBTEXT_RE))) {
       var sn = parseInt(mSub[1], 10);
-      if (!byNum[sn]) byNum[sn] = { kind: 'num', num: sn, title: '', subtext: '', col: '' };
+      if (!byNum[sn]) byNum[sn] = { kind: 'num', num: sn, title: '', subtext: '', col: null, amount: null };
       byNum[sn].subtext = c.id || '';
     } else if ((mAlphaSub = usedFor.match(RUNWAY_ALPHA_SUBTEXT_RE))) {
       var sa = mAlphaSub[1].toUpperCase();
-      if (!byAlpha[sa]) byAlpha[sa] = { kind: 'alpha', letter: sa, title: '', subtext: '', col: '' };
+      if (!byAlpha[sa]) byAlpha[sa] = { kind: 'alpha', letter: sa, title: '', subtext: '', col: null, amount: null };
       byAlpha[sa].subtext = c.id || '';
     } else if ((mTitle = usedFor.match(RUNWAY_TITLE_RE))) {
       var tn = parseInt(mTitle[1], 10);
-      if (!byNum[tn]) byNum[tn] = { kind: 'num', num: tn, title: '', subtext: '', col: '', amount: null };
+      if (!byNum[tn]) byNum[tn] = { kind: 'num', num: tn, title: '', subtext: '', col: null, amount: null };
       byNum[tn].title = c.id || '';
-      byNum[tn].col = (c.trackAgainstRaw || '').trim();
+      byNum[tn].col = runwayColKey(c.trackAgainstRaw, legacyOrder);
       byNum[tn].amount = c.amount;
     } else if ((mAlphaTitle = usedFor.match(RUNWAY_ALPHA_TITLE_RE))) {
       var ta = mAlphaTitle[1].toUpperCase();
-      if (!byAlpha[ta]) byAlpha[ta] = { kind: 'alpha', letter: ta, title: '', subtext: '', col: '', amount: null };
+      if (!byAlpha[ta]) byAlpha[ta] = { kind: 'alpha', letter: ta, title: '', subtext: '', col: null, amount: null };
       byAlpha[ta].title = c.id || '';
-      byAlpha[ta].col = (c.trackAgainstRaw || '').trim();
+      byAlpha[ta].col = runwayColKey(c.trackAgainstRaw, legacyOrder);
       byAlpha[ta].amount = c.amount;
     }
   }
@@ -10556,14 +10583,46 @@ function getRunwayData() {
     .sort(function(a, b) { return a.letter < b.letter ? -1 : a.letter > b.letter ? 1 : 0; });
   var numSteps = Object.keys(byNum).map(function(k) { return byNum[k]; })
     .sort(function(a, b) { return a.num - b.num; });
-  // Lettered steps sort before numbered steps within a column.
+  // Lettered steps sort before numbered steps within a section.
   var steps = alphaSteps.concat(numSteps);
-  // One column per distinct Track Against value, in the order its first step appears.
-  var columns = [];
+
+  // Group steps into sections (one per distinct column key), preserving first-appearance order.
+  var sectionOrder = [], sectionsByKey = {};
   for (var si = 0; si < steps.length; si++) {
-    if (columns.indexOf(steps[si].col) === -1) columns.push(steps[si].col);
+    var colKey = steps[si].col;
+    if (!colKey) continue;
+    if (!sectionsByKey[colKey.key]) {
+      sectionsByKey[colKey.key] = colKey;
+      sectionsByKey[colKey.key].steps = [];
+      sectionOrder.push(colKey.key);
+    }
+    sectionsByKey[colKey.key].steps.push(steps[si]);
   }
-  return { goal: goal, currentStep: currentStep, steps: steps, columns: columns, colSubtexts: colSubtexts };
+
+  // Numbered sections group into one column per <n>, ordered by <n> then by <a> (no letter
+  // first). Legacy (unmatched Track Against text) sections each form their own column, appended
+  // after the numbered ones in first-appearance order.
+  var columnsByNum = {}, columnNums = [], legacyCols = [];
+  for (var oi = 0; oi < sectionOrder.length; oi++) {
+    var sec = sectionsByKey[sectionOrder[oi]];
+    var def = colDefs[sec.key];
+    var section = { header: (def && def.header) ? def.header : sec.raw, subtext: def ? def.subtext : '', steps: sec.steps };
+    if (sec.num !== null) {
+      if (!columnsByNum[sec.num]) { columnsByNum[sec.num] = []; columnNums.push(sec.num); }
+      columnsByNum[sec.num].push({ letter: sec.letter, section: section });
+    } else {
+      legacyCols.push({ legacyIdx: sec.legacyIdx, sections: [section] });
+    }
+  }
+  columnNums.sort(function(a, b) { return a - b; });
+  legacyCols.sort(function(a, b) { return a.legacyIdx - b.legacyIdx; });
+  var columns = columnNums.map(function(n) {
+    return columnsByNum[n]
+      .sort(function(a, b) { return a.letter < b.letter ? -1 : a.letter > b.letter ? 1 : 0; })
+      .map(function(s) { return s.section; });
+  }).concat(legacyCols.map(function(lc) { return lc.sections; }));
+
+  return { goal: goal, currentStep: currentStep, steps: steps, columns: columns };
 }
 
 function renderRunway() {
@@ -10584,13 +10643,11 @@ function renderRunway() {
     return;
   }
 
-  function renderCol(colName, colPos) {
-    var steps = data.steps.filter(function(s) { return s.col === colName; });
-    var colSubtext = data.colSubtexts[colPos];
-    var h = '<div class="runway-col-hdr">' + escAttr(colName) + '</div>'
-      + (colSubtext ? '<div class="runway-col-subtext">' + escAttr(colSubtext) + '</div>' : '');
-    for (var i = 0; i < steps.length; i++) {
-      var s = steps[i];
+  function renderSection(sec) {
+    var h = '<div class="runway-col-hdr">' + escAttr(sec.header) + '</div>'
+      + (sec.subtext ? '<div class="runway-col-subtext">' + escAttr(sec.subtext) + '</div>' : '');
+    for (var i = 0; i < sec.steps.length; i++) {
+      var s = sec.steps[i];
       var circleHtml;
       if (s.kind === 'alpha') {
         // Lettered steps have no done/current/future state -- just the letter, no circle.
@@ -10621,7 +10678,12 @@ function renderRunway() {
 
   var html = '';
   for (var ci = 0; ci < data.columns.length; ci++) {
-    html += '<div class="runway-col">' + renderCol(data.columns[ci], ci + 1) + '</div>';
+    var sections = data.columns[ci];
+    var colHtml = '';
+    for (var se = 0; se < sections.length; se++) {
+      colHtml += '<div class="runway-section">' + renderSection(sections[se]) + '</div>';
+    }
+    html += '<div class="runway-col">' + colHtml + '</div>';
   }
   body.innerHTML = html;
 }
