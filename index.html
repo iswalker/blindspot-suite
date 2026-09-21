@@ -10570,13 +10570,15 @@ function getRunwayData() {
       if (!byNum[tn]) byNum[tn] = { kind: 'num', num: tn, title: '', subtext: '', col: null, amount: null };
       byNum[tn].title = c.id || '';
       byNum[tn].col = runwayColKey(c.trackAgainstRaw, legacyOrder);
-      byNum[tn].amount = c.amount;
+      // A plain dollar figure with no "$" Unit parses into dueDays rather than amount --
+      // check both, mirroring the same quirk worked around for Birth Year/current step above.
+      byNum[tn].amount = c.amount !== null ? c.amount : c.dueDays;
     } else if ((mAlphaTitle = usedFor.match(RUNWAY_ALPHA_TITLE_RE))) {
       var ta = mAlphaTitle[1].toUpperCase();
       if (!byAlpha[ta]) byAlpha[ta] = { kind: 'alpha', letter: ta, title: '', subtext: '', col: null, amount: null };
       byAlpha[ta].title = c.id || '';
       byAlpha[ta].col = runwayColKey(c.trackAgainstRaw, legacyOrder);
-      byAlpha[ta].amount = c.amount;
+      byAlpha[ta].amount = c.amount !== null ? c.amount : c.dueDays;
     }
   }
   var alphaSteps = Object.keys(byAlpha).map(function(k) { return byAlpha[k]; })
