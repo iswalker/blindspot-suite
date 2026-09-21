@@ -10490,22 +10490,30 @@ function getNwBirthYear() {
 //                                        column (verbatim -- one column per distinct value,
 //                                        column header = that text, in first-appearance order)
 //   "Runway Step <n> Subtext"  Text    = smaller text shown under step <n>'s title
+//   "Runway Step <a>"          Text    = same as "Runway Step <n>" but <a> is a single letter
+//                                        (A, B, ...) instead of a number -- an unnumbered step
+//                                        with no done/current/future state; its badge just shows
+//                                        the letter (no checkbox/checkmark/arrow circle). Sorted
+//                                        before the numbered steps within its column.
+//   "Runway Step <a> Subtext"  Text    = smaller text shown under lettered step <a>'s title
 //   "Runway Step"              Amount  = the step number the user is currently on
 // A plain step number (no "$" Unit) parses into dueDays rather than amount -- check both,
 // mirroring the same quirk worked around for Birth Year above.
-var RUNWAY_GOAL_RE    = /^runway goal$/i;
-var RUNWAY_CURRENT_RE = /^runway step$/i;
-var RUNWAY_SUBTEXT_RE = /^runway step\s+(\d+)\s+subtext$/i;
-var RUNWAY_TITLE_RE   = /^runway step\s+(\d+)$/i;
+var RUNWAY_GOAL_RE        = /^runway goal$/i;
+var RUNWAY_CURRENT_RE     = /^runway step$/i;
+var RUNWAY_SUBTEXT_RE     = /^runway step\s+(\d+)\s+subtext$/i;
+var RUNWAY_TITLE_RE       = /^runway step\s+(\d+)$/i;
+var RUNWAY_ALPHA_SUBTEXT_RE = /^runway step\s+([a-z])\s+subtext$/i;
+var RUNWAY_ALPHA_TITLE_RE   = /^runway step\s+([a-z])$/i;
 
 function getRunwayData() {
-  var goal = '', currentStep = null, byNum = {};
+  var goal = '', currentStep = null, byNum = {}, byAlpha = {};
   var cfgRows = state.catConfig || [];
   for (var i = 0; i < cfgRows.length; i++) {
     var c = cfgRows[i];
     var usedFor = (c.usedFor || '').trim();
     if (!usedFor) continue;
-    var mSub, mTitle;
+    var mSub, mTitle, mAlphaSub, mAlphaTitle;
     if (RUNWAY_GOAL_RE.test(usedFor)) {
       goal = c.id || '';
     } else if (RUNWAY_CURRENT_RE.test(usedFor)) {
@@ -10513,17 +10521,30 @@ function getRunwayData() {
       if (v !== null) currentStep = Math.round(v);
     } else if ((mSub = usedFor.match(RUNWAY_SUBTEXT_RE))) {
       var sn = parseInt(mSub[1], 10);
-      if (!byNum[sn]) byNum[sn] = { num: sn, title: '', subtext: '', col: '' };
+      if (!byNum[sn]) byNum[sn] = { kind: 'num', num: sn, title: '', subtext: '', col: '' };
       byNum[sn].subtext = c.id || '';
+    } else if ((mAlphaSub = usedFor.match(RUNWAY_ALPHA_SUBTEXT_RE))) {
+      var sa = mAlphaSub[1].toUpperCase();
+      if (!byAlpha[sa]) byAlpha[sa] = { kind: 'alpha', letter: sa, title: '', subtext: '', col: '' };
+      byAlpha[sa].subtext = c.id || '';
     } else if ((mTitle = usedFor.match(RUNWAY_TITLE_RE))) {
       var tn = parseInt(mTitle[1], 10);
-      if (!byNum[tn]) byNum[tn] = { num: tn, title: '', subtext: '', col: '' };
+      if (!byNum[tn]) byNum[tn] = { kind: 'num', num: tn, title: '', subtext: '', col: '' };
       byNum[tn].title = c.id || '';
       byNum[tn].col = (c.trackAgainstRaw || '').trim();
+    } else if ((mAlphaTitle = usedFor.match(RUNWAY_ALPHA_TITLE_RE))) {
+      var ta = mAlphaTitle[1].toUpperCase();
+      if (!byAlpha[ta]) byAlpha[ta] = { kind: 'alpha', letter: ta, title: '', subtext: '', col: '' };
+      byAlpha[ta].title = c.id || '';
+      byAlpha[ta].col = (c.trackAgainstRaw || '').trim();
     }
   }
-  var steps = Object.keys(byNum).map(function(k) { return byNum[k]; })
+  var alphaSteps = Object.keys(byAlpha).map(function(k) { return byAlpha[k]; })
+    .sort(function(a, b) { return a.letter < b.letter ? -1 : a.letter > b.letter ? 1 : 0; });
+  var numSteps = Object.keys(byNum).map(function(k) { return byNum[k]; })
     .sort(function(a, b) { return a.num - b.num; });
+  // Lettered steps sort before numbered steps within a column.
+  var steps = alphaSteps.concat(numSteps);
   // One column per distinct Track Against value, in the order its first step appears.
   var columns = [];
   for (var si = 0; si < steps.length; si++) {
@@ -10555,15 +10576,22 @@ function renderRunway() {
     var h = '<div class="runway-col-hdr">' + escAttr(colName) + '</div>';
     for (var i = 0; i < steps.length; i++) {
       var s = steps[i];
-      var stepState = 'future';
-      if (data.currentStep !== null) {
-        if (s.num < data.currentStep) stepState = 'done';
-        else if (s.num === data.currentStep) stepState = 'current';
+      var circleHtml;
+      if (s.kind === 'alpha') {
+        // Lettered steps have no done/current/future state -- just the letter, no circle.
+        circleHtml = '';
+      } else {
+        var stepState = 'future';
+        if (data.currentStep !== null) {
+          if (s.num < data.currentStep) stepState = 'done';
+          else if (s.num === data.currentStep) stepState = 'current';
+        }
+        var icon = stepState === 'done' ? '&#10003;' : stepState === 'current' ? '&#10132;' : '';
+        circleHtml = '<div class="runway-circle rw-' + stepState + '">' + icon + '</div>';
       }
-      var icon = stepState === 'done' ? '&#10003;' : stepState === 'current' ? '&#10132;' : '';
       h += '<div class="runway-step">'
-        +   '<div class="runway-circle rw-' + stepState + '">' + icon + '</div>'
-        +   '<div class="runway-step-num">' + s.num + '</div>'
+        +   circleHtml
+        +   '<div class="runway-step-num">' + (s.kind === 'alpha' ? s.letter : s.num) + '</div>'
         +   '<div class="runway-step-text">'
         +     '<div class="runway-title">' + escAttr(s.title) + '</div>'
         +     (s.subtext ? '<div class="runway-subtext">' + escAttr(s.subtext) + '</div>' : '')
