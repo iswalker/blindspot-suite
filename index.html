@@ -2326,6 +2326,31 @@ function dtKey(d) {
   var m = d.getMonth() + 1;
   return d.getFullYear() + '-' + (m < 10 ? '0' + m : m);
 }
+// Steps a YNAB scheduled transaction's recurrence forward by calendar months, or null if its
+// frequency isn't month-based (day-based frequencies are stepped separately, see below).
+function schedFreqStepMonths(freq) {
+  switch (freq) {
+    case 'monthly': return 1;
+    case 'everyOtherMonth': return 2;
+    case 'every3Months': return 3;
+    case 'every4Months': return 4;
+    case 'twiceAYear': return 6;
+    case 'yearly': return 12;
+    default: return null;
+  }
+}
+// Steps a day-based recurrence forward by calendar days, or null if it's month-based (or
+// 'never'/unrecognized, which recurs only once).
+function schedFreqStepDays(freq) {
+  switch (freq) {
+    case 'daily': return 1;
+    case 'weekly': return 7;
+    case 'everyOtherWeek': return 14;
+    case 'every4Weeks': return 28;
+    case 'twiceAMonth': return 15; // approximation -- YNAB's actual pattern is two fixed days/month
+    default: return null;
+  }
+}
 function keyLabel(k) {
   var p = k.split('-');
   return MONTH_ABBR[parseInt(p[1], 10) - 1] + ' ' + p[0];
@@ -3327,6 +3352,60 @@ function fetchYnabData(apiKey, budgetId, opts) {
                             closed: a.closed, balance: a.balance / 1000 });
         }
       }
+      // Preview future months: project recurring scheduled INFLOW transactions (paychecks,
+      // etc.) into Income for month columns beyond the current month that already exist
+      // (i.e. have been budgeted ahead) -- otherwise a future month shows $0 Income just
+      // because nothing has posted yet. Only "Inflow: Ready to Assign" occurrences count,
+      // matching the same category the real register uses for the Income row. Recurring
+      // schedules count once per month they'd actually land in, up to the last budgeted
+      // future month already shown.
+      if (allKeys.length) {
+        var curMonthKey    = dtKey(new Date());
+        var maxFutureKey   = allKeys[allKeys.length - 1];
+        var maxFutureParts = maxFutureKey.split('-');
+        var maxFutureDate  = new Date(parseInt(maxFutureParts[0], 10), parseInt(maxFutureParts[1], 10), 0);
+        var acctIdToName   = {};
+        for (var sai = 0; sai < accs.length; sai++) acctIdToName[accs[sai].id] = accs[sai].name;
+        var schedInflows = schedData.scheduled_transactions || [];
+        for (var sti = 0; sti < schedInflows.length; sti++) {
+          var stx = schedInflows[sti];
+          if (stx.deleted || !stx.date_next) continue;
+          if ((stx.amount || 0) <= 0) continue; // inflows only
+          if ((stx.category_name || '') !== 'Inflow: Ready to Assign') continue;
+          var monthStep = schedFreqStepMonths(stx.frequency);
+          var dayStep   = schedFreqStepDays(stx.frequency);
+          var occDate   = new Date(stx.date_next + 'T00:00:00');
+          var guard = 0;
+          while (occDate <= maxFutureDate && guard < 500) {
+            guard++;
+            var occKey = dtKey(occDate);
+            if (occKey > curMonthKey && allKeysSet[occKey]) {
+              var samt  = (stx.amount || 0) / 1000;
+              var sacct = acctIdToName[stx.account_id] || '';
+              incomePivot[occKey] = (incomePivot[occKey] || 0) + samt;
+              if (!incomeAcctPivot[occKey]) incomeAcctPivot[occKey] = {};
+              incomeAcctPivot[occKey][sacct] = (incomeAcctPivot[occKey][sacct] || 0) + samt;
+              var spayee = stx.payee_name || '(Unknown)';
+              if (!incomePayeePivot[occKey]) incomePayeePivot[occKey] = {};
+              if (!incomePayeePivot[occKey][spayee]) incomePayeePivot[occKey][spayee] = {};
+              incomePayeePivot[occKey][spayee][sacct] = (incomePayeePivot[occKey][spayee][sacct] || 0) + samt;
+              if (!regTxns[occKey])                              regTxns[occKey]                              = {};
+              if (!regTxns[occKey]['Inflow'])                    regTxns[occKey]['Inflow']                    = {};
+              if (!regTxns[occKey]['Inflow']['Ready to Assign']) regTxns[occKey]['Inflow']['Ready to Assign'] = [];
+              regTxns[occKey]['Inflow']['Ready to Assign'].push({
+                account: sacct,
+                date: (occDate.getMonth() + 1) + '/' + occDate.getDate() + '/' + occDate.getFullYear(),
+                payee: stx.payee_name || '', memo: ((stx.memo || '') + ' (scheduled)').trim(),
+                outflow: 0, inflow: samt
+              });
+            }
+            if (monthStep)      { occDate = new Date(occDate.getFullYear(), occDate.getMonth() + monthStep, occDate.getDate()); }
+            else if (dayStep)   { occDate = new Date(occDate.getTime() + dayStep * 86400000); }
+            else                { break; } // 'never' or unrecognized frequency -- single occurrence only
+          }
+        }
+      }
+
       var sortByName = function(x, y) { return x.name < y.name ? -1 : x.name > y.name ? 1 : 0; };
       lwAccounts.sort(sortByName);
       nwAccounts.sort(sortByName);
