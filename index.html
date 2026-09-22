@@ -10730,6 +10730,16 @@ function getRunwayData() {
     ns.displayNum = ns.num - hiddenBefore;
   }
 
+  // Same closing-the-gap treatment for lettered steps: a visible step's badge is its literal
+  // letter, shifted back by however many hidden lettered steps come before it (A, B, C with B
+  // hidden renders as A, B).
+  var alphaHiddenBefore = 0;
+  for (var rai = 0; rai < alphaSteps.length; rai++) {
+    var as = alphaSteps[rai];
+    if (as.tag && factors[as.tag] === false) { alphaHiddenBefore++; continue; }
+    as.displayLetter = String.fromCharCode(as.letter.charCodeAt(0) - alphaHiddenBefore);
+  }
+
   // Group steps into sections (one per distinct column key), preserving first-appearance order.
   var sectionOrder = [], sectionsByKey = {};
   for (var si = 0; si < steps.length; si++) {
@@ -10843,7 +10853,7 @@ function renderRunway() {
       var tagPill = s.tag ? ' <span class="runway-tag-pill">' + escAttr(s.tag) + '</span>' : '';
       h += '<div class="runway-step">'
         +   circleHtml
-        +   '<div class="runway-step-num">' + (s.kind === 'alpha' ? s.letter : s.displayNum) + '</div>'
+        +   '<div class="runway-step-num">' + (s.kind === 'alpha' ? s.displayLetter : s.displayNum) + '</div>'
         +   '<div class="runway-step-text">'
         +     '<div class="runway-title">' + escAttr(s.title) + amtPill + tagPill + '</div>'
         +     (s.subtext ? '<div class="runway-subtext">' + escAttr(s.subtext) + '</div>' : '')
