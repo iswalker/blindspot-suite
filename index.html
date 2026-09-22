@@ -3368,40 +3368,53 @@ function fetchYnabData(apiKey, budgetId, opts) {
         for (var sai = 0; sai < accs.length; sai++) acctIdToName[accs[sai].id] = accs[sai].name;
         var schedInflows = schedData.scheduled_transactions || [];
         for (var sti = 0; sti < schedInflows.length; sti++) {
-          var stx = schedInflows[sti];
-          if (stx.deleted || !stx.date_next) continue;
-          if ((stx.amount || 0) <= 0) continue; // inflows only
-          if ((stx.category_name || '') !== 'Inflow: Ready to Assign') continue;
-          var monthStep = schedFreqStepMonths(stx.frequency);
-          var dayStep   = schedFreqStepDays(stx.frequency);
-          var occDate   = new Date(stx.date_next + 'T00:00:00');
-          var guard = 0;
-          while (occDate <= maxFutureDate && guard < 500) {
-            guard++;
-            var occKey = dtKey(occDate);
-            if (occKey > curMonthKey && allKeysSet[occKey]) {
-              var samt  = (stx.amount || 0) / 1000;
-              var sacct = acctIdToName[stx.account_id] || '';
-              incomePivot[occKey] = (incomePivot[occKey] || 0) + samt;
-              if (!incomeAcctPivot[occKey]) incomeAcctPivot[occKey] = {};
-              incomeAcctPivot[occKey][sacct] = (incomeAcctPivot[occKey][sacct] || 0) + samt;
-              var spayee = stx.payee_name || '(Unknown)';
-              if (!incomePayeePivot[occKey]) incomePayeePivot[occKey] = {};
-              if (!incomePayeePivot[occKey][spayee]) incomePayeePivot[occKey][spayee] = {};
-              incomePayeePivot[occKey][spayee][sacct] = (incomePayeePivot[occKey][spayee][sacct] || 0) + samt;
-              if (!regTxns[occKey])                              regTxns[occKey]                              = {};
-              if (!regTxns[occKey]['Inflow'])                    regTxns[occKey]['Inflow']                    = {};
-              if (!regTxns[occKey]['Inflow']['Ready to Assign']) regTxns[occKey]['Inflow']['Ready to Assign'] = [];
-              regTxns[occKey]['Inflow']['Ready to Assign'].push({
-                account: sacct,
-                date: (occDate.getMonth() + 1) + '/' + occDate.getDate() + '/' + occDate.getFullYear(),
-                payee: stx.payee_name || '', memo: ((stx.memo || '') + ' (scheduled)').trim(),
-                outflow: 0, inflow: samt
-              });
+          var parent = schedInflows[sti];
+          if (parent.deleted || !parent.date_next) continue;
+          // A split scheduled transaction carries its total on the parent (with no category)
+          // and the real per-category amounts on subtransactions -- mirror the parent/split
+          // handling used for regular register transactions above.
+          var leaves = (parent.subtransactions && parent.subtransactions.length)
+            ? parent.subtransactions.filter(function(ss) { return !ss.deleted; }).map(function(ss) {
+                return { amount: ss.amount, category_name: ss.category_name || '',
+                         payee_name: ss.payee_name || parent.payee_name, memo: ss.memo || parent.memo };
+              })
+            : [{ amount: parent.amount, category_name: parent.category_name || '',
+                 payee_name: parent.payee_name, memo: parent.memo }];
+          for (var li = 0; li < leaves.length; li++) {
+            var leaf = leaves[li];
+            if ((leaf.amount || 0) <= 0) continue; // inflows only
+            if ((leaf.category_name || '') !== 'Inflow: Ready to Assign') continue;
+            var monthStep = schedFreqStepMonths(parent.frequency);
+            var dayStep   = schedFreqStepDays(parent.frequency);
+            var occDate   = new Date(parent.date_next + 'T00:00:00');
+            var guard = 0;
+            while (occDate <= maxFutureDate && guard < 500) {
+              guard++;
+              var occKey = dtKey(occDate);
+              if (occKey > curMonthKey && allKeysSet[occKey]) {
+                var samt  = (leaf.amount || 0) / 1000;
+                var sacct = acctIdToName[parent.account_id] || '';
+                incomePivot[occKey] = (incomePivot[occKey] || 0) + samt;
+                if (!incomeAcctPivot[occKey]) incomeAcctPivot[occKey] = {};
+                incomeAcctPivot[occKey][sacct] = (incomeAcctPivot[occKey][sacct] || 0) + samt;
+                var spayee = leaf.payee_name || '(Unknown)';
+                if (!incomePayeePivot[occKey]) incomePayeePivot[occKey] = {};
+                if (!incomePayeePivot[occKey][spayee]) incomePayeePivot[occKey][spayee] = {};
+                incomePayeePivot[occKey][spayee][sacct] = (incomePayeePivot[occKey][spayee][sacct] || 0) + samt;
+                if (!regTxns[occKey])                              regTxns[occKey]                              = {};
+                if (!regTxns[occKey]['Inflow'])                    regTxns[occKey]['Inflow']                    = {};
+                if (!regTxns[occKey]['Inflow']['Ready to Assign']) regTxns[occKey]['Inflow']['Ready to Assign'] = [];
+                regTxns[occKey]['Inflow']['Ready to Assign'].push({
+                  account: sacct,
+                  date: (occDate.getMonth() + 1) + '/' + occDate.getDate() + '/' + occDate.getFullYear(),
+                  payee: leaf.payee_name || '', memo: ((leaf.memo || '') + ' (scheduled)').trim(),
+                  outflow: 0, inflow: samt
+                });
+              }
+              if (monthStep)      { occDate = new Date(occDate.getFullYear(), occDate.getMonth() + monthStep, occDate.getDate()); }
+              else if (dayStep)   { occDate = new Date(occDate.getTime() + dayStep * 86400000); }
+              else                { break; } // 'never' or unrecognized frequency -- single occurrence only
             }
-            if (monthStep)      { occDate = new Date(occDate.getFullYear(), occDate.getMonth() + monthStep, occDate.getDate()); }
-            else if (dayStep)   { occDate = new Date(occDate.getTime() + dayStep * 86400000); }
-            else                { break; } // 'never' or unrecognized frequency -- single occurrence only
           }
         }
       }
