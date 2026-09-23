@@ -3357,13 +3357,28 @@ function fetchYnabData(apiKey, budgetId, opts) {
       var lwAccounts      = [];
       var nwAccounts      = [];
       var accs = acctData.accounts || [];
+      // Config row Metric = "Liquid Account Exceptions", Text = comma-separated Account IDs
+      // that should count as liquid regardless of type/on-budget/"~" naming -- lets an account
+      // that wouldn't otherwise qualify still show up on the Liquid Balances tab and its
+      // Accounts dropdown.
+      var lwExceptionIds = {};
+      for (var lei = 0; lei < (state.catConfig || []).length; lei++) {
+        var lec = state.catConfig[lei];
+        if (/^liquid account exceptions$/i.test(lec.usedFor || '')) {
+          var lwExcIdsRaw = (lec.id || '').split(',');
+          for (var leii = 0; leii < lwExcIdsRaw.length; leii++) {
+            var lwExcId = lwExcIdsRaw[leii].trim();
+            if (lwExcId) lwExceptionIds[lwExcId] = true;
+          }
+        }
+      }
       for (var ai = 0; ai < accs.length; ai++) {
         var a = accs[ai];
         allAccountsInfo[a.id] = {
           name: a.name, type: a.type, on_budget: a.on_budget,
           closed: a.closed, balance: a.balance / 1000
         };
-        if (LIQUID_TYPES[a.type] && a.on_budget && a.name.indexOf('~') === -1) {
+        if ((LIQUID_TYPES[a.type] && a.on_budget && a.name.indexOf('~') === -1) || lwExceptionIds[a.id]) {
           lwAccounts.push({ id: a.id, name: a.name, type: a.type, closed: a.closed, balance: a.balance / 1000 });
         }
         if (a.name.indexOf('~') === -1) {
