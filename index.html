@@ -1186,7 +1186,9 @@ td.hbt-num:last-child { width: 13%; }
   background: #eee; color: #777; font-weight: 600; font-size: 14px;
   margin-left: 4px; vertical-align: middle;
 }
-#runway-phases { display: flex; margin: 4px 0 28px; }
+/* A flex item of #runway-body (see renderRunway) -- full-width so it forces a line break
+   between the columns before and after it. */
+#runway-phases { display: flex; flex-basis: 100%; width: 100%; margin: 4px 0 28px; }
 .runway-phase { flex: 1; display: flex; flex-direction: column; align-items: center; min-width: 0; }
 .runway-phase-chevron {
   width: 100%; height: 44px; box-sizing: border-box; display: flex; align-items: center; justify-content: center;
@@ -1971,7 +1973,6 @@ td.hbt-num:last-child { width: 13%; }
         <div id="runway-factors-panel"></div>
       </div>
     </div>
-    <div id="runway-phases"></div>
     <div id="runway-tagline"></div>
     <div id="runway-body"></div>
   </div>
@@ -10936,13 +10937,12 @@ function populateRunwayFactorsFilter(tags) {
 }
 
 // Chevron-style progress bar across the top of the tab, driven by "Runway Phase <n>" /
-// "Runway Phase <n> Subtext" / "Runway Phase" (current phase number) rows.
-function renderRunwayPhases(data) {
-  var wrap = document.getElementById('runway-phases');
-  if (!wrap) return;
-  if (!data.phases.length) { wrap.innerHTML = ''; wrap.style.display = 'none'; return; }
-  wrap.style.display = '';
-  wrap.innerHTML = data.phases.map(function(p) {
+// Returns the chevron banner as an HTML string (empty if no phases configured), for splicing
+// into #runway-body's own flex flow -- rather than a fixed top-of-tab element -- so it can sit
+// between specific step columns (see the column loop in renderRunway).
+function renderRunwayPhasesHtml(data) {
+  if (!data.phases.length) return '';
+  var chevrons = data.phases.map(function(p) {
     var pState = 'future';
     if (data.currentPhase !== null) {
       if (p.num < data.currentPhase) pState = 'done';
@@ -10954,6 +10954,7 @@ function renderRunwayPhases(data) {
       +   (p.subtext ? '<div class="runway-phase-subtext">' + escAttr(p.subtext) + '</div>' : '')
       + '</div>';
   }).join('');
+  return '<div id="runway-phases">' + chevrons + '</div>';
 }
 
 function renderRunway() {
@@ -10961,7 +10962,6 @@ function renderRunway() {
   if (!body) return;
   var data = getRunwayData();
   populateRunwayFactorsFilter(data.allTags);
-  renderRunwayPhases(data);
 
   var taglineEl = document.getElementById('runway-tagline');
   if (taglineEl) {
@@ -11013,8 +11013,14 @@ function renderRunway() {
     return h;
   }
 
+  var phasesHtml = renderRunwayPhasesHtml(data);
   var html = '';
   for (var ci = 0; ci < data.columns.length; ci++) {
+    // The chevron banner sits between the 3rd and 4th columns (i.e. between the two rows of
+    // columns once they wrap) -- a full-width flex item forces the columns after it onto a new
+    // line. If there are fewer than 4 columns, it falls back to running after the last one so
+    // it's never silently dropped.
+    if (phasesHtml && ci === 3) html += phasesHtml;
     var sections = data.columns[ci];
     var colHtml = '';
     for (var se = 0; se < sections.length; se++) {
@@ -11022,6 +11028,7 @@ function renderRunway() {
     }
     html += '<div class="runway-col">' + colHtml + '</div>';
   }
+  if (phasesHtml && data.columns.length < 4) html += phasesHtml;
   body.innerHTML = html;
 }
 
