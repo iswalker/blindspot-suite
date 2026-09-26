@@ -1186,6 +1186,23 @@ td.hbt-num:last-child { width: 13%; }
   background: #eee; color: #777; font-weight: 600; font-size: 14px;
   margin-left: 4px; vertical-align: middle;
 }
+#runway-phases { display: flex; margin: 4px 0 28px; }
+.runway-phase { flex: 1; display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.runway-phase-chevron {
+  width: 100%; height: 44px; box-sizing: border-box; display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: #fff; padding: 0 20px 0 30px; white-space: nowrap;
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%, 16px 50%);
+  margin-left: -16px;
+}
+.runway-phase:first-child .runway-phase-chevron {
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%);
+  padding-left: 16px; margin-left: 0;
+}
+.runway-phase-chevron.rwp-done    { background: #2e7d32; }
+.runway-phase-chevron.rwp-current { background: #1565c0; }
+.runway-phase-chevron.rwp-future  { background: #ccc; color: #888; }
+.runway-phase-title { font-size: 13px; font-weight: 700; color: #222; margin-top: 8px; text-align: center; }
+.runway-phase-subtext { font-size: 11px; color: #999; margin-top: 2px; text-align: center; line-height: 1.35; }
 
 /* ---- Net Worth Outlook preview toggle (12m / 30y) ---- */
 .nwo-seg-wrap { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #555; }
@@ -1944,6 +1961,7 @@ td.hbt-num:last-child { width: 13%; }
         <div id="runway-factors-panel"></div>
       </div>
     </div>
+    <div id="runway-phases"></div>
     <div id="runway-tagline"></div>
     <div id="runway-body"></div>
   </div>
@@ -10685,6 +10703,13 @@ function getNwBirthYear() {
 //                                        before the numbered steps within its section.
 //   "Runway Step <a> Subtext"  Text    = smaller text shown under lettered step <a>'s title
 //   "Runway Step"              Amount  = the step number the user is currently on
+//   "Runway Phase <n>"         Text    = primary text shown under the nth chevron in the
+//                                        chevron-style progress bar across the top of the tab;
+//                                        Track Against = the year range shown inside the chevron
+//   "Runway Phase <n> Subtext" Text    = smaller text shown under phase <n>'s primary text
+//   "Runway Phase"             Amount  = the phase number the user is currently on -- chevrons
+//                                        before it are done (green), it is current (blue), after
+//                                        it are future (grey)
 // A plain step number (no "$" Unit) parses into dueDays rather than amount -- check both,
 // mirroring the same quirk worked around for Birth Year above.
 var RUNWAY_GOAL_RE        = /^runway goal$/i;
@@ -10695,6 +10720,9 @@ var RUNWAY_ALPHA_SUBTEXT_RE = /^runway step\s+([a-z])\s+subtext$/i;
 var RUNWAY_ALPHA_TITLE_RE   = /^runway step\s+([a-z])$/i;
 var RUNWAY_COL_SUBTEXT_RE   = /^runway column\s+(\d+)([a-z]?)\s+subtext$/i;
 var RUNWAY_COL_HDR_RE       = /^runway column\s+(\d+)([a-z]?)$/i;
+var RUNWAY_PHASE_CURRENT_RE = /^runway phase$/i;
+var RUNWAY_PHASE_SUBTEXT_RE = /^runway phase\s+(\d+)\s+subtext$/i;
+var RUNWAY_PHASE_RE         = /^runway phase\s+(\d+)$/i;
 // A "[Tag] Title" prefix on a step's Text column splits into a tag pill and the title itself.
 var RUNWAY_TAG_RE           = /^\[([^\]]+)\]\s*/;
 
@@ -10724,14 +10752,27 @@ function runwayColKey(raw, legacyOrder) {
 
 function getRunwayData() {
   var goal = '', currentStep = null, byNum = {}, byAlpha = {}, colDefs = {}, legacyOrder = [];
+  var byPhase = {}, currentPhase = null;
   var cfgRows = state.catConfig || [];
   for (var i = 0; i < cfgRows.length; i++) {
     var c = cfgRows[i];
     var usedFor = (c.usedFor || '').trim();
     if (!usedFor) continue;
-    var mSub, mTitle, mAlphaSub, mAlphaTitle, mColSub, mColHdr;
+    var mSub, mTitle, mAlphaSub, mAlphaTitle, mColSub, mColHdr, mPhase, mPhaseSub;
     if (RUNWAY_GOAL_RE.test(usedFor)) {
       goal = c.id || '';
+    } else if (RUNWAY_PHASE_CURRENT_RE.test(usedFor)) {
+      var vp = c.amount !== null ? c.amount : c.dueDays;
+      if (vp !== null) currentPhase = Math.round(vp);
+    } else if ((mPhaseSub = usedFor.match(RUNWAY_PHASE_SUBTEXT_RE))) {
+      var pn2 = parseInt(mPhaseSub[1], 10);
+      if (!byPhase[pn2]) byPhase[pn2] = { num: pn2, title: '', subtext: '', yearRange: '' };
+      byPhase[pn2].subtext = c.id || '';
+    } else if ((mPhase = usedFor.match(RUNWAY_PHASE_RE))) {
+      var pn1 = parseInt(mPhase[1], 10);
+      if (!byPhase[pn1]) byPhase[pn1] = { num: pn1, title: '', subtext: '', yearRange: '' };
+      byPhase[pn1].title = c.id || '';
+      byPhase[pn1].yearRange = (c.trackAgainstRaw || '').trim();
     } else if (RUNWAY_CURRENT_RE.test(usedFor)) {
       var v = c.amount !== null ? c.amount : c.dueDays;
       if (v !== null) currentStep = Math.round(v);
@@ -10846,7 +10887,11 @@ function getRunwayData() {
       .map(function(s) { return s.section; });
   }).concat(legacyCols.map(function(lc) { return lc.sections; }));
 
-  return { goal: goal, currentStep: currentStep, steps: steps, columns: columns, allTags: allTags };
+  var phases = Object.keys(byPhase).map(function(k) { return byPhase[k]; })
+    .sort(function(a, b) { return a.num - b.num; });
+
+  return { goal: goal, currentStep: currentStep, steps: steps, columns: columns, allTags: allTags,
+           phases: phases, currentPhase: currentPhase };
 }
 
 // Rebuilds the "Factors" dropdown -- one checkbox per distinct [Tag] found across all Runway
@@ -10880,11 +10925,33 @@ function populateRunwayFactorsFilter(tags) {
   if (btn) btn.textContent = 'Factors (' + sel + '/' + total + ') ▾';
 }
 
+// Chevron-style progress bar across the top of the tab, driven by "Runway Phase <n>" /
+// "Runway Phase <n> Subtext" / "Runway Phase" (current phase number) rows.
+function renderRunwayPhases(data) {
+  var wrap = document.getElementById('runway-phases');
+  if (!wrap) return;
+  if (!data.phases.length) { wrap.innerHTML = ''; wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+  wrap.innerHTML = data.phases.map(function(p) {
+    var pState = 'future';
+    if (data.currentPhase !== null) {
+      if (p.num < data.currentPhase) pState = 'done';
+      else if (p.num === data.currentPhase) pState = 'current';
+    }
+    return '<div class="runway-phase">'
+      +   '<div class="runway-phase-chevron rwp-' + pState + '">' + escAttr(p.yearRange) + '</div>'
+      +   '<div class="runway-phase-title">' + escAttr(p.title) + '</div>'
+      +   (p.subtext ? '<div class="runway-phase-subtext">' + escAttr(p.subtext) + '</div>' : '')
+      + '</div>';
+  }).join('');
+}
+
 function renderRunway() {
   var body = document.getElementById('runway-body');
   if (!body) return;
   var data = getRunwayData();
   populateRunwayFactorsFilter(data.allTags);
+  renderRunwayPhases(data);
 
   var taglineEl = document.getElementById('runway-tagline');
   if (taglineEl) {
