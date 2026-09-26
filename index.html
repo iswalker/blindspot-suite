@@ -1188,7 +1188,8 @@ td.hbt-num:last-child { width: 13%; }
 }
 /* A flex item of #runway-body (see renderRunway) -- full-width so it forces a line break
    between the columns before and after it. */
-#runway-phases { display: flex; flex-basis: 100%; width: 100%; margin: 4px 0 28px; }
+#runway-phases { flex-basis: 100%; width: 100%; margin: 4px 0 28px; }
+.runway-phases-row { display: flex; }
 .runway-phase { flex: 1; display: flex; flex-direction: column; align-items: center; min-width: 0; }
 .runway-phase-chevron {
   width: 100%; height: 44px; box-sizing: border-box; display: flex; align-items: center; justify-content: center;
@@ -1204,7 +1205,7 @@ td.hbt-num:last-child { width: 13%; }
 .runway-phase-chevron.rwp-current { background: #1565c0; }
 .runway-phase-chevron.rwp-future  { background: #ccc; color: #888; }
 .runway-phase-title { font-size: 20px; font-weight: 700; color: #222; margin-top: 8px; text-align: center; }
-.runway-phase-subtext { font-size: 11px; color: #888; line-height: 1.35; padding: 10px 12px; }
+.runway-phase-subtext { font-size: 15px; color: #888; line-height: 1.35; padding: 10px 12px; }
 
 /* ---- Net Worth Outlook preview toggle (12m / 30y) ---- */
 .nwo-seg-wrap { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #555; }
@@ -1405,7 +1406,7 @@ td.hbt-num:last-child { width: 13%; }
   /* Runway phase chevrons: only 2 fit per row on a phone -- the seamless overlapping banner
      look (negative margin + back-notch) only works in a single unbroken row, so on wrap each
      chevron instead stands alone as a plain right-pointing arrow badge. */
-  #runway-phases { flex-wrap: wrap; row-gap: 16px; }
+  .runway-phases-row { flex-wrap: wrap; row-gap: 16px; }
   .runway-phase { flex: 0 0 calc(50% - 8px); }
   .runway-phase-chevron {
     clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%);
@@ -10954,7 +10955,10 @@ function renderRunwayPhasesHtml(data) {
       +   (p.subtext ? '<div class="runway-phase-subtext">' + escAttr(p.subtext) + '</div>' : '')
       + '</div>';
   }).join('');
-  return '<div id="runway-phases">' + chevrons + '</div>';
+  return '<div id="runway-phases">'
+    +   '<div class="runway-col-hdr">Life Phases</div>'
+    +   '<div class="runway-phases-row">' + chevrons + '</div>'
+    + '</div>';
 }
 
 function renderRunway() {
