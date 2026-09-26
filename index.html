@@ -1197,10 +1197,7 @@ td.hbt-num:last-child { width: 13%; }
   clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%, 16px 50%);
   margin-left: -16px;
 }
-.runway-phase:first-child .runway-phase-chevron {
-  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%);
-  padding-left: 16px; margin-left: 0;
-}
+.runway-phase:first-child .runway-phase-chevron { margin-left: 0; }
 .runway-phase-chevron.rwp-done    { background: #2e7d32; }
 .runway-phase-chevron.rwp-current { background: #1565c0; }
 .runway-phase-chevron.rwp-future  { background: #ccc; color: #888; }
@@ -1404,14 +1401,12 @@ td.hbt-num:last-child { width: 13%; }
   .nw-driver-vals { flex: 1 1 100%; justify-content: flex-end; }
 
   /* Runway phase chevrons: only 2 fit per row on a phone -- the seamless overlapping banner
-     look (negative margin + back-notch) only works in a single unbroken row, so on wrap each
-     chevron instead stands alone as a plain right-pointing arrow badge. */
+     look (negative margin, chained into the next chevron's tip) only works in a single
+     unbroken row, so on wrap each chevron instead stands alone, keeping the same inset-left/
+     arrow-right shape as desktop. */
   .runway-phases-row { flex-wrap: wrap; row-gap: 16px; }
   .runway-phase { flex: 0 0 calc(50% - 8px); }
-  .runway-phase-chevron {
-    clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%);
-    margin-left: 0; padding-left: 16px;
-  }
+  .runway-phase-chevron { margin-left: 0; }
 }
 
 @media (max-width: 480px) {
