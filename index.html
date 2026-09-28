@@ -2580,7 +2580,8 @@ function parseConfigCsv(text) {
     var unit    = (r['Unit']     || '').trim();
     // Target-type and Leverage-type rows may omit ID; all others require one
     var isLeverageRow = /^leverage\s+\d+$/i.test(usedFor);
-    if (!id && !isLeverageRow && (type !== 'Target' || !usedFor)) continue;
+    var isRunwayCurrentRow = /^runway (step|phase)$/i.test(usedFor);
+    if (!id && !isLeverageRow && !isRunwayCurrentRow && (type !== 'Target' || !usedFor)) continue;
     // Support both "Amount" (new) and "Due Date" (legacy) column names
     var amountRaw = (r['Amount'] || r['Due Date'] || '').trim();
     var rawAmt  = amountRaw.toLowerCase();
@@ -10781,7 +10782,7 @@ function getRunwayData() {
       byPhase[pn1].title = c.id || '';
       byPhase[pn1].yearRange = (c.trackAgainstRaw || '').trim();
     } else if (RUNWAY_CURRENT_RE.test(usedFor)) {
-      var tokens = (c.id || '').split(',');
+      var tokens = (c.amountRaw || c.id || '').split(',');
       for (var ti = 0; ti < tokens.length; ti++) {
         var tok = tokens[ti].trim();
         if (!tok) continue;
