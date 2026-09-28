@@ -10758,7 +10758,7 @@ function runwayColKey(raw, legacyOrder) {
 }
 
 function getRunwayData() {
-  var goal = '', currentStep = null, byNum = {}, byAlpha = {}, colDefs = {}, legacyOrder = [];
+  var goal = '', doneSteps = {}, currentSteps = {}, byNum = {}, byAlpha = {}, colDefs = {}, legacyOrder = [];
   var byPhase = {}, currentPhase = null;
   var cfgRows = state.catConfig || [];
   for (var i = 0; i < cfgRows.length; i++) {
@@ -10781,8 +10781,17 @@ function getRunwayData() {
       byPhase[pn1].title = c.id || '';
       byPhase[pn1].yearRange = (c.trackAgainstRaw || '').trim();
     } else if (RUNWAY_CURRENT_RE.test(usedFor)) {
-      var v = c.amount !== null ? c.amount : c.dueDays;
-      if (v !== null) currentStep = Math.round(v);
+      var tokens = (c.id || '').split(',');
+      for (var ti = 0; ti < tokens.length; ti++) {
+        var tok = tokens[ti].trim();
+        if (!tok) continue;
+        var mBracket = tok.match(/^\[(\d+)\]$/);
+        if (mBracket) {
+          currentSteps[parseInt(mBracket[1], 10)] = true;
+        } else if (/^\d+$/.test(tok)) {
+          doneSteps[parseInt(tok, 10)] = true;
+        }
+      }
     } else if ((mColSub = usedFor.match(RUNWAY_COL_SUBTEXT_RE))) {
       var subKey = 'n' + mColSub[1] + mColSub[2].toLowerCase();
       if (!colDefs[subKey]) colDefs[subKey] = { header: '', subtext: '' };
@@ -10897,7 +10906,7 @@ function getRunwayData() {
   var phases = Object.keys(byPhase).map(function(k) { return byPhase[k]; })
     .sort(function(a, b) { return a.num - b.num; });
 
-  return { goal: goal, currentStep: currentStep, steps: steps, columns: columns, allTags: allTags,
+  return { goal: goal, doneSteps: doneSteps, currentSteps: currentSteps, steps: steps, columns: columns, allTags: allTags,
            phases: phases, currentPhase: currentPhase };
 }
 
@@ -10986,10 +10995,8 @@ function renderRunway() {
         circleHtml = '';
       } else {
         var stepState = 'future';
-        if (data.currentStep !== null) {
-          if (s.num < data.currentStep) stepState = 'done';
-          else if (s.num === data.currentStep) stepState = 'current';
-        }
+        if (data.doneSteps[s.num]) stepState = 'done';
+        else if (data.currentSteps[s.num]) stepState = 'current';
         var icon = stepState === 'done' ? '&#10003;' : stepState === 'current' ? '&#10132;' : '';
         circleHtml = '<div class="runway-circle rw-' + stepState + '">' + icon + '</div>';
       }
