@@ -4230,6 +4230,7 @@ function renderTable(opts) {
   // Distribution section -- Taxes, Leverage, and Interest & Fees are each their own group,
   // rendered together and deducted from income as a whole (see distVals above).
   var distPctRef  = { vals: incomeVals, avg: avgIncome };
+  html += '<tr class="row-spacer"><td></td>' + emptyCells() + '</tr>';
   html += '<tr class="sec-hdr sec-dist"><td>Distribution</td>' + emptyCells() + '</tr>';
 
   for (var dgi = 0; dgi < DIST_GROUPS.length; dgi++) {
@@ -4266,6 +4267,7 @@ function renderTable(opts) {
   html += '<tr class="total-row"><td>Remaining Income</td>' + valCells(remainVals, avgRemain, false) + '</tr>';
 
   // Expenses
+  html += '<tr class="row-spacer"><td></td>' + emptyCells() + '</tr>';
   html += '<tr class="sec-hdr sec-expense"><td>Expense</td>' + emptyCells() + '</tr>';
 
   // Base Operations — first in Expense section
@@ -4338,7 +4340,6 @@ function renderTable(opts) {
         + valCells(uncatVals, avgUncat, true, 'recon-uncat') + '</tr>';
 
   if (state.showTotalExp) {
-    html += '<tr class="row-spacer"><td></td>' + emptyCells() + '</tr>';
     html += '<tr class="total-row"><td>Total Expenses</td>' + valCells(totalExpVals, avgTotalExp, true, 'total-exp') + '</tr>';
   }
 
@@ -4349,6 +4350,7 @@ function renderTable(opts) {
     ? '<span class="grp-arrow" data-group="' + marginGrpIdx + '">' + (marginIsExp ? '&#9660;' : '&#9654;') + '</span> '
     : '<span class="grp-arrow"></span> ';
 
+  html += '<tr class="row-spacer"><td></td>' + emptyCells() + '</tr>';
   html += '<tr class="sec-hdr sec-margin"><td>Margin</td>' + emptyCells() + '</tr>';
 
   html += '<tr class="net-val"><td>Gross Margin</td>' + netValCells(remainMarginVals, avgRemainMargin, marginPctRef) + '</tr>';
