@@ -376,7 +376,7 @@ tr.cat-row-bordered.cat-row-last > td { border-bottom: 2px solid #777; }
 .neg  { color: #c62828; }
 .zero { color: #aaa; }
 .proj-spend-neg { color: #e65100; }
-.pct-lbl { font-size: 13px; font-style: italic; margin-right: 4px; }
+.pct-lbl { font-size: 13px; font-style: italic; margin-right: 4px; cursor: help; }
 .avg-note { font-size: 13px; font-style: italic; margin-right: 4px; white-space: nowrap; }
 
 /* ---- Clickable value cells ---- */
@@ -2500,14 +2500,14 @@ function valCellsNet(vals, avg, pctRef, keys) {
     h += '<td>';
     if (pctRef && v !== 0 && pctRef.vals[vi] !== 0) {
       var p = v / Math.abs(pctRef.vals[vi]) * 100;
-      h += '<span class="pct-lbl">(' + p.toFixed(1) + '%)</span>';
+      h += '<span class="pct-lbl" title="% of ' + escAttr(pctRef.label || '') + '">(' + p.toFixed(1) + '%)</span>';
     }
     h += fmtShadedPill(v, bg) + '</td>';
   }
   var avgBg = bgNet(avg), avgPctStr = '';
   if (pctRef && avg !== 0 && pctRef.avg !== 0) {
     var pa = avg / Math.abs(pctRef.avg) * 100;
-    avgPctStr = '<span class="pct-lbl">(' + pa.toFixed(1) + '%)</span>';
+    avgPctStr = '<span class="pct-lbl" title="% of ' + escAttr(pctRef.label || '') + '">(' + pa.toFixed(1) + '%)</span>';
   }
   var sdNet = stdDev(vals);
   var sdNoteNet = sdNet > 0 ? '<span class="avg-note">(±$' + Math.round(sdNet).toLocaleString('en-US') + ')</span>' : '';
@@ -4077,7 +4077,7 @@ function renderTable(opts) {
     return s + uncatVals[idx];
   });
   var avgTotalExp      = mean(totalExpVals);
-  var marginPctRef     = { vals: remainVals, avg: avgRemain };
+  var marginPctRef     = { vals: remainVals, avg: avgRemain, label: 'Remaining Income' };
   var remainMarginVals = keys.map(function(_, idx) { return remainVals[idx] - totalExpVals[idx]; });
   var avgRemainMargin  = mean(remainMarginVals);
 
@@ -4137,7 +4137,7 @@ function renderTable(opts) {
       h += tdOpen;
       if (pctRef && raw !== 0 && pctRef.vals[vi] !== 0) {
         var p = raw / Math.abs(pctRef.vals[vi]) * 100;
-        h += '<span class="pct-lbl">(' + p.toFixed(1) + '%)</span>';
+        h += '<span class="pct-lbl" title="% of ' + escAttr(pctRef.label || '') + '">(' + p.toFixed(1) + '%)</span>';
       }
       h += (shading ? fmtShadedPill(v, bg) : fmtMoney(v)) + '</td>';
     }
@@ -4145,7 +4145,7 @@ function renderTable(opts) {
     var avgPctStr = '';
     if (pctRef && avg !== 0 && pctRef.avg !== 0) {
       var pa = avg / Math.abs(pctRef.avg) * 100;
-      avgPctStr = '<span class="pct-lbl">(' + pa.toFixed(1) + '%)</span>';
+      avgPctStr = '<span class="pct-lbl" title="% of ' + escAttr(pctRef.label || '') + '">(' + pa.toFixed(1) + '%)</span>';
     }
     var avgV = neg ? -avg : avg;
     var autoSd = stdDev(vals);
@@ -4229,7 +4229,7 @@ function renderTable(opts) {
 
   // Distribution section -- Taxes, Leverage, and Interest & Fees are each their own group,
   // rendered together and deducted from income as a whole (see distVals above).
-  var distPctRef  = { vals: incomeVals, avg: avgIncome };
+  var distPctRef  = { vals: incomeVals, avg: avgIncome, label: 'Total Income' };
   html += '<tr class="row-spacer"><td></td>' + emptyCells() + '</tr>';
   html += '<tr class="sec-hdr sec-dist"><td>Distribution</td>' + emptyCells() + '</tr>';
 
