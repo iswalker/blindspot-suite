@@ -6730,7 +6730,10 @@ function drawRecovSparkline(canvas, points) {
 
 function drawCfSparkline(canvas, vals, keys, neg) {
   if (!canvas || !vals || vals.length < 2) return;
+  // displayed keeps the signed, as-shown-in-table value for labels; the line itself plots
+  // magnitude, so a bigger expense reads as a higher point rather than a lower (more negative) one.
   var displayed = vals.map(function(v) { return neg ? -v : v; });
+  var plotVals  = displayed.map(Math.abs);
   var dpr = window.devicePixelRatio || 1;
   var W = 308, H = 120;
   canvas.width  = Math.round(W * dpr);
@@ -6742,8 +6745,8 @@ function drawCfSparkline(canvas, vals, keys, neg) {
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, W, H);
 
-  var minV = Math.min.apply(null, displayed);
-  var maxV = Math.max.apply(null, displayed);
+  var minV = Math.min.apply(null, plotVals);
+  var maxV = Math.max.apply(null, plotVals);
   var range = maxV - minV;
   if (range === 0) range = Math.abs(maxV) || 1;
   minV = minV - range * 0.15;
@@ -6762,28 +6765,21 @@ function drawCfSparkline(canvas, vals, keys, neg) {
     return '$' + v.toFixed(0);
   }
 
-  // Zero baseline when chart spans positive and negative
-  if (minV < 0 && maxV > 0) {
-    var zy = yp(0);
-    ctx.strokeStyle = '#e8e8e4'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(pL, zy); ctx.lineTo(W - pR, zy); ctx.stroke();
-  }
-
   // Line
   ctx.beginPath();
-  ctx.moveTo(xp(0), yp(displayed[0]));
-  for (var i = 1; i < n; i++) ctx.lineTo(xp(i), yp(displayed[i]));
+  ctx.moveTo(xp(0), yp(plotVals[0]));
+  for (var i = 1; i < n; i++) ctx.lineTo(xp(i), yp(plotVals[i]));
   ctx.strokeStyle = '#d97706'; ctx.lineWidth = 2; ctx.lineJoin = 'round';
   ctx.stroke();
 
   // All data-point dots (small grey)
   for (var di = 0; di < n; di++) {
-    ctx.beginPath(); ctx.arc(xp(di), yp(displayed[di]), 2, 0, 2 * Math.PI);
+    ctx.beginPath(); ctx.arc(xp(di), yp(plotVals[di]), 2, 0, 2 * Math.PI);
     ctx.fillStyle = '#ddd'; ctx.fill();
   }
 
   // First dot + label (grey)
-  var x0 = xp(0), y0 = yp(displayed[0]);
+  var x0 = xp(0), y0 = yp(plotVals[0]);
   ctx.beginPath(); ctx.arc(x0, y0, 3, 0, 2 * Math.PI);
   ctx.fillStyle = '#888'; ctx.fill();
   ctx.fillStyle = '#888'; ctx.font = '10px system-ui, sans-serif';
@@ -6791,7 +6787,7 @@ function drawCfSparkline(canvas, vals, keys, neg) {
   ctx.fillText(fmtV(displayed[0]), x0 + 4, y0 - 2);
 
   // Last dot + label (amber)
-  var lastX = xp(n - 1), lastY = yp(displayed[n - 1]);
+  var lastX = xp(n - 1), lastY = yp(plotVals[n - 1]);
   ctx.beginPath(); ctx.arc(lastX, lastY, 3.5, 0, 2 * Math.PI);
   ctx.fillStyle = '#d97706'; ctx.fill();
   ctx.fillStyle = '#d97706'; ctx.font = 'bold 11px system-ui, sans-serif';
@@ -12064,7 +12060,9 @@ document.addEventListener('DOMContentLoaded', function() {
         activeTd = td;
         if (td) {
           var tr    = td.parentElement;
-          var label = (tr && tr.cells[0]) ? tr.cells[0].textContent.trim() : '';
+          var labelCell = (tr && tr.cells[0]) ? tr.cells[0] : null;
+          var arrowEl   = labelCell ? labelCell.querySelector('.grp-arrow') : null;
+          var label = labelCell ? (arrowEl ? labelCell.textContent.replace(arrowEl.textContent, '') : labelCell.textContent).trim() : '';
           var vals  = JSON.parse(td.getAttribute('data-sp-vals'));
           var neg   = td.getAttribute('data-sp-neg') === '1';
           if (cfLabel)  cfLabel.textContent = label;
