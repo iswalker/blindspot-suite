@@ -2154,8 +2154,11 @@ td.hbt-num:last-child { width: 13%; }
 var EXPENSE_GROUPS = [
   'Daily Flow', 'Health', 'Flexible Living', 'Timed Repairs',
   'Giving & Growth', 'Base Operations', 'Business',
-  'Margin Reinvestment', 'Non-Liquid Savings', 'Distribution'
+  'Margin Reinvestment', 'Non-Liquid Savings', 'Taxes', 'Leverage', 'Interest & Fees'
 ];
+// Groups shown together under the "Distribution" section and deducted from income before
+// Expense, same as the single "Distribution" group these three replaced.
+var DIST_GROUPS = ['Taxes', 'Leverage', 'Interest & Fees'];
 var EXCLUDE_GROUPS = {
   'Tracking': 1, 'Zzz. Archive': 1, 'Inflow': 1, 'Hidden Categories': 1
 };
@@ -4026,10 +4029,11 @@ function renderTable(opts) {
     if (xchanged) gAvgs[xgrp] = mean(gVals[xgrp]);
   }
 
-  var distGrpIdx   = EXPENSE_GROUPS.indexOf('Distribution');
-  var distVals     = gVals['Distribution'] || keys.map(function() { return 0; });
-  var avgDist      = gAvgs['Distribution'] || 0;
-  var distCats     = d.activeCats['Distribution'] || [];
+  var distVals = keys.map(function(_, idx) {
+    var s = 0;
+    for (var dvgi = 0; dvgi < DIST_GROUPS.length; dvgi++) s += (gVals[DIST_GROUPS[dvgi]] || [])[idx] || 0;
+    return s;
+  });
   var remainVals   = keys.map(function(_, idx) { return incomeVals[idx] - distVals[idx]; });
   var avgRemain    = mean(remainVals);
 
@@ -4066,7 +4070,7 @@ function renderTable(opts) {
   var totalExpVals = keys.map(function(_, idx) {
     var s = 0;
     for (var ti = 0; ti < EXPENSE_GROUPS.length; ti++) {
-      if (EXPENSE_GROUPS[ti] !== 'Distribution' && EXPENSE_GROUPS[ti] !== marginGrpName && EXPENSE_GROUPS[ti] !== 'Non-Liquid Savings' && EXPENSE_GROUPS[ti] !== givingGrpName) {
+      if (DIST_GROUPS.indexOf(EXPENSE_GROUPS[ti]) === -1 && EXPENSE_GROUPS[ti] !== marginGrpName && EXPENSE_GROUPS[ti] !== 'Non-Liquid Savings' && EXPENSE_GROUPS[ti] !== givingGrpName) {
         s += gVals[EXPENSE_GROUPS[ti]][idx];
       }
     }
@@ -4223,33 +4227,40 @@ function renderTable(opts) {
   }
   html += '<tr class="total-row"><td>Total Income</td>'      + valCells(incomeVals, avgIncome, false, 'income') + '</tr>';
 
-  // Distribution section
+  // Distribution section -- Taxes, Leverage, and Interest & Fees are each their own group,
+  // rendered together and deducted from income as a whole (see distVals above).
   var distPctRef  = { vals: incomeVals, avg: avgIncome };
-  var distIsExp   = !!state.expanded['Distribution'];
-  var distHasCats = distCats.length > 0;
-  var distArrow   = distHasCats
-    ? '<span class="grp-arrow" data-group="' + distGrpIdx + '">' + (distIsExp ? '&#9660;' : '&#9654;') + '</span> '
-    : '<span class="grp-arrow"></span> ';
-
   html += '<tr class="sec-hdr sec-dist"><td>Distribution</td>' + emptyCells() + '</tr>';
-  html += '<tr class="data-row exp-group' + (distIsExp ? ' grp-bordered' : '') + '" data-group="' + distGrpIdx + '">';
-  html += '<td>' + distArrow + 'Distribution</td>';
-  html += valCells(distVals, avgDist, true, 'group', distGrpIdx, undefined, distPctRef);
-  html += '</tr>';
 
-  var distCatItems = distCats.map(function(dcat, dci) {
-    var dcatVals = keys.map(function(k) { return ((d.catPivot['Distribution'] || {})[dcat] || {})[k] || 0; });
-    return { cat: dcat, ci: dci, vals: dcatVals, avg: mean(dcatVals) };
-  });
-  if (state.catSortMode === 'avg') distCatItems.sort(function(a, b) { return b.avg - a.avg; });
-  for (var dci = 0; dci < distCatItems.length; dci++) {
-    var di = distCatItems[dci];
-    var isLastDist = dci === distCatItems.length - 1;
-    var dpctRef = di.cat.indexOf('Interest Charges') === -1 ? distPctRef : null;
-    html += '<tr class="cat-row' + (distIsExp ? ' cat-row-bordered' : '') + (isLastDist ? ' cat-row-last' : '') + '" data-group="' + distGrpIdx + '" style="' + (distIsExp ? '' : 'display:none') + '">';
-    html += '<td>' + di.cat + '</td>';
-    html += valCells(di.vals, di.avg, true, 'cat', distGrpIdx, di.ci, dpctRef);
+  for (var dgi = 0; dgi < DIST_GROUPS.length; dgi++) {
+    var distGrp     = DIST_GROUPS[dgi];
+    var distGrpIdx  = EXPENSE_GROUPS.indexOf(distGrp);
+    var distCats    = (d.activeCats[distGrp] || []).filter(function(c) { return !EXCLUDE_CAT_NAMES[c]; });
+    var distIsExp   = !!state.expanded[distGrp];
+    var distHasCats = distCats.length > 0;
+    var distArrow   = distHasCats
+      ? '<span class="grp-arrow" data-group="' + distGrpIdx + '">' + (distIsExp ? '&#9660;' : '&#9654;') + '</span> '
+      : '<span class="grp-arrow"></span> ';
+
+    html += '<tr class="data-row exp-group' + (distIsExp ? ' grp-bordered' : '') + '" data-group="' + distGrpIdx + '">';
+    html += '<td>' + distArrow + distGrp + '</td>';
+    html += valCells(gVals[distGrp] || keys.map(function() { return 0; }), gAvgs[distGrp] || 0, true, 'group', distGrpIdx, undefined, distPctRef);
     html += '</tr>';
+
+    var distCatItems = distCats.map(function(dcat, dci) {
+      var dcatVals = keys.map(function(k) { return ((d.catPivot[distGrp] || {})[dcat] || {})[k] || 0; });
+      return { cat: dcat, ci: dci, vals: dcatVals, avg: mean(dcatVals) };
+    });
+    if (state.catSortMode === 'avg') distCatItems.sort(function(a, b) { return b.avg - a.avg; });
+    for (var dci = 0; dci < distCatItems.length; dci++) {
+      var di = distCatItems[dci];
+      var isLastDist = dci === distCatItems.length - 1;
+      var dpctRef = di.cat.indexOf('Interest Charges') === -1 ? distPctRef : null;
+      html += '<tr class="cat-row' + (distIsExp ? ' cat-row-bordered' : '') + (isLastDist ? ' cat-row-last' : '') + '" data-group="' + distGrpIdx + '" style="' + (distIsExp ? '' : 'display:none') + '">';
+      html += '<td>' + di.cat + '</td>';
+      html += valCells(di.vals, di.avg, true, 'cat', distGrpIdx, di.ci, dpctRef);
+      html += '</tr>';
+    }
   }
 
   html += '<tr class="total-row"><td>Remaining Income</td>' + valCells(remainVals, avgRemain, false) + '</tr>';
@@ -4291,7 +4302,7 @@ function renderTable(opts) {
 
   for (var eg = 0; eg < EXPENSE_GROUPS.length; eg++) {
     var grp = EXPENSE_GROUPS[eg];
-    if (grp === 'Distribution' || grp === marginGrpName || grp === 'Base Operations' || grp === 'Non-Liquid Savings' || grp === givingGrpName) continue;
+    if (DIST_GROUPS.indexOf(grp) !== -1 || grp === marginGrpName || grp === 'Base Operations' || grp === 'Non-Liquid Savings' || grp === givingGrpName) continue;
     // No activity anywhere in the filtered range -- nothing to show or expand into.
     if (allZeroish(gVals[grp])) continue;
     var cats = (d.activeCats[grp] || []).filter(function(c) { return !EXCLUDE_CAT_NAMES[c]; });
@@ -5326,14 +5337,16 @@ function getTxns(type, gi, ci, monthKey) {
     var catName = (state.data.activeCats[grpName] || [])[ci];
     txns = ((rt[grpName] || {})[catName]) || [];
   } else if (type === 'total-dist') {
-    var dmap = rt['Distribution'] || {};
-    for (var dc in dmap) txns = txns.concat(dmap[dc]);
+    for (var ddi = 0; ddi < DIST_GROUPS.length; ddi++) {
+      var dmap = rt[DIST_GROUPS[ddi]] || {};
+      for (var dc in dmap) txns = txns.concat(dmap[dc]);
+    }
   } else if (type === 'total-margin') {
     var mmap = rt[resolveMarginGroupName()] || {};
     for (var mc in mmap) txns = txns.concat(mmap[mc]);
   } else if (type === 'total-exp') {
     for (var eg = 0; eg < EXPENSE_GROUPS.length; eg++) {
-      if (EXPENSE_GROUPS[eg] === 'Distribution' || EXPENSE_GROUPS[eg] === resolveMarginGroupName() || EXPENSE_GROUPS[eg] === resolveGivingGroupName()) continue;
+      if (DIST_GROUPS.indexOf(EXPENSE_GROUPS[eg]) !== -1 || EXPENSE_GROUPS[eg] === resolveMarginGroupName() || EXPENSE_GROUPS[eg] === resolveGivingGroupName()) continue;
       var egmap = rt[EXPENSE_GROUPS[eg]] || {};
       for (var ec in egmap) txns = txns.concat(egmap[ec]);
     }
@@ -9953,13 +9966,14 @@ function renderHome() {
     }
     var pMarginGrpName = applyMarginGroupOverride();
     var pGivingGrpName = applyGivingGroupOverride();
-    var pDist   = (d.groupPivot['Distribution']    || {})[curKey] || 0;
+    var pDist = 0;
+    for (var pdgi = 0; pdgi < DIST_GROUPS.length; pdgi++) pDist += (d.groupPivot[DIST_GROUPS[pdgi]] || {})[curKey] || 0;
     var pMargin = (d.groupPivot[pMarginGrpName]    || {})[curKey] || 0;
     var pGiving = (d.groupPivot[pGivingGrpName]    || {})[curKey] || 0;
     var pTotalExp = 0;
     for (var pei = 0; pei < EXPENSE_GROUPS.length; pei++) {
       var peg = EXPENSE_GROUPS[pei];
-      if (peg === 'Distribution' || peg === pMarginGrpName || peg === 'Non-Liquid Savings' || peg === pGivingGrpName) continue;
+      if (DIST_GROUPS.indexOf(peg) !== -1 || peg === pMarginGrpName || peg === 'Non-Liquid Savings' || peg === pGivingGrpName) continue;
       var pev = (d.groupPivot[peg] || {})[curKey] || 0;
       var pexmap = d.catPivot[peg] || {};
       for (var pexcn in EXCLUDE_CAT_NAMES) {
