@@ -4803,6 +4803,8 @@ function renderTable(opts) {
         html += '</tr>';
       }
     }
+
+    html += '<tr class="row-spacer"><td></td>' + emptyCells() + '</tr>';
   }
 
   // Glidepath Day-1 balance (API only — omit row if no data; hidden unless toggle ON)
