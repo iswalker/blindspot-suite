@@ -4082,7 +4082,7 @@ function renderTable(opts) {
   var avgNls    = gAvgs['Non-Liquid Savings'] || 0;
   var nlsCats   = (d.activeCats['Non-Liquid Savings'] || []).filter(function(c) { return !EXCLUDE_CAT_NAMES[c]; });
 
-  // Net Cash Flow = Remaining Margin - Reinvestment - Giving
+  // Net Margin = Gross Margin - Reinvestment - Giving
   var netCashFlowVals = keys.map(function(_, idx) { return remainMarginVals[idx] - marginVals[idx] - givingVals[idx]; });
   var avgNetCashFlow  = mean(netCashFlowVals);
 
@@ -4340,7 +4340,7 @@ function renderTable(opts) {
 
   html += '<tr class="sec-hdr sec-margin"><td>Margin</td>' + emptyCells() + '</tr>';
 
-  html += '<tr class="total-row"><td>Remaining Margin</td>' + netValCells(remainMarginVals, avgRemainMargin, marginPctRef) + '</tr>';
+  html += '<tr class="net-val"><td>Gross Margin</td>' + netValCells(remainMarginVals, avgRemainMargin, marginPctRef) + '</tr>';
   html += '<tr class="data-row exp-group' + (marginIsExp ? ' grp-bordered' : '') + '" data-group="' + marginGrpIdx + '">';
   html += '<td>' + marginArrow + 'Reinvestment</td>';
   html += valCells(marginVals, avgMargin, true, 'group', marginGrpIdx);
@@ -4384,9 +4384,9 @@ function renderTable(opts) {
     html += '</tr>';
   }
 
-  // Net Cash Flow = Remaining Margin - Reinvestment - Giving
+  // Net Margin = Gross Margin - Reinvestment - Giving
   html += '<tr class="row-spacer"><td></td>' + emptyCells() + '</tr>';
-  html += '<tr class="net-val"><td>Net Cash Flow</td>' + netValCells(netCashFlowVals, avgNetCashFlow, marginPctRef) + '</tr>';
+  html += '<tr class="net-val"><td>Net Margin</td>' + netValCells(netCashFlowVals, avgNetCashFlow, marginPctRef) + '</tr>';
 
   // Non-Liquid Savings group
   var nlsIsExp   = !!state.expanded['Non-Liquid Savings'];
@@ -4413,7 +4413,7 @@ function renderTable(opts) {
   }
 
   // Groups outside EXPENSE_GROUPS. Deployable Cash Pools is surfaced directly under Net Liquid
-  // (mirroring Non-Liquid Savings under Net Cash Flow); the rest fall into the Other section.
+  // (mirroring Non-Liquid Savings under Net Margin); the rest fall into the Other section.
   cfOtherCatRefs = [];
   var otherGrpPivot = d.otherGroupPivot || {};
   var otherCtPivot  = d.otherCatPivot   || {};
@@ -4451,7 +4451,7 @@ function renderTable(opts) {
     return out;
   };
 
-  // Net Liquid = Net Cash Flow - Non-Liquid Savings
+  // Net Liquid = Net Margin - Non-Liquid Savings
   html += '<tr class="row-spacer"><td></td>' + emptyCells() + '</tr>';
   html += '<tr class="net-val"><td>Net Liquid</td>' + netValCells(netVals, avgNet, marginPctRef) + '</tr>';
 
