@@ -380,7 +380,7 @@ tr.cat-row-bordered.cat-row-last > td { border-bottom: 2px solid #777; }
 .avg-note { font-size: 13px; font-style: italic; margin-right: 4px; white-space: nowrap; }
 .tithe-check { display: inline-block; margin-right: 8px; font-weight: 700; cursor: pointer; }
 .tithe-check-ok   { color: hsl(121,36%,35%); }
-.tithe-check-warn { color: hsl(3,66%,72%); }
+.tithe-check-warn { color: hsl(3,66%,69%); }
 
 /* ---- Clickable value cells ---- */
 td.clickable { cursor: pointer; }
@@ -2171,7 +2171,7 @@ var EXPENSE_GROUPS = [
 var DIST_GROUPS = ['Taxes', 'Leverage', 'Interest & Fees'];
 // Inlined (not loaded from Question.svg, the source asset) so its color follows `currentColor`
 // -- used by the Tithe check icon when that month falls short of the 10% threshold.
-var TITHE_QUESTION_SVG = '<svg viewBox="0 0 1200 1200" width="12" height="12" fill="currentColor" style="vertical-align:-1px"><path d="m1080 600c0-265.22-214.78-480-480-480s-480 214.78-480 480 214.78 480 480 480 480-214.78 480-480zm-480 296.39c-24 0-44.391-20.391-44.391-44.391 0-25.219 20.391-44.391 44.391-44.391s44.391 20.391 44.391 44.391-20.391 44.391-44.391 44.391zm72-302.39c-25.219 12-40.781 39.609-40.781 70.781v68.391c0 16.781-13.219 30-30 30s-30-14.391-30-30v-68.391c0-54 30-103.22 75.609-126 48-22.781 72-74.391 58.781-127.22-9.6094-36-38.391-66-74.391-74.391-33.609-9.6094-68.391-2.3906-94.781 18-28.828 21.609-44.438 52.828-44.438 86.438 0 16.781-13.219 30-30 30s-30-13.219-30-30c0-52.781 24-100.78 66-133.22 42-32.391 94.781-42 147.61-28.781 57.609 14.391 103.22 61.219 118.78 118.78 19.219 79.219-18 160.82-92.391 195.61z"/></svg>';
+var TITHE_QUESTION_SVG = '<svg viewBox="0 0 1200 1200" width="20" height="20" fill="currentColor" style="vertical-align:-4px"><path d="m1080 600c0-265.22-214.78-480-480-480s-480 214.78-480 480 214.78 480 480 480 480-214.78 480-480zm-480 296.39c-24 0-44.391-20.391-44.391-44.391 0-25.219 20.391-44.391 44.391-44.391s44.391 20.391 44.391 44.391-20.391 44.391-44.391 44.391zm72-302.39c-25.219 12-40.781 39.609-40.781 70.781v68.391c0 16.781-13.219 30-30 30s-30-14.391-30-30v-68.391c0-54 30-103.22 75.609-126 48-22.781 72-74.391 58.781-127.22-9.6094-36-38.391-66-74.391-74.391-33.609-9.6094-68.391-2.3906-94.781 18-28.828 21.609-44.438 52.828-44.438 86.438 0 16.781-13.219 30-30 30s-30-13.219-30-30c0-52.781 24-100.78 66-133.22 42-32.391 94.781-42 147.61-28.781 57.609 14.391 103.22 61.219 118.78 118.78 19.219 79.219-18 160.82-92.391 195.61z"/></svg>';
 var EXCLUDE_GROUPS = {
   'Tracking': 1, 'Zzz. Archive': 1, 'Inflow': 1, 'Hidden Categories': 1
 };
@@ -4063,13 +4063,17 @@ function renderTable(opts) {
       return s;
     });
   }
+  var titheCurMonthKey = dtKey(new Date());
   function titheIconHtml(vi) {
     if (!titheInflowVals) return '';
     var inc = incomeVals[vi], tin = titheInflowVals[vi];
     if (!inc) return '';
     var pct = tin / inc;
     // Round off float dust (e.g. 1615.30 / 16153 landing a hair under 0.1) before comparing.
-    var ok  = Math.round(pct * 1e6) / 1e6 >= 0.1;
+    var ok = Math.round(pct * 1e6) / 1e6 >= 0.1;
+    // A current/future month with no icon leaves room to still hit 10% before it's over --
+    // the question mark is only fair once the month is actually in the past.
+    if (!ok && keys[vi] >= titheCurMonthKey) return '';
     var icon = ok ? '&#10003;' : TITHE_QUESTION_SVG;
     var cls  = 'tithe-check ' + (ok ? 'tithe-check-ok' : 'tithe-check-warn');
     var ttl  = 'Tithe: ' + fmtAbs(tin) + ' (' + (pct * 100).toFixed(1) + '% of income)';
