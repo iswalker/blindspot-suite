@@ -378,9 +378,9 @@ tr.cat-row-bordered.cat-row-last > td { border-bottom: 2px solid #777; }
 .proj-spend-neg { color: #e65100; }
 .pct-lbl { font-size: 13px; font-style: italic; margin-right: 4px; cursor: help; }
 .avg-note { font-size: 13px; font-style: italic; margin-right: 4px; white-space: nowrap; }
-.tithe-check { display: inline-block; margin-right: 4px; font-weight: 700; cursor: pointer; }
-.tithe-check-ok   { color: #2e7d32; }
-.tithe-check-warn { color: #e65100; }
+.tithe-check { display: inline-block; margin-right: 8px; font-weight: 700; cursor: pointer; }
+.tithe-check-ok   { color: hsl(121,36%,35%); }
+.tithe-check-warn { color: hsl(3,66%,72%); }
 
 /* ---- Clickable value cells ---- */
 td.clickable { cursor: pointer; }
@@ -1630,6 +1630,13 @@ td.hbt-num:last-child { width: 13%; }
                 Total Expenses
               </label>
             </div>
+            <div class="settings-row">
+              <label class="ios-toggle-wrap">
+                <input type="checkbox" id="cf-include-tithe-check">
+                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+                Include Tithe Check
+              </label>
+            </div>
           </div>
         </div>
       </div>
@@ -2288,6 +2295,7 @@ var state = {
   showRecovTrend:      localStorage.getItem('show-recov-trend') === '1',
   showGlidepath:       localStorage.getItem('show-glidepath') === '1',
   excludeUnknownIncome: localStorage.getItem('cf-exclude-unknown-income') !== '0',
+  includeTitheCheck:    localStorage.getItem('cf-include-tithe-check') !== '0',
   homeSelectedAccounts: parseJsonLS('sel-home-accts') || {},
   runwayFactors:        parseJsonLS('sel-runway-factors') || {}
 };
@@ -4040,7 +4048,7 @@ function renderTable(opts) {
   // surfaced as a check/question-mark icon on the Total Income row (see titheIconHtml below).
   // Reads catIdAllTxns (every transaction for the category, by ID) rather than regTxns, which
   // only covers categories whose group is one of EXPENSE_GROUPS -- Tithe may live anywhere.
-  var titheCatId      = resolveTitheCatId();
+  var titheCatId      = state.includeTitheCheck ? resolveTitheCatId() : null;
   var titheInflowVals = null;
   cfTitheRef = null;
   if (titheCatId && d.catIdAllTxns) {
@@ -11235,6 +11243,8 @@ function showReport() {
   if (catSortToggle) catSortToggle.checked = state.catSortMode === 'avg';
   var totalExpToggle = document.getElementById('total-exp-toggle');
   if (totalExpToggle) totalExpToggle.checked = state.showTotalExp;
+  var titheCheckToggle = document.getElementById('cf-include-tithe-check');
+  if (titheCheckToggle) titheCheckToggle.checked = state.includeTitheCheck;
   populateRangeFilter();
   populateAccountFilter();
   renderTable();
@@ -11583,6 +11593,13 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('total-exp-toggle').addEventListener('change', function() {
     state.showTotalExp = this.checked;
     localStorage.setItem('show-total-exp', state.showTotalExp ? '1' : '0');
+    renderTable();
+  });
+
+  // Tithe check icon toggle
+  document.getElementById('cf-include-tithe-check').addEventListener('change', function() {
+    state.includeTitheCheck = this.checked;
+    localStorage.setItem('cf-include-tithe-check', state.includeTitheCheck ? '1' : '0');
     renderTable();
   });
 
