@@ -378,6 +378,9 @@ tr.cat-row-bordered.cat-row-last > td { border-bottom: 2px solid #777; }
 .proj-spend-neg { color: #e65100; }
 .pct-lbl { font-size: 13px; font-style: italic; margin-right: 4px; cursor: help; }
 .avg-note { font-size: 13px; font-style: italic; margin-right: 4px; white-space: nowrap; }
+.tithe-check { display: inline-block; margin-right: 4px; font-weight: 700; cursor: pointer; }
+.tithe-check-ok   { color: #2e7d32; }
+.tithe-check-warn { color: #e65100; }
 
 /* ---- Clickable value cells ---- */
 td.clickable { cursor: pointer; }
@@ -2206,6 +2209,16 @@ function applyGivingGroupOverride() {
   return name;
 }
 
+// "Tithe" config row (Metric = "Tithe", category ID in the Text/ID column) drives the Total
+// Income row's per-month check / question-mark icon on the Cash Flow tab.
+function resolveTitheCatId() {
+  for (var i = 0; i < (state.catConfig || []).length; i++) {
+    var c = state.catConfig[i];
+    if (/^tithe$/i.test(c.usedFor || '') && c.id) return c.id;
+  }
+  return null;
+}
+
 var LIQUID_TYPES = { checking: 1, savings: 1, cash: 1, creditCard: 1, lineOfCredit: 1 };
 // Pending category rules are loaded from Config.csv at runtime (see parseConfigCsv / state.catConfig).
 // For the API path, categories are matched by ID. For CSV, usedFor is matched as a name substring.
@@ -4009,6 +4022,37 @@ function renderTable(opts) {
   });
   var avgIncome  = mean(incomeVals);
 
+  // Tithe check: config-driven category ID -> per-month inflow vs. 10% of that month's income,
+  // surfaced as a check/question-mark icon on the Total Income row (see titheIconHtml below).
+  var titheCatId      = resolveTitheCatId();
+  var titheInflowVals = null;
+  cfTitheRef = null;
+  if (titheCatId && d.catIdToGroup && d.catIdToName) {
+    var titheGrpNm = d.catIdToGroup[titheCatId];
+    var titheCatNm = d.catIdToName[titheCatId];
+    if (titheGrpNm && titheCatNm) {
+      cfTitheRef = { grp: titheGrpNm, cat: titheCatNm };
+      titheInflowVals = keys.map(function(k) {
+        var list = ((d.regTxns[k] || {})[titheGrpNm] || {})[titheCatNm] || [];
+        var s = 0;
+        for (var ti2 = 0; ti2 < list.length; ti2++) s += list[ti2].inflow;
+        return s;
+      });
+    }
+  }
+  function titheIconHtml(vi) {
+    if (!titheInflowVals) return '';
+    var inc = incomeVals[vi], tin = titheInflowVals[vi];
+    if (!inc) return '';
+    var pct = tin / inc;
+    // Round off float dust (e.g. 1615.30 / 16153 landing a hair under 0.1) before comparing.
+    var ok  = Math.round(pct * 1e6) / 1e6 >= 0.1;
+    var icon = ok ? '&#10003;' : '&#10067;';
+    var cls  = 'tithe-check ' + (ok ? 'tithe-check-ok' : 'tithe-check-warn');
+    var ttl  = 'Tithe: ' + fmtAbs(tin) + ' (' + (pct * 100).toFixed(1) + '% of income)';
+    return '<span class="' + cls + '" data-type="tithe" data-month="' + keys[vi] + '" title="' + escAttr(ttl) + '">' + icon + '</span>';
+  }
+
   var gVals = {}, gAvgs = {};
   for (var gi = 0; gi < EXPENSE_GROUPS.length; gi++) {
     var grp = EXPENSE_GROUPS[gi];
@@ -4096,7 +4140,7 @@ function renderTable(opts) {
   // Helper: generate value cells
   // type: 'income' | 'group' | 'cat' | 'total-exp' | '' (non-clickable)
   // flat: render without heat shading, for rows that are informational and feed no total
-  function valCells(vals, avg, neg, type, gi, ci, pctRef, avgNote, diverge, flat) {
+  function valCells(vals, avg, neg, type, gi, ci, pctRef, avgNote, diverge, flat, iconFn) {
     var clickable = !!type;
     var shading   = state.rowShading;
     var h = '';
@@ -4135,6 +4179,7 @@ function renderTable(opts) {
           (ci !== undefined ? ' data-ci="' + ci + '"' : '') + '>'
         : '<td>';
       h += tdOpen;
+      if (iconFn) h += iconFn(vi);
       if (pctRef && raw !== 0 && pctRef.vals[vi] !== 0) {
         var p = raw / Math.abs(pctRef.vals[vi]) * 100;
         h += '<span class="pct-lbl" title="% of ' + escAttr(pctRef.label || '') + '">(' + p.toFixed(1) + '%)</span>';
@@ -4225,7 +4270,7 @@ function renderTable(opts) {
   } else {
     html += '<tr class="data-row"><td>All Income Sources</td>' + valCells(incomeVals, avgIncome, false, 'income') + '</tr>';
   }
-  html += '<tr class="total-row"><td>Total Income</td>'      + valCells(incomeVals, avgIncome, false, 'income') + '</tr>';
+  html += '<tr class="total-row"><td>Total Income</td>'      + valCells(incomeVals, avgIncome, false, 'income', undefined, undefined, undefined, undefined, undefined, undefined, titheIconHtml) + '</tr>';
 
   // Distribution section -- Taxes, Leverage, and Interest & Fees are each their own group,
   // rendered together and deducted from income as a whole (see distVals above).
@@ -4863,6 +4908,9 @@ var cfIncomePayeeRefs     = [];
 var cfReconCatRefs        = [];
 // { grp, cat } for each Other-section category cell in the current render, indexed by data-gi
 var cfOtherCatRefs        = [];
+// { grp, cat } resolved from the "Tithe" config row's category ID, or null if unconfigured /
+// the category can no longer be resolved. Backs the Total Income row's per-month check icon.
+var cfTitheRef            = null;
 // Categories whose entries are expected to offset each other, so the click-through hides
 // matched pairs and surfaces only what is left unreconciled.
 var CANCEL_OUT_MARKER     = 'Cancel Out';
@@ -5340,6 +5388,9 @@ function getTxns(type, gi, ci, monthKey) {
     var grpName = EXPENSE_GROUPS[gi];
     var catName = (state.data.activeCats[grpName] || [])[ci];
     txns = ((rt[grpName] || {})[catName]) || [];
+  } else if (type === 'tithe') {
+    var tlist = cfTitheRef ? ((rt[cfTitheRef.grp] || {})[cfTitheRef.cat] || []) : [];
+    txns = tlist.filter(function(t) { return t.inflow > 0; });
   } else if (type === 'total-dist') {
     for (var ddi = 0; ddi < DIST_GROUPS.length; ddi++) {
       var dmap = rt[DIST_GROUPS[ddi]] || {};
@@ -5381,6 +5432,7 @@ function getPaneTitle(type, gi, ci) {
     return rb ? rb.label + ' (liquid accounts)' : 'Reconciliation';
   }
   if (type === 'income')     return 'Income';
+  if (type === 'tithe')      return cfTitheRef ? (cfTitheRef.cat + ' inflows') : 'Tithe';
   if (type === 'total-dist')   return 'Total Distribution';
   if (type === 'total-margin') return 'Total Reinvestment';
   if (type === 'total-exp')    return 'Total Expenses';
@@ -5392,11 +5444,15 @@ function getPaneTitle(type, gi, ci) {
   return '';
 }
 
-function showDetailPane(td) {
-  var type     = td.getAttribute('data-type');
-  var monthKey = td.getAttribute('data-month');
-  var gi       = parseInt(td.getAttribute('data-gi') || '-1', 10);
-  var ci       = parseInt(td.getAttribute('data-ci') || '-1', 10);
+// dataEl: element the data-type/month/gi/ci attributes are read from, when it differs from the
+// clickable td itself -- e.g. a Tithe check icon nested inside the Total Income cell, which
+// drills into a different transaction set than the cell's own click target.
+function showDetailPane(td, dataEl) {
+  dataEl = dataEl || td;
+  var type     = dataEl.getAttribute('data-type');
+  var monthKey = dataEl.getAttribute('data-month');
+  var gi       = parseInt(dataEl.getAttribute('data-gi') || '-1', 10);
+  var ci       = parseInt(dataEl.getAttribute('data-ci') || '-1', 10);
 
   // Toggle off if same cell clicked again
   if (activeCell === td) { closeDetailPane(); return; }
@@ -12014,6 +12070,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Table click delegation: detail pane OR expand/collapse
   document.getElementById('main-table').addEventListener('click', function(e) {
+    var titheIcon = e.target.closest('.tithe-check');
+    if (titheIcon) {
+      var titheTd = titheIcon.closest('td.clickable');
+      if (titheTd) showDetailPane(titheTd, titheIcon);
+      return;
+    }
     var td = e.target.closest('td.clickable');
     if (td) { showDetailPane(td); return; }
     var row = e.target.closest('tr.exp-group');
