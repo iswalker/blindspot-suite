@@ -2994,6 +2994,11 @@ function fetchYnabData(apiKey, budgetId, opts) {
   // Untracked groups never reach regTxns, and reconTxns is pruned to liquid accounts, so the
   // Other section needs its own unpruned index: { grp: { cat: { monthKey: [txn] } } }
   var otherCatTxns     = {};
+  // Every category's transactions, regardless of its group (unlike regTxns, which only covers
+  // EXPENSE_GROUPS) -- backs single-category features like the Tithe check that must resolve
+  // transactions no matter which group the category currently lives in.
+  // { catId: { monthKey: [txn] } }
+  var catIdAllTxns     = {};
   var recovCatAvail    = {}; // { catNm: { key: balance } } for "=" categories
   var recovCatActivity = {}; // { catNm: { key: activity } } for "=" categories
   // Snapshot: { key: day1Value } — highest budgeted value seen per month (pre-move)
@@ -3287,6 +3292,15 @@ function fetchYnabData(apiKey, budgetId, opts) {
             outflow: amt < 0 ? -amt : 0, inflow: amt > 0 ? amt : 0,
             xferAcctId: xferId, amt: amt,
             isTrk: catNm ? catNm.slice(-1) === '~' : false
+          });
+        }
+        if (!t.deleted && !isRTA && catId) {
+          if (!catIdAllTxns[catId])      catIdAllTxns[catId]      = {};
+          if (!catIdAllTxns[catId][key]) catIdAllTxns[catId][key] = [];
+          catIdAllTxns[catId][key].push({
+            account: acct, date: dispDate,
+            payee: s.payee_name || t.payee_name || '', memo: s.memo || t.memo || '',
+            outflow: amt < 0 ? -amt : 0, inflow: amt > 0 ? amt : 0
           });
         }
         if (!t.deleted && !isRTA && grpNm && catNm
@@ -3595,7 +3609,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
                groupPivot: groupPivot, catPivot: catPivot, activeCats: activeCats,
                regTxns: regTxns, allAccounts: allAccounts,
                allAccountsInfo: allAccountsInfo, lwAccounts: lwAccounts,
-               nwAccounts: nwAccounts, acctTxns: acctTxns, acctTxnsTracking: acctTxnsTracking, acctTrkTxns: acctTrkTxns, acctTxnsList: acctTxnsList, catIdTxns: catIdTxns, catIdToName: catIdToName, catIdToGroup: catIdToGroup,
+               nwAccounts: nwAccounts, acctTxns: acctTxns, acctTxnsTracking: acctTxnsTracking, acctTrkTxns: acctTrkTxns, acctTxnsList: acctTxnsList, catIdTxns: catIdTxns, catIdAllTxns: catIdAllTxns, catIdToName: catIdToName, catIdToGroup: catIdToGroup,
                pendingTxns: pendingTxns,
                upcomingRenewals: upcomingRenewals,
                catActivityPivot: catActivityPivot, catAvailPivot: catAvailPivot,
@@ -4024,21 +4038,19 @@ function renderTable(opts) {
 
   // Tithe check: config-driven category ID -> per-month inflow vs. 10% of that month's income,
   // surfaced as a check/question-mark icon on the Total Income row (see titheIconHtml below).
+  // Reads catIdAllTxns (every transaction for the category, by ID) rather than regTxns, which
+  // only covers categories whose group is one of EXPENSE_GROUPS -- Tithe may live anywhere.
   var titheCatId      = resolveTitheCatId();
   var titheInflowVals = null;
   cfTitheRef = null;
-  if (titheCatId && d.catIdToGroup && d.catIdToName) {
-    var titheGrpNm = d.catIdToGroup[titheCatId];
-    var titheCatNm = d.catIdToName[titheCatId];
-    if (titheGrpNm && titheCatNm) {
-      cfTitheRef = { grp: titheGrpNm, cat: titheCatNm };
-      titheInflowVals = keys.map(function(k) {
-        var list = ((d.regTxns[k] || {})[titheGrpNm] || {})[titheCatNm] || [];
-        var s = 0;
-        for (var ti2 = 0; ti2 < list.length; ti2++) s += list[ti2].inflow;
-        return s;
-      });
-    }
+  if (titheCatId && d.catIdAllTxns) {
+    cfTitheRef = titheCatId;
+    titheInflowVals = keys.map(function(k) {
+      var list = (d.catIdAllTxns[titheCatId] || {})[k] || [];
+      var s = 0;
+      for (var ti2 = 0; ti2 < list.length; ti2++) s += list[ti2].inflow;
+      return s;
+    });
   }
   function titheIconHtml(vi) {
     if (!titheInflowVals) return '';
@@ -4912,8 +4924,8 @@ var cfIncomePayeeRefs     = [];
 var cfReconCatRefs        = [];
 // { grp, cat } for each Other-section category cell in the current render, indexed by data-gi
 var cfOtherCatRefs        = [];
-// { grp, cat } resolved from the "Tithe" config row's category ID, or null if unconfigured /
-// the category can no longer be resolved. Backs the Total Income row's per-month check icon.
+// The "Tithe" config row's category ID, or null if unconfigured. Backs the Total Income row's
+// per-month check icon and its detail-pane drill-down.
 var cfTitheRef            = null;
 // Categories whose entries are expected to offset each other, so the click-through hides
 // matched pairs and surfaces only what is left unreconciled.
@@ -5393,7 +5405,7 @@ function getTxns(type, gi, ci, monthKey) {
     var catName = (state.data.activeCats[grpName] || [])[ci];
     txns = ((rt[grpName] || {})[catName]) || [];
   } else if (type === 'tithe') {
-    var tlist = cfTitheRef ? ((rt[cfTitheRef.grp] || {})[cfTitheRef.cat] || []) : [];
+    var tlist = cfTitheRef ? ((state.data.catIdAllTxns || {})[cfTitheRef] || {})[monthKey] || [] : [];
     txns = tlist.filter(function(t) { return t.inflow > 0; });
   } else if (type === 'total-dist') {
     for (var ddi = 0; ddi < DIST_GROUPS.length; ddi++) {
@@ -5436,7 +5448,10 @@ function getPaneTitle(type, gi, ci) {
     return rb ? rb.label + ' (liquid accounts)' : 'Reconciliation';
   }
   if (type === 'income')     return 'Income';
-  if (type === 'tithe')      return cfTitheRef ? (cfTitheRef.cat + ' inflows') : 'Tithe';
+  if (type === 'tithe') {
+    var titheCatNm = cfTitheRef ? ((state.data.catIdToName || {})[cfTitheRef] || '') : '';
+    return (titheCatNm || 'Tithe') + ' inflows';
+  }
   if (type === 'total-dist')   return 'Total Distribution';
   if (type === 'total-margin') return 'Total Reinvestment';
   if (type === 'total-exp')    return 'Total Expenses';
