@@ -4288,9 +4288,13 @@ function renderTable(opts) {
       ? '<span class="grp-arrow" data-group="' + distGrpIdx + '">' + (distIsExp ? '&#9660;' : '&#9654;') + '</span> '
       : '<span class="grp-arrow"></span> ';
 
+    // Interest & Fees carries no meaningful "% of income" -- amounts there are driven by
+    // interest rates and fee schedules, not income, so skip the pct label for the whole group.
+    var distGrpPctRef = distGrp === 'Interest & Fees' ? null : distPctRef;
+
     html += '<tr class="data-row exp-group' + (distIsExp ? ' grp-bordered' : '') + '" data-group="' + distGrpIdx + '">';
     html += '<td>' + distArrow + distGrp + '</td>';
-    html += valCells(gVals[distGrp] || keys.map(function() { return 0; }), gAvgs[distGrp] || 0, true, 'group', distGrpIdx, undefined, distPctRef);
+    html += valCells(gVals[distGrp] || keys.map(function() { return 0; }), gAvgs[distGrp] || 0, true, 'group', distGrpIdx, undefined, distGrpPctRef);
     html += '</tr>';
 
     var distCatItems = distCats.map(function(dcat, dci) {
@@ -4301,7 +4305,7 @@ function renderTable(opts) {
     for (var dci = 0; dci < distCatItems.length; dci++) {
       var di = distCatItems[dci];
       var isLastDist = dci === distCatItems.length - 1;
-      var dpctRef = di.cat.indexOf('Interest Charges') === -1 ? distPctRef : null;
+      var dpctRef = (distGrpPctRef && di.cat.indexOf('Interest Charges') === -1) ? distPctRef : null;
       html += '<tr class="cat-row' + (distIsExp ? ' cat-row-bordered' : '') + (isLastDist ? ' cat-row-last' : '') + '" data-group="' + distGrpIdx + '" style="' + (distIsExp ? '' : 'display:none') + '">';
       html += '<td>' + di.cat + '</td>';
       html += valCells(di.vals, di.avg, true, 'cat', distGrpIdx, di.ci, dpctRef);
