@@ -5626,9 +5626,9 @@ function switchTab(tab) {
 // workbook, whose ID column carries the target Account ID.
 // Rules are evaluated in order; the first match wins.
 // Holding rules come from "<name> Holding" rows in the Config workbook, whose ID column
-// carries the target Account ID. These three sit behind Exclude Distribution; every other
-// Holding key is governed by Exclude Budgeted Expenses.
-var LW_DIST_HOLDING_KEYS = { 'Tithe Holding': 1, 'First Fruits Holding': 1, 'Taxes Holding': 1 };
+// carries the target Account ID. A matched category sits behind Exclude Distribution when its
+// own YNAB group is one of DIST_GROUPS (the same groups the Cash Flow tab's Distribution
+// section reads from) -- every other Holding match is governed by Exclude Budgeted Expenses.
 
 var _lwHoldCache = null, _lwHoldToken = null;
 
@@ -5646,8 +5646,7 @@ function lwHoldingMap() {
     rules.push({
       acctId: cfg.id,
       ids:    (cfg.assocCatIds && cfg.assocCatIds.length) ? cfg.assocCatIds : null,
-      match:  cfg.usedFor.replace(/ Holding$/, '').trim(),
-      scope:  LW_DIST_HOLDING_KEYS[cfg.usedFor] ? 'dist' : 'budget'
+      match:  cfg.usedFor.replace(/ Holding$/, '').trim()
     });
   }
   // catAvailPivot is keyed by name, so resolve "group||category" back to a category ID
@@ -5685,8 +5684,9 @@ function lwHoldingMap() {
       }
       // Exactly one rule claims each category, so a balance is never deducted twice
       if (!best) continue;
+      var scope = DIST_GROUPS.indexOf(grp) !== -1 ? 'dist' : 'budget';
       if (!map[best.acctId]) map[best.acctId] = [];
-      map[best.acctId].push({ grp: grp, cat: cat, scope: best.scope });
+      map[best.acctId].push({ grp: grp, cat: cat, scope: scope });
     }
   }
   _lwHoldToken = token;
