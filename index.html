@@ -4063,10 +4063,23 @@ function renderTable(opts) {
       return s;
     });
   }
+  // Ready to Assign inflows tagged "#exempt" in their memo (e.g. a one-off reimbursement that
+  // isn't really income) are carved out of the Tithe check's denominator, same account scoping
+  // as Total Income itself, but Total Income's own displayed figure is left untouched.
+  var titheExemptVals = titheInflowVals ? keys.map(function(k) {
+    var list = ((d.regTxns[k] || {})['Inflow'] || {})['Ready to Assign'] || [];
+    var s = 0;
+    for (var tei = 0; tei < list.length; tei++) {
+      var et = list[tei];
+      if (acctSel[et.account] && /#exempt/i.test(et.memo || '')) s += et.inflow;
+    }
+    return s;
+  }) : null;
   var titheCurMonthKey = dtKey(new Date());
   function titheIconHtml(vi) {
     if (!titheInflowVals) return '';
-    var inc = incomeVals[vi], tin = titheInflowVals[vi];
+    var inc = incomeVals[vi] - (titheExemptVals ? titheExemptVals[vi] : 0);
+    var tin = titheInflowVals[vi];
     if (!inc) return '';
     // Tithe inflows sit outside Total Income (which is Ready-to-Assign only), so the gross
     // figure they're a percentage of has to add them back in -- $100 tithe against $900 Total
