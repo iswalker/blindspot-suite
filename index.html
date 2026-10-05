@@ -4080,7 +4080,7 @@ function renderTable(opts) {
     if (!ok && keys[vi] >= titheCurMonthKey) return '';
     var icon = ok ? '&#10003;' : TITHE_QUESTION_SVG;
     var cls  = 'tithe-check ' + (ok ? 'tithe-check-ok' : 'tithe-check-warn');
-    var ttl  = 'Tithe: ' + fmtAbs(tin) + ' (' + (pct * 100).toFixed(1) + '% of gross income)';
+    var ttl  = 'Tithe: ' + fmtAbs(tin) + ' (' + (pct * 100).toFixed(2) + '% of gross income)';
     return '<span class="' + cls + '" data-type="tithe" data-month="' + keys[vi] + '" title="' + escAttr(ttl) + '">' + icon + '</span>';
   }
 
