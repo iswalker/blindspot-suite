@@ -4068,7 +4068,11 @@ function renderTable(opts) {
     if (!titheInflowVals) return '';
     var inc = incomeVals[vi], tin = titheInflowVals[vi];
     if (!inc) return '';
-    var pct = tin / inc;
+    // Tithe inflows sit outside Total Income (which is Ready-to-Assign only), so the gross
+    // figure they're a percentage of has to add them back in -- $100 tithe against $900 Total
+    // Income is 10% of the $1,000 gross, not 11.1% of the $900 Income-only figure.
+    var gross = inc + tin;
+    var pct = tin / gross;
     // Round off float dust (e.g. 1615.30 / 16153 landing a hair under 0.1) before comparing.
     var ok = Math.round(pct * 1e6) / 1e6 >= 0.1;
     // A current/future month with no icon leaves room to still hit 10% before it's over --
@@ -4076,7 +4080,7 @@ function renderTable(opts) {
     if (!ok && keys[vi] >= titheCurMonthKey) return '';
     var icon = ok ? '&#10003;' : TITHE_QUESTION_SVG;
     var cls  = 'tithe-check ' + (ok ? 'tithe-check-ok' : 'tithe-check-warn');
-    var ttl  = 'Tithe: ' + fmtAbs(tin) + ' (' + (pct * 100).toFixed(1) + '% of income)';
+    var ttl  = 'Tithe: ' + fmtAbs(tin) + ' (' + (pct * 100).toFixed(1) + '% of gross income)';
     return '<span class="' + cls + '" data-type="tithe" data-month="' + keys[vi] + '" title="' + escAttr(ttl) + '">' + icon + '</span>';
   }
 
