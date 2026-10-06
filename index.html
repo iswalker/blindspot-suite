@@ -897,7 +897,8 @@ td.hbt-num:last-child { width: 13%; }
 /* Fixed (not min-) widths so every row's columns land at the same x position -- with only
    .nw-driver-label left flexible, its computed width is constant across rows (everything to
    its right sums to a fixed total), which is what actually keeps these columns aligned. */
-.nw-driver-total { font-size: 14px; font-weight: 600; color: #333; white-space: nowrap; width: 110px; flex: 0 0 110px; text-align: right; }
+.nw-driver-total { display: flex; flex-direction: column; align-items: flex-end; font-size: 14px; font-weight: 600; color: #333; white-space: nowrap; width: 110px; flex: 0 0 110px; text-align: right; }
+.nw-driver-total-pct { font-size: 10px; font-weight: 400; color: #999; }
 .nw-driver-amt { font-size: 15px; font-weight: 600; white-space: nowrap; width: 115px; flex: 0 0 115px; text-align: right; }
 .nw-driver-pct { font-size: 13px; font-weight: 600; white-space: nowrap; width: 62px; flex: 0 0 62px; text-align: right; }
 .nw-driver-avg { font-size: 12px; color: #888; white-space: nowrap; width: 95px; flex: 0 0 95px; text-align: right; }
@@ -5487,9 +5488,18 @@ function openLwDriverModal(idx, s) {
   var drivers = lwComputeDrivers(idx, s);
   var pp = s.keys[idx].split('-');
   var monthLbl = LW_MONTH_SHORT[parseInt(pp[1], 10) - 1] + ' ' + pp[0];
-  document.getElementById('lwdm-title').textContent = (idx > 0)
+  var titleStr = (idx > 0)
     ? monthLbl + ' · Change Drivers (' + drivers.length + ') · ' + lwAsOfLabel(s.keys[idx - 1]) + ' → ' + lwAsOfLabel(s.keys[idx])
     : monthLbl + ' · Excluded Transactions & Balances · as of ' + lwAsOfLabel(s.keys[idx]);
+  if (s.canvasId === 'nw-canvas' && idx > 0) {
+    var mcAmt = s.netVals[idx] - s.netVals[idx - 1];
+    var mcPct = s.netVals[idx - 1] !== 0 ? mcAmt / Math.abs(s.netVals[idx - 1]) * 100 : null;
+    var mcSign = mcAmt >= 0 ? '+' : '-';
+    var mcStr = mcSign + '$' + Math.abs(mcAmt).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (mcPct !== null) mcStr += ' (' + (mcPct >= 0 ? '+' : '') + mcPct.toFixed(1) + '%)';
+    titleStr += ' · Net Worth ' + mcStr;
+  }
+  document.getElementById('lwdm-title').textContent = titleStr;
 
   var exclSummary = lwComputeExclusionsSummary(s.accounts, s.keys[idx]);
   var exclRow = { name: 'Excluded Transactions & Balances', isExclSummary: true, exclSummary: exclSummary };
@@ -6729,8 +6739,26 @@ function updateNwAcctFilterBtn() {
   if (btn) btn.textContent = 'Accounts (' + sel + '/' + accounts.length + ') ▾';
 }
 
-function classifyNwAcct(a) {
-  if (a.name.indexOf('House') !== -1 || a.type === 'mortgage') return 'house';
+// Config.csv rows with usedFor === 'Home Equity' hold a comma-separated list of Account IDs
+// (Text column) that define the Home Equity bucket explicitly, overriding the name/type
+// heuristic below. Returns null when no such config row exists (falls back to the heuristic).
+function nwHomeEquityAcctSet() {
+  var set = null;
+  for (var ci = 0; ci < (state.catConfig || []).length; ci++) {
+    var cfg = state.catConfig[ci];
+    if ((cfg.usedFor || '') !== 'Home Equity') continue;
+    var ids = (cfg.id || '').split(',');
+    for (var ii = 0; ii < ids.length; ii++) {
+      var acctId = ids[ii].trim();
+      if (acctId) { if (!set) set = {}; set[acctId] = true; }
+    }
+  }
+  return set;
+}
+
+function classifyNwAcct(a, heSet) {
+  if (heSet) { if (heSet[a.id]) return 'house'; }
+  else if (a.name.indexOf('House') !== -1 || a.type === 'mortgage') return 'house';
   if (a.on_budget === false && a.type !== 'otherLiability') return 'invest';
   return 'savings';
 }
@@ -6781,10 +6809,11 @@ function renderNetWorth() {
   var driverCard = document.getElementById('nw-driver-card');
   if (driverCard) {
     if (keys.length > 1) {
+      var heSet    = nwHomeEquityAcctSet();
       var bktStart = { house: 0, invest: 0, savings: 0 };
       var bktEnd   = { house: 0, invest: 0, savings: 0 };
       for (var bi = 0; bi < accts.length; bi++) {
-        var bkt = classifyNwAcct(accts[bi]);
+        var bkt = classifyNwAcct(accts[bi], heSet);
         bktStart[bkt] += acctBalanceAt(accts[bi].id, keys[0]);
         bktEnd[bkt]   += acctBalanceAt(accts[bi].id, keys[lastIdx]);
       }
@@ -6808,7 +6837,7 @@ function renderNetWorth() {
         var a2   = accts[bi2];
         var aDelta = acctBalanceAt(a2.id, keys[lastIdx]) - acctBalanceAt(a2.id, keys[0]);
         if (aDelta === 0) continue;
-        var aBkt = classifyNwAcct(a2);
+        var aBkt = classifyNwAcct(a2, heSet);
         bktAccts[aBkt].push({ name: a2.name, delta: aDelta });
         bktAccts.overall.push({ name: a2.name, delta: aDelta });
       }
@@ -6824,6 +6853,13 @@ function renderNetWorth() {
         var dAmt   = bktDelta[key];
         var dTotal = bktTotal[key];
         var totalStr = (dTotal < 0 ? '-' : '') + fmtAbs(dTotal);
+        // Share of overall Net Worth this bucket's current total represents (e.g. $100k Home
+        // Equity out of $400k net worth = 25%); Overall itself is trivially 100%.
+        var totalPctStr = '';
+        if (bktTotal.overall) {
+          var totalPct = dTotal / Math.abs(bktTotal.overall) * 100;
+          totalPctStr = '<span class="nw-driver-total-pct">' + totalPct.toFixed(1) + '%</span>';
+        }
         var dAvg  = nMonths > 0 ? dAmt / nMonths : 0;
         var cls   = dAmt >= 0 ? 'lw-change-up' : 'lw-change-dn';
         var sign  = dAmt >= 0 ? '+' : '';
@@ -6847,7 +6883,7 @@ function renderNetWorth() {
         return '<div class="nw-driver-row' + (isOverall ? ' nw-driver-overall' : '') + '" data-bucket="' + key + '">'
           + '<span class="nw-driver-label">' + label + '</span>'
           + '<span class="nw-driver-vals">'
-          + '<span class="nw-driver-total">' + totalStr + '</span>'
+          + '<span class="nw-driver-total">' + totalStr + totalPctStr + '</span>'
           + '<span class="nw-driver-amt ' + cls + '">' + arrow + ' ' + sign + fmtAbs(dAmt) + '</span>'
           + pctStr
           + '<span class="nw-driver-sep"></span>'
@@ -6857,7 +6893,7 @@ function renderNetWorth() {
       }
 
       var subDrivers = [
-        { label: 'House', key: 'house' },
+        { label: 'Home Equity', key: 'house' },
         { label: 'Investments', key: 'invest' },
         { label: 'Savings / Debt Payoff', key: 'savings' }
       ].sort(function(a, b) { return Math.abs(bktDelta[b.key]) - Math.abs(bktDelta[a.key]); });
@@ -13063,7 +13099,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var tt  = document.getElementById('nw-driver-tt');
     var panel = document.getElementById('nw-driver-card');
     if (!tt || !panel) return;
-    var LABELS = { overall: 'All Accounts', house: 'House', invest: 'Investments', savings: 'Savings / Debt Payoff' };
+    var LABELS = { overall: 'All Accounts', house: 'Home Equity', invest: 'Investments', savings: 'Savings / Debt Payoff' };
     function showTt(row, e) {
       if (!nwDriverTooltipData) return;
       var bkt    = row.getAttribute('data-bucket');
