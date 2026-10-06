@@ -5263,9 +5263,24 @@ function openLwDriverModal(idx, s) {
     LW_MONTH_SHORT[parseInt(pp[1], 10) - 1] + ' ' + pp[0] + ' · Change Drivers ('
     + drivers.length + ') · ' + lwAsOfLabel(s.keys[idx - 1]) + ' → ' + lwAsOfLabel(s.keys[idx]);
 
+  var exclSummary = lwComputeExclusionsSummary(s.accounts, s.keys[idx]);
+  var exclRow = { name: 'Excluded Transactions & Balances', isExclSummary: true, exclSummary: exclSummary };
+  var allRows = drivers.concat([exclRow]);
+
   var html = '';
-  for (var i = 0; i < drivers.length; i++) {
-    var d = drivers[i];
+  for (var i = 0; i < allRows.length; i++) {
+    var d = allRows[i];
+    if (d.isExclSummary) {
+      var sumCol = exclSummary.total > 0 ? '#c62828' : '#888';
+      html += '<div class="lwdm-row" data-di="' + i + '">'
+           +    '<div class="lwdm-row-top">'
+           +      '<span class="lwdm-row-name">' + escHtml(d.name) + '</span>'
+           +      '<span class="lwdm-row-val" style="color:' + sumCol + '">' + lwFmtSigned(-exclSummary.total) + '</span>'
+           +    '</div>'
+           +    '<div class="lwdm-row-sub">Tracking / Distribution / Budgeted adjustments this month</div>'
+           +  '</div>';
+      continue;
+    }
     var col = d.change >= 0 ? '#2e7d32' : '#c62828';
     var badges = '';
     if (d.id) {
@@ -5290,12 +5305,118 @@ function openLwDriverModal(idx, s) {
       row.addEventListener('mouseenter', function() {
         for (var q = 0; q < rows.length; q++) rows[q].classList.remove('active');
         row.classList.add('active');
-        renderLwDriverDetail(drivers[parseInt(row.getAttribute('data-di'), 10)], s.keys[idx], s.keys[idx - 1]);
+        var dd = allRows[parseInt(row.getAttribute('data-di'), 10)];
+        if (dd.isExclSummary) renderLwExclusionsDetail(dd.exclSummary);
+        else renderLwDriverDetail(dd, s.keys[idx], s.keys[idx - 1]);
       });
     })(rows[r]);
   }
   if (drivers.length) renderLwDriverDetail(drivers[0], s.keys[idx], s.keys[idx - 1]);
+  else if (allRows.length) renderLwExclusionsDetail(exclSummary);
   else document.getElementById('lwdm-detail').innerHTML = '';
+}
+
+// Aggregates the Exclude Tracking / Exclude Distribution / Exclude Budgeted Expenses
+// adjustments across every account in the current chart for one month, for the
+// "Excluded Transactions & Balances" row in the Change Drivers modal.
+function lwComputeExclusionsSummary(accounts, monthKey) {
+  var perAccount = [], total = 0;
+  for (var ai = 0; ai < (accounts || []).length; ai++) {
+    var acct = accounts[ai];
+    var trkTxns = [], trkRemoved = null;
+    if (state.lwExcludeTracking) {
+      var trk = lwTrkTxnsFor(acct.id, monthKey);
+      trkTxns = trk.txns;
+      if (trkTxns.length || trk.priorTotal) {
+        var trkThisMonth = 0;
+        for (var ti = 0; ti < trkTxns.length; ti++) trkThisMonth += trkTxns[ti].amount;
+        trkRemoved = trkThisMonth + trk.priorTotal;
+      }
+    }
+    var heldEntries = [], heldDeducted = null;
+    if (state.lwExcludeDistribution || state.lwExcludeBudgeted) {
+      var mapped = (lwHoldingMap()[acct.id] || []).filter(function(e) { return lwHoldingScopeOn(e.scope); });
+      if (mapped.length) {
+        var pivot = ((state.data || {}).catAvailPivot) || {};
+        var scopeSum = { dist: 0, budget: 0 };
+        for (var mi = 0; mi < mapped.length; mi++) {
+          var av = (((pivot[mapped[mi].grp] || {})[mapped[mi].cat] || {})[monthKey] || 0);
+          scopeSum[mapped[mi].scope] += av;
+          if (!isZeroish(av)) heldEntries.push({ grp: mapped[mi].grp, cat: mapped[mi].cat, amt: av });
+        }
+        heldDeducted = Math.max(0, scopeSum.dist) + Math.max(0, scopeSum.budget);
+      }
+    }
+    if (trkRemoved === null && heldDeducted === null) continue;
+    var acctTotal = (trkRemoved || 0) + (heldDeducted || 0);
+    total += acctTotal;
+    perAccount.push({
+      acctName: acct.name,
+      trkTxns: trkTxns, trkRemoved: trkRemoved,
+      heldEntries: heldEntries, heldDeducted: heldDeducted
+    });
+  }
+  return { total: total, perAccount: perAccount };
+}
+
+function renderLwExclusionsDetail(summary) {
+  var el = document.getElementById('lwdm-detail');
+  if (!el) return;
+  var h = '<div class="lwdm-d-hdr">Excluded Transactions &amp; Balances</div>'
+        + '<div class="lwdm-d-sub">Adjustments from Exclude Tracking, Exclude Distribution, and '
+        + 'Exclude Budgeted Expenses this month · <strong>' + lwFmtSigned(-summary.total) + '</strong></div>';
+
+  if (!state.lwExcludeTracking && !state.lwExcludeDistribution && !state.lwExcludeBudgeted) {
+    h += '<div class="lwdm-empty">All three toggles are off — nothing excluded this month.</div>';
+    el.innerHTML = h;
+    return;
+  }
+  if (!summary.perAccount.length) {
+    h += '<div class="lwdm-empty">No exclusions this month.</div>';
+    el.innerHTML = h;
+    return;
+  }
+
+  for (var i = 0; i < summary.perAccount.length; i++) {
+    var p = summary.perAccount[i];
+    if (p.trkRemoved !== null) {
+      h += '<div class="lwdm-d-sec">' + escHtml(p.acctName) + ' &middot; Tracking (~)</div>';
+      if (!p.trkTxns.length) {
+        h += '<div class="lwdm-empty">Carried in from earlier months only.</div>';
+      } else {
+        for (var ti = 0; ti < p.trkTxns.length; ti++) {
+          var t = p.trkTxns[ti];
+          var meta = [t.date, t.payee, t.memo].filter(Boolean).join(' · ');
+          h += '<div class="lwdm-txn"><div class="lwdm-txn-l">'
+            +    '<div class="lwdm-txn-cat">' + escHtml(t.cat) + '</div>'
+            +    '<div class="lwdm-txn-meta">' + escHtml(meta) + '</div></div>'
+            +  '<div class="lwdm-txn-amt" style="color:' + (t.amount >= 0 ? '#2e7d32' : '#c62828') + '">'
+            +    lwFmtSigned(t.amount) + '</div></div>';
+        }
+      }
+      h += '<div class="lwdm-d-tot"><span>Removed from balance</span><span>' + lwFmtSigned(p.trkRemoved) + '</span></div>';
+    }
+    if (p.heldDeducted !== null) {
+      h += '<div class="lwdm-d-sec">' + escHtml(p.acctName) + ' &middot; Held reserves</div>';
+      if (!p.heldEntries.length) {
+        h += '<div class="lwdm-empty">Nothing held in these categories this month.</div>';
+      } else {
+        for (var ei = 0; ei < p.heldEntries.length; ei++) {
+          var e = p.heldEntries[ei];
+          h += '<div class="lwdm-txn"><div class="lwdm-txn-l">'
+            +    '<div class="lwdm-txn-cat">' + escHtml(e.cat) + '</div>'
+            +    '<div class="lwdm-txn-meta">' + escHtml(e.grp) + ' &middot; available</div></div>'
+            +  '<div class="lwdm-txn-amt">' + lwFmtPlain(e.amt) + '</div></div>';
+        }
+      }
+      h += '<div class="lwdm-d-tot"><span>Deducted (floored at $0)</span><span>'
+        +    (p.heldDeducted > 0 ? '-' : '') + lwFmtPlain(p.heldDeducted) + '</span></div>';
+    }
+  }
+
+  h += '<div class="lwdm-d-tot" style="margin-top:14px"><span>Total removed from Liquid Balances this month</span><span>'
+    +    lwFmtSigned(-summary.total) + '</span></div>';
+  el.innerHTML = h;
 }
 
 function renderLwDriverDetail(d, monthKey, prevKey) {
