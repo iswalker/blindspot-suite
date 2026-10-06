@@ -3445,8 +3445,13 @@ function fetchYnabData(apiKey, budgetId, opts) {
           name: a.name, type: a.type, on_budget: a.on_budget,
           closed: a.closed, balance: a.balance / 1000
         };
-        if ((LIQUID_TYPES[a.type] && a.on_budget && a.name.indexOf('~') === -1) || lwExceptionIds[a.id]) {
-          lwAccounts.push({ id: a.id, name: a.name, type: a.type, closed: a.closed, balance: a.balance / 1000 });
+        var isGenLiquid = LIQUID_TYPES[a.type] && a.on_budget && a.name.indexOf('~') === -1;
+        if (isGenLiquid || lwExceptionIds[a.id]) {
+          // isException: true only for accounts that qualify solely via the exception list,
+          // so the Liquid Balances chart can stack their balances separately from the
+          // generalized Cash accounts bar.
+          lwAccounts.push({ id: a.id, name: a.name, type: a.type, closed: a.closed, balance: a.balance / 1000,
+                             isException: !isGenLiquid && !!lwExceptionIds[a.id] });
         }
         if (a.name.indexOf('~') === -1) {
           nwAccounts.push({ id: a.id, name: a.name, type: a.type, on_budget: a.on_budget,
@@ -5986,16 +5991,25 @@ function renderLiquidWorth() {
 
   // Exclude Distribution is applied per account inside acctBalanceAt, so no aggregate
   // reserve adjustment is needed here.
-  var assetVals = [], debtVals = [], netVals = [];
+  // cashVals/exceptionVals split assetVals between generalized Cash accounts and accounts
+  // pulled in only via "Liquid Account Exceptions", so the chart can stack them separately.
+  var assetVals = [], debtVals = [], netVals = [], cashVals = [], exceptionVals = [];
   for (var ki = 0; ki < keys.length; ki++) {
-    var assets = 0, debts = 0;
+    var assets = 0, debts = 0, cash = 0, exception = 0;
     for (var ai = 0; ai < accts.length; ai++) {
       var bal = acctBalanceAt(accts[ai].id, keys[ki]);
-      if (bal >= 0) assets += bal; else debts += bal;
+      if (bal >= 0) {
+        assets += bal;
+        if (accts[ai].isException) exception += bal; else cash += bal;
+      } else {
+        debts += bal;
+      }
     }
     assetVals.push(assets);
     debtVals.push(debts);
     netVals.push(assets + debts);
+    cashVals.push(cash);
+    exceptionVals.push(exception);
   }
 
   var lastIdx   = keys.length - 1;
@@ -6005,9 +6019,9 @@ function renderLiquidWorth() {
 
   renderLwSummary(netVals[lastIdx], assetVals[lastIdx], debtVals[lastIdx], changeAmt, changePct);
   renderLwTable(keys, netVals);
-  (function(k, a, d, n, ac) {
-    requestAnimationFrame(function() { drawLwChart(k, a, d, n, -1, 'lw-canvas', ac); });
-  })(keys, assetVals, debtVals, netVals, accts);
+  (function(k, a, d, n, ac, cv, ev) {
+    requestAnimationFrame(function() { drawLwChart(k, a, d, n, -1, 'lw-canvas', ac, cv, ev); });
+  })(keys, assetVals, debtVals, netVals, accts, cashVals, exceptionVals);
 }
 
 function populateNwRangeFilter() {
@@ -10579,7 +10593,7 @@ function renderOpportunitiesList() {
   el.innerHTML = h;
 }
 
-function drawLwChart(keys, assetVals, debtVals, netVals, hoveredIdx, canvasId, accounts) {
+function drawLwChart(keys, assetVals, debtVals, netVals, hoveredIdx, canvasId, accounts, cashVals, exceptionVals) {
   if (hoveredIdx === undefined) hoveredIdx = -1;
   if (!canvasId) canvasId = 'lw-canvas';
   var canvas = document.getElementById(canvasId);
@@ -10681,8 +10695,19 @@ function drawLwChart(keys, assetVals, debtVals, netVals, hoveredIdx, canvasId, a
     var assetH = chartH * assetVals[bi] / niceMax;
     var debtH  = chartH * Math.abs(debtVals[bi]) / niceMax;
 
-    ctx.fillStyle = '#1565c0';
-    ctx.fillRect(x0, baseY - assetH, BAR_W, assetH);
+    if (cashVals && exceptionVals) {
+      // Liquid Account Exceptions stack on top of the generalized Cash accounts segment,
+      // lighter blue so the two populations read distinctly within the same bar.
+      var cashH = chartH * cashVals[bi] / niceMax;
+      var excH  = chartH * exceptionVals[bi] / niceMax;
+      ctx.fillStyle = '#1565c0';
+      ctx.fillRect(x0, baseY - cashH, BAR_W, cashH);
+      ctx.fillStyle = '#90caf9';
+      ctx.fillRect(x0, baseY - cashH - excH, BAR_W, excH);
+    } else {
+      ctx.fillStyle = '#1565c0';
+      ctx.fillRect(x0, baseY - assetH, BAR_W, assetH);
+    }
     ctx.fillStyle = '#aaa';
     ctx.fillRect(x0 + BAR_W + BAR_GAP, baseY - debtH, BAR_W, debtH);
 
@@ -10784,7 +10809,8 @@ function drawLwChart(keys, assetVals, debtVals, netVals, hoveredIdx, canvasId, a
 
   var chartState = { keys: keys, assetVals: assetVals, debtVals: debtVals, netVals: netVals,
                      L_PAD: L_PAD, SIDE_PAD: SIDE_PAD, grpW: grpW, GRP_GAP: actualGrpGap, n: n,
-                     canvasId: canvasId, accounts: accounts || [] };
+                     canvasId: canvasId, accounts: accounts || [], cashVals: cashVals || null,
+                     exceptionVals: exceptionVals || null };
   if (canvasId === 'nw-canvas') nwChartState = chartState; else lwChartState = chartState;
 }
 
@@ -12347,7 +12373,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
       if (best !== hoveredIdx) {
         hoveredIdx = best;
-        drawLwChart(s.keys, s.assetVals, s.debtVals, s.netVals, best, s.canvasId, s.accounts);
+        drawLwChart(s.keys, s.assetVals, s.debtVals, s.netVals, best, s.canvasId, s.accounts, s.cashVals, s.exceptionVals);
       }
       showLwTooltip(e.clientX, e.clientY, best, s);
     });
@@ -12355,7 +12381,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (hoveredIdx !== -1) {
         hoveredIdx = -1;
         var s = getState();
-        if (s) drawLwChart(s.keys, s.assetVals, s.debtVals, s.netVals, -1, s.canvasId, s.accounts);
+        if (s) drawLwChart(s.keys, s.assetVals, s.debtVals, s.netVals, -1, s.canvasId, s.accounts, s.cashVals, s.exceptionVals);
       }
       hideLwTooltip();
     });
