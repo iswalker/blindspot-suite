@@ -5256,16 +5256,21 @@ function lwTrkTxnsFor(acctId, monthKey) {
 }
 
 function openLwDriverModal(idx, s) {
-  if (!(idx > 0)) return;
+  if (!(idx >= 0)) return;
   lwModalCtx = { idx: idx, s: s };
   var modal = document.getElementById('lw-driver-modal');
   var list  = document.getElementById('lwdm-list');
   if (!modal || !list) return;
+  // The first point in the series has no prior month to diff against, so there are no
+  // balance-change drivers -- lwComputeDrivers already returns [] for idx 0. The Excluded
+  // Transactions & Balances row still works (it only depends on the month itself), so the
+  // modal still opens, just without a Change Drivers range in the title.
   var drivers = lwComputeDrivers(idx, s);
   var pp = s.keys[idx].split('-');
-  document.getElementById('lwdm-title').textContent =
-    LW_MONTH_SHORT[parseInt(pp[1], 10) - 1] + ' ' + pp[0] + ' · Change Drivers ('
-    + drivers.length + ') · ' + lwAsOfLabel(s.keys[idx - 1]) + ' → ' + lwAsOfLabel(s.keys[idx]);
+  var monthLbl = LW_MONTH_SHORT[parseInt(pp[1], 10) - 1] + ' ' + pp[0];
+  document.getElementById('lwdm-title').textContent = (idx > 0)
+    ? monthLbl + ' · Change Drivers (' + drivers.length + ') · ' + lwAsOfLabel(s.keys[idx - 1]) + ' → ' + lwAsOfLabel(s.keys[idx])
+    : monthLbl + ' · Excluded Transactions & Balances · as of ' + lwAsOfLabel(s.keys[idx]);
 
   var exclSummary = lwComputeExclusionsSummary(s.accounts, s.keys[idx]);
   var exclRow = { name: 'Excluded Transactions & Balances', isExclSummary: true, exclSummary: exclSummary };
@@ -12697,7 +12702,6 @@ document.addEventListener('DOMContentLoaded', function() {
         var d5  = Math.abs(mx - cx5);
         if (d5 < bestDist) { bestDist = d5; best = ci5; }
       }
-      if (best <= 0) return; // first point has no prior month to compare against
       hideLwTooltip();
       openLwDriverModal(best, s);
     });
