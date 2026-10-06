@@ -962,6 +962,8 @@ td.hbt-num:last-child { width: 13%; }
 .lwtt-drivers-section:first-of-type { margin-top: 0; }
 .lwtt-driver-amts { display: flex; align-items: baseline; gap: 8px; flex-shrink: 0; }
 .lwtt-driver-median { font-size: 13px; font-weight: 400; color: #777; white-space: nowrap; }
+.lwtt-drivers-colhdr { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 2px 0 3px; }
+.lwtt-average-hdr { font-size: 10px; font-weight: 700; color: #bbb; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
 .lwtt-asof { font-size: 12px; font-weight: 400; color: #aaa; }
 .lwtt-hint { font-size: 12px; color: #bbb; margin-top: 6px; border-top: 1px solid #eee; padding-top: 5px; }
 
@@ -5356,7 +5358,7 @@ function showLwTooltip(clientX, clientY, idx, s) {
         + '<span class="lwtt-driver-name">' + row.name + '</span>'
         + '<span class="lwtt-driver-amts">'
         +   '<span class="lwtt-driver-val" style="color:' + col + ';font-weight:400">' + lwFmtTTSigned(row.amount) + '</span>'
-        +   (avg !== null ? '<span class="lwtt-driver-median">avg ' + lwFmtTTSigned(avg) + '</span>' : '')
+        +   (avg !== null ? '<span class="lwtt-driver-median">' + lwFmtTTSigned(avg) + '</span>' : '')
         + '</span>'
         + '</div>';
     }
@@ -5383,7 +5385,7 @@ function showLwTooltip(clientX, clientY, idx, s) {
         var pctStr    = lwFmtPct(lwPctOfChange(sec.total, ch));
         var avgAmt    = averages.amtAverage(key);
         var avgPctStr = lwFmtPct(averages.pctAverage(key));
-        var avgStr    = (avgAmt !== null) ? 'avg ' + lwFmtTTSigned(avgAmt) + (avgPctStr ? ' (' + avgPctStr + ')' : '') : '';
+        var avgStr    = (avgAmt !== null) ? lwFmtTTSigned(avgAmt) + (avgPctStr ? ' (' + avgPctStr + ')' : '') : '';
         secHtml += '<div class="lwtt-drivers-section">'
           + '<span>' + sectionDefs[sdi].label + '</span>'
           + '<span class="lwtt-driver-amts">'
@@ -5394,7 +5396,9 @@ function showLwTooltip(clientX, clientY, idx, s) {
           + lwRenderDriverRows(sec.rows, 6, key, averages);
       }
       if (secHtml) {
-        driversHtml = '<div class="lwtt-divider"></div><div class="lwtt-drivers-hdr">Change Drivers</div>' + secHtml
+        var colHdrHtml = '<div class="lwtt-drivers-colhdr"><span></span>'
+          + '<span class="lwtt-driver-amts"><span></span><span class="lwtt-average-hdr">Average</span></span></div>';
+        driversHtml = '<div class="lwtt-divider"></div><div class="lwtt-drivers-hdr">Change Drivers</div>' + colHdrHtml + secHtml
           + '<div class="lwtt-hint">Click for all drivers &amp; excluded transactions</div>';
       }
     } else {
