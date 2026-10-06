@@ -5310,6 +5310,7 @@ function showLwTooltip(clientX, clientY, idx, s) {
         { key: 'incentive', label: 'Incentives' },
         { key: 'savings',   label: 'Savings' }
       ];
+      sectionDefs.sort(function(a, b) { return Math.abs(dsecs[b.key].total) - Math.abs(dsecs[a.key].total); });
       var secHtml = '';
       for (var sdi = 0; sdi < sectionDefs.length; sdi++) {
         var sec = dsecs[sectionDefs[sdi].key];
