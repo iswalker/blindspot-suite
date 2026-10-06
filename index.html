@@ -5244,6 +5244,7 @@ function showLwTooltip(clientX, clientY, idx, s) {
   var exceptionsHtml = (s.exceptionVals && s.exceptionVals[idx]) ?
     '<div class="lwtt-row"><span class="lwtt-dot" style="background:#90caf9"></span>' +
       '<div><div class="lwtt-label">Exceptions</div><div class="lwtt-val">' + fmtTT(s.exceptionVals[idx]) + '</div></div></div>' : '';
+  var netLabel = s.canvasId === 'nw-canvas' ? 'Net Worth' : 'Liquid Balances';
   tt.innerHTML =
     '<div class="lwtt-month">' + monthLbl
       + ' <span class="lwtt-asof">as of ' + lwAsOfLabel(s.keys[idx]) + '</span></div>' +
@@ -5253,7 +5254,7 @@ function showLwTooltip(clientX, clientY, idx, s) {
     '<div class="lwtt-row"><span class="lwtt-dot" style="background:#aaa"></span>' +
       '<div><div class="lwtt-label">Debts</div><div class="lwtt-val">' + fmtTT(Math.abs(s.debtVals[idx])) + '</div></div></div>' +
     '<div class="lwtt-row"><span class="lwtt-dash"></span>' +
-      '<div><div class="lwtt-label">Liquid Balances</div><div class="lwtt-val">' + fmtTT(s.netVals[idx]) + '</div></div></div>' +
+      '<div><div class="lwtt-label">' + netLabel + '</div><div class="lwtt-val">' + fmtTT(s.netVals[idx]) + '</div></div></div>' +
     changeHtml + driversHtml;
   tt.style.display = 'block';
   var ttRect = tt.getBoundingClientRect();
