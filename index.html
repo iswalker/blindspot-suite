@@ -5199,14 +5199,14 @@ function lwComputeDrivers(idx, s) {
 
 // Classifies one account-ledger transaction (date/amount/payee/memo, from acctTxnsList) into
 // one of the three Net Worth driver sections, by memo/payee pattern (checked in this order):
-//   - Incentives: memo is exactly "Match" (employer match), or memo contains "#product"
+//   - Incentives: memo is exactly "Match" (employer match), or memo contains "#product" or "#gains"
 //   - Repricing: memo contains "#growth", or payee is "Manual Balance Adjustment"
 //     (YNAB's own reconciliation payee for tracking/investment accounts)
 //   - Retention: everything else
 function lwClassifyDriverTxn(t) {
   var memo  = (t.memo || '').toLowerCase();
   var payee = (t.payee || '').trim().toLowerCase();
-  if (memo.trim() === 'match' || memo.indexOf('#product') !== -1) return 'incentive';
+  if (memo.trim() === 'match' || memo.indexOf('#product') !== -1 || memo.indexOf('#gains') !== -1) return 'incentive';
   if (memo.indexOf('#growth') !== -1 || payee === 'manual balance adjustment') return 'growth';
   return 'retention';
 }
