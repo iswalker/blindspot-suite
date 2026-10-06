@@ -509,6 +509,8 @@ td.cell-active {
 }
 .acct-chk-row:hover { background: #f5f5f2; }
 .acct-chk-row input[type="checkbox"] { cursor: pointer; accent-color: #1a1a2e; flex-shrink: 0; }
+.acct-chk-row.acct-chk-disabled { color: #bbb; cursor: default; }
+.acct-chk-row.acct-chk-disabled input[type="checkbox"] { cursor: default; }
 
 .pane-ftr {
   display: flex; align-items: center; justify-content: space-between;
@@ -1702,6 +1704,11 @@ td.hbt-num:last-child { width: 13%; }
           <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
           Exclude Budgeted Expenses
         </label>
+        <label class="ios-toggle-wrap">
+          <input type="checkbox" id="lw-include-exceptions">
+          <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+          Include Exception Accounts
+        </label>
         <span class="holding-warn" id="lw-holding-warn"></span>
         <div id="lw-acct-filter-wrap">
           <button id="lw-acct-filter-btn">Accounts &#9660;</button>
@@ -2274,6 +2281,7 @@ var state = {
   lwExcludeTracking:        localStorage.getItem('lw-exclude-tracking') === '1',
   lwExcludeDistribution:    localStorage.getItem('lw-exclude-distribution') === '1',
   lwExcludeBudgeted:        localStorage.getItem('lw-exclude-budgeted') === '1',
+  lwIncludeExceptionAccts:  localStorage.getItem('lw-include-exception-accts') !== '0',
   leverageExcludeTracking:   localStorage.getItem('leverage-exclude-tracking') === '1',
   leverageExcludeForecasted: localStorage.getItem('leverage-exclude-forecasted') === '1',
   leverageIncludeTbd:        localStorage.getItem('leverage-include-tbd') === '1',
@@ -5122,11 +5130,15 @@ function showLwTooltip(clientX, clientY, idx, s) {
     }
   }
 
+  var exceptionsHtml = (s.exceptionVals && s.exceptionVals[idx]) ?
+    '<div class="lwtt-row"><span class="lwtt-dot" style="background:#90caf9"></span>' +
+      '<div><div class="lwtt-label">Exceptions</div><div class="lwtt-val">' + fmtTT(s.exceptionVals[idx]) + '</div></div></div>' : '';
   tt.innerHTML =
     '<div class="lwtt-month">' + monthLbl
       + ' <span class="lwtt-asof">as of ' + lwMonthEndLabel(s.keys[idx]) + '</span></div>' +
     '<div class="lwtt-row"><span class="lwtt-dot" style="background:#3f51b5"></span>' +
       '<div><div class="lwtt-label">Assets</div><div class="lwtt-val">' + fmtTT(s.assetVals[idx]) + '</div></div></div>' +
+    exceptionsHtml +
     '<div class="lwtt-row"><span class="lwtt-dot" style="background:#aaa"></span>' +
       '<div><div class="lwtt-label">Debts</div><div class="lwtt-val">' + fmtTT(Math.abs(s.debtVals[idx])) + '</div></div></div>' +
     '<div class="lwtt-row"><span class="lwtt-dash"></span>' +
@@ -5911,7 +5923,8 @@ function syncExclusionToggles() {
     ['lw-exclude-distribution', 'lwExcludeDistribution'],
     ['ah-exclude-distribution', 'lwExcludeDistribution'],
     ['lw-exclude-budgeted',     'lwExcludeBudgeted'],
-    ['ah-exclude-budgeted',     'lwExcludeBudgeted']
+    ['ah-exclude-budgeted',     'lwExcludeBudgeted'],
+    ['lw-include-exceptions',   'lwIncludeExceptionAccts']
   ];
   for (var i = 0; i < pairs.length; i++) {
     var el = document.getElementById(pairs[i][0]);
@@ -5933,14 +5946,19 @@ function populateLwAccountFilter() {
   for (var i = 0; i < accounts.length; i++) {
     var id = accounts[i].id;
     if (!(id in state.lwSelectedAccounts)) state.lwSelectedAccounts[id] = true;
+    // "Include Exception Accounts" off overrides any individual selection for accounts that
+    // qualify only via "Liquid Account Exceptions" -- they're unchecked and locked while off.
+    if (accounts[i].isException && !state.lwIncludeExceptionAccts) state.lwSelectedAccounts[id] = false;
   }
   var panel = document.getElementById('lw-acct-filter-panel');
   var h = '';
   for (var j = 0; j < accounts.length; j++) {
     var a = accounts[j];
-    h += '<label class="acct-chk-row">'
-       + '<input type="checkbox" value="' + escAttr(a.id) + '"' + (state.lwSelectedAccounts[a.id] ? ' checked' : '') + '>'
+    var locked = a.isException && !state.lwIncludeExceptionAccts;
+    h += '<label class="acct-chk-row' + (locked ? ' acct-chk-disabled' : '') + '">'
+       + '<input type="checkbox" value="' + escAttr(a.id) + '"' + (state.lwSelectedAccounts[a.id] ? ' checked' : '') + (locked ? ' disabled' : '') + '>'
        + escAttr(a.name)
+       + (a.isException ? ' <span style="font-size:10px;color:#64b5f6">(exception)</span>' : '')
        + (a.closed ? ' <span style="font-size:10px;color:#bbb">(closed)</span>' : '')
        + '</label>';
   }
@@ -11856,6 +11874,21 @@ document.addEventListener('DOMContentLoaded', function() {
   });
   document.getElementById('ah-exclude-budgeted').addEventListener('change', function() {
     applyExclusionToggle('lwExcludeBudgeted', 'lw-exclude-budgeted', this.checked);
+  });
+  document.getElementById('lw-include-exceptions').addEventListener('change', function() {
+    state.lwIncludeExceptionAccts = this.checked;
+    localStorage.setItem('lw-include-exception-accts', this.checked ? '1' : '0');
+    if (state.lwIncludeExceptionAccts && state.data && state.data.lwAccounts) {
+      // Restore exception accounts to selected when re-enabling, rather than leaving them
+      // unchecked from when the toggle forced them off.
+      for (var exI = 0; exI < state.data.lwAccounts.length; exI++) {
+        if (state.data.lwAccounts[exI].isException) state.lwSelectedAccounts[state.data.lwAccounts[exI].id] = true;
+      }
+    }
+    syncExclusionToggles();
+    populateLwAccountFilter();
+    localStorage.setItem('sel-lw-accts', JSON.stringify(state.lwSelectedAccounts));
+    renderLiquidWorth();
   });
 
   // NW range filter
