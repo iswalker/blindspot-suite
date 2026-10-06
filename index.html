@@ -990,7 +990,7 @@ td.hbt-num:last-child { width: 13%; }
 .lwdm-d-hdr { font-size: 13px; font-weight: 700; color: #333; margin-bottom: 2px; }
 .lwdm-d-sub { font-size: 11px; color: #888; margin-bottom: 12px; }
 .lwdm-d-sec { font-size: 10px; font-weight: 700; color: #bbb; letter-spacing: .08em; text-transform: uppercase; margin: 14px 0 5px; }
-.lwdm-d-toggle { font-size: 13px; font-weight: 700; color: #333; margin: 18px 0 2px; padding-top: 12px; border-top: 1px solid #e6e6e2; }
+.lwdm-d-toggle { font-size: 13px; font-weight: 700; color: #1565c0; margin: 18px 0 2px; padding-top: 12px; border-top: 1px solid #e6e6e2; }
 .lwdm-d-toggle:first-of-type { margin-top: 12px; padding-top: 0; border-top: none; }
 .lwdm-d-grp { font-size: 11px; font-weight: 700; color: #555; margin: 10px 0 4px; }
 .lwdm-d-acct { font-size: 10px; font-weight: 600; color: #888; margin: 6px 0 2px; }
@@ -5426,6 +5426,10 @@ function renderLwExclusionSection(label, sec, kind) {
     h += '<div class="lwdm-empty">No exclusions this month.</div>';
     return h;
   }
+  // Stated once per section rather than repeated on every group's total line below.
+  if (kind === 'held') {
+    h += '<div class="lwdm-empty" style="margin-bottom:6px">Each category\'s leftover Available is floored at $0 before being deducted, so an overspent category never offsets a surplus elsewhere.</div>';
+  }
   for (var gi = 0; gi < sec.groups.length; gi++) {
     var g = sec.groups[gi];
     h += '<div class="lwdm-d-grp">' + escHtml(g.name) + '</div>';
@@ -5460,7 +5464,7 @@ function renderLwExclusionSection(label, sec, kind) {
         }
       }
     }
-    h += '<div class="lwdm-d-tot"><span>' + (kind === 'txn' ? 'Removed from balance' : 'Deducted (floored at $0)') + '</span><span>'
+    h += '<div class="lwdm-d-tot"><span>' + (kind === 'txn' ? 'Removed from balance' : 'Deducted') + '</span><span>'
       +    (kind === 'txn' ? lwFmtSigned(g.total) : ((g.total > 0 ? '-' : '') + lwFmtPlain(g.total))) + '</span></div>';
   }
   return h;
