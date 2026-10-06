@@ -990,6 +990,10 @@ td.hbt-num:last-child { width: 13%; }
 .lwdm-d-hdr { font-size: 13px; font-weight: 700; color: #333; margin-bottom: 2px; }
 .lwdm-d-sub { font-size: 11px; color: #888; margin-bottom: 12px; }
 .lwdm-d-sec { font-size: 10px; font-weight: 700; color: #bbb; letter-spacing: .08em; text-transform: uppercase; margin: 14px 0 5px; }
+.lwdm-d-toggle { font-size: 13px; font-weight: 700; color: #333; margin: 18px 0 2px; padding-top: 12px; border-top: 1px solid #e6e6e2; }
+.lwdm-d-toggle:first-of-type { margin-top: 12px; padding-top: 0; border-top: none; }
+.lwdm-d-grp { font-size: 11px; font-weight: 700; color: #555; margin: 10px 0 4px; }
+.lwdm-d-acct { font-size: 10px; font-weight: 600; color: #888; margin: 6px 0 2px; }
 .lwdm-d-tot { font-size: 12px; font-weight: 700; color: #333; margin-top: 6px; padding-top: 6px; border-top: 1px solid #e6e6e2; display: flex; justify-content: space-between; }
 .lwdm-txn { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; border-bottom: 1px solid #f0f0ec; }
 .lwdm-txn-l { min-width: 0; }
@@ -2239,7 +2243,7 @@ function resolveTitheCatId() {
 var LIQUID_TYPES = { checking: 1, savings: 1, cash: 1, creditCard: 1, lineOfCredit: 1 };
 // Config-driven custom driver groups for the Liquid Balances hover: a Config.csv row with
 // Metric = one of these names and Text = comma-separated Account IDs clubs those accounts
-// into a single named line, the same way "Credit Accounts"/"Student Loans" are grouped.
+// into a single named line, the same way "Credit"/"Student Loans" are grouped.
 // Add a name here to support another group without further code changes.
 var LW_CUSTOM_DRIVER_GROUPS = ['Checking', 'Prepaids', 'Cash', 'Exchanges', 'Loyalty Programs'];
 // Pending category rules are loaded from Config.csv at runtime (see parseConfigCsv / state.catConfig).
@@ -5103,7 +5107,7 @@ function lwComputeDrivers(idx, s) {
     }
   }
   // Group accounts assigned to a custom driver-group via Config.csv (see LW_CUSTOM_DRIVER_GROUPS).
-  // Applied before the Student Loan / Credit Accounts grouping below so a config assignment
+  // Applied before the Student Loan / Credit grouping below so a config assignment
   // takes priority over those built-in groupings.
   if (!isNwChart) {
     for (var cgi = 0; cgi < LW_CUSTOM_DRIVER_GROUPS.length; cgi++) {
@@ -5136,7 +5140,7 @@ function lwComputeDrivers(idx, s) {
         ccTotal += drivers[cci].change; ccPrev += drivers[cci].prev; ccCur += drivers[cci].cur; ccMembers.push(drivers[cci]);
       } else { nonCc.push(drivers[cci]); }
     }
-    if (ccMembers.length > 0) nonCc.push({ name: 'Credit Accounts', id: null, change: ccTotal, prev: ccPrev, cur: ccCur, members: ccMembers });
+    if (ccMembers.length > 0) nonCc.push({ name: 'Credit', id: null, change: ccTotal, prev: ccPrev, cur: ccCur, members: ccMembers });
     drivers = nonCc;
   }
   drivers.sort(function(x, y) { return Math.abs(y.change) - Math.abs(x.change); });
@@ -5316,107 +5320,150 @@ function openLwDriverModal(idx, s) {
   else document.getElementById('lwdm-detail').innerHTML = '';
 }
 
+// The driver-group label for an account on the Liquid Balances tab -- matches
+// lwComputeDrivers' grouping (config-driven groups, then type-based "Credit", then
+// name-based "Student Loans") so the exclusions breakdown lines up with the Change
+// Drivers list. An account that matches none of those is its own group of one.
+function lwAccountGroupLabel(acct) {
+  var customMap = lwCustomGroupMap();
+  if (customMap[acct.id]) return customMap[acct.id];
+  if (acct.type === 'creditCard' || acct.type === 'lineOfCredit') return 'Credit';
+  if ((acct.name || '').indexOf('Student Loan') !== -1) return 'Student Loans';
+  return acct.name;
+}
+
 // Aggregates the Exclude Tracking / Exclude Distribution / Exclude Budgeted Expenses
 // adjustments across every account in the current chart for one month, for the
-// "Excluded Transactions & Balances" row in the Change Drivers modal.
+// "Excluded Transactions & Balances" row in the Change Drivers modal. Each toggle is
+// kept separate, and accounts within a toggle are grouped the same way as the driver list.
 function lwComputeExclusionsSummary(accounts, monthKey) {
-  var perAccount = [], total = 0;
+  var sections = {
+    tracking:     { enabled: !!state.lwExcludeTracking,     groupMap: {}, order: [], total: 0 },
+    distribution: { enabled: !!state.lwExcludeDistribution, groupMap: {}, order: [], total: 0 },
+    budgeted:     { enabled: !!state.lwExcludeBudgeted,     groupMap: {}, order: [], total: 0 }
+  };
+  function addTo(sec, groupName, entry) {
+    if (!sec.groupMap[groupName]) {
+      sec.groupMap[groupName] = { name: groupName, total: 0, accounts: [] };
+      sec.order.push(groupName);
+    }
+    sec.groupMap[groupName].total += entry.amt;
+    sec.groupMap[groupName].accounts.push(entry);
+    sec.total += entry.amt;
+  }
+
+  var pivot = ((state.data || {}).catAvailPivot) || {};
   for (var ai = 0; ai < (accounts || []).length; ai++) {
     var acct = accounts[ai];
-    var trkTxns = [], trkRemoved = null;
-    if (state.lwExcludeTracking) {
+    var groupName = lwAccountGroupLabel(acct);
+
+    if (sections.tracking.enabled) {
       var trk = lwTrkTxnsFor(acct.id, monthKey);
-      trkTxns = trk.txns;
-      if (trkTxns.length || trk.priorTotal) {
-        var trkThisMonth = 0;
-        for (var ti = 0; ti < trkTxns.length; ti++) trkThisMonth += trkTxns[ti].amount;
-        trkRemoved = trkThisMonth + trk.priorTotal;
+      if (trk.txns.length || trk.priorTotal) {
+        var thisMonth = 0;
+        for (var ti = 0; ti < trk.txns.length; ti++) thisMonth += trk.txns[ti].amount;
+        addTo(sections.tracking, groupName, { acctName: acct.name, txns: trk.txns, amt: thisMonth + trk.priorTotal });
       }
     }
-    var heldEntries = [], heldDeducted = null;
-    if (state.lwExcludeDistribution || state.lwExcludeBudgeted) {
-      var mapped = (lwHoldingMap()[acct.id] || []).filter(function(e) { return lwHoldingScopeOn(e.scope); });
-      if (mapped.length) {
-        var pivot = ((state.data || {}).catAvailPivot) || {};
-        var scopeSum = { dist: 0, budget: 0 };
-        for (var mi = 0; mi < mapped.length; mi++) {
-          var av = (((pivot[mapped[mi].grp] || {})[mapped[mi].cat] || {})[monthKey] || 0);
-          scopeSum[mapped[mi].scope] += av;
-          if (!isZeroish(av)) heldEntries.push({ grp: mapped[mi].grp, cat: mapped[mi].cat, amt: av });
+
+    var mapped = (state.lwExcludeDistribution || state.lwExcludeBudgeted) ? (lwHoldingMap()[acct.id] || []) : [];
+    if (mapped.length) {
+      var byScope = { dist: [], budget: [] };
+      for (var mi = 0; mi < mapped.length; mi++) byScope[mapped[mi].scope].push(mapped[mi]);
+
+      if (sections.distribution.enabled && byScope.dist.length) {
+        var distSum = 0, distShown = [];
+        for (var di = 0; di < byScope.dist.length; di++) {
+          var av1 = (((pivot[byScope.dist[di].grp] || {})[byScope.dist[di].cat] || {})[monthKey] || 0);
+          distSum += av1;
+          if (!isZeroish(av1)) distShown.push({ grp: byScope.dist[di].grp, cat: byScope.dist[di].cat, amt: av1 });
         }
-        heldDeducted = Math.max(0, scopeSum.dist) + Math.max(0, scopeSum.budget);
+        var distDeducted = Math.max(0, distSum);
+        if (distShown.length || distDeducted) addTo(sections.distribution, groupName, { acctName: acct.name, entries: distShown, amt: distDeducted });
+      }
+      if (sections.budgeted.enabled && byScope.budget.length) {
+        var budSum = 0, budShown = [];
+        for (var bi = 0; bi < byScope.budget.length; bi++) {
+          var av2 = (((pivot[byScope.budget[bi].grp] || {})[byScope.budget[bi].cat] || {})[monthKey] || 0);
+          budSum += av2;
+          if (!isZeroish(av2)) budShown.push({ grp: byScope.budget[bi].grp, cat: byScope.budget[bi].cat, amt: av2 });
+        }
+        var budDeducted = Math.max(0, budSum);
+        if (budShown.length || budDeducted) addTo(sections.budgeted, groupName, { acctName: acct.name, entries: budShown, amt: budDeducted });
       }
     }
-    if (trkRemoved === null && heldDeducted === null) continue;
-    var acctTotal = (trkRemoved || 0) + (heldDeducted || 0);
-    total += acctTotal;
-    perAccount.push({
-      acctName: acct.name,
-      trkTxns: trkTxns, trkRemoved: trkRemoved,
-      heldEntries: heldEntries, heldDeducted: heldDeducted
-    });
   }
-  return { total: total, perAccount: perAccount };
+
+  function finalize(sec) {
+    return { enabled: sec.enabled, total: sec.total, groups: sec.order.map(function(n) { return sec.groupMap[n]; }) };
+  }
+  var tracking = finalize(sections.tracking), distribution = finalize(sections.distribution), budgeted = finalize(sections.budgeted);
+  return { tracking: tracking, distribution: distribution, budgeted: budgeted, total: tracking.total + distribution.total + budgeted.total };
 }
 
 function renderLwExclusionsDetail(summary) {
   var el = document.getElementById('lwdm-detail');
   if (!el) return;
   var h = '<div class="lwdm-d-hdr">Excluded Transactions &amp; Balances</div>'
-        + '<div class="lwdm-d-sub">Adjustments from Exclude Tracking, Exclude Distribution, and '
-        + 'Exclude Budgeted Expenses this month · <strong>' + lwFmtSigned(-summary.total) + '</strong></div>';
+        + '<div class="lwdm-d-sub">What each exclusion toggle removed this month · <strong>'
+        + lwFmtSigned(-summary.total) + '</strong></div>';
 
-  if (!state.lwExcludeTracking && !state.lwExcludeDistribution && !state.lwExcludeBudgeted) {
-    h += '<div class="lwdm-empty">All three toggles are off — nothing excluded this month.</div>';
-    el.innerHTML = h;
-    return;
-  }
-  if (!summary.perAccount.length) {
-    h += '<div class="lwdm-empty">No exclusions this month.</div>';
-    el.innerHTML = h;
-    return;
-  }
-
-  for (var i = 0; i < summary.perAccount.length; i++) {
-    var p = summary.perAccount[i];
-    if (p.trkRemoved !== null) {
-      h += '<div class="lwdm-d-sec">' + escHtml(p.acctName) + ' &middot; Tracking (~)</div>';
-      if (!p.trkTxns.length) {
-        h += '<div class="lwdm-empty">Carried in from earlier months only.</div>';
-      } else {
-        for (var ti = 0; ti < p.trkTxns.length; ti++) {
-          var t = p.trkTxns[ti];
-          var meta = [t.date, t.payee, t.memo].filter(Boolean).join(' · ');
-          h += '<div class="lwdm-txn"><div class="lwdm-txn-l">'
-            +    '<div class="lwdm-txn-cat">' + escHtml(t.cat) + '</div>'
-            +    '<div class="lwdm-txn-meta">' + escHtml(meta) + '</div></div>'
-            +  '<div class="lwdm-txn-amt" style="color:' + (t.amount >= 0 ? '#2e7d32' : '#c62828') + '">'
-            +    lwFmtSigned(t.amount) + '</div></div>';
-        }
-      }
-      h += '<div class="lwdm-d-tot"><span>Removed from balance</span><span>' + lwFmtSigned(p.trkRemoved) + '</span></div>';
-    }
-    if (p.heldDeducted !== null) {
-      h += '<div class="lwdm-d-sec">' + escHtml(p.acctName) + ' &middot; Held reserves</div>';
-      if (!p.heldEntries.length) {
-        h += '<div class="lwdm-empty">Nothing held in these categories this month.</div>';
-      } else {
-        for (var ei = 0; ei < p.heldEntries.length; ei++) {
-          var e = p.heldEntries[ei];
-          h += '<div class="lwdm-txn"><div class="lwdm-txn-l">'
-            +    '<div class="lwdm-txn-cat">' + escHtml(e.cat) + '</div>'
-            +    '<div class="lwdm-txn-meta">' + escHtml(e.grp) + ' &middot; available</div></div>'
-            +  '<div class="lwdm-txn-amt">' + lwFmtPlain(e.amt) + '</div></div>';
-        }
-      }
-      h += '<div class="lwdm-d-tot"><span>Deducted (floored at $0)</span><span>'
-        +    (p.heldDeducted > 0 ? '-' : '') + lwFmtPlain(p.heldDeducted) + '</span></div>';
-    }
-  }
-
-  h += '<div class="lwdm-d-tot" style="margin-top:14px"><span>Total removed from Liquid Balances this month</span><span>'
-    +    lwFmtSigned(-summary.total) + '</span></div>';
+  h += renderLwExclusionSection('Exclude Tracking (~)', summary.tracking, 'txn');
+  h += renderLwExclusionSection('Exclude Distribution', summary.distribution, 'held');
+  h += renderLwExclusionSection('Exclude Budgeted Expenses', summary.budgeted, 'held');
   el.innerHTML = h;
+}
+
+// kind: 'txn' renders tracking transactions (date/payee/memo), 'held' renders held-reserve
+// categories (group · available). Both share the same group/account nesting.
+function renderLwExclusionSection(label, sec, kind) {
+  var h = '<div class="lwdm-d-toggle">' + escHtml(label) + '</div>';
+  if (!sec.enabled) {
+    h += '<div class="lwdm-empty">Toggle is off — nothing removed.</div>';
+    return h;
+  }
+  if (!sec.groups.length) {
+    h += '<div class="lwdm-empty">No exclusions this month.</div>';
+    return h;
+  }
+  for (var gi = 0; gi < sec.groups.length; gi++) {
+    var g = sec.groups[gi];
+    h += '<div class="lwdm-d-grp">' + escHtml(g.name) + '</div>';
+    for (var ai = 0; ai < g.accounts.length; ai++) {
+      var a = g.accounts[ai];
+      if (g.accounts.length > 1) h += '<div class="lwdm-d-acct">' + escHtml(a.acctName) + '</div>';
+      if (kind === 'txn') {
+        if (!a.txns.length) {
+          h += '<div class="lwdm-empty">Carried in from earlier months only.</div>';
+        } else {
+          for (var ti = 0; ti < a.txns.length; ti++) {
+            var t = a.txns[ti];
+            var meta = [t.date, t.payee, t.memo].filter(Boolean).join(' · ');
+            h += '<div class="lwdm-txn"><div class="lwdm-txn-l">'
+              +    '<div class="lwdm-txn-cat">' + escHtml(t.cat) + '</div>'
+              +    '<div class="lwdm-txn-meta">' + escHtml(meta) + '</div></div>'
+              +  '<div class="lwdm-txn-amt" style="color:' + (t.amount >= 0 ? '#2e7d32' : '#c62828') + '">'
+              +    lwFmtSigned(t.amount) + '</div></div>';
+          }
+        }
+      } else {
+        if (!a.entries.length) {
+          h += '<div class="lwdm-empty">Nothing held in these categories this month.</div>';
+        } else {
+          for (var ei = 0; ei < a.entries.length; ei++) {
+            var e = a.entries[ei];
+            h += '<div class="lwdm-txn"><div class="lwdm-txn-l">'
+              +    '<div class="lwdm-txn-cat">' + escHtml(e.cat) + '</div>'
+              +    '<div class="lwdm-txn-meta">' + escHtml(e.grp) + ' &middot; available</div></div>'
+              +  '<div class="lwdm-txn-amt">' + lwFmtPlain(e.amt) + '</div></div>';
+          }
+        }
+      }
+    }
+    h += '<div class="lwdm-d-tot"><span>' + (kind === 'txn' ? 'Removed from balance' : 'Deducted (floored at $0)') + '</span><span>'
+      +    (kind === 'txn' ? lwFmtSigned(g.total) : ((g.total > 0 ? '-' : '') + lwFmtPlain(g.total))) + '</span></div>';
+  }
+  return h;
 }
 
 function renderLwDriverDetail(d, monthKey, prevKey) {
