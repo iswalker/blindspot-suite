@@ -5057,8 +5057,10 @@ function lwComputeDrivers(idx, s) {
       var acPrev = acctBalanceAt(acId, s.keys[idx - 1]);
       var acCur  = acctBalanceAt(acId, s.keys[idx]);
       var dCh2   = acCur - acPrev;
+      var acType = s.accounts[dj2].type;
       if (Math.abs(dCh2) >= 0.5) {
-        drivers.push({ name: s.accounts[dj2].name, id: acId, change: dCh2, prev: acPrev, cur: acCur });
+        drivers.push({ name: s.accounts[dj2].name, id: acId, change: dCh2, prev: acPrev, cur: acCur,
+                       isCredit: acType === 'creditCard' || acType === 'lineOfCredit' });
       }
     }
   }
@@ -5071,6 +5073,18 @@ function lwComputeDrivers(idx, s) {
   }
   if (slCount > 0) nonSl.push({ name: 'Student Loans', id: null, change: slTotal, prev: slPrev, cur: slCur });
   drivers = nonSl;
+  // Group Credit Card / Line of Credit accounts into one line (Liquid Balances tab only --
+  // on the Net Worth tab these on_budget accounts are already folded into "Liquid Accounts").
+  if (!isNwChart) {
+    var ccTotal = 0, ccPrev = 0, ccCur = 0, ccCount = 0, nonCc = [];
+    for (var cci = 0; cci < drivers.length; cci++) {
+      if (drivers[cci].isCredit) {
+        ccTotal += drivers[cci].change; ccPrev += drivers[cci].prev; ccCur += drivers[cci].cur; ccCount++;
+      } else { nonCc.push(drivers[cci]); }
+    }
+    if (ccCount > 0) nonCc.push({ name: 'Credit Accounts', id: null, change: ccTotal, prev: ccPrev, cur: ccCur });
+    drivers = nonCc;
+  }
   drivers.sort(function(x, y) { return Math.abs(y.change) - Math.abs(x.change); });
   return drivers;
 }
