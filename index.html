@@ -959,6 +959,8 @@ td.hbt-num:last-child { width: 13%; }
 .lwtt-drivers-more { font-size: 11px; color: #bbb; margin-top: 2px; }
 .lwtt-drivers-section { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 12px; font-weight: 700; color: #333; margin: 6px 0 3px; }
 .lwtt-drivers-section:first-of-type { margin-top: 0; }
+.lwtt-driver-amts { display: flex; align-items: baseline; gap: 8px; flex-shrink: 0; }
+.lwtt-driver-median { font-size: 11px; font-weight: 400; color: #999; white-space: nowrap; }
 .lwtt-asof { font-size: 10px; font-weight: 400; color: #aaa; }
 .lwtt-hint { font-size: 10px; color: #bbb; margin-top: 6px; border-top: 1px solid #eee; padding-top: 5px; }
 
@@ -1009,6 +1011,8 @@ td.hbt-num:last-child { width: 13%; }
 .lwdm-empty { font-size: 11px; color: #aaa; font-style: italic; }
 .lwdm-sec-hdr { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; color: #888; letter-spacing: .06em; text-transform: uppercase; padding: 10px 16px 4px; }
 .lwdm-sec-hdr:first-child { padding-top: 6px; }
+.lwdm-amts { display: flex; align-items: baseline; gap: 8px; flex-shrink: 0; }
+.lwdm-median { font-size: 11px; font-weight: 400; color: #999; white-space: nowrap; }
 
 /* ---- LW chart ---- */
 .lw-chart-wrap {
@@ -5193,7 +5197,7 @@ function lwComputeDrivers(idx, s) {
 // Classifies one account-ledger transaction (date/amount/payee/memo, from acctTxnsList) into
 // one of the three Net Worth driver sections, by memo/payee pattern (checked in this order):
 //   - Incentives: memo is exactly "Match" (employer match), or memo contains "#product"
-//   - Repricing & Growth: memo contains "#growth", or payee is "Manual Balance Adjustment"
+//   - Repricing: memo contains "#growth", or payee is "Manual Balance Adjustment"
 //     (YNAB's own reconciliation payee for tracking/investment accounts)
 //   - Retention: everything else
 function lwClassifyDriverTxn(t) {
@@ -5258,6 +5262,55 @@ function lwComputeDriverSections(idx, s) {
   };
 }
 
+function lwMedian(arr) {
+  if (!arr.length) return null;
+  var sorted = arr.slice().sort(function(a, b) { return a - b; });
+  var mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+// Historical medians for the Net Worth driver sections, over every month from the start of the
+// currently displayed range through (and including) the given month -- i.e. h = 1..idx against
+// s.keys. Reuses lwComputeDriverSections per historical month and matches rows by name within
+// each section key; a driver absent from a given month's list (its change was sub-$0.50 that
+// month, so lwComputeDrivers dropped it) counts as $0 / that section having 0% that month, same
+// as the threshold already applied to the current month's own display.
+function lwComputeDriverMedians(idx, s) {
+  var keys = ['growth', 'incentive', 'retention'];
+  var rowAmts = { growth: {}, incentive: {}, retention: {} }; // key -> name -> [amount, ...]
+  var pctSamples = { growth: [], incentive: [], retention: [] };
+  for (var h = 1; h <= idx; h++) {
+    var hSecs = lwComputeDriverSections(h, s);
+    var hNetChange = s.netVals[h] - s.netVals[h - 1];
+    for (var ki = 0; ki < keys.length; ki++) {
+      var key = keys[ki];
+      var sec = hSecs[key];
+      for (var ri = 0; ri < sec.rows.length; ri++) {
+        var nm = sec.rows[ri].name;
+        if (!rowAmts[key][nm]) rowAmts[key][nm] = [];
+        rowAmts[key][nm].push(sec.rows[ri].amount);
+      }
+      if (Math.abs(hNetChange) >= 0.5) pctSamples[key].push(sec.total / hNetChange * 100);
+    }
+  }
+  return {
+    rowMedian: function(key, name) {
+      var vals = (rowAmts[key][name] || []).slice();
+      while (vals.length < idx) vals.push(0);
+      return lwMedian(vals);
+    },
+    pctMedian: function(key) { return lwMedian(pctSamples[key]); }
+  };
+}
+
+function lwPctOfChange(amt, base) {
+  if (!base || Math.abs(base) < 0.005) return null;
+  return amt / base * 100;
+}
+function lwFmtPct(p) {
+  return (p === null || p === undefined || !isFinite(p)) ? '' : Math.round(p) + '%';
+}
+
 function showLwTooltip(clientX, clientY, idx, s) {
   var tt = document.getElementById('lw-tooltip');
   if (!tt) return;
@@ -5287,14 +5340,18 @@ function showLwTooltip(clientX, clientY, idx, s) {
     var sign = v >= 0 ? '+' : '';
     return sign + (v < 0 ? '-' : '') + '$' + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
-  function lwRenderDriverRows(rows, cap) {
+  function lwRenderDriverRows(rows, cap, key, medians) {
     var out = '', shownN = Math.min(rows.length, cap);
     for (var ri = 0; ri < shownN; ri++) {
       var row = rows[ri];
       var col = row.amount >= 0 ? '#2e7d32' : '#c62828';
+      var med = medians.rowMedian(key, row.name);
       out += '<div class="lwtt-driver-row">'
         + '<span class="lwtt-driver-name">' + row.name + '</span>'
-        + '<span class="lwtt-driver-val" style="color:' + col + ';font-weight:400">' + lwFmtTTSigned(row.amount) + '</span>'
+        + '<span class="lwtt-driver-amts">'
+        +   '<span class="lwtt-driver-val" style="color:' + col + ';font-weight:400">' + lwFmtTTSigned(row.amount) + '</span>'
+        +   (med !== null ? '<span class="lwtt-driver-median">' + lwFmtTTSigned(med) + '</span>' : '')
+        + '</span>'
         + '</div>';
     }
     if (rows.length > shownN) {
@@ -5305,21 +5362,28 @@ function showLwTooltip(clientX, clientY, idx, s) {
   if (idx > 0 && s.accounts && s.accounts.length > 0 && state.data && state.data.acctTxns) {
     if (s.canvasId === 'nw-canvas') {
       var dsecs = lwComputeDriverSections(idx, s);
+      var medians = lwComputeDriverMedians(idx, s);
       var sectionDefs = [
         { key: 'incentive', label: 'Incentives' },
-        { key: 'growth',    label: 'Repricing & Growth' },
+        { key: 'growth',    label: 'Repricing' },
         { key: 'retention', label: 'Retention' }
       ];
       sectionDefs.sort(function(a, b) { return Math.abs(dsecs[b.key].total) - Math.abs(dsecs[a.key].total); });
       var secHtml = '';
       for (var sdi = 0; sdi < sectionDefs.length; sdi++) {
-        var sec = dsecs[sectionDefs[sdi].key];
+        var key     = sectionDefs[sdi].key;
+        var sec     = dsecs[key];
         if (!sec.rows.length) continue;
+        var pctStr    = lwFmtPct(lwPctOfChange(sec.total, ch));
+        var medPctStr = lwFmtPct(medians.pctMedian(key));
         secHtml += '<div class="lwtt-drivers-section">'
           + '<span>' + sectionDefs[sdi].label + '</span>'
-          + '<span style="color:' + (sec.total >= 0 ? '#2e7d32' : '#c62828') + '">' + lwFmtTTSigned(sec.total) + '</span>'
+          + '<span class="lwtt-driver-amts">'
+          +   '<span style="color:' + (sec.total >= 0 ? '#2e7d32' : '#c62828') + '">' + lwFmtTTSigned(sec.total) + (pctStr ? ' (' + pctStr + ')' : '') + '</span>'
+          +   (medPctStr ? '<span class="lwtt-driver-median">' + medPctStr + ' typical</span>' : '')
+          + '</span>'
           + '</div>'
-          + lwRenderDriverRows(sec.rows, 6);
+          + lwRenderDriverRows(sec.rows, 6, key, medians);
       }
       if (secHtml) {
         driversHtml = '<div class="lwtt-divider"></div><div class="lwtt-drivers-hdr">Change Drivers</div>' + secHtml
@@ -5433,7 +5497,7 @@ function openLwDriverModal(idx, s) {
   var isNwChart = s.canvasId === 'nw-canvas';
   var sectionDefs = [
     { key: 'incentive', label: 'Incentives' },
-    { key: 'growth',    label: 'Repricing & Growth' },
+    { key: 'growth',    label: 'Repricing' },
     { key: 'retention', label: 'Retention' }
   ];
   var allRows;
@@ -5441,15 +5505,19 @@ function openLwDriverModal(idx, s) {
     var driverByName = {};
     for (var dni = 0; dni < drivers.length; dni++) driverByName[drivers[dni].name] = drivers[dni];
     var dsecs = lwComputeDriverSections(idx, s);
+    var medians = lwComputeDriverMedians(idx, s);
+    var netChange = s.netVals[idx] - s.netVals[idx - 1];
     sectionDefs.sort(function(a, b) { return Math.abs(dsecs[b.key].total) - Math.abs(dsecs[a.key].total); });
     allRows = [];
     for (var sdi = 0; sdi < sectionDefs.length; sdi++) {
       var sec = dsecs[sectionDefs[sdi].key];
       if (!sec.rows.length) continue;
-      allRows.push({ isSectionHeader: true, label: sectionDefs[sdi].label, total: sec.total });
+      allRows.push({ isSectionHeader: true, label: sectionDefs[sdi].label, total: sec.total,
+                     pct: lwPctOfChange(sec.total, netChange), medPct: medians.pctMedian(sectionDefs[sdi].key) });
       for (var ri = 0; ri < sec.rows.length; ri++) {
         allRows.push({ isSectionAccount: true, sectionKey: sectionDefs[sdi].key, sectionLabel: sectionDefs[sdi].label,
-                       name: sec.rows[ri].name, amount: sec.rows[ri].amount, driver: driverByName[sec.rows[ri].name] });
+                       name: sec.rows[ri].name, amount: sec.rows[ri].amount, driver: driverByName[sec.rows[ri].name],
+                       median: medians.rowMedian(sectionDefs[sdi].key, sec.rows[ri].name) });
       }
     }
     allRows.push(exclRow);
@@ -5472,7 +5540,13 @@ function openLwDriverModal(idx, s) {
       continue;
     }
     if (d.isSectionHeader) {
-      html += '<div class="lwdm-sec-hdr"><span>' + escHtml(d.label) + '</span><span>' + lwFmtSigned(d.total) + '</span></div>';
+      var pctStr    = lwFmtPct(d.pct);
+      var medPctStr = lwFmtPct(d.medPct);
+      html += '<div class="lwdm-sec-hdr"><span>' + escHtml(d.label) + '</span>'
+           +    '<span class="lwdm-amts">'
+           +      '<span>' + lwFmtSigned(d.total) + (pctStr ? ' (' + pctStr + ')' : '') + '</span>'
+           +      (medPctStr ? '<span class="lwdm-median">' + medPctStr + ' typical</span>' : '')
+           +    '</span></div>';
       continue;
     }
     if (d.isSectionAccount) {
@@ -5480,7 +5554,10 @@ function openLwDriverModal(idx, s) {
       html += '<div class="lwdm-row" data-di="' + i + '">'
            +    '<div class="lwdm-row-top">'
            +      '<span class="lwdm-row-name">' + escHtml(d.name) + '</span>'
-           +      '<span class="lwdm-row-val" style="color:' + saCol + ';font-weight:400">' + lwFmtSigned(d.amount) + '</span>'
+           +      '<span class="lwdm-amts">'
+           +        '<span class="lwdm-row-val" style="color:' + saCol + ';font-weight:400">' + lwFmtSigned(d.amount) + '</span>'
+           +        (d.median !== null ? '<span class="lwdm-median">' + lwFmtSigned(d.median) + '</span>' : '')
+           +      '</span>'
            +    '</div>'
            +  '</div>';
       continue;
@@ -5780,7 +5857,7 @@ function renderLwDriverDetail(d, monthKey, prevKey) {
   el.innerHTML = h;
 }
 
-// Transactions behind one account's Incentives / Repricing & Growth / Retention split for a
+// Transactions behind one account's Incentives / Repricing / Retention split for a
 // month (see lwClassifyDriverTxn / lwAccountDriverBuckets).
 function lwAccountDriverTxns(acctId, prevKey, curKey, kind) {
   var list = ((state.data || {}).acctTxnsList || {})[acctId] || [];
@@ -5795,7 +5872,7 @@ function lwAccountDriverTxns(acctId, prevKey, curKey, kind) {
 }
 
 // Detail pane for one (driver, section) row in the Net Worth tab's regrouped Change Drivers
-// modal -- the transactions behind that driver's Incentives / Repricing & Growth / Retention
+// modal -- the transactions behind that driver's Incentives / Repricing / Retention
 // amount. Retention is a remainder (see lwAccountDriverBuckets), so it can include a residual
 // that no single transaction accounts for (tracking/holding exclusions baked into the
 // account's balance); any such gap is shown as a single "Other balance adjustments" line.
