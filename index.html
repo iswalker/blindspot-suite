@@ -5342,14 +5342,21 @@ function lwComputeExclusionsSummary(accounts, monthKey) {
     distribution: { enabled: !!state.lwExcludeDistribution, groupMap: {}, order: [], total: 0 },
     budgeted:     { enabled: !!state.lwExcludeBudgeted,     groupMap: {}, order: [], total: 0 }
   };
-  function addTo(sec, groupName, entry) {
+  // Merges every account in a group into one flat list of transactions/entries -- the
+  // breakdown is by account GROUP only, not by individual account.
+  function trkGroup(sec, groupName) {
     if (!sec.groupMap[groupName]) {
-      sec.groupMap[groupName] = { name: groupName, total: 0, accounts: [] };
+      sec.groupMap[groupName] = { name: groupName, total: 0, txns: [], priorTotal: 0 };
       sec.order.push(groupName);
     }
-    sec.groupMap[groupName].total += entry.amt;
-    sec.groupMap[groupName].accounts.push(entry);
-    sec.total += entry.amt;
+    return sec.groupMap[groupName];
+  }
+  function heldGroup(sec, groupName) {
+    if (!sec.groupMap[groupName]) {
+      sec.groupMap[groupName] = { name: groupName, total: 0, entries: [] };
+      sec.order.push(groupName);
+    }
+    return sec.groupMap[groupName];
   }
 
   var pivot = ((state.data || {}).catAvailPivot) || {};
@@ -5362,7 +5369,11 @@ function lwComputeExclusionsSummary(accounts, monthKey) {
       if (trk.txns.length || trk.priorTotal) {
         var thisMonth = 0;
         for (var ti = 0; ti < trk.txns.length; ti++) thisMonth += trk.txns[ti].amount;
-        addTo(sections.tracking, groupName, { acctName: acct.name, txns: trk.txns, amt: thisMonth + trk.priorTotal });
+        var g1 = trkGroup(sections.tracking, groupName);
+        g1.txns = g1.txns.concat(trk.txns);
+        g1.priorTotal += trk.priorTotal;
+        g1.total += thisMonth + trk.priorTotal;
+        sections.tracking.total += thisMonth + trk.priorTotal;
       }
     }
 
@@ -5379,7 +5390,12 @@ function lwComputeExclusionsSummary(accounts, monthKey) {
           if (!isZeroish(av1)) distShown.push({ grp: byScope.dist[di].grp, cat: byScope.dist[di].cat, amt: av1 });
         }
         var distDeducted = Math.max(0, distSum);
-        if (distShown.length || distDeducted) addTo(sections.distribution, groupName, { acctName: acct.name, entries: distShown, amt: distDeducted });
+        if (distShown.length || distDeducted) {
+          var g2 = heldGroup(sections.distribution, groupName);
+          g2.entries = g2.entries.concat(distShown);
+          g2.total += distDeducted;
+          sections.distribution.total += distDeducted;
+        }
       }
       if (sections.budgeted.enabled && byScope.budget.length) {
         var budSum = 0, budShown = [];
@@ -5389,7 +5405,12 @@ function lwComputeExclusionsSummary(accounts, monthKey) {
           if (!isZeroish(av2)) budShown.push({ grp: byScope.budget[bi].grp, cat: byScope.budget[bi].cat, amt: av2 });
         }
         var budDeducted = Math.max(0, budSum);
-        if (budShown.length || budDeducted) addTo(sections.budgeted, groupName, { acctName: acct.name, entries: budShown, amt: budDeducted });
+        if (budShown.length || budDeducted) {
+          var g3 = heldGroup(sections.budgeted, groupName);
+          g3.entries = g3.entries.concat(budShown);
+          g3.total += budDeducted;
+          sections.budgeted.total += budDeducted;
+        }
       }
     }
   }
@@ -5414,8 +5435,9 @@ function renderLwExclusionsDetail(summary) {
   el.innerHTML = h;
 }
 
-// One row per account group, name on the left and the group's total removed/deducted
-// amount on the right -- no per-account or per-transaction detail.
+// One block per account group: its transactions/held categories (merged across every
+// account in the group, with no per-account labeling), then a total line that sums to
+// the group's total shown on its header row.
 function renderLwExclusionSection(label, sec, kind) {
   var h = '<div class="lwdm-d-toggle">' + escHtml(label) + '</div>';
   if (!sec.enabled) {
@@ -5432,6 +5454,31 @@ function renderLwExclusionSection(label, sec, kind) {
     var col = kind === 'txn' ? (g.total >= 0 ? '#2e7d32' : '#c62828') : '#333';
     h += '<div class="lwdm-d-grp-row"><span class="lwdm-d-grp">' + escHtml(g.name) + '</span>'
       +  '<span class="lwdm-txn-amt" style="color:' + col + '">' + val + '</span></div>';
+
+    if (kind === 'txn') {
+      for (var ti = 0; ti < g.txns.length; ti++) {
+        var t = g.txns[ti];
+        var meta = [t.date, t.payee, t.memo].filter(Boolean).join(' · ');
+        h += '<div class="lwdm-txn"><div class="lwdm-txn-l">'
+          +    '<div class="lwdm-txn-cat">' + escHtml(t.cat) + '</div>'
+          +    '<div class="lwdm-txn-meta">' + escHtml(meta) + '</div></div>'
+          +  '<div class="lwdm-txn-amt" style="color:' + (t.amount >= 0 ? '#2e7d32' : '#c62828') + '">'
+          +    lwFmtSigned(t.amount) + '</div></div>';
+      }
+      if (g.priorTotal) {
+        h += '<div class="lwdm-txn"><div class="lwdm-txn-l">'
+          +    '<div class="lwdm-txn-cat">Carried in from earlier months</div></div>'
+          +  '<div class="lwdm-txn-amt" style="color:#888">' + lwFmtSigned(g.priorTotal) + '</div></div>';
+      }
+    } else {
+      for (var ei = 0; ei < g.entries.length; ei++) {
+        var e = g.entries[ei];
+        h += '<div class="lwdm-txn"><div class="lwdm-txn-l">'
+          +    '<div class="lwdm-txn-cat">' + escHtml(e.cat) + '</div>'
+          +    '<div class="lwdm-txn-meta">' + escHtml(e.grp) + ' &middot; available</div></div>'
+          +  '<div class="lwdm-txn-amt">' + lwFmtPlain(e.amt) + '</div></div>';
+      }
+    }
   }
   return h;
 }
