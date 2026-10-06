@@ -2241,7 +2241,7 @@ var LIQUID_TYPES = { checking: 1, savings: 1, cash: 1, creditCard: 1, lineOfCred
 // Metric = one of these names and Text = comma-separated Account IDs clubs those accounts
 // into a single named line, the same way "Credit Accounts"/"Student Loans" are grouped.
 // Add a name here to support another group without further code changes.
-var LW_CUSTOM_DRIVER_GROUPS = ['Checking', 'Prepaids', 'Cash', 'Exchanges'];
+var LW_CUSTOM_DRIVER_GROUPS = ['Checking', 'Prepaids', 'Cash', 'Exchanges', 'Loyalty Programs'];
 // Pending category rules are loaded from Config.csv at runtime (see parseConfigCsv / state.catConfig).
 // For the API path, categories are matched by ID. For CSV, usedFor is matched as a name substring.
 var CONFIG_FILENAME = 'Config.csv';
@@ -5031,6 +5031,17 @@ function lwMonthEndLabel(key) {
   return m + '/' + last + '/' + String(y).slice(2);
 }
 
+// "As of" label for a month bucket. The current, still-in-progress month (shown via
+// "Preview Current Month") hasn't reached its calendar month-end yet, so acctBalanceAt
+// for it is really "balance as of today" -- label it that way instead of a future date.
+function lwAsOfLabel(key) {
+  if (key === dtKey(new Date())) {
+    var today = new Date();
+    return (today.getMonth() + 1) + '/' + today.getDate() + '/' + String(today.getFullYear()).slice(2);
+  }
+  return lwMonthEndLabel(key);
+}
+
 // Builds { accountId: groupName } from Config.csv rows whose Metric matches a name in
 // LW_CUSTOM_DRIVER_GROUPS and whose Text is a comma-separated list of Account IDs.
 function lwCustomGroupMap() {
@@ -5161,8 +5172,8 @@ function showLwTooltip(clientX, clientY, idx, s) {
     var drivers = lwComputeDrivers(idx, s);
     var shown = Math.min(drivers.length, 12);
     if (shown > 0) {
-      var prevDateLbl = lwMonthEndLabel(s.keys[idx - 1]);
-      var curDateLbl  = lwMonthEndLabel(s.keys[idx]);
+      var prevDateLbl = lwAsOfLabel(s.keys[idx - 1]);
+      var curDateLbl  = lwAsOfLabel(s.keys[idx]);
       driversHtml = '<div class="lwtt-divider"></div><div class="lwtt-drivers-hdr">Change Drivers</div>';
       for (var dj = 0; dj < shown; dj++) {
         var dc     = drivers[dj].change;
@@ -5192,7 +5203,7 @@ function showLwTooltip(clientX, clientY, idx, s) {
       '<div><div class="lwtt-label">Exceptions</div><div class="lwtt-val">' + fmtTT(s.exceptionVals[idx]) + '</div></div></div>' : '';
   tt.innerHTML =
     '<div class="lwtt-month">' + monthLbl
-      + ' <span class="lwtt-asof">as of ' + lwMonthEndLabel(s.keys[idx]) + '</span></div>' +
+      + ' <span class="lwtt-asof">as of ' + lwAsOfLabel(s.keys[idx]) + '</span></div>' +
     '<div class="lwtt-row"><span class="lwtt-dot" style="background:#3f51b5"></span>' +
       '<div><div class="lwtt-label">Assets</div><div class="lwtt-val">' + fmtTT(s.assetVals[idx]) + '</div></div></div>' +
     exceptionsHtml +
@@ -5250,7 +5261,7 @@ function openLwDriverModal(idx, s) {
   var pp = s.keys[idx].split('-');
   document.getElementById('lwdm-title').textContent =
     LW_MONTH_SHORT[parseInt(pp[1], 10) - 1] + ' ' + pp[0] + ' · Change Drivers ('
-    + drivers.length + ') · ' + lwMonthEndLabel(s.keys[idx - 1]) + ' → ' + lwMonthEndLabel(s.keys[idx]);
+    + drivers.length + ') · ' + lwAsOfLabel(s.keys[idx - 1]) + ' → ' + lwAsOfLabel(s.keys[idx]);
 
   var html = '';
   for (var i = 0; i < drivers.length; i++) {
@@ -5291,8 +5302,8 @@ function renderLwDriverDetail(d, monthKey, prevKey) {
   var el = document.getElementById('lwdm-detail');
   if (!el || !d) return;
   var h = '<div class="lwdm-d-hdr">' + escHtml(d.name) + '</div>'
-        + '<div class="lwdm-d-sub">' + lwFmtPlain(d.prev) + ' on ' + lwMonthEndLabel(prevKey)
-        + ' → ' + lwFmtPlain(d.cur) + ' on ' + lwMonthEndLabel(monthKey)
+        + '<div class="lwdm-d-sub">' + lwFmtPlain(d.prev) + ' on ' + lwAsOfLabel(prevKey)
+        + ' → ' + lwFmtPlain(d.cur) + ' on ' + lwAsOfLabel(monthKey)
         + ' · <strong>' + lwFmtSigned(d.change) + '</strong></div>';
 
   if (!d.id) {
