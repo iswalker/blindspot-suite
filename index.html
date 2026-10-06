@@ -5191,21 +5191,21 @@ function lwComputeDrivers(idx, s) {
 }
 
 // Classifies one account-ledger transaction (date/amount/payee/memo, from acctTxnsList) into
-// one of the three Net Worth driver sections, by memo/payee pattern:
+// one of the three Net Worth driver sections, by memo/payee pattern (checked in this order):
+//   - Incentives: memo is exactly "Match" (employer match), or memo contains "#product"
 //   - Repricing & Growth: memo contains "#growth", or payee is "Manual Balance Adjustment"
 //     (YNAB's own reconciliation payee for tracking/investment accounts)
-//   - Incentives: memo is exactly "Match" (employer match), or memo contains "#product"
-//   - Savings: everything else
+//   - Retention: everything else
 function lwClassifyDriverTxn(t) {
   var memo  = (t.memo || '').toLowerCase();
   var payee = (t.payee || '').trim().toLowerCase();
-  if (memo.indexOf('#growth') !== -1 || payee === 'manual balance adjustment') return 'growth';
   if (memo.trim() === 'match' || memo.indexOf('#product') !== -1) return 'incentive';
-  return 'savings';
+  if (memo.indexOf('#growth') !== -1 || payee === 'manual balance adjustment') return 'growth';
+  return 'retention';
 }
 
 // Sums a single account's matching transactions, dated in (prevKey, curKey], for one bucket.
-// Savings is computed as the remainder against the account's actual balance change (rather
+// Retention is computed as the remainder against the account's actual balance change (rather
 // than a third txn-level sum) so the three buckets always reconcile exactly to that change,
 // even when non-transaction adjustments (tracking/holding exclusions) are in play.
 function lwAccountDriverBuckets(acctId, prevKey, curKey, totalChange) {
@@ -5219,31 +5219,31 @@ function lwAccountDriverBuckets(acctId, prevKey, curKey, totalChange) {
     if (kind === 'growth') growth += t.amount;
     else if (kind === 'incentive') incentive += t.amount;
   }
-  return { growth: growth, incentive: incentive, savings: totalChange - growth - incentive };
+  return { growth: growth, incentive: incentive, retention: totalChange - growth - incentive };
 }
 
 // For the Net Worth tab only: regroups lwComputeDrivers' driver list into the three sections
 // above. Each driver (whether a single account or a group like "Liquid Accounts") keeps its
 // own name/grouping, but its change is split by scanning its member account(s)' transactions;
 // a driver appears in every section where its split amount is non-zero (e.g. a 401k with both
-// an employer match and ordinary contributions shows up under both Incentives and Savings).
+// an employer match and ordinary contributions shows up under both Incentives and Retention).
 function lwComputeDriverSections(idx, s) {
   var drivers = lwComputeDrivers(idx, s);
   var prevKey = s.keys[idx - 1], curKey = s.keys[idx];
-  var sections = { growth: [], incentive: [], savings: [] };
+  var sections = { growth: [], incentive: [], retention: [] };
   for (var di = 0; di < drivers.length; di++) {
     var d = drivers[di];
     var leaves = (d.members && d.members.length) ? d.members : [d];
-    var gTot = 0, iTot = 0, sTot = 0;
+    var gTot = 0, iTot = 0, rTot = 0;
     for (var li = 0; li < leaves.length; li++) {
       var leaf = leaves[li];
-      if (!leaf.id) { sTot += leaf.change; continue; }
+      if (!leaf.id) { rTot += leaf.change; continue; }
       var b = lwAccountDriverBuckets(leaf.id, prevKey, curKey, leaf.change);
-      gTot += b.growth; iTot += b.incentive; sTot += b.savings;
+      gTot += b.growth; iTot += b.incentive; rTot += b.retention;
     }
     if (Math.abs(gTot) >= 0.5) sections.growth.push({ name: d.name, amount: gTot });
     if (Math.abs(iTot) >= 0.5) sections.incentive.push({ name: d.name, amount: iTot });
-    if (Math.abs(sTot) >= 0.5) sections.savings.push({ name: d.name, amount: sTot });
+    if (Math.abs(rTot) >= 0.5) sections.retention.push({ name: d.name, amount: rTot });
   }
   function finalize(rows) {
     rows.sort(function(x, y) { return Math.abs(y.amount) - Math.abs(x.amount); });
@@ -5254,7 +5254,7 @@ function lwComputeDriverSections(idx, s) {
   return {
     growth:    finalize(sections.growth),
     incentive: finalize(sections.incentive),
-    savings:   finalize(sections.savings)
+    retention: finalize(sections.retention)
   };
 }
 
@@ -5306,10 +5306,11 @@ function showLwTooltip(clientX, clientY, idx, s) {
     if (s.canvasId === 'nw-canvas') {
       var dsecs = lwComputeDriverSections(idx, s);
       var sectionDefs = [
-        { key: 'growth',    label: 'Repricing & Growth' },
         { key: 'incentive', label: 'Incentives' },
-        { key: 'savings',   label: 'Savings' }
+        { key: 'growth',    label: 'Repricing & Growth' },
+        { key: 'retention', label: 'Retention' }
       ];
+      sectionDefs.sort(function(a, b) { return Math.abs(dsecs[b.key].total) - Math.abs(dsecs[a.key].total); });
       var secHtml = '';
       for (var sdi = 0; sdi < sectionDefs.length; sdi++) {
         var sec = dsecs[sectionDefs[sdi].key];
@@ -5431,9 +5432,9 @@ function openLwDriverModal(idx, s) {
 
   var isNwChart = s.canvasId === 'nw-canvas';
   var sectionDefs = [
-    { key: 'growth',    label: 'Repricing & Growth' },
     { key: 'incentive', label: 'Incentives' },
-    { key: 'savings',   label: 'Savings' }
+    { key: 'growth',    label: 'Repricing & Growth' },
+    { key: 'retention', label: 'Retention' }
   ];
   var allRows;
   if (isNwChart && idx > 0) {
@@ -5778,7 +5779,7 @@ function renderLwDriverDetail(d, monthKey, prevKey) {
   el.innerHTML = h;
 }
 
-// Transactions behind one account's Repricing & Growth / Incentives / Savings split for a
+// Transactions behind one account's Incentives / Repricing & Growth / Retention split for a
 // month (see lwClassifyDriverTxn / lwAccountDriverBuckets).
 function lwAccountDriverTxns(acctId, prevKey, curKey, kind) {
   var list = ((state.data || {}).acctTxnsList || {})[acctId] || [];
@@ -5793,8 +5794,8 @@ function lwAccountDriverTxns(acctId, prevKey, curKey, kind) {
 }
 
 // Detail pane for one (driver, section) row in the Net Worth tab's regrouped Change Drivers
-// modal -- the transactions behind that driver's Repricing & Growth / Incentives / Savings
-// amount. Savings is a remainder (see lwAccountDriverBuckets), so it can include a residual
+// modal -- the transactions behind that driver's Incentives / Repricing & Growth / Retention
+// amount. Retention is a remainder (see lwAccountDriverBuckets), so it can include a residual
 // that no single transaction accounts for (tracking/holding exclusions baked into the
 // account's balance); any such gap is shown as a single "Other balance adjustments" line.
 function renderLwDriverSectionDetail(row, monthKey, prevKey) {
