@@ -992,8 +992,8 @@ td.hbt-num:last-child { width: 13%; }
 .lwdm-d-sec { font-size: 10px; font-weight: 700; color: #bbb; letter-spacing: .08em; text-transform: uppercase; margin: 14px 0 5px; }
 .lwdm-d-toggle { font-size: 13px; font-weight: 700; color: #1565c0; margin: 18px 0 2px; padding-top: 12px; border-top: 1px solid #e6e6e2; }
 .lwdm-d-toggle:first-of-type { margin-top: 12px; padding-top: 0; border-top: none; }
-.lwdm-d-grp { font-size: 11px; font-weight: 700; color: #555; margin: 10px 0 4px; }
-.lwdm-d-acct { font-size: 10px; font-weight: 600; color: #888; margin: 6px 0 2px; }
+.lwdm-d-grp-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid #f0f0ec; }
+.lwdm-d-grp { font-size: 12px; font-weight: 600; color: #444; }
 .lwdm-d-tot { font-size: 12px; font-weight: 700; color: #333; margin-top: 6px; padding-top: 6px; border-top: 1px solid #e6e6e2; display: flex; justify-content: space-between; }
 .lwdm-txn { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; border-bottom: 1px solid #f0f0ec; }
 .lwdm-txn-l { min-width: 0; }
@@ -5414,8 +5414,8 @@ function renderLwExclusionsDetail(summary) {
   el.innerHTML = h;
 }
 
-// kind: 'txn' renders tracking transactions (date/payee/memo), 'held' renders held-reserve
-// categories (group · available). Both share the same group/account nesting.
+// One row per account group, name on the left and the group's total removed/deducted
+// amount on the right -- no per-account or per-transaction detail.
 function renderLwExclusionSection(label, sec, kind) {
   var h = '<div class="lwdm-d-toggle">' + escHtml(label) + '</div>';
   if (!sec.enabled) {
@@ -5426,46 +5426,12 @@ function renderLwExclusionSection(label, sec, kind) {
     h += '<div class="lwdm-empty">No exclusions this month.</div>';
     return h;
   }
-  // Stated once per section rather than repeated on every group's total line below.
-  if (kind === 'held') {
-    h += '<div class="lwdm-empty" style="margin-bottom:6px">Each category\'s leftover Available is floored at $0 before being deducted, so an overspent category never offsets a surplus elsewhere.</div>';
-  }
   for (var gi = 0; gi < sec.groups.length; gi++) {
     var g = sec.groups[gi];
-    h += '<div class="lwdm-d-grp">' + escHtml(g.name) + '</div>';
-    for (var ai = 0; ai < g.accounts.length; ai++) {
-      var a = g.accounts[ai];
-      if (g.accounts.length > 1) h += '<div class="lwdm-d-acct">' + escHtml(a.acctName) + '</div>';
-      if (kind === 'txn') {
-        if (!a.txns.length) {
-          h += '<div class="lwdm-empty">Carried in from earlier months only.</div>';
-        } else {
-          for (var ti = 0; ti < a.txns.length; ti++) {
-            var t = a.txns[ti];
-            var meta = [t.date, t.payee, t.memo].filter(Boolean).join(' · ');
-            h += '<div class="lwdm-txn"><div class="lwdm-txn-l">'
-              +    '<div class="lwdm-txn-cat">' + escHtml(t.cat) + '</div>'
-              +    '<div class="lwdm-txn-meta">' + escHtml(meta) + '</div></div>'
-              +  '<div class="lwdm-txn-amt" style="color:' + (t.amount >= 0 ? '#2e7d32' : '#c62828') + '">'
-              +    lwFmtSigned(t.amount) + '</div></div>';
-          }
-        }
-      } else {
-        if (!a.entries.length) {
-          h += '<div class="lwdm-empty">Nothing held in these categories this month.</div>';
-        } else {
-          for (var ei = 0; ei < a.entries.length; ei++) {
-            var e = a.entries[ei];
-            h += '<div class="lwdm-txn"><div class="lwdm-txn-l">'
-              +    '<div class="lwdm-txn-cat">' + escHtml(e.cat) + '</div>'
-              +    '<div class="lwdm-txn-meta">' + escHtml(e.grp) + ' &middot; available</div></div>'
-              +  '<div class="lwdm-txn-amt">' + lwFmtPlain(e.amt) + '</div></div>';
-          }
-        }
-      }
-    }
-    h += '<div class="lwdm-d-tot"><span>' + (kind === 'txn' ? 'Removed from balance' : 'Deducted') + '</span><span>'
-      +    (kind === 'txn' ? lwFmtSigned(g.total) : ((g.total > 0 ? '-' : '') + lwFmtPlain(g.total))) + '</span></div>';
+    var val = kind === 'txn' ? lwFmtSigned(g.total) : ((g.total > 0 ? '-' : '') + lwFmtPlain(g.total));
+    var col = kind === 'txn' ? (g.total >= 0 ? '#2e7d32' : '#c62828') : '#333';
+    h += '<div class="lwdm-d-grp-row"><span class="lwdm-d-grp">' + escHtml(g.name) + '</span>'
+      +  '<span class="lwdm-txn-amt" style="color:' + col + '">' + val + '</span></div>';
   }
   return h;
 }
