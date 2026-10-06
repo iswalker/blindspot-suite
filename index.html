@@ -2237,6 +2237,11 @@ function resolveTitheCatId() {
 }
 
 var LIQUID_TYPES = { checking: 1, savings: 1, cash: 1, creditCard: 1, lineOfCredit: 1 };
+// Config-driven custom driver groups for the Liquid Balances hover: a Config.csv row with
+// Metric = one of these names and Text = comma-separated Account IDs clubs those accounts
+// into a single named line, the same way "Credit Accounts"/"Student Loans" are grouped.
+// Add a name here to support another group without further code changes.
+var LW_CUSTOM_DRIVER_GROUPS = ['Checking', 'Prepaids'];
 // Pending category rules are loaded from Config.csv at runtime (see parseConfigCsv / state.catConfig).
 // For the API path, categories are matched by ID. For CSV, usedFor is matched as a name substring.
 var CONFIG_FILENAME = 'Config.csv';
@@ -5026,6 +5031,25 @@ function lwMonthEndLabel(key) {
   return m + '/' + last + '/' + String(y).slice(2);
 }
 
+// Builds { accountId: groupName } from Config.csv rows whose Metric matches a name in
+// LW_CUSTOM_DRIVER_GROUPS and whose Text is a comma-separated list of Account IDs.
+function lwCustomGroupMap() {
+  var map = {};
+  for (var gi = 0; gi < LW_CUSTOM_DRIVER_GROUPS.length; gi++) {
+    var gName = LW_CUSTOM_DRIVER_GROUPS[gi];
+    for (var ci = 0; ci < (state.catConfig || []).length; ci++) {
+      var cfg = state.catConfig[ci];
+      if ((cfg.usedFor || '').toLowerCase() !== gName.toLowerCase()) continue;
+      var ids = (cfg.id || '').split(',');
+      for (var ii = 0; ii < ids.length; ii++) {
+        var acctId = ids[ii].trim();
+        if (acctId) map[acctId] = gName;
+      }
+    }
+  }
+  return map;
+}
+
 // Per-account balance change between the two hovered months, sorted by magnitude.
 // Shared by the hover tooltip (top 12) and the click-through modal (all).
 // acctId is carried where a row maps to a single account, so the modal can look up
@@ -5036,7 +5060,7 @@ function lwComputeDrivers(idx, s) {
   var drivers = [];
   if (isNwChart) {
     // For NW chart: sum all on_budget accounts into one "Liquid Accounts" line
-    var liquidChange = 0, liquidPrev = 0, liquidCur = 0;
+    var liquidChange = 0, liquidPrev = 0, liquidCur = 0, liquidMembers = [];
     for (var di = 0; di < s.accounts.length; di++) {
       var a = s.accounts[di];
       var aPrev = acctBalanceAt(a.id, s.keys[idx - 1]);
@@ -5044,14 +5068,16 @@ function lwComputeDrivers(idx, s) {
       var dCh   = aCur - aPrev;
       if (a.on_budget) {
         liquidChange += dCh; liquidPrev += aPrev; liquidCur += aCur;
+        if (Math.abs(dCh) >= 0.5) liquidMembers.push({ name: a.name, id: a.id, change: dCh, prev: aPrev, cur: aCur });
       } else {
         if (Math.abs(dCh) >= 0.5) drivers.push({ name: a.name, id: a.id, change: dCh, prev: aPrev, cur: aCur });
       }
     }
     if (Math.abs(liquidChange) >= 0.5) {
-      drivers.push({ name: 'Liquid Accounts', id: null, change: liquidChange, prev: liquidPrev, cur: liquidCur });
+      drivers.push({ name: 'Liquid Accounts', id: null, change: liquidChange, prev: liquidPrev, cur: liquidCur, members: liquidMembers });
     }
   } else {
+    var customMap = lwCustomGroupMap();
     for (var dj2 = 0; dj2 < s.accounts.length; dj2++) {
       var acId   = s.accounts[dj2].id;
       var acPrev = acctBalanceAt(acId, s.keys[idx - 1]);
@@ -5060,29 +5086,46 @@ function lwComputeDrivers(idx, s) {
       var acType = s.accounts[dj2].type;
       if (Math.abs(dCh2) >= 0.5) {
         drivers.push({ name: s.accounts[dj2].name, id: acId, change: dCh2, prev: acPrev, cur: acCur,
-                       isCredit: acType === 'creditCard' || acType === 'lineOfCredit' });
+                       isCredit: acType === 'creditCard' || acType === 'lineOfCredit',
+                       customGroup: customMap[acId] || null });
       }
     }
   }
+  // Group accounts assigned to a custom driver-group via Config.csv (see LW_CUSTOM_DRIVER_GROUPS).
+  // Applied before the Student Loan / Credit Accounts grouping below so a config assignment
+  // takes priority over those built-in groupings.
+  if (!isNwChart) {
+    for (var cgi = 0; cgi < LW_CUSTOM_DRIVER_GROUPS.length; cgi++) {
+      var cgName = LW_CUSTOM_DRIVER_GROUPS[cgi];
+      var cgTotal = 0, cgPrev = 0, cgCur = 0, cgMembers = [], nonCg = [];
+      for (var cgdi = 0; cgdi < drivers.length; cgdi++) {
+        if (drivers[cgdi].customGroup === cgName) {
+          cgTotal += drivers[cgdi].change; cgPrev += drivers[cgdi].prev; cgCur += drivers[cgdi].cur; cgMembers.push(drivers[cgdi]);
+        } else { nonCg.push(drivers[cgdi]); }
+      }
+      if (cgMembers.length > 0) nonCg.push({ name: cgName, id: null, change: cgTotal, prev: cgPrev, cur: cgCur, members: cgMembers });
+      drivers = nonCg;
+    }
+  }
   // Group Student Loan accounts into one line
-  var slTotal = 0, slPrev = 0, slCur = 0, slCount = 0, nonSl = [];
+  var slTotal = 0, slPrev = 0, slCur = 0, slMembers = [], nonSl = [];
   for (var sli = 0; sli < drivers.length; sli++) {
     if (drivers[sli].name.indexOf('Student Loan') !== -1) {
-      slTotal += drivers[sli].change; slPrev += drivers[sli].prev; slCur += drivers[sli].cur; slCount++;
+      slTotal += drivers[sli].change; slPrev += drivers[sli].prev; slCur += drivers[sli].cur; slMembers.push(drivers[sli]);
     } else { nonSl.push(drivers[sli]); }
   }
-  if (slCount > 0) nonSl.push({ name: 'Student Loans', id: null, change: slTotal, prev: slPrev, cur: slCur });
+  if (slMembers.length > 0) nonSl.push({ name: 'Student Loans', id: null, change: slTotal, prev: slPrev, cur: slCur, members: slMembers });
   drivers = nonSl;
   // Group Credit Card / Line of Credit accounts into one line (Liquid Balances tab only --
   // on the Net Worth tab these on_budget accounts are already folded into "Liquid Accounts").
   if (!isNwChart) {
-    var ccTotal = 0, ccPrev = 0, ccCur = 0, ccCount = 0, nonCc = [];
+    var ccTotal = 0, ccPrev = 0, ccCur = 0, ccMembers = [], nonCc = [];
     for (var cci = 0; cci < drivers.length; cci++) {
       if (drivers[cci].isCredit) {
-        ccTotal += drivers[cci].change; ccPrev += drivers[cci].prev; ccCur += drivers[cci].cur; ccCount++;
+        ccTotal += drivers[cci].change; ccPrev += drivers[cci].prev; ccCur += drivers[cci].cur; ccMembers.push(drivers[cci]);
       } else { nonCc.push(drivers[cci]); }
     }
-    if (ccCount > 0) nonCc.push({ name: 'Credit Accounts', id: null, change: ccTotal, prev: ccPrev, cur: ccCur });
+    if (ccMembers.length > 0) nonCc.push({ name: 'Credit Accounts', id: null, change: ccTotal, prev: ccPrev, cur: ccCur, members: ccMembers });
     drivers = nonCc;
   }
   drivers.sort(function(x, y) { return Math.abs(y.change) - Math.abs(x.change); });
@@ -5253,7 +5296,21 @@ function renderLwDriverDetail(d, monthKey, prevKey) {
         + ' · <strong>' + lwFmtSigned(d.change) + '</strong></div>';
 
   if (!d.id) {
-    h += '<div class="lwdm-empty">Grouped row — hover an individual account for exclusion detail.</div>';
+    var members = (d.members || []).slice().sort(function(x, y) { return Math.abs(y.change) - Math.abs(x.change); });
+    h += '<div class="lwdm-d-sec">Accounts in this group</div>';
+    if (!members.length) {
+      h += '<div class="lwdm-empty">No member accounts.</div>';
+    } else {
+      for (var mi = 0; mi < members.length; mi++) {
+        var md = members[mi];
+        h += '<div class="lwdm-txn"><div class="lwdm-txn-l">'
+          +    '<div class="lwdm-txn-cat">' + escHtml(md.name) + '</div>'
+          +    '<div class="lwdm-txn-meta">' + lwFmtPlain(md.prev) + ' &rarr; ' + lwFmtPlain(md.cur) + '</div></div>'
+          +  '<div class="lwdm-txn-amt" style="color:' + (md.change >= 0 ? '#2e7d32' : '#c62828') + '">'
+          +    lwFmtSigned(md.change) + '</div></div>';
+      }
+    }
+    h += '<div class="lwdm-empty">Exclusion detail is only available per individual account — click an account row elsewhere for that breakdown.</div>';
     el.innerHTML = h;
     return;
   }
