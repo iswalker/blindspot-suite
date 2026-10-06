@@ -2991,14 +2991,17 @@ function ynabGet(path, apiKey) {
 }
 
 // Derives the Cash Flow tab's Reconciliation data (reconTxns, nonLiqCatAct, liqGrpActivity)
-// for a given "liquid account" ID set, from the raw per-account-ID breakdowns built during
-// the YNAB fetch (reconTxnsByAcct/grpActByAcct). Called once at fetch time with every liquid
+// for a given "liquid account" ID set, from the raw per-account-ID transaction breakdown
+// built during the YNAB fetch (reconTxnsByAcct). Called once at fetch time with every liquid
 // account included, and again by refreshReconciliationData() whenever the Liquid Balances
 // Accounts selection or "Include Exception Accounts" toggle changes, so Reconciliation always
 // reflects whichever accounts currently count as liquid there.
-function computeLiqReconData(acctIdSet, reconTxnsByAcct, grpActByAcct) {
+function computeLiqReconData(acctIdSet, reconTxnsByAcct) {
   // Transfers between two liquid accounts net to zero across the set, so they are dropped
-  // entirely rather than shown as offsetting noise.
+  // entirely rather than shown as offsetting noise -- whether the leg is YNAB's own
+  // uncategorised "@TRANSFER" bucket or a categorised transfer-like group (e.g. "Deployable
+  // Cash Pools"): any transaction carrying a transfer destination that is ALSO liquid never
+  // actually left the liquid footprint, regardless of which bucket it's filed under.
   var reconTxns = {}; // { grpKey: { monthKey: [txn] } }
   for (var rtk in reconTxnsByAcct) {
     reconTxns[rtk] = {};
@@ -3008,7 +3011,7 @@ function computeLiqReconData(acctIdSet, reconTxnsByAcct, grpActByAcct) {
         if (!acctIdSet[rtAid]) continue;
         var rtSrc = rtMap[rtAid];
         for (var rti = 0; rti < rtSrc.length; rti++) {
-          if (rtk === '@TRANSFER' && acctIdSet[rtSrc[rti].xferAcctId]) continue;
+          if (rtSrc[rti].xferAcctId && acctIdSet[rtSrc[rti].xferAcctId]) continue;
           rtList.push(rtSrc[rti]);
         }
       }
@@ -3035,19 +3038,16 @@ function computeLiqReconData(acctIdSet, reconTxnsByAcct, grpActByAcct) {
       }
     }
   }
+  // Derived from the filtered transaction list (not grpActByAcct's raw per-account sums) so
+  // this always matches the click-through exactly, and inherits the same both-legs-liquid
+  // transfer exclusion above for every bucket, not just "@TRANSFER".
   var liqGrpActivity = {}; // { grpKey: { monthKey: amt } }
-  for (var lgk in grpActByAcct) {
+  for (var lgk in reconTxns) {
     liqGrpActivity[lgk] = {};
-    for (var lgm in grpActByAcct[lgk]) {
+    for (var lgm in reconTxns[lgk]) {
+      var lgTx = reconTxns[lgk][lgm] || [];
       var lgSum = 0;
-      if (lgk === '@TRANSFER') {
-        // Derive from the filtered list so the figure matches the click-through exactly
-        var lgTx = (reconTxns[lgk] || {})[lgm] || [];
-        for (var lgi = 0; lgi < lgTx.length; lgi++) lgSum += lgTx[lgi].amt;
-      } else {
-        var lgMap = grpActByAcct[lgk][lgm];
-        for (var lgAid in lgMap) { if (acctIdSet[lgAid]) lgSum += lgMap[lgAid]; }
-      }
+      for (var lgi = 0; lgi < lgTx.length; lgi++) lgSum += lgTx[lgi].amt;
       if (lgSum !== 0) liqGrpActivity[lgk][lgm] = lgSum;
     }
   }
@@ -3072,7 +3072,7 @@ function lwReactiveAcctIdSet() {
 // immediately reflected in Reconciliation line items.
 function refreshReconciliationData() {
   if (!state.data || !state.data.reconTxnsByAcct) return;
-  var reconData = computeLiqReconData(lwReactiveAcctIdSet(), state.data.reconTxnsByAcct, state.data.grpActByAcct);
+  var reconData = computeLiqReconData(lwReactiveAcctIdSet(), state.data.reconTxnsByAcct);
   state.data.reconTxns      = reconData.reconTxns;
   state.data.nonLiqCatAct   = reconData.nonLiqCatAct;
   state.data.liqGrpActivity = reconData.liqGrpActivity;
@@ -3653,7 +3653,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
       // computeLiqReconData(), and later re-derived by refreshReconciliationData() against
       // whatever account selection the Liquid Balances tab currently has, from the raw
       // reconTxnsByAcct/grpActByAcct breakdowns persisted below.
-      var reconData       = computeLiqReconData(lwAcctIdSet, reconTxnsByAcct, grpActByAcct);
+      var reconData       = computeLiqReconData(lwAcctIdSet, reconTxnsByAcct);
       var reconTxns        = reconData.reconTxns;
       var nonLiqCatAct     = reconData.nonLiqCatAct;
       var liqGrpActivity   = reconData.liqGrpActivity;
