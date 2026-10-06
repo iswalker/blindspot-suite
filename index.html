@@ -957,7 +957,7 @@ td.hbt-num:last-child { width: 13%; }
 .lwtt-driver-val { font-size: 12px; font-weight: 600; white-space: nowrap; }
 .lwtt-driver-detail { font-size: 10px; color: #999; margin: -1px 0 5px; white-space: nowrap; }
 .lwtt-drivers-more { font-size: 11px; color: #bbb; margin-top: 2px; }
-.lwtt-drivers-section { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 11px; font-weight: 700; color: #333; margin: 6px 0 3px; }
+.lwtt-drivers-section { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 12px; font-weight: 700; color: #333; margin: 6px 0 3px; }
 .lwtt-drivers-section:first-of-type { margin-top: 0; }
 .lwtt-asof { font-size: 10px; font-weight: 400; color: #aaa; }
 .lwtt-hint { font-size: 10px; color: #bbb; margin-top: 6px; border-top: 1px solid #eee; padding-top: 5px; }
@@ -1007,7 +1007,7 @@ td.hbt-num:last-child { width: 13%; }
 .lwdm-txn-meta { font-size: 10px; color: #999; overflow: hidden; text-overflow: ellipsis; }
 .lwdm-txn-amt { font-size: 11px; font-weight: 600; white-space: nowrap; }
 .lwdm-empty { font-size: 11px; color: #aaa; font-style: italic; }
-.lwdm-sec-hdr { display: flex; justify-content: space-between; font-size: 10px; font-weight: 700; color: #888; letter-spacing: .06em; text-transform: uppercase; padding: 10px 16px 4px; }
+.lwdm-sec-hdr { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; color: #888; letter-spacing: .06em; text-transform: uppercase; padding: 10px 16px 4px; }
 .lwdm-sec-hdr:first-child { padding-top: 6px; }
 
 /* ---- LW chart ---- */
@@ -5294,7 +5294,7 @@ function showLwTooltip(clientX, clientY, idx, s) {
       var col = row.amount >= 0 ? '#2e7d32' : '#c62828';
       out += '<div class="lwtt-driver-row">'
         + '<span class="lwtt-driver-name">' + row.name + '</span>'
-        + '<span class="lwtt-driver-val" style="color:' + col + '">' + lwFmtTTSigned(row.amount) + '</span>'
+        + '<span class="lwtt-driver-val" style="color:' + col + ';font-weight:400">' + lwFmtTTSigned(row.amount) + '</span>'
         + '</div>';
     }
     if (rows.length > shownN) {
@@ -5441,6 +5441,7 @@ function openLwDriverModal(idx, s) {
     var driverByName = {};
     for (var dni = 0; dni < drivers.length; dni++) driverByName[drivers[dni].name] = drivers[dni];
     var dsecs = lwComputeDriverSections(idx, s);
+    sectionDefs.sort(function(a, b) { return Math.abs(dsecs[b.key].total) - Math.abs(dsecs[a.key].total); });
     allRows = [];
     for (var sdi = 0; sdi < sectionDefs.length; sdi++) {
       var sec = dsecs[sectionDefs[sdi].key];
@@ -5479,7 +5480,7 @@ function openLwDriverModal(idx, s) {
       html += '<div class="lwdm-row" data-di="' + i + '">'
            +    '<div class="lwdm-row-top">'
            +      '<span class="lwdm-row-name">' + escHtml(d.name) + '</span>'
-           +      '<span class="lwdm-row-val" style="color:' + saCol + '">' + lwFmtSigned(d.amount) + '</span>'
+           +      '<span class="lwdm-row-val" style="color:' + saCol + ';font-weight:400">' + lwFmtSigned(d.amount) + '</span>'
            +    '</div>'
            +  '</div>';
       continue;
