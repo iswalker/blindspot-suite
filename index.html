@@ -11066,55 +11066,39 @@ function drawLwChart(keys, assetVals, debtVals, netVals, hoveredIdx, canvasId, a
     ctx.stroke();
   }
 
-  // Net Liquid Target line
-  if (lwTargetAmt !== null) {
-    var tgtY = yPos(lwTargetAmt);
-    ctx.strokeStyle = '#333';
+  // A dashed reference line (Target/Minimum/Float) with its label normally sitting just above
+  // it. Near the chart's top edge there's no headroom for the label above the line, so the
+  // ascent of its own text gets clipped by the canvas bounds -- flip it below the line instead
+  // whenever it's too close to the top to fit.
+  function drawLwRefLine(y, color, label) {
+    ctx.strokeStyle = color;
     ctx.lineWidth   = 0.5;
     ctx.setLineDash([6, 4]);
     ctx.beginPath();
-    ctx.moveTo(L_PAD, tgtY);
-    ctx.lineTo(totalW - R_PAD, tgtY);
+    ctx.moveTo(L_PAD, y);
+    ctx.lineTo(totalW - R_PAD, y);
     ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = '#333';
+    ctx.fillStyle = color;
     ctx.textAlign = 'right';
     ctx.font      = '12px system-ui, -apple-system, sans-serif';
-    ctx.fillText('Target ' + fmtYTick(lwTargetAmt), totalW - R_PAD - 2, tgtY - 4);
+    var labelY = (y - 4 - 10 < T_PAD) ? y + 13 : y - 4;
+    ctx.fillText(label, totalW - R_PAD - 2, labelY);
+  }
+
+  // Net Liquid Target line
+  if (lwTargetAmt !== null) {
+    drawLwRefLine(yPos(lwTargetAmt), '#333', 'Target ' + fmtYTick(lwTargetAmt));
   }
 
   // Net Liquid Minimum line
   if (lwMinAmt !== null) {
-    var minY = yPos(lwMinAmt);
-    ctx.strokeStyle = '#d97706';
-    ctx.lineWidth   = 0.5;
-    ctx.setLineDash([6, 4]);
-    ctx.beginPath();
-    ctx.moveTo(L_PAD, minY);
-    ctx.lineTo(totalW - R_PAD, minY);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = '#d97706';
-    ctx.textAlign = 'right';
-    ctx.font      = '12px system-ui, -apple-system, sans-serif';
-    ctx.fillText('Minimum ' + fmtYTick(lwMinAmt), totalW - R_PAD - 2, minY - 4);
+    drawLwRefLine(yPos(lwMinAmt), '#d97706', 'Minimum ' + fmtYTick(lwMinAmt));
   }
 
   // Credit Float line
   if (lwFloatAmt !== null) {
-    var floatY = yPos(lwFloatAmt);
-    ctx.strokeStyle = '#1e87e3';
-    ctx.lineWidth   = 0.5;
-    ctx.setLineDash([6, 4]);
-    ctx.beginPath();
-    ctx.moveTo(L_PAD, floatY);
-    ctx.lineTo(totalW - R_PAD, floatY);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = '#1e87e3';
-    ctx.textAlign = 'right';
-    ctx.font      = '12px system-ui, -apple-system, sans-serif';
-    ctx.fillText('Float ' + fmtYTick(lwFloatAmt), totalW - R_PAD - 2, floatY - 4);
+    drawLwRefLine(yPos(lwFloatAmt), '#1e87e3', 'Float ' + fmtYTick(lwFloatAmt));
   }
 
   // Net worth circles — green/red by month-over-month change; hovered = solid black
