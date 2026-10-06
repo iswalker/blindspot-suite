@@ -267,6 +267,10 @@ h1 { font-size: 22px; font-weight: 700; margin: 0; letter-spacing: -0.3px; }
   scrollbar-width: thin;
   scrollbar-color: #ccc transparent;
 }
+/* The Cash Flow table has no scroll zone of its own -- it grows to whatever height it
+   needs and the page scrolls past it, instead of nesting a second scrollbar inside the
+   first. Horizontal overflow (a table wider than the viewport) still scrolls in place. */
+#margin-panel .scroll-wrap { overflow-y: visible; max-height: none; }
 table {
   border-collapse: collapse;
   background: #fff;
@@ -4041,15 +4045,6 @@ function loadYnabBudget(apiKey, budgetId) {
 // ============================================================
 // RENDER TABLE
 // ============================================================
-// The Cash Flow table is its own scroll area, so its height is measured from where it actually
-// sits rather than guessed against a fixed chrome offset.
-function sizeCfScrollWrap() {
-  var wrap = document.querySelector('#margin-panel .scroll-wrap');
-  if (!wrap) return;
-  var top = wrap.getBoundingClientRect().top + (window.pageYOffset || 0);
-  wrap.style.maxHeight = Math.max(240, window.innerHeight - top - 2) + 'px';
-}
-
 // The pinned header keeps a section label in its first cell. It tracks whichever section
 // heading has scrolled past the header, so the label matches what is on screen.
 function updateCfSectionLabel() {
@@ -4057,7 +4052,9 @@ function updateCfSectionLabel() {
   var lbl  = document.getElementById('cf-section-label');
   if (!wrap || !lbl) return;
   var head = wrap.querySelector('thead');
-  var cut  = wrap.getBoundingClientRect().top + (head ? head.offsetHeight : 0) + 1;
+  // The sticky header pins at the viewport's top once the table scrolls past it (the page
+  // scrolls now, not the wrap itself), so its effective top is wrap's own top clamped at 0.
+  var cut  = Math.max(0, wrap.getBoundingClientRect().top) + (head ? head.offsetHeight : 0) + 1;
   var rows = wrap.querySelectorAll('tr.sec-hdr');
   var cur  = 'Income', col = '#2e7d32';
   for (var i = 0; i < rows.length; i++) {
@@ -5004,7 +5001,6 @@ function renderTable(opts) {
   html += '</tbody>';
 
   document.getElementById(tableId).innerHTML = html;
-  sizeCfScrollWrap();
   updateCfSectionLabel();
 }
 
@@ -12751,11 +12747,14 @@ document.addEventListener('DOMContentLoaded', function() {
       openLwDriverModal(best, s);
     });
   }
-  // Section label follows the scroll; height re-measures when the viewport changes
+  // Section label follows the scroll. The Cash Flow table has no scroll zone of its own --
+  // the page scrolls -- so this listens on the window; getBoundingClientRect() below is
+  // viewport-relative regardless of which element actually scrolled.
   (function() {
     var wrap = document.querySelector('#margin-panel .scroll-wrap');
     if (wrap) wrap.addEventListener('scroll', updateCfSectionLabel);
-    window.addEventListener('resize', function() { sizeCfScrollWrap(); updateCfSectionLabel(); });
+    window.addEventListener('scroll', updateCfSectionLabel);
+    window.addEventListener('resize', updateCfSectionLabel);
   })();
 
   wireChartTooltip(document.getElementById('lw-canvas'), function() { return lwChartState; });
