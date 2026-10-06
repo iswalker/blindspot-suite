@@ -2986,6 +2986,95 @@ function ynabGet(path, apiKey) {
   });
 }
 
+// Derives the Cash Flow tab's Reconciliation data (reconTxns, nonLiqCatAct, liqGrpActivity)
+// for a given "liquid account" ID set, from the raw per-account-ID breakdowns built during
+// the YNAB fetch (reconTxnsByAcct/grpActByAcct). Called once at fetch time with every liquid
+// account included, and again by refreshReconciliationData() whenever the Liquid Balances
+// Accounts selection or "Include Exception Accounts" toggle changes, so Reconciliation always
+// reflects whichever accounts currently count as liquid there.
+function computeLiqReconData(acctIdSet, reconTxnsByAcct, grpActByAcct) {
+  // Transfers between two liquid accounts net to zero across the set, so they are dropped
+  // entirely rather than shown as offsetting noise.
+  var reconTxns = {}; // { grpKey: { monthKey: [txn] } }
+  for (var rtk in reconTxnsByAcct) {
+    reconTxns[rtk] = {};
+    for (var rtm in reconTxnsByAcct[rtk]) {
+      var rtList = [], rtMap = reconTxnsByAcct[rtk][rtm];
+      for (var rtAid in rtMap) {
+        if (!acctIdSet[rtAid]) continue;
+        var rtSrc = rtMap[rtAid];
+        for (var rti = 0; rti < rtSrc.length; rti++) {
+          if (rtk === '@TRANSFER' && acctIdSet[rtSrc[rti].xferAcctId]) continue;
+          rtList.push(rtSrc[rti]);
+        }
+      }
+      if (rtList.length) reconTxns[rtk][rtm] = rtList;
+    }
+  }
+  // Activity sitting in NON-liquid accounts, per category. YNAB's catActivityPivot covers
+  // every account, so this is what gets backed out to reach the liquid-only figure --
+  // rather than re-deriving the whole total by summing transactions, which drifts.
+  var nonLiqCatAct = {}; // { grp: { cat: { monthKey: amt } } }
+  for (var nlk in reconTxnsByAcct) {
+    if (nlk.charAt(0) === '@') continue;
+    for (var nlm in reconTxnsByAcct[nlk]) {
+      var nlMap = reconTxnsByAcct[nlk][nlm];
+      for (var nlAid in nlMap) {
+        if (acctIdSet[nlAid]) continue;
+        var nlArr = nlMap[nlAid];
+        for (var nli = 0; nli < nlArr.length; nli++) {
+          var nlCat = nlArr[nli].category;
+          if (!nonLiqCatAct[nlk])              nonLiqCatAct[nlk]              = {};
+          if (!nonLiqCatAct[nlk][nlCat])       nonLiqCatAct[nlk][nlCat]       = {};
+          nonLiqCatAct[nlk][nlCat][nlm] = (nonLiqCatAct[nlk][nlCat][nlm] || 0) + nlArr[nli].amt;
+        }
+      }
+    }
+  }
+  var liqGrpActivity = {}; // { grpKey: { monthKey: amt } }
+  for (var lgk in grpActByAcct) {
+    liqGrpActivity[lgk] = {};
+    for (var lgm in grpActByAcct[lgk]) {
+      var lgSum = 0;
+      if (lgk === '@TRANSFER') {
+        // Derive from the filtered list so the figure matches the click-through exactly
+        var lgTx = (reconTxns[lgk] || {})[lgm] || [];
+        for (var lgi = 0; lgi < lgTx.length; lgi++) lgSum += lgTx[lgi].amt;
+      } else {
+        var lgMap = grpActByAcct[lgk][lgm];
+        for (var lgAid in lgMap) { if (acctIdSet[lgAid]) lgSum += lgMap[lgAid]; }
+      }
+      if (lgSum !== 0) liqGrpActivity[lgk][lgm] = lgSum;
+    }
+  }
+  return { reconTxns: reconTxns, nonLiqCatAct: nonLiqCatAct, liqGrpActivity: liqGrpActivity };
+}
+
+// The account IDs currently counted as "liquid" per the Liquid Balances tab's own selection
+// (Accounts filter + "Include Exception Accounts") -- the same set Reconciliation now follows,
+// so an account that only qualifies via an exception, once included there, is treated as
+// liquid for Cash Flow reconciliation too.
+function lwReactiveAcctIdSet() {
+  var set = {};
+  var accounts = ((state.data || {}).lwAccounts) || [];
+  for (var i = 0; i < accounts.length; i++) {
+    if (state.lwSelectedAccounts[accounts[i].id]) set[accounts[i].id] = true;
+  }
+  return set;
+}
+
+// Re-derives the Cash Flow tab's Reconciliation data against the current Liquid Balances
+// account selection and re-renders the Cash Flow table, so toggling an account there is
+// immediately reflected in Reconciliation line items.
+function refreshReconciliationData() {
+  if (!state.data || !state.data.reconTxnsByAcct) return;
+  var reconData = computeLiqReconData(lwReactiveAcctIdSet(), state.data.reconTxnsByAcct, state.data.grpActByAcct);
+  state.data.reconTxns      = reconData.reconTxns;
+  state.data.nonLiqCatAct   = reconData.nonLiqCatAct;
+  state.data.liqGrpActivity = reconData.liqGrpActivity;
+  if (state.activeTab === 'cashflow') renderTable();
+}
+
 function fetchYnabData(apiKey, budgetId, opts) {
   // Same reasoning as processData(): the group/category split below must see the Config
   // override before it runs, not just before render.
@@ -3555,62 +3644,15 @@ function fetchYnabData(apiKey, budgetId, opts) {
       for (var trkDetailId in acctTrkTxns) {
         if (!lwAcctIdSet[trkDetailId]) delete acctTrkTxns[trkDetailId];
       }
-      // Collapse per-account group activity down to liquid accounts only
-      // Matching transaction lists, liquid accounts only, for reconciliation click-through.
-      // Transfers between two liquid accounts net to zero across the set, so they are dropped
-      // entirely rather than shown as offsetting noise.
-      var reconTxns = {}; // { grpKey: { monthKey: [txn] } }
-      for (var rtk in reconTxnsByAcct) {
-        reconTxns[rtk] = {};
-        for (var rtm in reconTxnsByAcct[rtk]) {
-          var rtList = [], rtMap = reconTxnsByAcct[rtk][rtm];
-          for (var rtAid in rtMap) {
-            if (!lwAcctIdSet[rtAid]) continue;
-            var rtSrc = rtMap[rtAid];
-            for (var rti = 0; rti < rtSrc.length; rti++) {
-              if (rtk === '@TRANSFER' && lwAcctIdSet[rtSrc[rti].xferAcctId]) continue;
-              rtList.push(rtSrc[rti]);
-            }
-          }
-          if (rtList.length) reconTxns[rtk][rtm] = rtList;
-        }
-      }
-      // Activity sitting in NON-liquid accounts, per category. YNAB's catActivityPivot covers
-      // every account, so this is what gets backed out to reach the liquid-only figure —
-      // rather than re-deriving the whole total by summing transactions, which drifts.
-      var nonLiqCatAct = {}; // { grp: { cat: { monthKey: amt } } }
-      for (var nlk in reconTxnsByAcct) {
-        if (nlk.charAt(0) === '@') continue;
-        for (var nlm in reconTxnsByAcct[nlk]) {
-          var nlMap = reconTxnsByAcct[nlk][nlm];
-          for (var nlAid in nlMap) {
-            if (lwAcctIdSet[nlAid]) continue;
-            var nlArr = nlMap[nlAid];
-            for (var nli = 0; nli < nlArr.length; nli++) {
-              var nlCat = nlArr[nli].category;
-              if (!nonLiqCatAct[nlk])              nonLiqCatAct[nlk]              = {};
-              if (!nonLiqCatAct[nlk][nlCat])       nonLiqCatAct[nlk][nlCat]       = {};
-              nonLiqCatAct[nlk][nlCat][nlm] = (nonLiqCatAct[nlk][nlCat][nlm] || 0) + nlArr[nli].amt;
-            }
-          }
-        }
-      }
-      var liqGrpActivity = {}; // { grpKey: { monthKey: amt } }
-      for (var lgk in grpActByAcct) {
-        liqGrpActivity[lgk] = {};
-        for (var lgm in grpActByAcct[lgk]) {
-          var lgSum = 0;
-          if (lgk === '@TRANSFER') {
-            // Derive from the filtered list so the figure matches the click-through exactly
-            var lgTx = (reconTxns[lgk] || {})[lgm] || [];
-            for (var lgi = 0; lgi < lgTx.length; lgi++) lgSum += lgTx[lgi].amt;
-          } else {
-            var lgMap = grpActByAcct[lgk][lgm];
-            for (var lgAid in lgMap) { if (lwAcctIdSet[lgAid]) lgSum += lgMap[lgAid]; }
-          }
-          if (lgSum !== 0) liqGrpActivity[lgk][lgm] = lgSum;
-        }
-      }
+      // Collapse per-account group activity down to liquid accounts only. Reconciliation
+      // data is built here against the default (every liquid account included) set via
+      // computeLiqReconData(), and later re-derived by refreshReconciliationData() against
+      // whatever account selection the Liquid Balances tab currently has, from the raw
+      // reconTxnsByAcct/grpActByAcct breakdowns persisted below.
+      var reconData       = computeLiqReconData(lwAcctIdSet, reconTxnsByAcct, grpActByAcct);
+      var reconTxns        = reconData.reconTxns;
+      var nonLiqCatAct     = reconData.nonLiqCatAct;
+      var liqGrpActivity   = reconData.liqGrpActivity;
       // Upcoming Renewals: scheduled transactions due within 30 days with no flag
       var todayMid = new Date(); todayMid.setHours(0, 0, 0, 0);
       var cutoff   = new Date(todayMid.getTime() + 30 * 86400000);
@@ -3648,6 +3690,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
                catActivityPivot: catActivityPivot, catAvailPivot: catAvailPivot,
                otherGroupPivot: otherGroupPivot, otherCatPivot: otherCatPivot, otherActiveCats: otherActiveCats,
                liqGrpActivity: liqGrpActivity, reconTxns: reconTxns, otherCatTxns: otherCatTxns,
+               reconTxnsByAcct: reconTxnsByAcct, grpActByAcct: grpActByAcct,
                nonLiqCatAct: nonLiqCatAct,
                recovCatAvail: recovCatAvail, recovCatActivity: recovCatActivity,
                glidepathSnapshot: glidepathSnapshot,
@@ -6242,6 +6285,7 @@ function populateLwAccountFilter() {
       localStorage.setItem('sel-lw-accts', JSON.stringify(state.lwSelectedAccounts));
       updateLwAcctFilterBtn();
       renderLiquidWorth();
+      refreshReconciliationData();
     });
   }
   updateLwAcctFilterBtn();
@@ -12161,6 +12205,7 @@ document.addEventListener('DOMContentLoaded', function() {
     populateLwAccountFilter();
     localStorage.setItem('sel-lw-accts', JSON.stringify(state.lwSelectedAccounts));
     renderLiquidWorth();
+    refreshReconciliationData();
   });
 
   // NW range filter
