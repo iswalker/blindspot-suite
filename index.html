@@ -108,9 +108,23 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #ddd;
   flex-wrap: wrap;
 }
+#nav-left { display: flex; align-items: center; gap: 28px; min-width: 0; }
+.brand { display: flex; align-items: center; gap: 8px; flex: none; }
+.brand img {
+  width: 26px;
+  height: 26px;
+  box-sizing: border-box;
+  flex: none;
+  border: 1px solid #dde3e4;
+  border-radius: 5px;
+  overflow: hidden;
+}
+#brand-name { font-size: 16px; font-weight: 700; color: #1a1a2e; letter-spacing: -.2px; white-space: nowrap; }
 
 /* ---- Controls bar ---- */
 #controls-bar {
@@ -500,24 +514,22 @@ td.cell-active {
 /* ---- Tab nav ---- */
 #tab-nav {
   display: flex;
-  gap: 2px;
-  background: #e4e4e0;
-  border-radius: 8px;
-  padding: 3px;
-  width: fit-content;
+  align-items: center;
+  gap: 20px;
 }
 .tab-btn {
-  padding: 6px 22px;
+  padding: 0;
   border: none;
-  border-radius: 6px;
+  border-radius: 0;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   background: transparent;
-  color: #666;
+  color: #a9875f;
+  white-space: nowrap;
 }
-.tab-btn.tab-active { background: #fff; color: #222; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
-.tab-btn:hover:not(.tab-active) { background: rgba(255,255,255,.5); color: #333; }
+.tab-btn.tab-active { color: #1a1a2e; }
+.tab-btn:hover:not(.tab-active) { color: #1a1a2e; }
 
 button { font-size: 14px; font-family: inherit; }
 select, input { font-family: inherit; }
@@ -1218,11 +1230,12 @@ td.hbt-num:last-child { width: 13%; }
   html, body { overflow-x: hidden; }
   body { padding: 10px 12px; max-width: 100vw; }
 
-  /* Tab nav becomes horizontally scrollable; gear pinned top-right */
-  #tab-row { position: relative; }
-  #tab-nav { overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; padding-right: 44px; box-sizing: border-box; }
+  /* Tab nav becomes horizontally scrollable; brand stays pinned; gear pinned top-right */
+  #tab-row { position: relative; flex-wrap: nowrap; }
+  #nav-left { min-width: 0; flex: 1 1 auto; }
+  #tab-nav { overflow-x: auto; min-width: 0; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; padding-right: 44px; box-sizing: border-box; }
   #tab-nav::-webkit-scrollbar { display: none; }
-  .tab-btn { padding: 6px 14px; font-size: 13px; flex-shrink: 0; }
+  .tab-btn { font-size: 13px; flex-shrink: 0; }
   #controls-bar { position: absolute; top: 0; right: 0; }
   /* Gear sits pinned on top of the scrolling tab row here, so give it the same
      background/border it gets on hover/active at all times -- otherwise it's a transparent
@@ -1445,16 +1458,22 @@ td.hbt-num:last-child { width: 13%; }
 <!-- Report -->
 <div id="report">
   <div id="tab-row">
-    <div id="tab-nav">
-      <button class="tab-btn tab-active" data-tab="home">Current Month</button>
-      <button class="tab-btn" data-tab="margin">Cash Flow</button>
-      <button class="tab-btn" data-tab="lw">Liquid Balances</button>
-      <button class="tab-btn" data-tab="nw">Net Worth</button>
-      <button class="tab-btn" data-tab="lessons">Lessons Learned</button>
-      <button class="tab-btn" data-tab="leverage">Leverage</button>
-      <button class="tab-btn" data-tab="acct-history">Account History</button>
-      <button class="tab-btn" data-tab="reconcile">Reconcile</button>
-      <button class="tab-btn" data-tab="runway">Runway</button>
+    <div id="nav-left">
+      <div class="brand">
+        <img src="logo.png" alt="">
+        <span id="brand-name">Blindspot</span>
+      </div>
+      <div id="tab-nav">
+        <button class="tab-btn tab-active" data-tab="home">Current Month</button>
+        <button class="tab-btn" data-tab="margin">Cash Flow</button>
+        <button class="tab-btn" data-tab="lw">Liquid Balances</button>
+        <button class="tab-btn" data-tab="nw">Net Worth</button>
+        <button class="tab-btn" data-tab="lessons">Lessons Learned</button>
+        <button class="tab-btn" data-tab="leverage">Leverage</button>
+        <button class="tab-btn" data-tab="acct-history">Account History</button>
+        <button class="tab-btn" data-tab="reconcile">Reconcile</button>
+        <button class="tab-btn" data-tab="runway">Runway</button>
+      </div>
     </div>
     <div id="controls-bar">
       <div id="settings-wrap">
