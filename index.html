@@ -12,7 +12,7 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-  background: #f4f4f0;
+  background: #F6F4EE;
   color: #222;
   margin: 0;
   padding: 14px 50px 0px 50px;
@@ -269,8 +269,11 @@ h1 { font-size: 22px; font-weight: 700; margin: 0; letter-spacing: -0.3px; }
 }
 /* The Cash Flow table has no scroll zone of its own -- it grows to whatever height it
    needs and the page scrolls past it, instead of nesting a second scrollbar inside the
-   first. Horizontal overflow (a table wider than the viewport) still scrolls in place. */
-#margin-panel .scroll-wrap { overflow-y: visible; max-height: none; }
+   first. overflow-x must also be visible (not just overflow-y), not merely "auto with
+   nothing to scroll": CSS computes overflow-y:visible up to overflow-x:auto, so leaving
+   overflow-x:auto still makes this a scroll container and traps the header's
+   position:sticky inside it instead of the page -- defeating the sticky header below. */
+#margin-panel .scroll-wrap { overflow: visible; max-height: none; }
 table {
   border-collapse: collapse;
   background: #fff;
@@ -314,7 +317,7 @@ th {
   background: #fff;
 }
 th:first-child { text-align: left; }
-.avg-th { background: #f8f8f4 !important; border-left: 1px solid #e2e2e2; z-index: 4; }
+.avg-th { border-left: 1px solid #e2e2e2; z-index: 4; }
 
 /* ---- td ---- */
 td {
@@ -325,7 +328,7 @@ td {
   white-space: nowrap;
 }
 td:first-child { text-align: left; }
-.avg-col { background: #f8f8f4; border-left: 1px solid #e8e8e8; position: sticky; z-index: 1; }
+.avg-col { border-left: 1px solid #e8e8e8; position: sticky; z-index: 1; }
 
 /* ---- Thin horizontal scrollbar ---- */
 .scroll-wrap::-webkit-scrollbar { height: 5px; }
@@ -365,12 +368,12 @@ tr.cat-row-bordered.cat-row-last > td { border-bottom: 2px solid #777; }
 .cat-row:hover .avg-col { background: #eeeee9; }
 
 /* ---- Total rows ---- */
-.total-row td { font-weight: 600; border-top: 1.5px solid #ccc; border-bottom: 2px solid #ccc; background: #fff; }
+.total-row td { font-weight: 600; border-top: 1.5px solid #ccc; border-bottom: 2px solid #ccc; }
 .total-row td:first-child { background: #fff; }
-.row-spacer td { padding: 7px 0; background: #fff; border: none; }
+.row-spacer td { padding: 7px 0; border: none; }
 
 /* ---- Net Liquid ---- */
-.net-val td { font-size: 15px; font-weight: 700; border-top: 3px solid #777; border-bottom: 3px solid #777; background: #fff; }
+.net-val td { font-size: 15px; font-weight: 700; border-top: 3px solid #777; border-bottom: 3px solid #777; }
 .net-val td:first-child { border-left: 3px solid #777; }
 .net-val td:last-child { border-right: 3px solid #777; }
 .net-val td:first-child { background: #fff; }
@@ -595,6 +598,7 @@ td.cell-active {
 .tab-btn:hover:not(.tab-active) { background: rgba(255,255,255,.5); color: #333; }
 
 button { font-size: 14px; font-family: inherit; }
+select, input { font-family: inherit; }
 
 /* ---- LW / NW / Lessons controls (shared) ---- */
 #lw-range-wrap, #nw-range-wrap, #lessons-range-wrap, #leverage-range-wrap, #acct-history-range-wrap { display: flex; align-items: center; gap: 8px; }
@@ -1673,11 +1677,6 @@ td.hbt-num:last-child { width: 13%; }
           <span id="range-sep">&#8594;</span>
           <label>To <select id="to-sel"></select></label>
         </div>
-        <label class="ios-toggle-wrap">
-          <input type="checkbox" id="cf-include-current">
-          <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
-          Preview Current Month
-        </label>
         <label class="toggle-wrap" id="cat-sort-toggle-wrap">
           <input type="checkbox" id="cat-sort-toggle">
           <span class="toggle-track"><span class="toggle-thumb"></span></span>
@@ -1704,11 +1703,6 @@ td.hbt-num:last-child { width: 13%; }
           <span>&#8594;</span>
           <label>To <select id="lw-to-sel"></select></label>
         </div>
-        <label class="ios-toggle-wrap">
-          <input type="checkbox" id="lw-include-current">
-          <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
-          Preview Current Month
-        </label>
         <label class="ios-toggle-wrap">
           <input type="checkbox" id="lw-exclude-distribution">
           <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
@@ -1753,11 +1747,6 @@ td.hbt-num:last-child { width: 13%; }
           <span>&#8594;</span>
           <label>To <select id="nw-to-sel"></select></label>
         </div>
-        <label class="ios-toggle-wrap">
-          <input type="checkbox" id="nw-include-current">
-          <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
-          Preview Current Month
-        </label>
         <div class="nwo-seg-wrap" id="nw-outlook-seg-wrap" data-active="">
           <span class="nwo-seg-label">Preview</span>
           <div class="nwo-seg-btns">
@@ -2295,14 +2284,12 @@ var state = {
   data:                null,
   fromKey:             localStorage.getItem('sel-from') || null,
   toKey:               localStorage.getItem('sel-to')   || null,
-  cfIncludeCurrent:    localStorage.getItem('cf-include-current') === '1',
   expanded:            parseJsonLS('ynab-expanded-groups') || {},
   selectedAccounts:    parseJsonLS('sel-accts')       || {},
   loadedAt:            null,
   activeTab:           localStorage.getItem('sel-tab') || 'home',
   lwFromKey:           localStorage.getItem('sel-lw-from') || null,
   lwToKey:             localStorage.getItem('sel-lw-to')   || null,
-  lwIncludeCurrent:    localStorage.getItem('lw-include-current') === '1',
   lwExcludeTracking:        localStorage.getItem('lw-exclude-tracking') === '1',
   lwExcludeDistribution:    localStorage.getItem('lw-exclude-distribution') === '1',
   lwExcludeBudgeted:        localStorage.getItem('lw-exclude-budgeted') === '1',
@@ -2314,7 +2301,6 @@ var state = {
   lwSelectedAccounts:  parseJsonLS('sel-lw-accts')    || {},
   nwFromKey:           localStorage.getItem('sel-nw-from') || null,
   nwToKey:             localStorage.getItem('sel-nw-to')   || null,
-  nwIncludeCurrent:    localStorage.getItem('nw-include-current') === '1',
   nwSelectedAccounts:  parseJsonLS('sel-nw-accts')    || {},
   lessonsFromKey:      localStorage.getItem('sel-lessons-from') || null,
   lessonsToKey:        localStorage.getItem('sel-lessons-to')   || null,
@@ -5087,9 +5073,10 @@ function lwMonthEndLabel(key) {
   return m + '/' + last + '/' + String(y).slice(2);
 }
 
-// "As of" label for a month bucket. The current, still-in-progress month (shown via
-// "Preview Current Month") hasn't reached its calendar month-end yet, so acctBalanceAt
-// for it is really "balance as of today" -- label it that way instead of a future date.
+// "As of" label for a month bucket. The current, still-in-progress month (selectable via the
+// To date picker, same as any other month) hasn't reached its calendar month-end yet, so
+// acctBalanceAt for it is really "balance as of today" -- label it that way instead of a
+// future date.
 function lwAsOfLabel(key) {
   if (key === dtKey(new Date())) {
     var today = new Date();
@@ -6284,15 +6271,10 @@ function populateRangeFilter() {
 
   var todayKey  = dtKey(new Date());
   var defaultTo = keys[0];
-  if (state.cfIncludeCurrent) {
-    for (var ti2 = keys.length - 1; ti2 >= 0; ti2--) {
-      if (keys[ti2] <= todayKey) { defaultTo = keys[ti2]; break; }
-    }
-  } else {
-    // Default: last 4 months, not including present month
-    for (var ti2 = keys.length - 1; ti2 >= 0; ti2--) {
-      if (keys[ti2] < todayKey) { defaultTo = keys[ti2]; break; }
-    }
+  // Default: last 4 months, not including present month -- the To picker still lists it, so
+  // it's one click away if wanted.
+  for (var ti2 = keys.length - 1; ti2 >= 0; ti2--) {
+    if (keys[ti2] < todayKey) { defaultTo = keys[ti2]; break; }
   }
   var toIdx2    = keys.indexOf(defaultTo);
   var defaultFrom = keys[Math.max(0, toIdx2 - 3)];
@@ -6302,8 +6284,6 @@ function populateRangeFilter() {
   state.fromKey = fromSel.value;
   state.toKey   = toSel.value;
 
-  var chkCur = document.getElementById('cf-include-current');
-  if (chkCur) chkCur.checked = !!state.cfIncludeCurrent;
   var chkTrk = document.getElementById('cf-exclude-tracking');
   if (chkTrk) chkTrk.checked = !!state.cfExcludeTracking;
 }
@@ -6532,16 +6512,10 @@ function populateLwRangeFilter() {
   }
   var todayKey  = dtKey(new Date());
   var defaultTo = keys[0];
-  if (state.lwIncludeCurrent) {
-    // Include current month — default To = today's key (last in list)
-    for (var ti2 = keys.length - 1; ti2 >= 0; ti2--) {
-      if (keys[ti2] <= todayKey) { defaultTo = keys[ti2]; break; }
-    }
-  } else {
-    // Default: last 12 months, not including present month
-    for (var ti2 = keys.length - 1; ti2 >= 0; ti2--) {
-      if (keys[ti2] < todayKey) { defaultTo = keys[ti2]; break; }
-    }
+  // Default: last 12 months, not including present month -- the To picker still lists it, so
+  // it's one click away if wanted.
+  for (var ti2 = keys.length - 1; ti2 >= 0; ti2--) {
+    if (keys[ti2] < todayKey) { defaultTo = keys[ti2]; break; }
   }
   var lwToIdx     = keys.indexOf(defaultTo);
   var defaultFrom = keys[Math.max(0, lwToIdx - 11)];
@@ -6549,9 +6523,6 @@ function populateLwRangeFilter() {
   toSel.value     = state.lwToKey   && keys.indexOf(state.lwToKey)   !== -1 ? state.lwToKey   : defaultTo;
   state.lwFromKey = fromSel.value;
   state.lwToKey   = toSel.value;
-  // Sync toggle visual states
-  var chk = document.getElementById('lw-include-current');
-  if (chk) chk.checked = !!state.lwIncludeCurrent;
   syncExclusionToggles();
 }
 
@@ -6699,15 +6670,10 @@ function populateNwRangeFilter() {
   }
   var todayKey  = dtKey(new Date());
   var defaultTo = keys[0];
-  if (state.nwIncludeCurrent) {
-    for (var ti2 = keys.length - 1; ti2 >= 0; ti2--) {
-      if (keys[ti2] <= todayKey) { defaultTo = keys[ti2]; break; }
-    }
-  } else {
-    // Default: last 48 months, not including present month
-    for (var ti2 = keys.length - 1; ti2 >= 0; ti2--) {
-      if (keys[ti2] < todayKey) { defaultTo = keys[ti2]; break; }
-    }
+  // Default: last 48 months, not including present month -- the To picker still lists it, so
+  // it's one click away if wanted.
+  for (var ti2 = keys.length - 1; ti2 >= 0; ti2--) {
+    if (keys[ti2] < todayKey) { defaultTo = keys[ti2]; break; }
   }
   var nwToIdx      = keys.indexOf(defaultTo);
   var defaultFrom  = keys[Math.max(0, nwToIdx - 47)];
@@ -6715,8 +6681,6 @@ function populateNwRangeFilter() {
   toSel.value      = state.nwToKey   && keys.indexOf(state.nwToKey)   !== -1 ? state.nwToKey   : defaultTo;
   state.nwFromKey  = fromSel.value;
   state.nwToKey    = toSel.value;
-  var chk = document.getElementById('nw-include-current');
-  if (chk) chk.checked = !!state.nwIncludeCurrent;
 }
 
 function populateNwAccountFilter() {
@@ -12237,32 +12201,6 @@ document.addEventListener('DOMContentLoaded', function() {
     renderTable();
   });
 
-  document.getElementById('cf-include-current').checked = !!state.cfIncludeCurrent;
-  document.getElementById('cf-include-current').addEventListener('change', function() {
-    state.cfIncludeCurrent = this.checked;
-    localStorage.setItem('cf-include-current', this.checked ? '1' : '0');
-    var todayKey = dtKey(new Date());
-    var keys     = state.data && state.data.allKeys || [];
-    if (this.checked) {
-      if (state.toKey < todayKey && keys.indexOf(todayKey) !== -1) {
-        state.toKey = todayKey;
-        document.getElementById('to-sel').value = todayKey;
-        localStorage.setItem('sel-to', todayKey);
-      }
-    } else {
-      if (state.toKey >= todayKey) {
-        var prevKey = keys[0];
-        for (var i = keys.length - 1; i >= 0; i--) {
-          if (keys[i] < todayKey) { prevKey = keys[i]; break; }
-        }
-        state.toKey = prevKey;
-        document.getElementById('to-sel').value = prevKey;
-        localStorage.setItem('sel-to', prevKey);
-      }
-    }
-    renderTable();
-  });
-
   // Back / reload button -- clears cache so next init goes to file picker
   document.getElementById('back-btn').addEventListener('click', function() {
     dbClear().catch(function() {});
@@ -12475,33 +12413,6 @@ document.addEventListener('DOMContentLoaded', function() {
     renderLiquidWorth();
   });
 
-  document.getElementById('lw-include-current').addEventListener('change', function() {
-    state.lwIncludeCurrent = this.checked;
-    localStorage.setItem('lw-include-current', this.checked ? '1' : '0');
-    var todayKey = dtKey(new Date());
-    var keys     = lwAllKeys();
-    if (this.checked) {
-      // Extend To to current month, preserving From
-      if (state.lwToKey < todayKey && keys.indexOf(todayKey) !== -1) {
-        state.lwToKey = todayKey;
-        document.getElementById('lw-to-sel').value = todayKey;
-        localStorage.setItem('sel-lw-to', todayKey);
-      }
-    } else {
-      // Step To back to last completed month if it was on current month
-      if (state.lwToKey >= todayKey) {
-        var prevKey = keys[0];
-        for (var i = keys.length - 1; i >= 0; i--) {
-          if (keys[i] < todayKey) { prevKey = keys[i]; break; }
-        }
-        state.lwToKey = prevKey;
-        document.getElementById('lw-to-sel').value = prevKey;
-        localStorage.setItem('sel-lw-to', prevKey);
-      }
-    }
-    renderLiquidWorth();
-  });
-
   // Exclude Tracking / Exclude Distribution are shared between the Liquid Balances and
   // Account History tabs so the two views always reconcile against the same basis.
   function applyExclusionToggle(key, storageKey, checked) {
@@ -12565,31 +12476,6 @@ document.addEventListener('DOMContentLoaded', function() {
       state.nwFromKey = state.nwToKey;
       document.getElementById('nw-from-sel').value = state.nwFromKey;
       localStorage.setItem('sel-nw-from', state.nwFromKey);
-    }
-    renderNetWorth();
-  });
-
-  document.getElementById('nw-include-current').addEventListener('change', function() {
-    state.nwIncludeCurrent = this.checked;
-    localStorage.setItem('nw-include-current', this.checked ? '1' : '0');
-    var todayKey = dtKey(new Date());
-    var keys     = lwAllKeys();
-    if (this.checked) {
-      if (state.nwToKey < todayKey && keys.indexOf(todayKey) !== -1) {
-        state.nwToKey = todayKey;
-        document.getElementById('nw-to-sel').value = todayKey;
-        localStorage.setItem('sel-nw-to', todayKey);
-      }
-    } else {
-      if (state.nwToKey >= todayKey) {
-        var prevKey = keys[0];
-        for (var i = keys.length - 1; i >= 0; i--) {
-          if (keys[i] < todayKey) { prevKey = keys[i]; break; }
-        }
-        state.nwToKey = prevKey;
-        document.getElementById('nw-to-sel').value = prevKey;
-        localStorage.setItem('sel-nw-to', prevKey);
-      }
     }
     renderNetWorth();
   });
