@@ -560,7 +560,6 @@ select, input { font-family: inherit; }
 #acct-history-acct-group {
   display: flex; align-items: center; gap: 8px;
   font-size: 13px; color: #555;
-  background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 5px 12px;
 }
 #acct-history-acct-group label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 #acct-history-acct-group select {
@@ -984,7 +983,7 @@ td.hbt-num:last-child { width: 13%; }
   background: #fff; border-radius: 8px; border: 1px solid #ddd;
   padding: 14px 20px; min-width: 160px;
 }
-.lessons-metric-label { font-size: 11px; font-weight: 600; color: #888; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 4px; }
+.lessons-metric-label { font-size: 11px; font-weight: 700; color: #333; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 2px; }
 .lessons-metric-value { font-size: 24px; font-weight: 700; color: #c62828; }
 #lessons-chart-wrap { flex: 3; min-width: 0; margin-bottom: 0; }
 #lessons-year-chart-wrap { flex: 1; min-width: 120px; margin-bottom: 0; }
@@ -1007,7 +1006,7 @@ td.hbt-num:last-child { width: 13%; }
   border-radius: 10px; padding: 14px 18px 10px;
 }
 .leverage-speedo-top-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
-.leverage-speedo-label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #888; }
+.leverage-speedo-label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #333; }
 /* Per-month history strip: one bar per prior month, most recent on the right, filled to that
    month's spend/max fraction. Hover is wired generically off leverageSpeedoTxns by element id,
    the same map/lookup the main speedometer tiles use, so it reuses the exact same tooltip. */
@@ -1059,7 +1058,7 @@ td.hbt-num:last-child { width: 13%; }
 .leverage-metric-sub { font-size: 11px; color: #999; margin-top: 4px; }
 #leverage-pos-widget { flex: 0 1 25%; min-width: 220px; background: #fff; border: 1px solid #ddd; border-radius: 10px; padding: 12px 16px; }
 #leverage-pos-hdr { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
-#leverage-pos-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #888; flex: 1; white-space: nowrap; }
+#leverage-pos-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #333; flex: 1; white-space: nowrap; }
 #leverage-pos-acct-sel { font-size: 12px; padding: 4px 6px; border: 1px solid #ddd; border-radius: 5px; max-width: 160px; }
 #leverage-pos-secret { font-size: 12px; padding: 4px 8px; border: 1px solid #ddd; border-radius: 5px; width: 130px; }
 #leverage-pos-fetch-btn { font-size: 12px; padding: 4px 10px; background: #1565c0; color: #fff; border: none; border-radius: 5px; cursor: pointer; white-space: nowrap; }
@@ -1074,7 +1073,7 @@ td.hbt-num:last-child { width: 13%; }
 #leverage-pos-empty { font-size: 12px; color: #bbb; padding: 8px 0; }
 #leverage-chart-wrap { flex: 3; min-width: 0; margin-bottom: 0; }
 #leverage-year-chart-wrap { flex: 1; min-width: 120px; margin-bottom: 0; }
-.lw-chart-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #888; margin: 0 0 4px 16px; }
+.lw-chart-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #333; margin: 0 0 2px 16px; }
 
 /* ---- Runway ---- */
 #runway-factors-wrap { position: relative; margin-left: auto; }
@@ -1093,12 +1092,12 @@ td.hbt-num:last-child { width: 13%; }
 #runway-tagline { font-size: 15px; color: #555; margin: 2px 0 26px; line-height: 1.4; }
 #runway-body { display: flex; gap: 48px; flex-wrap: wrap; padding-bottom: 50px; }
 #runway-empty { font-size: 12px; color: #999; padding: 12px 0; }
-.runway-col { flex: 0 1 630px; min-width: 240px; }
+.runway-col { flex: 0 1 568px; min-width: 240px; }
 .runway-col-hdr {
   font-size: 26px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
   color: #888; margin: 0 0 16px; padding-bottom: 6px; border-bottom: 2px solid #eee;
 }
-.runway-col-subtext { font-size: 15px; color: #888; line-height: 1.4; margin: -12px 0 16px; }
+.runway-col-subtext { font-size: 14px; color: #888; line-height: 1.4; margin: -12px 0 16px; }
 .runway-section:not(:first-child) { margin-top: 32px; }
 .runway-step { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 26px; }
 .runway-step:last-child { margin-bottom: 0; }
@@ -1117,7 +1116,7 @@ td.hbt-num:last-child { width: 13%; }
   padding-bottom: 8px; margin: 0 -6px 0px -6px;
 }
 .runway-title { font-size: 18px; font-weight: 700; color: #222; line-height: 1.3; }
-.runway-subtext { font-size: 15px; color: #888; margin-top: 3px; line-height: 1.35; }
+.runway-subtext { font-size: 13px; color: #888; margin-top: 3px; line-height: 1.35; }
 .runway-amt-pill {
   display: inline-block; padding: 2px 8px; border-radius: 12px;
   background: #e8f5e9; color: #2e7d32; font-weight: 600; font-size: 14px;
@@ -1549,6 +1548,56 @@ td.hbt-num:last-child { width: 13%; }
               </label>
             </div>
           </div>
+          <div class="settings-tab-block" data-tab="lw">
+            <div class="settings-divider"></div>
+            <div class="settings-row">
+              <label class="ios-toggle-wrap">
+                <input type="checkbox" id="lw-exclude-distribution">
+                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+                Exclude Distribution
+              </label>
+            </div>
+            <div class="settings-row">
+              <label class="ios-toggle-wrap">
+                <input type="checkbox" id="lw-exclude-budgeted">
+                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+                Exclude Budgeted Expenses
+              </label>
+            </div>
+            <div class="settings-row">
+              <label class="ios-toggle-wrap">
+                <input type="checkbox" id="lw-exclude-tracking">
+                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+                Exclude Tracking
+              </label>
+            </div>
+            <span class="holding-warn" id="lw-holding-warn"></span>
+          </div>
+          <div class="settings-tab-block" data-tab="acct-history">
+            <div class="settings-divider"></div>
+            <div class="settings-row">
+              <label class="ios-toggle-wrap">
+                <input type="checkbox" id="ah-exclude-distribution">
+                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+                Exclude Distribution
+              </label>
+            </div>
+            <div class="settings-row">
+              <label class="ios-toggle-wrap">
+                <input type="checkbox" id="ah-exclude-budgeted">
+                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+                Exclude Budgeted Expenses
+              </label>
+            </div>
+            <div class="settings-row">
+              <label class="ios-toggle-wrap">
+                <input type="checkbox" id="ah-exclude-tracking">
+                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+                Exclude Tracking
+              </label>
+            </div>
+            <span class="holding-warn" id="ah-holding-warn"></span>
+          </div>
         </div>
       </div>
     </div>
@@ -1584,26 +1633,10 @@ td.hbt-num:last-child { width: 13%; }
           <select id="lw-to-sel"></select>
         </div>
         <label class="ios-toggle-wrap">
-          <input type="checkbox" id="lw-exclude-distribution">
-          <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
-          Exclude Distribution
-        </label>
-        <label class="ios-toggle-wrap">
-          <input type="checkbox" id="lw-exclude-budgeted">
-          <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
-          Exclude Budgeted Expenses
-        </label>
-        <label class="ios-toggle-wrap">
-          <input type="checkbox" id="lw-exclude-tracking">
-          <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
-          Exclude Tracking
-        </label>
-        <label class="ios-toggle-wrap">
           <input type="checkbox" id="lw-include-exceptions">
           <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
           Include Exception Accounts
         </label>
-        <span class="holding-warn" id="lw-holding-warn"></span>
         <div id="lw-acct-filter-wrap">
           <button id="lw-acct-filter-btn">Accounts &#9660;</button>
           <div id="lw-acct-filter-panel"></div>
@@ -1789,22 +1822,6 @@ td.hbt-num:last-child { width: 13%; }
           <select id="acct-history-to-sel"></select>
         </div>
       </div>
-      <label class="ios-toggle-wrap">
-        <input type="checkbox" id="ah-exclude-distribution">
-        <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
-        Exclude Distribution
-      </label>
-      <label class="ios-toggle-wrap">
-        <input type="checkbox" id="ah-exclude-budgeted">
-        <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
-        Exclude Budgeted Expenses
-      </label>
-      <label class="ios-toggle-wrap">
-        <input type="checkbox" id="ah-exclude-tracking">
-        <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
-        Exclude Tracking
-      </label>
-      <span class="holding-warn" id="ah-holding-warn"></span>
       <div id="acct-history-acct-wrap">
         <div id="acct-history-acct-group">
           <label>Account <select id="acct-history-sel"></select></label>
@@ -7647,8 +7664,8 @@ function drawHorizBreakdown(canvasId, wrapId, filteredTxns, field, heading, barC
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, totalW, H);
 
-  ctx.fillStyle    = '#888';
-  ctx.font         = '700 10px system-ui, sans-serif';
+  ctx.fillStyle    = '#333';
+  ctx.font         = '700 11px system-ui, sans-serif';
   ctx.textAlign    = 'left';
   ctx.textBaseline = 'top';
   ctx.fillText(heading, L_PAD, 8);
