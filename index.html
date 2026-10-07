@@ -210,23 +210,57 @@ body {
 }
 .settings-row { display: flex; align-items: center; gap: 8px; padding: 8px 16px; width: 100%; box-sizing: border-box; }
 .settings-divider { height: 1px; background: #f0f0f2; margin: 2px 0; }
-#range-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: #555;
+/* ---- Date range picker (single cohesive control, used by every tab) ---- */
+.rp-wrap { position: relative; }
+.rp-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 14px; background: #fff; border: 1px solid #ccc; border-radius: 8px;
+  font-size: 13px; color: #333; cursor: pointer; white-space: nowrap;
 }
-#range-group label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-#range-group select {
-  font-size: 13px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  padding: 3px 6px;
-  background: #fafafa;
-  cursor: pointer;
+.rp-btn:hover, .rp-btn.active { background: #f5f4ea; }
+.rp-btn-count {
+  background: #1a1a2e; color: #fff; font-size: 11px; font-weight: 700;
+  padding: 2px 8px; border-radius: 10px; flex-shrink: 0;
 }
-#range-sep { color: #aaa; }
+.rp-panel {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 500;
+  display: flex; background: #fff; border: 1px solid #ddd; border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.16); overflow: hidden; width: 600px;
+}
+.rp-quick-col { width: 170px; flex-shrink: 0; background: #faf9f6; border-right: 1px solid #eee; padding: 10px 0; }
+.rp-quick-hdr { font-size: 11px; font-weight: 700; color: #999; letter-spacing: .06em; text-transform: uppercase; padding: 4px 16px 8px; }
+.rp-quick-item {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  padding: 8px 16px; font-size: 13px; color: #333; cursor: pointer;
+}
+.rp-quick-item:hover { background: #f0efe9; }
+.rp-quick-item.active { background: #1a1a2e; color: #fff; }
+.rp-quick-mo { font-size: 11px; color: #999; flex-shrink: 0; }
+.rp-quick-item.active .rp-quick-mo { color: #bbb; }
+.rp-main-col-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.rp-main-col { padding: 14px 16px 4px; }
+.rp-main-hdr { font-size: 15px; font-weight: 700; color: #222; margin-bottom: 2px; }
+.rp-main-hdr-n { font-weight: 400; color: #999; font-size: 13px; margin-left: 6px; }
+.rp-main-hint { font-size: 11px; color: #999; margin-bottom: 12px; }
+.rp-year-row { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
+.rp-year-label { width: 34px; flex-shrink: 0; font-size: 11px; color: #bbb; }
+.rp-month {
+  flex: 1; text-align: center; font-size: 12px; color: #555; padding: 5px 0;
+  border-radius: 5px; cursor: pointer; white-space: nowrap;
+}
+.rp-month:hover:not(.disabled) { background: #f0f0ec; }
+.rp-month.in-range { background: #e8ecfb; color: #333; }
+.rp-month.selected { background: #1a1a2e; color: #fff; font-weight: 700; }
+.rp-month.disabled { color: #ddd; cursor: default; }
+.rp-month.today { text-decoration: underline; text-decoration-color: #4285f4; text-underline-offset: 3px; }
+.rp-month.projected:not(.selected):not(.in-range) { color: #e65100; }
+.rp-legend { display: flex; gap: 14px; font-size: 11px; color: #999; margin: 8px 0 12px; }
+.rp-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 16px; border-top: 1px solid #eee; margin-top: auto; }
+.rp-cancel-btn, .rp-apply-btn { padding: 6px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+.rp-cancel-btn { background: #fff; border: 1px solid #ccc; color: #555; }
+.rp-cancel-btn:hover { background: #f0f0ec; }
+.rp-apply-btn { background: #1a1a2e; border: none; color: #fff; font-weight: 600; }
+.rp-apply-btn:disabled { background: #bbb; cursor: not-allowed; }
 #cache-label { font-size: 11px; color: #aaa; margin-left: 4px; }
 
 /* ---- Table wrapper ---- */
@@ -554,15 +588,6 @@ select, input { font-family: inherit; }
 
 /* ---- LW / NW / Lessons controls (shared) ---- */
 #lw-range-wrap, #nw-range-wrap, #lessons-range-wrap, #leverage-range-wrap, #acct-history-range-wrap { display: flex; align-items: center; gap: 8px; }
-#lw-range-group, #nw-range-group, #lessons-range-group, #leverage-range-group, #acct-history-range-group {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 16px; color: #555;
-}
-#lw-range-group label, #nw-range-group label, #lessons-range-group label, #leverage-range-group label, #acct-history-range-group label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-#lw-range-group select, #nw-range-group select, #lessons-range-group select, #leverage-range-group select, #acct-history-range-group select {
-  font-size: 13px; border: 1px solid #ccc; border-radius: 4px;
-  padding: 3px 6px; background: #fafafa; cursor: pointer;
-}
 #lw-acct-filter-wrap, #nw-acct-filter-wrap { position: relative; }
 #lw-acct-filter-btn, #nw-acct-filter-btn {
   padding: 6px 12px; background: #fff; border: 1px solid #ccc;
@@ -1268,6 +1293,12 @@ td.hbt-num:last-child { width: 13%; }
   html, body { overflow-x: hidden; }
   body { padding: 10px 12px; max-width: 100vw; }
 
+  /* Date range picker: full-width panel, stacked columns, no overflow off-screen */
+  .rp-panel { position: fixed; left: 10px; right: 10px; width: auto; top: auto; flex-direction: column; max-height: 80vh; overflow-y: auto; }
+  .rp-quick-col { width: auto; border-right: none; border-bottom: 1px solid #eee; }
+  .rp-year-label { width: 28px; font-size: 10px; }
+  .rp-month { font-size: 11px; padding: 4px 0; }
+
   /* Tab nav becomes horizontally scrollable; brand stays pinned; gear pinned top-right */
   #tab-row { position: relative; flex-wrap: nowrap; }
   #nav-left { min-width: 0; flex: 1 1 auto; }
@@ -1681,10 +1712,9 @@ td.hbt-num:last-child { width: 13%; }
   <div id="margin-panel">
     <div class="panel-hdr">
       <div id="margin-range-wrap" style="display:flex;align-items:center;gap:8px">
-        <div id="range-group">
-          <select id="from-sel"></select>
-          <span id="range-sep">&#8594;</span>
-          <select id="to-sel"></select>
+        <div class="rp-wrap" id="range-group">
+          <button type="button" class="rp-btn" id="range-btn"></button>
+          <div class="rp-panel" id="range-panel" style="display:none"></div>
         </div>
         <div id="acct-filter-wrap">
           <button id="acct-filter-btn">Accounts &#9660;</button>
@@ -1701,10 +1731,9 @@ td.hbt-num:last-child { width: 13%; }
   <div id="lw-panel">
     <div class="panel-hdr">
       <div id="lw-range-wrap" style="display:flex;align-items:center;gap:8px">
-        <div id="lw-range-group">
-          <select id="lw-from-sel"></select>
-          <span>&#8594;</span>
-          <select id="lw-to-sel"></select>
+        <div class="rp-wrap" id="lw-range-group">
+          <button type="button" class="rp-btn" id="lw-range-btn"></button>
+          <div class="rp-panel" id="lw-range-panel" style="display:none"></div>
         </div>
         <label class="ios-toggle-wrap">
           <input type="checkbox" id="lw-include-exceptions">
@@ -1728,10 +1757,9 @@ td.hbt-num:last-child { width: 13%; }
   <div id="nw-panel">
     <div class="panel-hdr">
       <div id="nw-range-wrap" style="display:flex;align-items:center;gap:8px">
-        <div id="nw-range-group">
-          <select id="nw-from-sel"></select>
-          <span>&#8594;</span>
-          <select id="nw-to-sel"></select>
+        <div class="rp-wrap" id="nw-range-group">
+          <button type="button" class="rp-btn" id="nw-range-btn"></button>
+          <div class="rp-panel" id="nw-range-panel" style="display:none"></div>
         </div>
         <div class="nwo-seg-wrap" id="nw-outlook-seg-wrap" data-active="">
           <span class="nwo-seg-label">Preview</span>
@@ -1768,10 +1796,9 @@ td.hbt-num:last-child { width: 13%; }
   <div id="lessons-panel" style="display:none">
     <div class="panel-hdr">
       <div id="lessons-range-wrap">
-        <div id="lessons-range-group">
-          <select id="lessons-from-sel"></select>
-          <span>&#8594;</span>
-          <select id="lessons-to-sel"></select>
+        <div class="rp-wrap" id="lessons-range-group">
+          <button type="button" class="rp-btn" id="lessons-range-btn"></button>
+          <div class="rp-panel" id="lessons-range-panel" style="display:none"></div>
         </div>
       </div>
     </div>
@@ -1811,10 +1838,9 @@ td.hbt-num:last-child { width: 13%; }
   <div id="leverage-panel" style="display:none">
     <div class="panel-hdr">
       <div id="leverage-range-wrap">
-        <div id="leverage-range-group">
-          <select id="leverage-from-sel"></select>
-          <span>&#8594;</span>
-          <select id="leverage-to-sel"></select>
+        <div class="rp-wrap" id="leverage-range-group">
+          <button type="button" class="rp-btn" id="leverage-range-btn"></button>
+          <div class="rp-panel" id="leverage-range-panel" style="display:none"></div>
         </div>
         <label class="ios-toggle-wrap">
           <input type="checkbox" id="leverage-exclude-tracking">
@@ -1890,10 +1916,9 @@ td.hbt-num:last-child { width: 13%; }
   <div id="acct-history-panel" style="display:none">
     <div class="panel-hdr">
       <div id="acct-history-range-wrap">
-        <div id="acct-history-range-group">
-          <select id="acct-history-from-sel"></select>
-          <span>&#8594;</span>
-          <select id="acct-history-to-sel"></select>
+        <div class="rp-wrap" id="acct-history-range-group">
+          <button type="button" class="rp-btn" id="acct-history-range-btn"></button>
+          <div class="rp-panel" id="acct-history-range-panel" style="display:none"></div>
         </div>
       </div>
       <div id="acct-history-acct-wrap">
@@ -2428,6 +2453,222 @@ function schedFreqStepDays(freq) {
 function keyLabel(k) {
   var p = k.split('-');
   return MONTH_ABBR[parseInt(p[1], 10) - 1] + ' ' + p[0];
+}
+
+// ============================================================
+// DATE RANGE PICKER -- one cohesive "Aug 2026 -> Nov 2026 · 4 mo" control used
+// by every tab's From/To selector (Cash Flow, Liquid Balances, Net Worth,
+// Lessons Learned, Leverage, Account History). Each populate*RangeFilter()
+// function caches that tab's available month keys into rpKeysCache and calls
+// rpSetButtonLabel(); the button opens a popover with quick-range presets on
+// the left and a clickable multi-year month grid on the right.
+// ============================================================
+var RP_CONFIGS = {
+  margin:         { btnId: 'range-btn',           panelId: 'range-panel',           fromField: 'fromKey',           toField: 'toKey',           fromLS: 'sel-from',           toLS: 'sel-to',           render: function() { renderTable(); } },
+  lw:             { btnId: 'lw-range-btn',        panelId: 'lw-range-panel',        fromField: 'lwFromKey',         toField: 'lwToKey',         fromLS: 'sel-lw-from',        toLS: 'sel-lw-to',        render: function() { renderLiquidWorth(); } },
+  nw:             { btnId: 'nw-range-btn',        panelId: 'nw-range-panel',        fromField: 'nwFromKey',         toField: 'nwToKey',         fromLS: 'sel-nw-from',        toLS: 'sel-nw-to',        render: function() { renderNetWorth(); } },
+  lessons:        { btnId: 'lessons-range-btn',   panelId: 'lessons-range-panel',   fromField: 'lessonsFromKey',    toField: 'lessonsToKey',    fromLS: 'sel-lessons-from',   toLS: 'sel-lessons-to',   render: function() { renderLessonsLearned(); } },
+  leverage:       { btnId: 'leverage-range-btn',  panelId: 'leverage-range-panel',  fromField: 'leverageFromKey',   toField: 'leverageToKey',   fromLS: 'sel-leverage-from',  toLS: 'sel-leverage-to',  render: function() { renderLeverage(); } },
+  'acct-history': { btnId: 'acct-history-range-btn', panelId: 'acct-history-range-panel', fromField: 'acctHistoryFromKey', toField: 'acctHistoryToKey', fromLS: 'sel-acct-history-from', toLS: 'sel-acct-history-to', render: function() { renderAccountHistory(); } }
+};
+var rpKeysCache = {};
+var rpPending   = {};
+var rpOpenId    = null;
+
+function rpTitleMonth(k) {
+  var p = k.split('-');
+  var m = MONTH_ABBR[parseInt(p[1], 10) - 1];
+  return m.charAt(0) + m.slice(1).toLowerCase() + ' ' + p[0];
+}
+function rpMonthAbbr(m) {
+  var a = MONTH_ABBR[m - 1];
+  return a.charAt(0) + a.slice(1).toLowerCase();
+}
+function rpMonthCount(a, b) {
+  var pa = a.split('-'), pb = b.split('-');
+  return (parseInt(pb[0], 10) - parseInt(pa[0], 10)) * 12 + (parseInt(pb[1], 10) - parseInt(pa[1], 10)) + 1;
+}
+function rpShiftKey(key, n) {
+  var p = key.split('-');
+  var y = parseInt(p[0], 10), m = parseInt(p[1], 10) - 1 + n;
+  y += Math.floor(m / 12);
+  m = ((m % 12) + 12) % 12;
+  return y + '-' + (m + 1 < 10 ? '0' : '') + (m + 1);
+}
+
+function rpSetButtonLabel(id) {
+  var cfg = RP_CONFIGS[id];
+  var btn = document.getElementById(cfg.btnId);
+  if (!btn) return;
+  var from = state[cfg.fromField], to = state[cfg.toField];
+  if (!from || !to) { btn.textContent = 'Select range'; return; }
+  btn.innerHTML = '<span>' + rpTitleMonth(from) + ' &#8594; ' + rpTitleMonth(to) + '</span>'
+    + '<span class="rp-btn-count">' + rpMonthCount(from, to) + ' mo</span>';
+}
+
+function rpQuickRanges(keys, todayKey) {
+  var maxKey = keys[keys.length - 1], minKey = keys[0];
+  var endKey = todayKey <= maxKey ? todayKey : maxKey;
+  if (endKey < minKey) endKey = maxKey;
+  function clampStart(k) { return k < minKey ? minKey : k; }
+  var yearStart = endKey.slice(0, 4) + '-01';
+  return [
+    { label: 'This month',     from: endKey, to: endKey },
+    { label: 'Last 3 months',  from: clampStart(rpShiftKey(endKey, -2)),  to: endKey },
+    { label: 'Last 6 months',  from: clampStart(rpShiftKey(endKey, -5)),  to: endKey },
+    { label: 'Year to date',   from: clampStart(yearStart),               to: endKey },
+    { label: 'Last 12 months', from: clampStart(rpShiftKey(endKey, -11)), to: endKey }
+  ];
+}
+
+function rpOpen(id) {
+  if (rpOpenId === id) { rpClose(); return; }
+  rpClose();
+  var cfg  = RP_CONFIGS[id];
+  var panel = document.getElementById(cfg.panelId);
+  var keys  = rpKeysCache[id];
+  if (!panel || !keys || !keys.length) return;
+  var from = (state[cfg.fromField] && keys.indexOf(state[cfg.fromField]) !== -1) ? state[cfg.fromField] : keys[0];
+  var to   = (state[cfg.toField]   && keys.indexOf(state[cfg.toField])   !== -1) ? state[cfg.toField]   : keys[keys.length - 1];
+  rpPending[id] = { start: from, end: to };
+  rpRenderPanel(id);
+  panel.style.display = '';
+  rpOpenId = id;
+  var btn = document.getElementById(cfg.btnId);
+  if (btn) btn.classList.add('active');
+}
+function rpClose() {
+  if (!rpOpenId) return;
+  var cfg = RP_CONFIGS[rpOpenId];
+  var panel = document.getElementById(cfg.panelId);
+  if (panel) panel.style.display = 'none';
+  var btn = document.getElementById(cfg.btnId);
+  if (btn) btn.classList.remove('active');
+  rpOpenId = null;
+}
+
+function rpRenderPanel(id) {
+  var cfg   = RP_CONFIGS[id];
+  var panel = document.getElementById(cfg.panelId);
+  var keys  = rpKeysCache[id];
+  var pend  = rpPending[id];
+  var todayKey = dtKey(new Date());
+  var quicks = rpQuickRanges(keys, todayKey);
+
+  var activeQuickIdx = -1;
+  for (var qi = 0; qi < quicks.length; qi++) {
+    if (quicks[qi].from === pend.start && quicks[qi].to === pend.end) { activeQuickIdx = qi; break; }
+  }
+
+  var quickHtml = '<div class="rp-quick-col"><div class="rp-quick-hdr">Quick Ranges</div>';
+  for (var qi2 = 0; qi2 < quicks.length; qi2++) {
+    var q = quicks[qi2];
+    quickHtml += '<div class="rp-quick-item' + (qi2 === activeQuickIdx ? ' active' : '') + '" data-qidx="' + qi2 + '">'
+      + '<span>' + escHtml(q.label) + '</span><span class="rp-quick-mo">' + rpMonthCount(q.from, q.to) + ' mo</span></div>';
+  }
+  if (activeQuickIdx === -1 && pend.start && pend.end) {
+    var customN = rpMonthCount(pend.start, pend.end);
+    var beforeN = 0, afterN = 0;
+    for (var ki = 0; ki < keys.length; ki++) {
+      if (keys[ki] < pend.start || keys[ki] > pend.end) continue;
+      if (keys[ki] <= todayKey) beforeN++; else afterN++;
+    }
+    var customLabel = (afterN > 0 && beforeN > 0)
+      ? 'Last ' + beforeN + ' + next ' + afterN
+      : customN + (customN === 1 ? ' month' : ' months');
+    quickHtml += '<div class="rp-quick-item active" data-qidx="custom">'
+      + '<span>' + escHtml(customLabel) + '</span><span class="rp-quick-mo">' + customN + ' mo</span></div>';
+  }
+  quickHtml += '</div>';
+
+  var hdrHtml;
+  if (pend.start && pend.end) {
+    var n2 = rpMonthCount(pend.start, pend.end);
+    hdrHtml = '<div class="rp-main-hdr">' + rpTitleMonth(pend.start) + ' &#8211; ' + rpTitleMonth(pend.end)
+      + '<span class="rp-main-hdr-n">' + n2 + (n2 === 1 ? ' month' : ' months') + '</span></div>';
+  } else {
+    hdrHtml = '<div class="rp-main-hdr">' + rpTitleMonth(pend.start) + '<span class="rp-main-hdr-n">pick an end month</span></div>';
+  }
+  hdrHtml += '<div class="rp-main-hint">Click a start month, then an end month &mdash; or pick a quick range</div>';
+
+  var minYear = parseInt(keys[0].slice(0, 4), 10), maxYear = parseInt(keys[keys.length - 1].slice(0, 4), 10);
+  var rangeLo = pend.start, rangeHi = pend.end;
+  if (rangeLo && rangeHi && rangeLo > rangeHi) { var tmp = rangeLo; rangeLo = rangeHi; rangeHi = tmp; }
+  var gridHtml = '';
+  for (var y = minYear; y <= maxYear; y++) {
+    gridHtml += '<div class="rp-year-row"><div class="rp-year-label">' + y + '</div>';
+    for (var m = 1; m <= 12; m++) {
+      var mk = y + '-' + (m < 10 ? '0' : '') + m;
+      var available = keys.indexOf(mk) !== -1;
+      var cls = 'rp-month';
+      if (!available) cls += ' disabled';
+      if (mk === todayKey) cls += ' today';
+      if (available && mk > todayKey) cls += ' projected';
+      if (available && (mk === pend.start || mk === pend.end)) cls += ' selected';
+      else if (available && rangeLo && rangeHi && mk > rangeLo && mk < rangeHi) cls += ' in-range';
+      gridHtml += '<div class="' + cls + '"' + (available ? ' data-mk="' + mk + '"' : '') + '>' + rpMonthAbbr(m) + '</div>';
+    }
+    gridHtml += '</div>';
+  }
+
+  var legendHtml = '<div class="rp-legend"><span>&bull; This month</span><span style="color:#e65100">&#8943; Projected</span></div>';
+  var footerHtml = '<div class="rp-footer">'
+    + '<button type="button" class="rp-cancel-btn" data-rp-cancel>Cancel</button>'
+    + '<button type="button" class="rp-apply-btn" data-rp-apply' + (!(pend.start && pend.end) ? ' disabled' : '') + '>Apply</button>'
+    + '</div>';
+
+  panel.innerHTML = quickHtml
+    + '<div class="rp-main-col-wrap">'
+    +   '<div class="rp-main-col">' + hdrHtml + gridHtml + legendHtml + '</div>'
+    +   footerHtml
+    + '</div>';
+
+  var qItems = panel.querySelectorAll('.rp-quick-item');
+  for (var qii = 0; qii < qItems.length; qii++) {
+    qItems[qii].addEventListener('click', function() {
+      var idx = this.getAttribute('data-qidx');
+      if (idx === 'custom') return;
+      var q2 = quicks[parseInt(idx, 10)];
+      rpPending[id] = { start: q2.from, end: q2.to };
+      rpRenderPanel(id);
+    });
+  }
+  var mCells = panel.querySelectorAll('.rp-month[data-mk]');
+  for (var mi = 0; mi < mCells.length; mi++) {
+    mCells[mi].addEventListener('click', function() {
+      var mk = this.getAttribute('data-mk');
+      var p = rpPending[id];
+      if (!p.start || (p.start && p.end)) {
+        rpPending[id] = { start: mk, end: null };
+      } else if (mk === p.start) {
+        rpPending[id] = { start: mk, end: mk };
+      } else if (mk < p.start) {
+        rpPending[id] = { start: mk, end: p.start };
+      } else {
+        rpPending[id] = { start: p.start, end: mk };
+      }
+      rpRenderPanel(id);
+    });
+  }
+  var cancelBtn = panel.querySelector('[data-rp-cancel]');
+  if (cancelBtn) cancelBtn.addEventListener('click', function() { rpClose(); });
+  var applyBtn = panel.querySelector('[data-rp-apply]');
+  if (applyBtn) applyBtn.addEventListener('click', function() {
+    var p = rpPending[id];
+    if (!p.start || !p.end) return;
+    rpApply(id, p.start, p.end);
+  });
+}
+
+function rpApply(id, from, to) {
+  var cfg = RP_CONFIGS[id];
+  state[cfg.fromField] = from;
+  state[cfg.toField]   = to;
+  localStorage.setItem(cfg.fromLS, from);
+  localStorage.setItem(cfg.toLS, to);
+  rpClose();
+  rpSetButtonLabel(id);
+  cfg.render();
 }
 function fmtAbs(v) {
   return '$' + Math.abs(v).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
@@ -5997,18 +6238,7 @@ function toggleOtherGroup(grpName) {
 // RANGE FILTER
 // ============================================================
 function populateRangeFilter() {
-  var keys    = state.data.allKeys;
-  var fromSel = document.getElementById('from-sel');
-  var toSel   = document.getElementById('to-sel');
-  fromSel.innerHTML = '';
-  toSel.innerHTML   = '';
-
-  for (var i = 0; i < keys.length; i++) {
-    var o1 = document.createElement('option'); o1.value = keys[i]; o1.textContent = keyLabel(keys[i]);
-    var o2 = document.createElement('option'); o2.value = keys[i]; o2.textContent = keyLabel(keys[i]);
-    fromSel.appendChild(o1);
-    toSel.appendChild(o2);
-  }
+  var keys = state.data.allKeys;
 
   var todayKey  = dtKey(new Date());
   var defaultTo = keys[0];
@@ -6019,11 +6249,11 @@ function populateRangeFilter() {
   }
   var toIdx2    = keys.indexOf(defaultTo);
   var defaultFrom = keys[Math.max(0, toIdx2 - 3)];
-  fromSel.value = state.fromKey && keys.indexOf(state.fromKey) !== -1 ? state.fromKey : defaultFrom;
-  toSel.value   = state.toKey   && keys.indexOf(state.toKey)   !== -1 ? state.toKey   : defaultTo;
+  state.fromKey = state.fromKey && keys.indexOf(state.fromKey) !== -1 ? state.fromKey : defaultFrom;
+  state.toKey   = state.toKey   && keys.indexOf(state.toKey)   !== -1 ? state.toKey   : defaultTo;
 
-  state.fromKey = fromSel.value;
-  state.toKey   = toSel.value;
+  rpKeysCache.margin = keys;
+  rpSetButtonLabel('margin');
 
   var chkTrk = document.getElementById('cf-exclude-tracking');
   if (chkTrk) chkTrk.checked = !!state.cfExcludeTracking;
@@ -6240,17 +6470,7 @@ function lwAllKeys() {
 
 function populateLwRangeFilter() {
   if (!state.data || !state.data.acctTxns) return;
-  var keys    = lwAllKeys();
-  var fromSel = document.getElementById('lw-from-sel');
-  var toSel   = document.getElementById('lw-to-sel');
-  fromSel.innerHTML = '';
-  toSel.innerHTML   = '';
-  for (var i = 0; i < keys.length; i++) {
-    var o1 = document.createElement('option'); o1.value = keys[i]; o1.textContent = keyLabel(keys[i]);
-    var o2 = document.createElement('option'); o2.value = keys[i]; o2.textContent = keyLabel(keys[i]);
-    fromSel.appendChild(o1);
-    toSel.appendChild(o2);
-  }
+  var keys = lwAllKeys();
   var todayKey  = dtKey(new Date());
   var defaultTo = keys[0];
   // Default: last 12 months, not including present month -- the To picker still lists it, so
@@ -6260,10 +6480,10 @@ function populateLwRangeFilter() {
   }
   var lwToIdx     = keys.indexOf(defaultTo);
   var defaultFrom = keys[Math.max(0, lwToIdx - 11)];
-  fromSel.value   = state.lwFromKey && keys.indexOf(state.lwFromKey) !== -1 ? state.lwFromKey : defaultFrom;
-  toSel.value     = state.lwToKey   && keys.indexOf(state.lwToKey)   !== -1 ? state.lwToKey   : defaultTo;
-  state.lwFromKey = fromSel.value;
-  state.lwToKey   = toSel.value;
+  state.lwFromKey = state.lwFromKey && keys.indexOf(state.lwFromKey) !== -1 ? state.lwFromKey : defaultFrom;
+  state.lwToKey   = state.lwToKey   && keys.indexOf(state.lwToKey)   !== -1 ? state.lwToKey   : defaultTo;
+  rpKeysCache.lw = keys;
+  rpSetButtonLabel('lw');
   syncExclusionToggles();
 }
 
@@ -6398,17 +6618,7 @@ function renderLiquidWorth() {
 
 function populateNwRangeFilter() {
   if (!state.data || !state.data.acctTxns) return;
-  var keys    = lwAllKeys();
-  var fromSel = document.getElementById('nw-from-sel');
-  var toSel   = document.getElementById('nw-to-sel');
-  fromSel.innerHTML = '';
-  toSel.innerHTML   = '';
-  for (var i = 0; i < keys.length; i++) {
-    var o1 = document.createElement('option'); o1.value = keys[i]; o1.textContent = keyLabel(keys[i]);
-    var o2 = document.createElement('option'); o2.value = keys[i]; o2.textContent = keyLabel(keys[i]);
-    fromSel.appendChild(o1);
-    toSel.appendChild(o2);
-  }
+  var keys = lwAllKeys();
   var todayKey  = dtKey(new Date());
   var defaultTo = keys[0];
   // Default: last 48 months, not including present month -- the To picker still lists it, so
@@ -6418,10 +6628,10 @@ function populateNwRangeFilter() {
   }
   var nwToIdx      = keys.indexOf(defaultTo);
   var defaultFrom  = keys[Math.max(0, nwToIdx - 47)];
-  fromSel.value    = state.nwFromKey && keys.indexOf(state.nwFromKey) !== -1 ? state.nwFromKey : defaultFrom;
-  toSel.value      = state.nwToKey   && keys.indexOf(state.nwToKey)   !== -1 ? state.nwToKey   : defaultTo;
-  state.nwFromKey  = fromSel.value;
-  state.nwToKey    = toSel.value;
+  state.nwFromKey  = state.nwFromKey && keys.indexOf(state.nwFromKey) !== -1 ? state.nwFromKey : defaultFrom;
+  state.nwToKey    = state.nwToKey   && keys.indexOf(state.nwToKey)   !== -1 ? state.nwToKey   : defaultTo;
+  rpKeysCache.nw = keys;
+  rpSetButtonLabel('nw');
 }
 
 function populateNwAccountFilter() {
@@ -7892,23 +8102,13 @@ function hideLessonsTooltip() {
 }
 
 function populateLessonsRangeFilter(allKeys) {
-  var fromSel = document.getElementById('lessons-from-sel');
-  var toSel   = document.getElementById('lessons-to-sel');
-  if (!fromSel || !toSel || !allKeys.length) return;
-  fromSel.innerHTML = '';
-  toSel.innerHTML   = '';
-  for (var i = 0; i < allKeys.length; i++) {
-    var o1 = document.createElement('option'); o1.value = allKeys[i]; o1.textContent = keyLabel(allKeys[i]);
-    var o2 = document.createElement('option'); o2.value = allKeys[i]; o2.textContent = keyLabel(allKeys[i]);
-    fromSel.appendChild(o1);
-    toSel.appendChild(o2);
-  }
+  if (!allKeys.length) return;
   var defaultFrom = allKeys[0];
   var defaultTo   = allKeys[allKeys.length - 1];
-  fromSel.value        = state.lessonsFromKey && allKeys.indexOf(state.lessonsFromKey) !== -1 ? state.lessonsFromKey : defaultFrom;
-  toSel.value          = state.lessonsToKey   && allKeys.indexOf(state.lessonsToKey)   !== -1 ? state.lessonsToKey   : defaultTo;
-  state.lessonsFromKey = fromSel.value;
-  state.lessonsToKey   = toSel.value;
+  state.lessonsFromKey = state.lessonsFromKey && allKeys.indexOf(state.lessonsFromKey) !== -1 ? state.lessonsFromKey : defaultFrom;
+  state.lessonsToKey   = state.lessonsToKey   && allKeys.indexOf(state.lessonsToKey)   !== -1 ? state.lessonsToKey   : defaultTo;
+  rpKeysCache.lessons = allKeys;
+  rpSetButtonLabel('lessons');
 }
 
 function renderLessonsLearned() {
@@ -8098,23 +8298,13 @@ function showLeveragePayeeTooltip(clientX, clientY, idx) {
 }
 
 function populateLeverageRangeFilter(allKeys) {
-  var fromSel = document.getElementById('leverage-from-sel');
-  var toSel   = document.getElementById('leverage-to-sel');
-  if (!fromSel || !toSel || !allKeys.length) return;
-  fromSel.innerHTML = '';
-  toSel.innerHTML   = '';
-  for (var i = 0; i < allKeys.length; i++) {
-    var o1 = document.createElement('option'); o1.value = allKeys[i]; o1.textContent = keyLabel(allKeys[i]);
-    var o2 = document.createElement('option'); o2.value = allKeys[i]; o2.textContent = keyLabel(allKeys[i]);
-    fromSel.appendChild(o1);
-    toSel.appendChild(o2);
-  }
+  if (!allKeys.length) return;
   var defaultFrom = allKeys[0];
   var defaultTo   = allKeys[allKeys.length - 1];
-  fromSel.value         = state.leverageFromKey && allKeys.indexOf(state.leverageFromKey) !== -1 ? state.leverageFromKey : defaultFrom;
-  toSel.value           = state.leverageToKey   && allKeys.indexOf(state.leverageToKey)   !== -1 ? state.leverageToKey   : defaultTo;
-  state.leverageFromKey = fromSel.value;
-  state.leverageToKey   = toSel.value;
+  state.leverageFromKey = state.leverageFromKey && allKeys.indexOf(state.leverageFromKey) !== -1 ? state.leverageFromKey : defaultFrom;
+  state.leverageToKey   = state.leverageToKey   && allKeys.indexOf(state.leverageToKey)   !== -1 ? state.leverageToKey   : defaultTo;
+  rpKeysCache.leverage = allKeys;
+  rpSetButtonLabel('leverage');
 }
 
 // "Next Points Expiration" card: Config rows with Metric = "Expiration N" (Text = account ID
@@ -9278,27 +9468,17 @@ function generateMonthRange(from, to) {
 }
 
 function populateAcctHistoryRangeFilter(availKeys, defaultFrom) {
-  var fromSel = document.getElementById('acct-history-from-sel');
-  var toSel   = document.getElementById('acct-history-to-sel');
-  if (!fromSel || !toSel) return;
-  fromSel.innerHTML = '';
-  toSel.innerHTML   = '';
-  for (var i = 0; i < availKeys.length; i++) {
-    var o1 = document.createElement('option'); o1.value = availKeys[i]; o1.textContent = keyLabel(availKeys[i]);
-    var o2 = document.createElement('option'); o2.value = availKeys[i]; o2.textContent = keyLabel(availKeys[i]);
-    fromSel.appendChild(o1);
-    toSel.appendChild(o2);
-  }
+  if (!availKeys.length) return;
   defaultFrom = defaultFrom || availKeys[0];
-  var defaultTo   = availKeys[availKeys.length - 1];
-  fromSel.value = state.acctHistoryFromKey && availKeys.indexOf(state.acctHistoryFromKey) !== -1
+  var defaultTo = availKeys[availKeys.length - 1];
+  state.acctHistoryFromKey = state.acctHistoryFromKey && availKeys.indexOf(state.acctHistoryFromKey) !== -1
     ? state.acctHistoryFromKey : defaultFrom;
-  toSel.value   = state.acctHistoryToKey   && availKeys.indexOf(state.acctHistoryToKey)   !== -1
+  state.acctHistoryToKey   = state.acctHistoryToKey   && availKeys.indexOf(state.acctHistoryToKey)   !== -1
     ? state.acctHistoryToKey   : defaultTo;
-  state.acctHistoryFromKey = fromSel.value;
-  state.acctHistoryToKey   = toSel.value;
   localStorage.setItem('sel-acct-history-from', state.acctHistoryFromKey);
   localStorage.setItem('sel-acct-history-to',   state.acctHistoryToKey);
+  rpKeysCache['acct-history'] = availKeys;
+  rpSetButtonLabel('acct-history');
 }
 
 function populateAcctHistoryFilter() {
@@ -11832,26 +12012,25 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
-  // Range filter
-  document.getElementById('from-sel').addEventListener('change', function() {
-    state.fromKey = this.value;
-    localStorage.setItem('sel-from', state.fromKey);
-    if (state.fromKey > state.toKey) {
-      state.toKey = state.fromKey;
-      document.getElementById('to-sel').value = state.toKey;
-      localStorage.setItem('sel-to', state.toKey);
-    }
-    renderTable();
+  // Date range pickers (one cohesive control per tab, shared implementation)
+  Object.keys(RP_CONFIGS).forEach(function(rpId) {
+    var cfg = RP_CONFIGS[rpId];
+    var btn = document.getElementById(cfg.btnId);
+    if (btn) btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      rpOpen(rpId);
+    });
   });
-  document.getElementById('to-sel').addEventListener('change', function() {
-    state.toKey = this.value;
-    localStorage.setItem('sel-to', state.toKey);
-    if (state.toKey < state.fromKey) {
-      state.fromKey = state.toKey;
-      document.getElementById('from-sel').value = state.fromKey;
-      localStorage.setItem('sel-from', state.fromKey);
+  document.addEventListener('click', function(e) {
+    if (!rpOpenId) return;
+    // Use the event's original dispatch path (not a live wrap.contains(e.target) check) --
+    // clicking a quick-range/month cell rebuilds the panel's innerHTML mid-bubble, which would
+    // detach e.target before this handler runs and make contains() wrongly report "outside".
+    var path = e.composedPath ? e.composedPath() : [e.target];
+    for (var i = 0; i < path.length; i++) {
+      if (path[i].classList && path[i].classList.contains('rp-wrap')) return;
     }
-    renderTable();
+    rpClose();
   });
 
   document.getElementById('cf-show-glidepath').checked = !!state.showGlidepath;
@@ -11995,27 +12174,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (btn) switchTab(btn.getAttribute('data-tab'));
   });
 
-  // LW range filter
-  document.getElementById('lw-from-sel').addEventListener('change', function() {
-    state.lwFromKey = this.value;
-    localStorage.setItem('sel-lw-from', state.lwFromKey);
-    if (state.lwFromKey > state.lwToKey) {
-      state.lwToKey = state.lwFromKey;
-      document.getElementById('lw-to-sel').value = state.lwToKey;
-      localStorage.setItem('sel-lw-to', state.lwToKey);
-    }
-    renderLiquidWorth();
-  });
-  document.getElementById('lw-to-sel').addEventListener('change', function() {
-    state.lwToKey = this.value;
-    localStorage.setItem('sel-lw-to', state.lwToKey);
-    if (state.lwToKey < state.lwFromKey) {
-      state.lwFromKey = state.lwToKey;
-      document.getElementById('lw-from-sel').value = state.lwFromKey;
-      localStorage.setItem('sel-lw-from', state.lwFromKey);
-    }
-    renderLiquidWorth();
-  });
 
   // Exclude Tracking / Exclude Distribution are shared between the Liquid Balances and
   // Account History tabs so the two views always reconcile against the same basis.
@@ -12062,28 +12220,6 @@ document.addEventListener('DOMContentLoaded', function() {
     refreshReconciliationData();
   });
 
-  // NW range filter
-  document.getElementById('nw-from-sel').addEventListener('change', function() {
-    state.nwFromKey = this.value;
-    localStorage.setItem('sel-nw-from', state.nwFromKey);
-    if (state.nwFromKey > state.nwToKey) {
-      state.nwToKey = state.nwFromKey;
-      document.getElementById('nw-to-sel').value = state.nwToKey;
-      localStorage.setItem('sel-nw-to', state.nwToKey);
-    }
-    renderNetWorth();
-  });
-  document.getElementById('nw-to-sel').addEventListener('change', function() {
-    state.nwToKey = this.value;
-    localStorage.setItem('sel-nw-to', state.nwToKey);
-    if (state.nwToKey < state.nwFromKey) {
-      state.nwFromKey = state.nwToKey;
-      document.getElementById('nw-from-sel').value = state.nwFromKey;
-      localStorage.setItem('sel-nw-from', state.nwFromKey);
-    }
-    renderNetWorth();
-  });
-
   // Clicking the active horizon again deselects it, reverting to the plain Net Worth chart.
   ['12m', '30y'].forEach(function(h) {
     document.getElementById('nw-outlook-' + h + '-btn').addEventListener('click', function() {
@@ -12094,50 +12230,6 @@ document.addEventListener('DOMContentLoaded', function() {
       document.getElementById('nw-outlook-30y-btn').classList.toggle('active', next === '30y');
       renderNetWorth();
     });
-  });
-
-  // Lessons range filter
-  document.getElementById('lessons-from-sel').addEventListener('change', function() {
-    state.lessonsFromKey = this.value;
-    localStorage.setItem('sel-lessons-from', state.lessonsFromKey);
-    if (state.lessonsFromKey > state.lessonsToKey) {
-      state.lessonsToKey = state.lessonsFromKey;
-      document.getElementById('lessons-to-sel').value = state.lessonsToKey;
-      localStorage.setItem('sel-lessons-to', state.lessonsToKey);
-    }
-    renderLessonsLearned();
-  });
-  document.getElementById('lessons-to-sel').addEventListener('change', function() {
-    state.lessonsToKey = this.value;
-    localStorage.setItem('sel-lessons-to', state.lessonsToKey);
-    if (state.lessonsToKey < state.lessonsFromKey) {
-      state.lessonsFromKey = state.lessonsToKey;
-      document.getElementById('lessons-from-sel').value = state.lessonsFromKey;
-      localStorage.setItem('sel-lessons-from', state.lessonsFromKey);
-    }
-    renderLessonsLearned();
-  });
-
-  // Leverage range filter
-  document.getElementById('leverage-from-sel').addEventListener('change', function() {
-    state.leverageFromKey = this.value;
-    localStorage.setItem('sel-leverage-from', state.leverageFromKey);
-    if (state.leverageFromKey > state.leverageToKey) {
-      state.leverageToKey = state.leverageFromKey;
-      document.getElementById('leverage-to-sel').value = state.leverageToKey;
-      localStorage.setItem('sel-leverage-to', state.leverageToKey);
-    }
-    renderLeverage();
-  });
-  document.getElementById('leverage-to-sel').addEventListener('change', function() {
-    state.leverageToKey = this.value;
-    localStorage.setItem('sel-leverage-to', state.leverageToKey);
-    if (state.leverageToKey < state.leverageFromKey) {
-      state.leverageFromKey = state.leverageToKey;
-      document.getElementById('leverage-from-sel').value = state.leverageFromKey;
-      localStorage.setItem('sel-leverage-from', state.leverageFromKey);
-    }
-    renderLeverage();
   });
 
   document.getElementById('leverage-exclude-tracking').checked = !!state.leverageExcludeTracking;
@@ -12182,28 +12274,6 @@ document.addEventListener('DOMContentLoaded', function() {
     localStorage.setItem('sel-leverage-pos-acct', state.leveragePosAcctLabel);
     leveragePosData = null;
     renderLeveragePosWidget();
-  });
-
-  // Account History range filter
-  document.getElementById('acct-history-from-sel').addEventListener('change', function() {
-    state.acctHistoryFromKey = this.value;
-    localStorage.setItem('sel-acct-history-from', state.acctHistoryFromKey);
-    if (state.acctHistoryFromKey > state.acctHistoryToKey) {
-      state.acctHistoryToKey = state.acctHistoryFromKey;
-      document.getElementById('acct-history-to-sel').value = state.acctHistoryToKey;
-      localStorage.setItem('sel-acct-history-to', state.acctHistoryToKey);
-    }
-    renderAccountHistory();
-  });
-  document.getElementById('acct-history-to-sel').addEventListener('change', function() {
-    state.acctHistoryToKey = this.value;
-    localStorage.setItem('sel-acct-history-to', state.acctHistoryToKey);
-    if (state.acctHistoryToKey < state.acctHistoryFromKey) {
-      state.acctHistoryFromKey = state.acctHistoryToKey;
-      document.getElementById('acct-history-from-sel').value = state.acctHistoryFromKey;
-      localStorage.setItem('sel-acct-history-from', state.acctHistoryFromKey);
-    }
-    renderAccountHistory();
   });
 
   // Account History account selector
