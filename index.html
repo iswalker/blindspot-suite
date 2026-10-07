@@ -240,10 +240,6 @@ body {
   gap: 8px;
   font-size: 14px;
   color: #555;
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  padding: 5px 12px;
 }
 #range-group label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 #range-group select {
@@ -263,7 +259,7 @@ h1 { font-size: 22px; font-weight: 700; margin: 0; letter-spacing: -0.3px; }
 .scroll-wrap {
   overflow: auto;
   border-radius: 6px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  border: 1px solid #ddd;
   scrollbar-width: thin;
   scrollbar-color: #ccc transparent;
 }
@@ -532,39 +528,6 @@ td.cell-active {
 }
 #pane-done-btn:hover { background: #2d2d50; }
 
-/* ---- Row shading iOS toggle ---- */
-.toggle-wrap {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  user-select: none;
-}
-.toggle-wrap input[type="checkbox"] { display: none; }
-.toggle-track {
-  position: relative;
-  width: 36px;
-  height: 20px;
-  background: #bbb;
-  border-radius: 10px;
-  transition: background 0.18s;
-  flex-shrink: 0;
-}
-.toggle-thumb {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 16px;
-  height: 16px;
-  background: #fff;
-  border-radius: 50%;
-  box-shadow: 0 1px 3px rgba(0,0,0,.28);
-  transition: left 0.18s;
-}
-.toggle-wrap input:checked ~ .toggle-track { background: #555; }
-.toggle-wrap input:checked ~ .toggle-track .toggle-thumb { left: 18px; }
-.toggle-label { font-size: 15px; color: #555; white-space: nowrap; }
-
 /* ---- Panel header (h1 + inline controls) ---- */
 .panel-hdr {
   display: flex;
@@ -605,7 +568,6 @@ select, input { font-family: inherit; }
 #lw-range-group, #nw-range-group, #lessons-range-group, #leverage-range-group, #acct-history-range-group {
   display: flex; align-items: center; gap: 8px;
   font-size: 16px; color: #555;
-  background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 5px 12px;
 }
 #lw-range-group label, #nw-range-group label, #lessons-range-group label, #leverage-range-group label, #acct-history-range-group label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 #lw-range-group select, #nw-range-group select, #lessons-range-group select, #leverage-range-group select, #acct-history-range-group select {
@@ -762,7 +724,7 @@ select, input { font-family: inherit; }
 .home-body { display: flex; gap: 24px; align-items: flex-start; }
 .home-table-side { flex: 1 1 0; min-width: 0; overflow-x: auto; }
 .home-pending-side { width: 400px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; }
-.pending-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08); padding: 16px 20px 12px 20px; }
+.pending-card { background: #fff; border-radius: 8px; border: 1px solid #ddd; padding: 16px 20px 12px 20px; }
 .pending-card-hdr { font-size: 14px; font-weight: 700; color: #333; display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #ccc; padding-bottom: 9px; }
 .pending-card-total { font-size: 14px; font-weight: 700; color: #c62828; }
 #opps-total { color: #2e7d32; }
@@ -839,7 +801,7 @@ td.hbt-num:last-child { width: 13%; }
 .home-metric-row { display: flex; column-gap: 6px; row-gap: 20px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
 .home-metric-op { font-size: 26px; font-weight: 300; color: #333; line-height: 1; padding: 0 2px; }
 .home-metric-card {
-  background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  background: #fff; border-radius: 8px; border: 1px solid #ddd;
   padding: 10px 16px; text-align: right;
 }
 .home-metric-label { text-align: left; font-size: 11px; font-weight: 700; color: #333; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 2px; }
@@ -882,13 +844,13 @@ td.hbt-num:last-child { width: 13%; }
 
 /* ---- LW / NW summary card ---- */
 #lw-summary-card, #nw-summary-card {
-  background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  background: #fff; border-radius: 8px; border: 1px solid #ddd;
   padding: 20px 24px 18px; margin-bottom: 14px;
 }
 #nw-summary-row { display: flex; gap: 16px; align-items: stretch; margin-bottom: 14px; }
 #nw-summary-row #nw-summary-card { margin-bottom: 0; flex-shrink: 0; }
 #nw-driver-card {
-  background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  background: #fff; border-radius: 8px; border: 1px solid #ddd;
   padding: 20px 24px 18px; flex: 1; min-width: 180px;
 }
 .nw-driver-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; cursor: default; border-radius: 5px; padding: 2px 4px; margin-left: -4px; }
@@ -1023,14 +985,14 @@ td.hbt-num:last-child { width: 13%; }
 
 /* ---- LW chart ---- */
 .lw-chart-wrap {
-  background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  background: #fff; border-radius: 8px; border: 1px solid #ddd;
   padding: 16px 16px 16px 0; margin-bottom: 14px; overflow: hidden;
 }
 #lw-canvas { display: block; }
 
 /* ---- LW table ---- */
 .lw-table-wrap {
-  background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  background: #fff; border-radius: 8px; border: 1px solid #ddd;
   overflow-x: auto; margin-bottom: 24px;
 }
 #lw-table { border-collapse: collapse; width: 100%; }
@@ -1060,7 +1022,7 @@ td.hbt-num:last-child { width: 13%; }
 #lessons-summary-row { display: flex; gap: 16px; margin-bottom: 14px; align-items: flex-start; }
 #lessons-metrics-left { display: flex; flex-direction: column; gap: 16px; flex-shrink: 0; }
 .lessons-metric-card {
-  background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  background: #fff; border-radius: 8px; border: 1px solid #ddd;
   padding: 14px 20px; min-width: 160px;
 }
 .lessons-metric-label { font-size: 11px; font-weight: 600; color: #888; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 4px; }
@@ -1082,7 +1044,7 @@ td.hbt-num:last-child { width: 13%; }
 .leverage-acct-idea-tag:hover { background: #e4e4de; color: #333; }
 #leverage-speedo-row { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 16px; margin-bottom: 14px; }
 .leverage-speedo {
-  min-width: 0; background: #fff; border: 1px solid #e8e8e4;
+  min-width: 0; background: #fff; border: 1px solid #ddd;
   border-radius: 10px; padding: 14px 18px 10px;
 }
 .leverage-speedo-top-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
@@ -1136,7 +1098,7 @@ td.hbt-num:last-child { width: 13%; }
 #leverage-metrics-left { display: flex; flex-direction: column; gap: 16px; flex-shrink: 0; }
 .leverage-metric-value { font-size: 24px; font-weight: 700; color: #1565c0; }
 .leverage-metric-sub { font-size: 11px; color: #999; margin-top: 4px; }
-#leverage-pos-widget { flex: 0 1 25%; min-width: 220px; background: #fff; border: 1px solid #e8e8e4; border-radius: 10px; padding: 12px 16px; }
+#leverage-pos-widget { flex: 0 1 25%; min-width: 220px; background: #fff; border: 1px solid #ddd; border-radius: 10px; padding: 12px 16px; }
 #leverage-pos-hdr { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
 #leverage-pos-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #888; flex: 1; white-space: nowrap; }
 #leverage-pos-acct-sel { font-size: 12px; padding: 4px 6px; border: 1px solid #ddd; border-radius: 5px; max-width: 160px; }
@@ -1628,6 +1590,13 @@ td.hbt-num:last-child { width: 13%; }
             <div class="settings-divider"></div>
             <div class="settings-row">
               <label class="ios-toggle-wrap">
+                <input type="checkbox" id="cat-sort-toggle">
+                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+                Sort by Average
+              </label>
+            </div>
+            <div class="settings-row">
+              <label class="ios-toggle-wrap">
                 <input type="checkbox" id="cf-exclude-unknown-income">
                 <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
                 Exclude Income with No Payee
@@ -1671,15 +1640,10 @@ td.hbt-num:last-child { width: 13%; }
       <h1>Cash Flow</h1>
       <div id="margin-range-wrap" style="display:flex;align-items:center;gap:8px">
         <div id="range-group">
-          <label>From <select id="from-sel"></select></label>
+          <select id="from-sel"></select>
           <span id="range-sep">&#8594;</span>
-          <label>To <select id="to-sel"></select></label>
+          <select id="to-sel"></select>
         </div>
-        <label class="toggle-wrap" id="cat-sort-toggle-wrap">
-          <input type="checkbox" id="cat-sort-toggle">
-          <span class="toggle-track"><span class="toggle-thumb"></span></span>
-          <span class="toggle-label">Sort by Avg</span>
-        </label>
         <div id="acct-filter-wrap">
           <button id="acct-filter-btn">Accounts &#9660;</button>
           <div id="acct-filter-panel"></div>
@@ -1697,9 +1661,9 @@ td.hbt-num:last-child { width: 13%; }
       <h1>Liquid Balances</h1>
       <div id="lw-range-wrap" style="display:flex;align-items:center;gap:8px">
         <div id="lw-range-group">
-          <label>From <select id="lw-from-sel"></select></label>
+          <select id="lw-from-sel"></select>
           <span>&#8594;</span>
-          <label>To <select id="lw-to-sel"></select></label>
+          <select id="lw-to-sel"></select>
         </div>
         <label class="ios-toggle-wrap">
           <input type="checkbox" id="lw-exclude-distribution">
@@ -1741,9 +1705,9 @@ td.hbt-num:last-child { width: 13%; }
       <h1>Net Worth</h1>
       <div id="nw-range-wrap" style="display:flex;align-items:center;gap:8px">
         <div id="nw-range-group">
-          <label>From <select id="nw-from-sel"></select></label>
+          <select id="nw-from-sel"></select>
           <span>&#8594;</span>
-          <label>To <select id="nw-to-sel"></select></label>
+          <select id="nw-to-sel"></select>
         </div>
         <div class="nwo-seg-wrap" id="nw-outlook-seg-wrap" data-active="">
           <span class="nwo-seg-label">Preview</span>
@@ -1782,9 +1746,9 @@ td.hbt-num:last-child { width: 13%; }
       <h1>Lessons Learned</h1>
       <div id="lessons-range-wrap">
         <div id="lessons-range-group">
-          <label>From <select id="lessons-from-sel"></select></label>
+          <select id="lessons-from-sel"></select>
           <span>&#8594;</span>
-          <label>To <select id="lessons-to-sel"></select></label>
+          <select id="lessons-to-sel"></select>
         </div>
       </div>
     </div>
@@ -1824,9 +1788,9 @@ td.hbt-num:last-child { width: 13%; }
       <h1>Leverage</h1>
       <div id="leverage-range-wrap">
         <div id="leverage-range-group">
-          <label>From <select id="leverage-from-sel"></select></label>
+          <select id="leverage-from-sel"></select>
           <span>&#8594;</span>
-          <label>To <select id="leverage-to-sel"></select></label>
+          <select id="leverage-to-sel"></select>
         </div>
         <label class="ios-toggle-wrap">
           <input type="checkbox" id="leverage-exclude-tracking">
@@ -1902,9 +1866,9 @@ td.hbt-num:last-child { width: 13%; }
       <h1>Account History</h1>
       <div id="acct-history-range-wrap">
         <div id="acct-history-range-group">
-          <label>From <select id="acct-history-from-sel"></select></label>
+          <select id="acct-history-from-sel"></select>
           <span>&#8594;</span>
-          <label>To <select id="acct-history-to-sel"></select></label>
+          <select id="acct-history-to-sel"></select>
         </div>
       </div>
       <label class="ios-toggle-wrap">
