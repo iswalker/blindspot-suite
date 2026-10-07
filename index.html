@@ -226,8 +226,6 @@ body {
 #range-sep { color: #aaa; }
 #cache-label { font-size: 11px; color: #aaa; margin-left: 4px; }
 
-h1 { font-size: 22px; font-weight: 700; margin: 0; letter-spacing: -0.3px; }
-
 /* ---- Table wrapper ---- */
 .scroll-wrap {
   overflow: auto;
@@ -509,30 +507,28 @@ td.cell-active {
   margin-bottom: 8px;
   flex-wrap: wrap;
 }
-.panel-hdr h1 { margin: 0; }
 
 /* ---- Tab nav ---- */
 #tab-nav {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 2px;
 }
 .tab-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 0;
+  gap: 6px;
+  padding: 5px 12px;
   border: none;
-  border-radius: 0;
-  font-size: 14px;
+  border-radius: 12px;
+  font-size: 19px;
   font-weight: 600;
   cursor: pointer;
   background: transparent;
-  color: #a9875f;
   white-space: nowrap;
 }
-.tab-btn.tab-active { color: #1a1a2e; }
-.tab-btn:hover:not(.tab-active) { color: #1a1a2e; }
+.tab-btn.tab-active { background: #eee; }
+.tab-btn:hover:not(.tab-active) { background: rgba(0,0,0,.04); }
 .tab-icon { flex: none; fill: currentColor; }
 
 button { font-size: 14px; font-family: inherit; }
@@ -1248,7 +1244,6 @@ td.hbt-num:last-child { width: 13%; }
 
   /* Panel headers: tighten and allow wrapping */
   .panel-hdr { gap: 8px 12px; }
-  .panel-hdr h1 { font-size: 22px; }
 
   /* Current Month metric row: 2-up grid on mobile, hide algebra operators */
   .home-metric-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: stretch; }
@@ -1374,7 +1369,6 @@ td.hbt-num:last-child { width: 13%; }
 
 @media (max-width: 480px) {
   body { padding: 8px 8px; }
-  .panel-hdr h1 { font-size: 19px; }
   .home-metric-row { grid-template-columns: 1fr; }
   .lessons-metric-card { flex: 1 1 100%; }
   .home-metric-value { font-size: 20px; }
@@ -1623,7 +1617,6 @@ td.hbt-num:last-child { width: 13%; }
   </div>
   <div id="margin-panel">
     <div class="panel-hdr">
-      <h1>Cash Flow</h1>
       <div id="margin-range-wrap" style="display:flex;align-items:center;gap:8px">
         <div id="range-group">
           <select id="from-sel"></select>
@@ -1644,7 +1637,6 @@ td.hbt-num:last-child { width: 13%; }
   </div>
   <div id="lw-panel">
     <div class="panel-hdr">
-      <h1>Liquid Balances</h1>
       <div id="lw-range-wrap" style="display:flex;align-items:center;gap:8px">
         <div id="lw-range-group">
           <select id="lw-from-sel"></select>
@@ -1672,7 +1664,6 @@ td.hbt-num:last-child { width: 13%; }
   </div>
   <div id="nw-panel">
     <div class="panel-hdr">
-      <h1>Net Worth</h1>
       <div id="nw-range-wrap" style="display:flex;align-items:center;gap:8px">
         <div id="nw-range-group">
           <select id="nw-from-sel"></select>
@@ -1713,7 +1704,6 @@ td.hbt-num:last-child { width: 13%; }
   </div>
   <div id="lessons-panel" style="display:none">
     <div class="panel-hdr">
-      <h1>Lessons Learned</h1>
       <div id="lessons-range-wrap">
         <div id="lessons-range-group">
           <select id="lessons-from-sel"></select>
@@ -1755,7 +1745,6 @@ td.hbt-num:last-child { width: 13%; }
   <div id="lessons-tooltip"></div>
   <div id="leverage-panel" style="display:none">
     <div class="panel-hdr">
-      <h1>Leverage</h1>
       <div id="leverage-range-wrap">
         <div id="leverage-range-group">
           <select id="leverage-from-sel"></select>
@@ -1833,7 +1822,6 @@ td.hbt-num:last-child { width: 13%; }
   </div>
   <div id="acct-history-panel" style="display:none">
     <div class="panel-hdr">
-      <h1>Account History</h1>
       <div id="acct-history-range-wrap">
         <div id="acct-history-range-group">
           <select id="acct-history-from-sel"></select>
@@ -1854,7 +1842,6 @@ td.hbt-num:last-child { width: 13%; }
   <div id="acct-history-tooltip"></div>
   <div id="reconcile-panel" style="display:none">
     <div class="panel-hdr">
-      <h1>Reconcile</h1>
     </div>
     <div id="rec-controls-row">
       <div id="reconcile-acct-group">
@@ -1907,7 +1894,6 @@ td.hbt-num:last-child { width: 13%; }
   </div>
   <div id="runway-panel" style="display:none">
     <div class="panel-hdr">
-      <h1>Runway</h1>
       <div id="runway-factors-wrap" style="display:none">
         <button id="runway-factors-btn">Factors &#9660;</button>
         <div id="runway-factors-panel"></div>
@@ -1918,7 +1904,6 @@ td.hbt-num:last-child { width: 13%; }
   </div>
   <div id="home-panel">
     <div class="panel-hdr">
-      <h1>Current Month</h1>
       <div id="home-acct-filter-wrap" style="display:none">
         <button id="home-acct-filter-btn">Accounts &#9660;</button>
         <div id="home-acct-filter-panel"></div>
