@@ -240,10 +240,6 @@ body {
   gap: 8px;
   font-size: 14px;
   color: #555;
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  padding: 5px 12px;
 }
 #range-group label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 #range-group select {
@@ -572,7 +568,6 @@ select, input { font-family: inherit; }
 #lw-range-group, #nw-range-group, #lessons-range-group, #leverage-range-group, #acct-history-range-group {
   display: flex; align-items: center; gap: 8px;
   font-size: 16px; color: #555;
-  background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 5px 12px;
 }
 #lw-range-group label, #nw-range-group label, #lessons-range-group label, #leverage-range-group label, #acct-history-range-group label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 #lw-range-group select, #nw-range-group select, #lessons-range-group select, #leverage-range-group select, #acct-history-range-group select {
@@ -1645,9 +1640,9 @@ td.hbt-num:last-child { width: 13%; }
       <h1>Cash Flow</h1>
       <div id="margin-range-wrap" style="display:flex;align-items:center;gap:8px">
         <div id="range-group">
-          <label>From <select id="from-sel"></select></label>
+          <select id="from-sel"></select>
           <span id="range-sep">&#8594;</span>
-          <label>To <select id="to-sel"></select></label>
+          <select id="to-sel"></select>
         </div>
         <div id="acct-filter-wrap">
           <button id="acct-filter-btn">Accounts &#9660;</button>
@@ -1666,9 +1661,9 @@ td.hbt-num:last-child { width: 13%; }
       <h1>Liquid Balances</h1>
       <div id="lw-range-wrap" style="display:flex;align-items:center;gap:8px">
         <div id="lw-range-group">
-          <label>From <select id="lw-from-sel"></select></label>
+          <select id="lw-from-sel"></select>
           <span>&#8594;</span>
-          <label>To <select id="lw-to-sel"></select></label>
+          <select id="lw-to-sel"></select>
         </div>
         <label class="ios-toggle-wrap">
           <input type="checkbox" id="lw-exclude-distribution">
@@ -1710,9 +1705,9 @@ td.hbt-num:last-child { width: 13%; }
       <h1>Net Worth</h1>
       <div id="nw-range-wrap" style="display:flex;align-items:center;gap:8px">
         <div id="nw-range-group">
-          <label>From <select id="nw-from-sel"></select></label>
+          <select id="nw-from-sel"></select>
           <span>&#8594;</span>
-          <label>To <select id="nw-to-sel"></select></label>
+          <select id="nw-to-sel"></select>
         </div>
         <div class="nwo-seg-wrap" id="nw-outlook-seg-wrap" data-active="">
           <span class="nwo-seg-label">Preview</span>
@@ -1751,9 +1746,9 @@ td.hbt-num:last-child { width: 13%; }
       <h1>Lessons Learned</h1>
       <div id="lessons-range-wrap">
         <div id="lessons-range-group">
-          <label>From <select id="lessons-from-sel"></select></label>
+          <select id="lessons-from-sel"></select>
           <span>&#8594;</span>
-          <label>To <select id="lessons-to-sel"></select></label>
+          <select id="lessons-to-sel"></select>
         </div>
       </div>
     </div>
@@ -1793,9 +1788,9 @@ td.hbt-num:last-child { width: 13%; }
       <h1>Leverage</h1>
       <div id="leverage-range-wrap">
         <div id="leverage-range-group">
-          <label>From <select id="leverage-from-sel"></select></label>
+          <select id="leverage-from-sel"></select>
           <span>&#8594;</span>
-          <label>To <select id="leverage-to-sel"></select></label>
+          <select id="leverage-to-sel"></select>
         </div>
         <label class="ios-toggle-wrap">
           <input type="checkbox" id="leverage-exclude-tracking">
@@ -1871,9 +1866,9 @@ td.hbt-num:last-child { width: 13%; }
       <h1>Account History</h1>
       <div id="acct-history-range-wrap">
         <div id="acct-history-range-group">
-          <label>From <select id="acct-history-from-sel"></select></label>
+          <select id="acct-history-from-sel"></select>
           <span>&#8594;</span>
-          <label>To <select id="acct-history-to-sel"></select></label>
+          <select id="acct-history-to-sel"></select>
         </div>
       </div>
       <label class="ios-toggle-wrap">
