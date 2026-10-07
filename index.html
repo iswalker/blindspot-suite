@@ -124,7 +124,7 @@ body {
   border-radius: 5px;
   overflow: hidden;
 }
-#brand-name { font-size: 16px; font-weight: 700; color: #1a1a2e; letter-spacing: -.2px; white-space: nowrap; }
+#brand-name { font-size: 16px; font-weight: 700; color: #333; letter-spacing: -.2px; white-space: nowrap; padding-bottom: 3px; }
 
 /* ---- Controls bar ---- */
 #controls-bar {
@@ -518,6 +518,9 @@ td.cell-active {
   gap: 20px;
 }
 .tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: 0;
   border: none;
   border-radius: 0;
@@ -530,6 +533,7 @@ td.cell-active {
 }
 .tab-btn.tab-active { color: #1a1a2e; }
 .tab-btn:hover:not(.tab-active) { color: #1a1a2e; }
+.tab-icon { flex: none; fill: currentColor; }
 
 button { font-size: 14px; font-family: inherit; }
 select, input { font-family: inherit; }
@@ -1471,7 +1475,10 @@ td.hbt-num:last-child { width: 13%; }
         <button class="tab-btn" data-tab="lessons">Lessons Learned</button>
         <button class="tab-btn" data-tab="leverage">Leverage</button>
         <button class="tab-btn" data-tab="acct-history">Account History</button>
-        <button class="tab-btn" data-tab="reconcile">Reconcile</button>
+        <button class="tab-btn" data-tab="reconcile">
+          <svg class="tab-icon" width="14" height="14" viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg"><path d="m600 319.56c-154.62 0-280.45 125.81-280.45 280.44s125.83 280.44 280.45 280.44c154.64 0 280.45-125.81 280.45-280.44s-125.81-280.44-280.45-280.44zm0 530.16c-137.68 0-249.71-112.01-249.71-249.72 0-9.9492 0.75781-19.727 1.8711-29.352h193.36l-54.984 54.984 21.73 21.742 92.09-92.09-92.09-92.102-21.73 21.73 54.984 55.008-187.61 0.007813c27.027-108.72 125.16-189.65 242.09-189.65 137.7 0 249.73 112.01 249.73 249.72 0 18.973-2.3164 37.379-6.3477 55.164h-201.92l54.984-54.996-21.73-21.73-92.09 92.102 92.09 92.074 21.73-21.73-54.984-54.984h192.73c-35.137 95.422-126.71 163.82-234.19 163.82z"/></svg>
+          Reconcile
+        </button>
         <button class="tab-btn" data-tab="runway">Runway</button>
       </div>
     </div>
