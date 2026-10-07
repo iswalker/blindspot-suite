@@ -519,15 +519,15 @@ td.cell-active {
   align-items: center;
   gap: 6px;
   padding: 5px 12px;
-  border: none;
-  border-radius: 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
   font-size: 19px;
   font-weight: 600;
   cursor: pointer;
   background: transparent;
   white-space: nowrap;
 }
-.tab-btn.tab-active { background: #eee; }
+.tab-btn.tab-active { background: #fff; border-color: #ddd; font-weight: 700; }
 .tab-btn:hover:not(.tab-active) { background: rgba(0,0,0,.04); }
 .tab-icon { width: 44px; height: 44px; margin: 0 -9px -5px 0; flex: none; fill: currentColor; }
 
@@ -1462,7 +1462,10 @@ td.hbt-num:last-child { width: 13%; }
         <span id="brand-name">Blindspot</span>
       </div>
       <div id="tab-nav">
-        <button class="tab-btn tab-active" data-tab="home">Current Month</button>
+        <button class="tab-btn tab-active" data-tab="home">
+          <svg class="tab-icon" viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg"><path d="m584.89 297.71v76.281c-112.96 7.5039-203.62 97.934-211.13 210.89h-76.043v30.23h76.043c7.4219 113.04 98.113 203.62 211.13 211.13v76.043h30.23v-76.043c113.01-7.5039 203.7-98.094 211.13-211.13h76.043v-30.23h-76.043c-7.5039-112.96-98.176-203.39-211.13-210.89v-76.281zm0 106.51v74.863h30.23v-74.863c96.555 7.3203 173.28 84.125 180.66 180.66h-74.863v30.23h75.098c-7.2695 96.656-84.258 173.57-180.9 180.9v-75.098h-30.23v75.098c-96.641-7.3242-173.63-84.242-180.9-180.9h75.098v-30.23h-74.863c7.3828-96.535 84.109-173.34 180.66-180.66z"/></svg>
+          Current Month
+        </button>
         <button class="tab-btn" data-tab="margin">Cash Flow</button>
         <button class="tab-btn" data-tab="lw">Liquid Balances</button>
         <button class="tab-btn" data-tab="nw">Net Worth</button>
