@@ -594,6 +594,21 @@ select, input { font-family: inherit; }
   padding: 3px 6px; background: #fafafa; cursor: pointer; min-width: 180px;
 }
 #acct-history-chart-wrap { margin-bottom: 0; }
+#ah-summary-row {
+  display: flex;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.ah-summary-card { flex: 1; min-width: 0; padding: 12px 18px; border-right: 1px solid #eee; }
+.ah-summary-card:last-child { border-right: none; }
+.ah-summary-label { font-size: 11px; font-weight: 700; color: #333; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 4px; }
+.ah-summary-value { font-size: 18px; font-weight: 700; color: #222; }
+.ah-summary-value.pos { color: #2e7d32; }
+.ah-summary-value.neg { color: #c62828; }
+.ah-summary-sub { font-size: 11px; color: #999; margin-top: 2px; }
 #acct-history-tooltip {
   position: fixed; display: none;
   background: #fff; border-radius: 8px; padding: 10px 14px;
@@ -1882,6 +1897,26 @@ td.hbt-num:last-child { width: 13%; }
         <div id="acct-history-acct-group">
           <label>Account <select id="acct-history-sel"></select></label>
         </div>
+      </div>
+    </div>
+    <div id="ah-summary-row" style="display:none">
+      <div class="ah-summary-card">
+        <div class="ah-summary-label">Current</div>
+        <div class="ah-summary-value" id="ah-summary-current"></div>
+      </div>
+      <div class="ah-summary-card">
+        <div class="ah-summary-label">Period Average</div>
+        <div class="ah-summary-value" id="ah-summary-avg"></div>
+      </div>
+      <div class="ah-summary-card">
+        <div class="ah-summary-label">Low</div>
+        <div class="ah-summary-value" id="ah-summary-low"></div>
+        <div class="ah-summary-sub" id="ah-summary-low-date"></div>
+      </div>
+      <div class="ah-summary-card">
+        <div class="ah-summary-label">High</div>
+        <div class="ah-summary-value" id="ah-summary-high"></div>
+        <div class="ah-summary-sub" id="ah-summary-high-date"></div>
       </div>
     </div>
     <div class="lw-chart-wrap" id="acct-history-chart-wrap">
@@ -9421,10 +9456,7 @@ function drawAcctHistoryChart(keys, values, hoveredIdx, floatValues) {
     }
   }
 
-  // Gradient fill
-  var grad = ctx.createLinearGradient(0, T_PAD, 0, T_PAD + plotH);
-  grad.addColorStop(0, 'rgba(66,133,244,0.22)');
-  grad.addColorStop(1, 'rgba(66,133,244,0.02)');
+  // Fill
   ctx.beginPath();
   ctx.moveTo(xAt(0), T_PAD + plotH);
   ctx.lineTo(xAt(0), yAt(values[0]));
@@ -9435,7 +9467,7 @@ function drawAcctHistoryChart(keys, values, hoveredIdx, floatValues) {
   ctx.lineTo(L_PAD + plotW, yAt(values[n - 1]));
   ctx.lineTo(L_PAD + plotW, T_PAD + plotH);
   ctx.closePath();
-  ctx.fillStyle = grad;
+  ctx.fillStyle = 'rgba(66,133,244,0.12)';
   ctx.fill();
 
   // Line
@@ -9573,8 +9605,10 @@ function hideAcctHistoryTooltip() {
 function renderAccountHistory() {
   var d        = state.data;
   var chartWrap = document.getElementById('acct-history-chart-wrap');
+  var summaryRowEl = document.getElementById('ah-summary-row');
   if (!d || !d.allAccountsInfo || !d.acctTxns) {
     if (chartWrap) chartWrap.style.display = 'none';
+    if (summaryRowEl) summaryRowEl.style.display = 'none';
     return;
   }
   if (chartWrap) chartWrap.style.display = '';
@@ -9705,6 +9739,37 @@ function renderAccountHistory() {
   }
 
   drawAcctHistoryChart(keys, values, null, floatValues);
+
+  var summaryRow = document.getElementById('ah-summary-row');
+  if (summaryRow && values.length) {
+    summaryRow.style.display = '';
+    var curVal = values[values.length - 1];
+    var sumVal = 0, lowVal = values[0], lowIdx = 0, highVal = values[0], highIdx = 0;
+    for (var svi = 0; svi < values.length; svi++) {
+      sumVal += values[svi];
+      if (values[svi] < lowVal)  { lowVal  = values[svi]; lowIdx  = svi; }
+      if (values[svi] > highVal) { highVal = values[svi]; highIdx = svi; }
+    }
+    var avgVal2 = sumVal / values.length;
+    function ahShortDate(k) {
+      var p = k.split('-');
+      return MONTH_ABBR[parseInt(p[1], 10) - 1].charAt(0) + MONTH_ABBR[parseInt(p[1], 10) - 1].slice(1).toLowerCase() + ' ' + parseInt(p[2], 10);
+    }
+    var curEl = document.getElementById('ah-summary-current');
+    curEl.textContent = lwFmtSigned(curVal);
+    curEl.className   = 'ah-summary-value ' + (curVal >= 0 ? 'pos' : 'neg');
+    document.getElementById('ah-summary-avg').textContent = lwFmtPlain(avgVal2);
+    var lowEl = document.getElementById('ah-summary-low');
+    lowEl.textContent = lwFmtSigned(lowVal);
+    lowEl.className   = 'ah-summary-value ' + (lowVal >= 0 ? 'pos' : 'neg');
+    document.getElementById('ah-summary-low-date').textContent = ahShortDate(keys[lowIdx]);
+    var highEl = document.getElementById('ah-summary-high');
+    highEl.textContent = lwFmtSigned(highVal);
+    highEl.className   = 'ah-summary-value ' + (highVal >= 0 ? 'pos' : 'neg');
+    document.getElementById('ah-summary-high-date').textContent = ahShortDate(keys[highIdx]);
+  } else if (summaryRow) {
+    summaryRow.style.display = 'none';
+  }
 }
 
 // ---- Reconcile ----
