@@ -1056,17 +1056,15 @@ td.hbt-num:last-child { width: 13%; }
 #nw-table tr:last-child td { border-bottom: none; }
 #nw-table tr:hover td { background: #fafaf7; }
 
-/* ---- Lessons metrics row ---- */
-#lessons-summary-row { display: flex; gap: 16px; margin-bottom: 14px; }
+/* ---- Lessons metrics + charts row (mirrors Leverage's layout) ---- */
+#lessons-summary-row { display: flex; gap: 16px; margin-bottom: 14px; align-items: flex-start; }
+#lessons-metrics-left { display: flex; flex-direction: column; gap: 16px; flex-shrink: 0; }
 .lessons-metric-card {
   background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
   padding: 14px 20px; min-width: 160px;
 }
 .lessons-metric-label { font-size: 11px; font-weight: 600; color: #888; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 4px; }
 .lessons-metric-value { font-size: 24px; font-weight: 700; color: #c62828; }
-
-/* ---- Lessons side-by-side charts row ---- */
-#lessons-charts-row { display: flex; gap: 16px; align-items: stretch; margin-bottom: 14px; }
 #lessons-chart-wrap { flex: 3; min-width: 0; margin-bottom: 0; }
 #lessons-year-chart-wrap { flex: 1; min-width: 120px; margin-bottom: 0; }
 
@@ -1365,7 +1363,7 @@ td.hbt-num:last-child { width: 13%; }
   #lessons-summary-row,
   #leverage-summary-row,
   #nw-summary-row { flex-wrap: wrap; gap: 10px; }
-  #leverage-metrics-left { flex-direction: row; flex-wrap: wrap; gap: 10px; flex: 1 1 100%; }
+  #leverage-metrics-left, #lessons-metrics-left { flex-direction: row; flex-wrap: wrap; gap: 10px; flex: 1 1 100%; }
   #leverage-pos-widget { flex: 1 1 100%; min-width: 0; }
   .lessons-metric-card { min-width: 0; flex: 1 1 calc(50% - 6px); padding: 10px 14px; }
   #lw-summary-card, #nw-summary-card { min-width: 0; flex: 1 1 100%; }
@@ -1373,9 +1371,9 @@ td.hbt-num:last-child { width: 13%; }
   /* Chart wraps: tighten padding so canvases use full width */
   .lw-chart-wrap { padding: 10px 8px 10px 0; }
 
-  /* Charts row (Leverage etc.) stacks */
+  /* Charts row (Leverage, Lessons Learned) stacks */
   #leverage-speedo-row { grid-auto-flow: row; grid-template-columns: repeat(2, 1fr); }
-  #leverage-chart-wrap, #leverage-year-chart-wrap { flex: 1 1 100%; }
+  #leverage-chart-wrap, #leverage-year-chart-wrap, #lessons-chart-wrap, #lessons-year-chart-wrap { flex: 1 1 100%; }
 
   /* Tables: allow horizontal scroll within the rounded card */
   .lw-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -1791,20 +1789,22 @@ td.hbt-num:last-child { width: 13%; }
       </div>
     </div>
     <div id="lessons-summary-row">
-      <div class="lessons-metric-card">
-        <div class="lessons-metric-label">Total</div>
-        <div class="lessons-metric-value" id="lessons-total-val">—</div>
+      <div id="lessons-metrics-left">
+        <div class="lessons-metric-card">
+          <div class="lessons-metric-label">Total</div>
+          <div class="lessons-metric-value" id="lessons-total-val">—</div>
+        </div>
+        <div class="lessons-metric-card">
+          <div class="lessons-metric-label">Median Amount</div>
+          <div class="lessons-metric-value" id="lessons-median-val">—</div>
+        </div>
       </div>
-      <div class="lessons-metric-card">
-        <div class="lessons-metric-label">Median Amount</div>
-        <div class="lessons-metric-value" id="lessons-median-val">—</div>
-      </div>
-    </div>
-    <div id="lessons-charts-row">
       <div class="lw-chart-wrap" id="lessons-chart-wrap">
+        <div class="lw-chart-title">Month Breakdown</div>
         <canvas id="lessons-canvas"></canvas>
       </div>
       <div class="lw-chart-wrap" id="lessons-year-chart-wrap">
+        <div class="lw-chart-title">Year Breakdown</div>
         <canvas id="lessons-year-canvas"></canvas>
       </div>
     </div>
@@ -10689,7 +10689,11 @@ function renderHome() {
     for (var rcn2 in d.recovPlanPivot) recovCatSet[rcn2] = true;
   }
 
-  // Actionable Opportunity = Recoverable Costs (Trend) + Purchase Loops + Strategic Trades
+  // Actionable Opportunity = Recoverable Costs (Trend) + Purchase Loops + Strategic Trades.
+  // pendingTotal must match the Purchase Loops card's own total exactly (same label, same
+  // number), so it uses the identical section filter as renderPendingList rather than
+  // "everything that isn't Opportunities" -- a third, differently-sectioned pending category
+  // would otherwise get silently folded into this card's total without appearing in its list.
   var pendingTxns  = d.pendingTxns || [];
   var pendingTotal = 0;
   var tradesTotal  = 0;
@@ -10697,7 +10701,7 @@ function renderHome() {
     var pt = pendingTxns[pi];
     var ptAmt = pt.outflow || pt.inflow || 0;
     if (pt.section === 'Opportunities') { tradesTotal  += ptAmt; }
-    else                                { pendingTotal += ptAmt; }
+    else if (!pt.section || pt.section === 'Purchase Loops') { pendingTotal += ptAmt; }
   }
   var pendingMetricEl = document.getElementById('home-pending-metric-value');
   if (pendingMetricEl) {
