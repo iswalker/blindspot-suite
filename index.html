@@ -203,7 +203,7 @@ body {
 }
 .settings-section-label {
   padding: 8px 16px 5px;
-  font-size: 10px; font-weight: 700; color: #bbb; letter-spacing: .1em; text-transform: uppercase;
+  font-size: 11px; font-weight: 700; color: #333; letter-spacing: .06em; text-transform: uppercase;
 }
 .settings-row { display: flex; align-items: center; gap: 8px; padding: 8px 16px; width: 100%; box-sizing: border-box; }
 .settings-divider { height: 1px; background: #f0f0f2; margin: 2px 0; }
@@ -1485,10 +1485,7 @@ td.hbt-num:last-child { width: 13%; }
         </button>
         <div id="settings-panel" style="display:none">
           <div class="settings-section-label">Settings</div>
-          <div class="settings-row">
-            <span id="cache-label" style="flex:1"></span>
-          </div>
-          <div class="settings-divider"></div>
+          <span id="cache-label" style="display:none"></span>
           <div class="settings-row">
             <button class="config-picker-btn" id="config-gsheet-btn" style="width:100%;justify-content:center">
               <svg width="16" height="16" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
@@ -1498,10 +1495,6 @@ td.hbt-num:last-child { width: 13%; }
               </svg>
               Connect Google Sheet
             </button>
-          </div>
-          <div class="settings-row" id="config-refresh-manual-item" style="justify-content:space-between;cursor:pointer">
-            <span style="color:#555">Refresh Manually</span>
-            <span id="config-refresh-manual-ind" style="font-size:11px;font-weight:600;color:#bbb;letter-spacing:.04em;flex-shrink:0">OFF</span>
           </div>
           <div class="settings-divider"></div>
           <div class="settings-row">
@@ -11671,9 +11664,7 @@ function init() {
       state.loadedAt = cached.savedAt || null;
       ensureConfigLoaded().then(function() {
         showReport();
-        if (localStorage.getItem('refresh-manually') !== '1') {
-          setTimeout(function() { refreshYnab(); }, 50);
-        }
+        setTimeout(function() { refreshYnab(); }, 50);
       });
       return;
     }
@@ -11864,23 +11855,6 @@ document.addEventListener('DOMContentLoaded', function() {
     e.stopPropagation();
     openGoogleSheetsFlow();
   });
-  (function() {
-    function updateRefreshManualInd() {
-      var ind = document.getElementById('config-refresh-manual-ind');
-      if (!ind) return;
-      var on = localStorage.getItem('refresh-manually') === '1';
-      ind.textContent = on ? 'ON' : 'OFF';
-      ind.style.color = on ? '#2e7d32' : '#bbb';
-    }
-    updateRefreshManualInd();
-    document.getElementById('config-refresh-manual-item').addEventListener('click', function(e) {
-      e.stopPropagation(); // keep settings panel open
-      var on = localStorage.getItem('refresh-manually') === '1';
-      localStorage.setItem('refresh-manually', on ? '' : '1');
-      updateRefreshManualInd();
-    });
-  })();
-
   // Upload panel Config connect
   document.getElementById('upload-gsheet-btn').addEventListener('click', function(e) {
     e.stopPropagation();
