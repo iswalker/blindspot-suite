@@ -6,12 +6,15 @@
 <title>Blindspot Suite</title>
 <link rel="icon" href="logo.ico" type="image/x-icon">
 <link rel="apple-touch-icon" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
   background: #F6F4EE;
   color: #222;
   margin: 0;
@@ -6816,7 +6819,7 @@ function drawNwOutlookChart(s, hoveredIdx) {
   // Persist geometry so the hover handler can hit-test without redoing this layout math.
   s.L_PAD = L_PAD; s.chartW = chartW; s.nYears = nYears;
 
-  ctx.font = '10px system-ui, -apple-system, sans-serif';
+  ctx.font = '10px "IBM Plex Sans", system-ui, -apple-system, sans-serif';
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'right';
   for (var ti = 0; ti < ticks.length; ti++) {
@@ -7194,7 +7197,7 @@ function drawRecovSparkline(canvas, points) {
   ctx.fillStyle = '#888';
   ctx.fill();
   ctx.fillStyle    = '#888';
-  ctx.font         = '10px system-ui, sans-serif';
+  ctx.font         = '10px "IBM Plex Sans", system-ui, sans-serif';
   ctx.textAlign    = 'left';
   ctx.textBaseline = 'bottom';
   ctx.fillText(fmtV(vals[0]), x0 + 5, y0 - 3);
@@ -7208,7 +7211,7 @@ function drawRecovSparkline(canvas, points) {
     ctx.fillStyle = '#888';
     ctx.fill();
     ctx.fillStyle    = '#888';
-    ctx.font         = '10px system-ui, sans-serif';
+    ctx.font         = '10px "IBM Plex Sans", system-ui, sans-serif';
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'bottom';
     ctx.fillText(fmtV(vals[idx7]), x7, y7 - 3);
@@ -7221,14 +7224,14 @@ function drawRecovSparkline(canvas, points) {
   ctx.fillStyle = '#d97706';
   ctx.fill();
   ctx.fillStyle    = '#d97706';
-  ctx.font         = 'bold 11px system-ui, sans-serif';
+  ctx.font         = 'bold 11px "IBM Plex Sans", system-ui, sans-serif';
   ctx.textAlign    = 'left';
   ctx.textBaseline = 'middle';
   ctx.fillText(fmtV(vals[n - 1]), lastX + 6, lastY);
 
   // X-axis date labels
   ctx.fillStyle    = '#bbb';
-  ctx.font         = '9px system-ui, sans-serif';
+  ctx.font         = '9px "IBM Plex Sans", system-ui, sans-serif';
   ctx.textAlign    = 'center';
   ctx.textBaseline = 'alphabetic';
   var labelIdxs = [0, Math.floor(n / 3), Math.floor(2 * n / 3), n - 1];
@@ -7294,7 +7297,7 @@ function drawCfSparkline(canvas, vals, keys, neg) {
   var x0 = xp(0), y0 = yp(plotVals[0]);
   ctx.beginPath(); ctx.arc(x0, y0, 3, 0, 2 * Math.PI);
   ctx.fillStyle = '#888'; ctx.fill();
-  ctx.fillStyle = '#888'; ctx.font = '10px system-ui, sans-serif';
+  ctx.fillStyle = '#888'; ctx.font = '10px "IBM Plex Sans", system-ui, sans-serif';
   ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
   ctx.fillText(fmtV(displayed[0]), x0 + 4, y0 - 2);
 
@@ -7302,12 +7305,12 @@ function drawCfSparkline(canvas, vals, keys, neg) {
   var lastX = xp(n - 1), lastY = yp(plotVals[n - 1]);
   ctx.beginPath(); ctx.arc(lastX, lastY, 3.5, 0, 2 * Math.PI);
   ctx.fillStyle = '#d97706'; ctx.fill();
-  ctx.fillStyle = '#d97706'; ctx.font = 'bold 11px system-ui, sans-serif';
+  ctx.fillStyle = '#d97706'; ctx.font = 'bold 11px "IBM Plex Sans", system-ui, sans-serif';
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   ctx.fillText(fmtV(displayed[n - 1]), lastX + 6, lastY);
 
   // X-axis month labels (first, middle(s), last)
-  ctx.fillStyle = '#bbb'; ctx.font = '9px system-ui, sans-serif';
+  ctx.fillStyle = '#bbb'; ctx.font = '9px "IBM Plex Sans", system-ui, sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
   var labelIdxs = [0];
   var step = Math.max(1, Math.floor((n - 1) / 3));
@@ -7376,7 +7379,7 @@ function drawLessonsChart(keys, byMonth, byMonthTxns, hoveredIdx) {
     var v = ti * step, y = yPos(v);
     ctx.strokeStyle = '#e8e8e4';
     ctx.beginPath(); ctx.moveTo(L_PAD, y); ctx.lineTo(totalW - R_PAD, y); ctx.stroke();
-    ctx.fillStyle = '#999'; ctx.font = '10px system-ui, sans-serif';
+    ctx.fillStyle = '#999'; ctx.font = '10px "IBM Plex Sans", system-ui, sans-serif';
     ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
     ctx.fillText(fmtTick(v), L_PAD - 4, y);
   }
@@ -7395,7 +7398,7 @@ function drawLessonsChart(keys, byMonth, byMonthTxns, hoveredIdx) {
     // Value label above bar (with count)
     var cnt = (byMonthTxns[keys[bi]] || []).length;
     ctx.fillStyle    = '#333';
-    ctx.font         = '10px system-ui, sans-serif';
+    ctx.font         = '10px "IBM Plex Sans", system-ui, sans-serif';
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'bottom';
     ctx.fillText(fmtTick(val) + (cnt ? ' (' + cnt + ')' : ''), cx, by - 2);
@@ -7403,7 +7406,7 @@ function drawLessonsChart(keys, byMonth, byMonthTxns, hoveredIdx) {
     // X-axis label
     var lbl = parseInt(keys[bi].slice(5), 10) + '/' + keys[bi].slice(2, 4);
     ctx.fillStyle    = bi === hoveredIdx ? '#333' : '#999';
-    ctx.font         = '9px system-ui, sans-serif';
+    ctx.font         = '9px "IBM Plex Sans", system-ui, sans-serif';
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'top';
     ctx.fillText(lbl, cx, H - B_PAD + 4);
@@ -7421,7 +7424,7 @@ function drawLessonsChart(keys, byMonth, byMonthTxns, hoveredIdx) {
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.fillStyle    = '#c62828';
-    ctx.font         = '12px system-ui, -apple-system, sans-serif';
+    ctx.font         = '12px "IBM Plex Sans", system-ui, -apple-system, sans-serif';
     ctx.textAlign    = 'right';
     ctx.textBaseline = 'alphabetic';
     ctx.fillText('Avg ' + fmtTick(avgV), totalW - 2, avgY - 4);
@@ -7494,7 +7497,7 @@ function drawLessonsYearChart(byYear, byYearCount, byYearTxns, curYear, projYE) 
 
       // Projected total label at top of projected portion
       ctx.fillStyle    = '#e57373';
-      ctx.font         = '9px system-ui, sans-serif';
+      ctx.font         = '9px "IBM Plex Sans", system-ui, sans-serif';
       ctx.textAlign    = 'center';
       ctx.textBaseline = 'bottom';
       ctx.fillText(fmtShort(projYE) + ' proj', cx, projTop - 2);
@@ -7507,14 +7510,14 @@ function drawLessonsYearChart(byYear, byYearCount, byYearTxns, curYear, projYE) 
     // Actual value label (with count)
     var labelY = (yr === curYear && projYE > val) ? byY - 1 : byY - 2;
     ctx.fillStyle    = '#333';
-    ctx.font         = '9px system-ui, sans-serif';
+    ctx.font         = '9px "IBM Plex Sans", system-ui, sans-serif';
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'bottom';
     ctx.fillText(fmtShort(val) + ' (' + cnt + ')', cx, labelY);
 
     // X-axis year label
     ctx.fillStyle    = yr === curYear ? '#333' : '#999';
-    ctx.font         = '9px system-ui, sans-serif';
+    ctx.font         = '9px "IBM Plex Sans", system-ui, sans-serif';
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'top';
     ctx.fillText(String(yr), cx, H - B_PAD + 4);
@@ -7575,7 +7578,7 @@ function drawLeverageChart(keys, byMonth, byMonthTxns, hoveredIdx) {
     var v = ti * step, y = yPos(v);
     ctx.strokeStyle = '#e8e8e4';
     ctx.beginPath(); ctx.moveTo(L_PAD, y); ctx.lineTo(totalW - R_PAD, y); ctx.stroke();
-    ctx.fillStyle = '#999'; ctx.font = '10px system-ui, sans-serif';
+    ctx.fillStyle = '#999'; ctx.font = '10px "IBM Plex Sans", system-ui, sans-serif';
     ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
     ctx.fillText(fmtTick(v), L_PAD - 4, y);
   }
@@ -7592,14 +7595,14 @@ function drawLeverageChart(keys, byMonth, byMonthTxns, hoveredIdx) {
 
     var cnt = (byMonthTxns[keys[bi]] || []).length;
     ctx.fillStyle    = '#333';
-    ctx.font         = '10px system-ui, sans-serif';
+    ctx.font         = '10px "IBM Plex Sans", system-ui, sans-serif';
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'bottom';
     ctx.fillText(fmtTick(val) + (cnt ? ' (' + cnt + ')' : ''), cx, by - 2);
 
     var lbl = parseInt(keys[bi].slice(5), 10) + '/' + keys[bi].slice(2, 4);
     ctx.fillStyle    = bi === hoveredIdx ? '#333' : '#999';
-    ctx.font         = '9px system-ui, sans-serif';
+    ctx.font         = '9px "IBM Plex Sans", system-ui, sans-serif';
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'top';
     ctx.fillText(lbl, cx, H - B_PAD + 4);
@@ -7616,7 +7619,7 @@ function drawLeverageChart(keys, byMonth, byMonthTxns, hoveredIdx) {
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.fillStyle    = '#1565c0';
-    ctx.font         = '12px system-ui, -apple-system, sans-serif';
+    ctx.font         = '12px "IBM Plex Sans", system-ui, -apple-system, sans-serif';
     ctx.textAlign    = 'right';
     ctx.textBaseline = 'alphabetic';
     ctx.fillText('Avg ' + fmtTick(avgV), totalW - 2, avgY - 4);
@@ -7685,7 +7688,7 @@ function drawLeverageYearChart(byYear, byYearCount, byYearTxns, curYear, projYE)
       ctx.fillStyle = '#bbdefb';
       ctx.fillRect(bx, projTop, BAR_W, projSegH);
       ctx.fillStyle    = '#64b5f6';
-      ctx.font         = '9px system-ui, sans-serif';
+      ctx.font         = '9px "IBM Plex Sans", system-ui, sans-serif';
       ctx.textAlign    = 'center';
       ctx.textBaseline = 'bottom';
       ctx.fillText(fmtShort(projYE) + ' proj', cx, projTop - 2);
@@ -7696,13 +7699,13 @@ function drawLeverageYearChart(byYear, byYearCount, byYearTxns, curYear, projYE)
 
     var labelY = (yr === curYear && projYE > val) ? byY - 1 : byY - 2;
     ctx.fillStyle    = '#333';
-    ctx.font         = '9px system-ui, sans-serif';
+    ctx.font         = '9px "IBM Plex Sans", system-ui, sans-serif';
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'bottom';
     ctx.fillText(fmtShort(val) + ' (' + cnt + ')', cx, labelY);
 
     ctx.fillStyle    = yr === curYear ? '#333' : '#999';
-    ctx.font         = '9px system-ui, sans-serif';
+    ctx.font         = '9px "IBM Plex Sans", system-ui, sans-serif';
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'top';
     ctx.fillText(String(yr), cx, H - B_PAD + 4);
@@ -7755,7 +7758,7 @@ function drawHorizBreakdown(canvasId, wrapId, filteredTxns, field, heading, barC
   ctx.clearRect(0, 0, totalW, H);
 
   ctx.fillStyle    = '#333';
-  ctx.font         = '700 11px system-ui, sans-serif';
+  ctx.font         = '700 11px "IBM Plex Sans", system-ui, sans-serif';
   ctx.textAlign    = 'left';
   ctx.textBaseline = 'top';
   ctx.fillText(heading, L_PAD, 8);
@@ -7782,7 +7785,7 @@ function drawHorizBreakdown(canvasId, wrapId, filteredTxns, field, heading, barC
     ctx.fillRect(L_PAD, by, bw, BAR_H);
 
     ctx.fillStyle    = '#555';
-    ctx.font         = '11px system-ui, sans-serif';
+    ctx.font         = '11px "IBM Plex Sans", system-ui, sans-serif';
     ctx.textAlign    = 'right';
     ctx.textBaseline = 'middle';
     var labelX   = L_PAD - 8;
@@ -7795,7 +7798,7 @@ function drawHorizBreakdown(canvasId, wrapId, filteredTxns, field, heading, barC
     ctx.fillText(label, labelX, mid);
 
     ctx.fillStyle    = '#333';
-    ctx.font         = '11px system-ui, sans-serif';
+    ctx.font         = '11px "IBM Plex Sans", system-ui, sans-serif';
     ctx.textAlign    = 'left';
     ctx.textBaseline = 'middle';
     var cnt = byItemCount[c] || 0;
@@ -9406,7 +9409,7 @@ function drawAcctHistoryChart(keys, values, hoveredIdx, floatValues) {
   ctx.fillRect(0, 0, totalW, totalH);
 
   // Grid lines + y labels
-  ctx.font      = '11px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.font      = '11px "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif';
   ctx.textAlign = 'right';
   for (var ti = 0; ti < yTicks.length; ti++) {
     var tv2 = yTicks[ti];
@@ -9433,7 +9436,7 @@ function drawAcctHistoryChart(keys, values, hoveredIdx, floatValues) {
   // X-axis labels — daily or monthly resolution
   ctx.textAlign = 'center';
   ctx.fillStyle = '#aaa';
-  ctx.font      = '11px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.font      = '11px "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif';
   var isDaily = keys.length > 0 && keys[0].length === 10;
   if (isDaily) {
     for (var xi = 0; xi < n; xi++) {
@@ -9496,7 +9499,7 @@ function drawAcctHistoryChart(keys, values, hoveredIdx, floatValues) {
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.fillStyle    = '#555';
-  ctx.font         = '11px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.font         = '11px "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif';
   ctx.textAlign    = 'right';
   ctx.textBaseline = 'alphabetic';
   ctx.fillText('Avg ' + fmtBalLabel(avgVal), L_PAD + plotW, Math.max(T_PAD + 10, avgY - 5));
@@ -11097,7 +11100,7 @@ function drawLwChart(keys, assetVals, debtVals, netVals, hoveredIdx, canvasId, a
   }
 
   var baseY = yPos(0);
-  ctx.font = '10px system-ui, -apple-system, sans-serif';
+  ctx.font = '10px "IBM Plex Sans", system-ui, -apple-system, sans-serif';
 
   // Grid lines + Y labels
   for (var ti = 0; ti <= nTicks; ti++) {
@@ -11176,7 +11179,7 @@ function drawLwChart(keys, assetVals, debtVals, netVals, hoveredIdx, canvasId, a
     ctx.setLineDash([]);
     ctx.fillStyle = color;
     ctx.textAlign = 'right';
-    ctx.font      = '12px system-ui, -apple-system, sans-serif';
+    ctx.font      = '12px "IBM Plex Sans", system-ui, -apple-system, sans-serif';
     var labelY = (y - 4 - 10 < T_PAD) ? y + 13 : y - 4;
     ctx.fillText(label, totalW - R_PAD - 2, labelY);
   }
