@@ -573,6 +573,7 @@ td.cell-active {
   padding: 5px 12px;
   border: 1px solid transparent;
   border-radius: 8px;
+  height: 55px;
   font-size: 19px;
   font-weight: 600;
   cursor: pointer;
@@ -583,16 +584,17 @@ td.cell-active {
 .tab-btn:hover:not(.tab-active) { background: rgba(0,0,0,.04); }
 .tab-icon { flex: none; fill: currentColor; }
 /* Size/margin are split per icon (each SVG's own artwork sits differently within its
-   viewBox) so each can be tuned independently; color/fill stays shared above. */
-.tab-icon-home         { width: 44px; height: 44px; margin: 0 -9px -5px 0; }
-.tab-icon-margin       { width: 44px; height: 44px; margin: 0 -9px -5px 0; }
-.tab-icon-lw           { width: 44px; height: 44px; margin: 0 -9px -5px 0; }
-.tab-icon-nw           { width: 44px; height: 44px; margin: 0 -9px -5px 0; }
-.tab-icon-lessons      { width: 44px; height: 44px; margin: 0 -9px -5px 0; }
-.tab-icon-leverage     { width: 44px; height: 44px; margin: 0 -9px -5px 0; }
-.tab-icon-acct-history { width: 44px; height: 44px; margin: 0 -9px -5px 0; }
-.tab-icon-reconcile    { width: 44px; height: 44px; margin: 0 -9px -5px 0; }
-.tab-icon-runway       { width: 44px; height: 44px; margin: 0 -9px -5px 0; }
+   viewBox) so each can be tuned independently; color/fill stays shared above. Height is
+   intentionally omitted so each icon scales from width alone, preserving its aspect ratio. */
+.tab-icon-home         { width: 47px; margin: 0 -10px -3px -11px; }
+.tab-icon-margin       { width: 44px; margin: 0 -9px -5px 0; }
+.tab-icon-lw           { width: 44px; margin: 0 -3px -1px -4px; }
+.tab-icon-nw           { width: 38px; margin: 0px 2px -1px 0; }
+.tab-icon-lessons      { width: 37px; margin: 0 -2px -3px -3px; }
+.tab-icon-leverage     { width: 35px; margin: 0 -2px -1px -5px; }
+.tab-icon-acct-history { width: 33px; margin: 0 -4px -5px -3px; }
+.tab-icon-reconcile    { width: 51px; margin: 0 -10px -4px -11px; }
+.tab-icon-runway       { width: 42px; margin: 0px 0px -4px 0px; }
 
 button { font-size: 14px; font-family: inherit; }
 select, input { font-family: inherit; }
