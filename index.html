@@ -550,7 +550,7 @@ td.cell-active {
 }
 
 /* ---- Tab nav ---- */
-#tab-nav {
+#tab-nav-list {
   display: flex;
   align-items: center;
   gap: 2px;
@@ -1305,10 +1305,15 @@ td.hbt-num:last-child { width: 13%; }
   .rp-month { font-size: 11px; padding: 4px 0; }
 
   /* Tab nav collapses to the active tab only; tapping it opens a dropdown listing every
-     tab one per row to switch from. Brand stays pinned; gear pinned top-right. */
+     tab one per row to switch from. Brand stays pinned; gear pinned top-right.
+     #tab-nav is the anchor (stays in normal flow, never moved) and #tab-nav-list is the
+     part that pops into an absolutely-positioned dropdown -- keeping the anchor itself
+     in-flow is what pins the dropdown directly under the active tab instead of under
+     whatever ancestor happens to be positioned, and keeps the active tab's own space from
+     collapsing away when the list leaves the flow. */
   #tab-row { position: relative; flex-wrap: nowrap; }
   #nav-left { min-width: 0; flex: 1 1 auto; }
-  #tab-nav { position: relative; overflow: visible; min-width: 0; flex-wrap: nowrap; padding-right: 44px; box-sizing: border-box; }
+  #tab-nav { position: relative; overflow: visible; min-width: 0; min-height: 50px; flex-wrap: nowrap; padding-right: 44px; box-sizing: border-box; }
   .tab-btn { font-size: 13px; flex-shrink: 0; display: none; }
   .tab-btn.tab-active { display: inline-flex; }
   .tab-btn.tab-active::after {
@@ -1321,7 +1326,7 @@ td.hbt-num:last-child { width: 13%; }
     border-right: 5px solid transparent;
     border-top: 6px solid currentColor;
   }
-  #tab-nav.nav-open {
+  #tab-nav-list.nav-open {
     position: absolute;
     top: 100%;
     left: 0;
@@ -1340,8 +1345,8 @@ td.hbt-num:last-child { width: 13%; }
     border-radius: 10px;
     box-shadow: 0 8px 24px rgba(0,0,0,.18);
   }
-  #tab-nav.nav-open .tab-btn { display: flex; width: 100%; justify-content: flex-start; }
-  #tab-nav.nav-open .tab-btn.tab-active::after { display: none; }
+  #tab-nav-list.nav-open .tab-btn { display: flex; width: 100%; justify-content: flex-start; }
+  #tab-nav-list.nav-open .tab-btn.tab-active::after { display: none; }
   #controls-bar { position: absolute; top: 0; right: 0; }
   /* Gear sits pinned on top of the scrolling tab row here, so give it the same
      background/border it gets on hover/active at all times -- otherwise it's a transparent
@@ -1569,6 +1574,7 @@ td.hbt-num:last-child { width: 13%; }
         <span id="brand-name">Blindspot</span>
       </div>
       <div id="tab-nav">
+       <div id="tab-nav-list">
         <button class="tab-btn tab-active" data-tab="home">
           <svg class="tab-icon tab-icon-home" viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg"><path d="m584.89 297.71v76.281c-112.96 7.5039-203.62 97.934-211.13 210.89h-76.043v30.23h76.043c7.4219 113.04 98.113 203.62 211.13 211.13v76.043h30.23v-76.043c113.01-7.5039 203.7-98.094 211.13-211.13h76.043v-30.23h-76.043c-7.5039-112.96-98.176-203.39-211.13-210.89v-76.281zm0 106.51v74.863h30.23v-74.863c96.555 7.3203 173.28 84.125 180.66 180.66h-74.863v30.23h75.098c-7.2695 96.656-84.258 173.57-180.9 180.9v-75.098h-30.23v75.098c-96.641-7.3242-173.63-84.242-180.9-180.9h75.098v-30.23h-74.863c7.3828-96.535 84.109-173.34 180.66-180.66z"/></svg>
           Current Month
@@ -1605,6 +1611,7 @@ td.hbt-num:last-child { width: 13%; }
           <svg class="tab-icon tab-icon-runway" viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg"><path d="m1102 873.24c0-20.109-16.359-36.469-36.469-36.469l-906.47 0.046875c-20.109 0-36.469 16.359-36.469 36.469v50.109c0 20.109 16.359 36.469 36.469 36.469l906.52-0.046875c20.109 0 36.469-16.359 36.469-36.469v-50.109zm-36.469 50.25-906.66-0.14062v-50.109s0.09375-0.14062 0.14062-0.14062l906.61 0.14062-0.14062 50.25z"/><path d="m282.47 710.9 226.45-73.688-46.641 83.672c-5.1562 9.2812-3.7969 20.719 3.375 28.5 4.7344 5.1562 11.297 7.875 18 7.875 3.4219 0 6.8906-0.70312 10.172-2.2031l92.812-42.281 187.31-202.22 257.21-133.82c31.734-19.734 49.875-41.906 53.906-65.859 4.1719-24.75-8.625-41.344-10.688-43.875-38.672-43.125-107.58-22.594-123.98-16.875h-35.297c-20.062 0-40.125 4.8281-57.984 13.922l-510.42 260.26-172.08-87.281c-11.438-5.8125-25.312-5.1094-36.094 1.7812l-23.766 15.188c-8.3906 5.3438-14.25 14.016-16.172 23.812-1.875 9.75 0.32812 20.016 6.0938 28.078l136.82 191.58c9.2812 12.984 25.734 18.375 40.922 13.453zm-148.18-226.31 23.906-15.188 172.03 87.281c10.359 5.25 22.734 5.25 33.047-0.046875l510.28-260.26c12.797-6.5156 27.141-9.9844 41.484-9.9844h41.953l3.1875-1.2656c0.60937-0.23437 61.219-22.781 86.25 5.0156 0.1875 0.23437 4.4062 6.2812 2.625 15.375-1.7812 8.9531-9.6562 23.25-35.953 39.656l-261.61 136.03-186.66 201.52-53.438 24.375 48.234-86.484c4.2188-7.5938 3.375-16.781-2.1094-23.484-4.0781-4.9688-9.9844-7.6406-16.078-7.6406-2.1562 0-4.3594 0.32812-6.5156 1.0312l-263.9 85.781-136.82-191.72h0.046876z"/></svg>
           Runway
         </button>
+       </div>
       </div>
     </div>
     <div id="controls-bar">
@@ -12159,24 +12166,24 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   // Tab nav. On mobile the nav collapses to just the active tab; tapping it opens a dropdown
-  // (#tab-nav.nav-open) listing every tab to switch from. On desktop all tabs are always
-  // visible, so a tap there always switches directly.
+  // (#tab-nav-list.nav-open) listing every tab to switch from. On desktop all tabs are
+  // always visible, so a tap there always switches directly.
   document.getElementById('tab-nav').addEventListener('click', function(e) {
     var btn = e.target.closest('.tab-btn');
     if (!btn) return;
-    var nav = document.getElementById('tab-nav');
+    var navList = document.getElementById('tab-nav-list');
     var isCollapsed = window.matchMedia('(max-width: 820px)').matches;
-    if (isCollapsed && !nav.classList.contains('nav-open') && btn.classList.contains('tab-active')) {
-      nav.classList.add('nav-open');
+    if (isCollapsed && !navList.classList.contains('nav-open') && btn.classList.contains('tab-active')) {
+      navList.classList.add('nav-open');
       return;
     }
     switchTab(btn.getAttribute('data-tab'));
-    nav.classList.remove('nav-open');
+    navList.classList.remove('nav-open');
   });
   document.addEventListener('click', function(e) {
-    var nav = document.getElementById('tab-nav');
-    if (nav.classList.contains('nav-open') && !nav.contains(e.target)) {
-      nav.classList.remove('nav-open');
+    var navList = document.getElementById('tab-nav-list');
+    if (navList.classList.contains('nav-open') && !navList.contains(e.target)) {
+      navList.classList.remove('nav-open');
     }
   });
 
