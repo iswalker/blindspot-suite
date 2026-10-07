@@ -139,17 +139,6 @@ body {
 #plan-sel-wrap { display: none; align-items: center; gap: 6px; padding: 8px 16px; }
 #plan-sel-wrap label { font-size: 12px; color: #666; white-space: nowrap; }
 #plan-sel { font-size: 12px; padding: 4px 8px; border: 1px solid #ccc; border-radius: 5px; color: #333; max-width: 200px; }
-#back-btn {
-  padding: 6px 14px;
-  background: #fff;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  font-size: 12px;
-  cursor: pointer;
-  color: #555;
-  white-space: nowrap;
-}
-#back-btn:hover { background: #f0f0f0; }
 #expand-all-btn, #collapse-all-btn {
   padding: 6px 14px;
   background: #fff;
@@ -578,6 +567,9 @@ td.cell-active {
   font-weight: 500;
   cursor: pointer;
   background: transparent;
+  color: inherit;
+  -webkit-appearance: none;
+  appearance: none;
   white-space: nowrap;
 }
 .tab-btn.tab-active { background: #fff; border-color: #ddd; }
@@ -1312,12 +1304,44 @@ td.hbt-num:last-child { width: 13%; }
   .rp-year-label { width: 28px; font-size: 10px; }
   .rp-month { font-size: 11px; padding: 4px 0; }
 
-  /* Tab nav becomes horizontally scrollable; brand stays pinned; gear pinned top-right */
+  /* Tab nav collapses to the active tab only; tapping it opens a dropdown listing every
+     tab one per row to switch from. Brand stays pinned; gear pinned top-right. */
   #tab-row { position: relative; flex-wrap: nowrap; }
   #nav-left { min-width: 0; flex: 1 1 auto; }
-  #tab-nav { overflow-x: auto; min-width: 0; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; padding-right: 44px; box-sizing: border-box; }
-  #tab-nav::-webkit-scrollbar { display: none; }
-  .tab-btn { font-size: 13px; flex-shrink: 0; }
+  #tab-nav { position: relative; overflow: visible; min-width: 0; flex-wrap: nowrap; padding-right: 44px; box-sizing: border-box; }
+  .tab-btn { font-size: 13px; flex-shrink: 0; display: none; }
+  .tab-btn.tab-active { display: inline-flex; }
+  .tab-btn.tab-active::after {
+    content: '';
+    flex: none;
+    margin-left: 2px;
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid currentColor;
+  }
+  #tab-nav.nav-open {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: max-content;
+    min-width: 200px;
+    max-height: 70vh;
+    overflow-y: auto;
+    margin-top: 4px;
+    padding: 6px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.18);
+  }
+  #tab-nav.nav-open .tab-btn { display: flex; width: 100%; justify-content: flex-start; }
+  #tab-nav.nav-open .tab-btn.tab-active::after { display: none; }
   #controls-bar { position: absolute; top: 0; right: 0; }
   /* Gear sits pinned on top of the scrolling tab row here, so give it the same
      background/border it gets on hover/active at all times -- otherwise it's a transparent
@@ -1603,10 +1627,6 @@ td.hbt-num:last-child { width: 13%; }
               </svg>
               Connect Google Sheet
             </button>
-          </div>
-          <div class="settings-divider"></div>
-          <div class="settings-row">
-            <button id="back-btn" style="width:100%">&#8592; Reload Files</button>
           </div>
           <div class="settings-divider"></div>
           <div id="plan-sel-wrap">
@@ -2372,15 +2392,6 @@ function dbPut(key, val) {
   return openDB().then(function(db) {
     return new Promise(function(resolve, reject) {
       var req = db.transaction(DB_STORE, 'readwrite').objectStore(DB_STORE).put(val, key);
-      req.onsuccess = function() { resolve(); };
-      req.onerror   = function(e) { reject(e.target.error); };
-    });
-  });
-}
-function dbClear() {
-  return openDB().then(function(db) {
-    return new Promise(function(resolve, reject) {
-      var req = db.transaction(DB_STORE, 'readwrite').objectStore(DB_STORE).clear();
       req.onsuccess = function() { resolve(); };
       req.onerror   = function(e) { reject(e.target.error); };
     });
@@ -12067,40 +12078,6 @@ document.addEventListener('DOMContentLoaded', function() {
     renderTable();
   });
 
-  // Back / reload button -- clears cache so next init goes to file picker
-  document.getElementById('back-btn').addEventListener('click', function() {
-    dbClear().catch(function() {});
-    state.data               = null;
-    state.fromKey            = null;
-    state.toKey              = null;
-    state.expanded           = {};
-    state.selectedAccounts   = {};
-    state.activeTab          = 'home';
-    state.lwFromKey          = null;
-    state.lwToKey            = null;
-    state.lwSelectedAccounts = {};
-    state.nwFromKey          = null;
-    state.nwToKey            = null;
-    state.nwSelectedAccounts   = {};
-    state.homeSelectedAccounts = {};
-    state.lessonsFromKey     = null;
-    state.lessonsToKey       = null;
-    state.leverageFromKey    = null;
-    state.leverageToKey      = null;
-    state.acctHistoryId      = null;
-    state.acctHistoryFromKey = null;
-    state.acctHistoryToKey   = null;
-    state.leveragePosAcctLabel = null;
-    ['sel-from','sel-to','sel-accts','sel-lw-from','sel-lw-to','sel-lw-accts',
-     'sel-nw-from','sel-nw-to','sel-nw-accts','sel-home-accts','sel-tab',
-     'sel-lessons-from','sel-lessons-to','sel-leverage-from','sel-leverage-to',
-     'sel-acct-history-id','sel-acct-history-from','sel-acct-history-to',
-     'sel-leverage-pos-acct'].forEach(function(k) {
-      localStorage.removeItem(k);
-    });
-    showUpload();
-  });
-
   // Row shading toggle
   document.getElementById('shade-toggle').addEventListener('change', function() {
     state.rowShading = this.checked;
@@ -12181,10 +12158,26 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('gdrive-picker-modal').style.display = 'none';
   });
 
-  // Tab nav
+  // Tab nav. On mobile the nav collapses to just the active tab; tapping it opens a dropdown
+  // (#tab-nav.nav-open) listing every tab to switch from. On desktop all tabs are always
+  // visible, so a tap there always switches directly.
   document.getElementById('tab-nav').addEventListener('click', function(e) {
     var btn = e.target.closest('.tab-btn');
-    if (btn) switchTab(btn.getAttribute('data-tab'));
+    if (!btn) return;
+    var nav = document.getElementById('tab-nav');
+    var isCollapsed = window.matchMedia('(max-width: 820px)').matches;
+    if (isCollapsed && !nav.classList.contains('nav-open') && btn.classList.contains('tab-active')) {
+      nav.classList.add('nav-open');
+      return;
+    }
+    switchTab(btn.getAttribute('data-tab'));
+    nav.classList.remove('nav-open');
+  });
+  document.addEventListener('click', function(e) {
+    var nav = document.getElementById('tab-nav');
+    if (nav.classList.contains('nav-open') && !nav.contains(e.target)) {
+      nav.classList.remove('nav-open');
+    }
   });
 
 
