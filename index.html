@@ -632,7 +632,7 @@ select, input { font-family: inherit; }
 #reconcile-panel { display: none; }
 
 /* ---- Account History ---- */
-#acct-history-acct-wrap { display: flex; align-items: center; gap: 8px; }
+#acct-history-acct-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 #acct-history-acct-group {
   display: flex; align-items: center; gap: 8px;
   font-size: 13px; color: #555;
@@ -1548,12 +1548,22 @@ td.hbt-num:last-child { width: 13%; }
   #lw-range-wrap, #nw-range-wrap, #lessons-range-wrap,
   #leverage-range-wrap, #acct-history-range-wrap { flex-wrap: wrap; }
 
+  /* Account History: the account picker + its two toggles don't fit in one row on a phone --
+     stack each on its own line instead of overflowing off the right edge of the screen. */
+  #acct-history-acct-wrap { flex-direction: column; align-items: stretch; }
+  #acct-history-acct-group select { width: 100%; min-width: 0; box-sizing: border-box; }
+
   /* Account History: metrics column stacked beside the chart doesn't fit a phone screen --
-     go back to the metrics row stacked above the (now full-width) chart, cards side by side. */
+     go back to the metrics row stacked above the (now full-width) chart, cards side by side.
+     Four cards sharing a phone-width row can't afford the desktop padding/font-size without
+     the dollar figures spilling past their cell, so both shrink here too. */
   #ah-chart-row { flex-direction: column; }
   #ah-summary-row { flex-direction: row; flex: none; width: 100%; }
-  .ah-summary-card { flex: 1; min-width: 0; border-bottom: none; border-right: 1px solid #eee; }
+  .ah-summary-card { flex: 1; min-width: 0; border-bottom: none; border-right: 1px solid #eee; padding: 8px 6px; }
   .ah-summary-card:last-child { border-right: none; }
+  .ah-summary-label { font-size: 9px; }
+  .ah-summary-value { font-size: 14px; }
+  .ah-summary-sub { font-size: 10px; }
 
   /* Driver rows: the fixed-width value columns (needed for column alignment on desktop) don't
      fit beside the label on a narrow screen -- wrap them onto their own right-aligned line. */
