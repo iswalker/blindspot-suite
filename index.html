@@ -297,7 +297,7 @@ td:first-child::after, th:first-child::after {
 #main-table td:first-child::after, #main-table th:first-child::after { display: none; }
 #main-table td:first-child, #main-table th:first-child { border-right: 1px solid #e8e8e8; }
 body.hscroll-active #main-table td:first-child::after, body.hscroll-active #main-table th:first-child::after { display: block; }
-body.hscroll-active #main-table td:first-child, body.hscroll-active #main-table th:first-child { border-right: none; }
+body.hscroll-active #main-table td:first-child, body.hscroll-active #main-table th:first-child { border-right: none; background: #fff; }
 
 /* ---- th ---- */
 th {
@@ -1292,6 +1292,13 @@ td.hbt-num:last-child { width: 13%; }
 .lessons-tt-amt  { font-size: 12px; font-weight: 600; color: #c62828; white-space: nowrap; }
 .lessons-tt-total { border-top: 1px solid #eee; margin-top: 7px; padding-top: 7px;
   display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; }
+@media (max-width: 1300px) {
+  /* Narrow desktop/tablet widths, above the mobile dropdown-nav breakpoint: shrink the tab
+     buttons and let their label wrap instead of overflowing, rather than collapsing to the
+     mobile single-active-tab + dropdown layout (that only kicks in below 820px and wins
+     over these rules there, since it's declared later). */
+  .tab-btn { font-size: 14px; width: 105px; white-space: normal; text-align: left; }
+}
 @media (max-width: 820px) {
   /* Keep the page itself from shifting left/right on mobile -- only individual containers
      (tab row, tables, etc.) that explicitly opt into overflow-x:auto should scroll. */
@@ -1320,7 +1327,7 @@ td.hbt-num:last-child { width: 13%; }
   #tab-row { position: relative; flex-wrap: nowrap; }
   #nav-left { min-width: 0; flex: 1 1 auto; }
   #tab-nav { position: relative; overflow: visible; min-width: 0; min-height: 50px; flex-wrap: nowrap; padding-right: 44px; box-sizing: border-box; }
-  .tab-btn { font-size: 13px; flex-shrink: 0; display: none; }
+  .tab-btn { font-size: 13px; width: auto; white-space: nowrap; flex-shrink: 0; display: none; }
   .tab-btn.tab-active { display: inline-flex; }
   #tab-nav-list .tab-btn.tab-active::after {
     content: '';
