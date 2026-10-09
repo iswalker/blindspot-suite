@@ -639,7 +639,7 @@ select, input { font-family: inherit; }
 }
 #acct-history-acct-group label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 #acct-history-acct-group select {
-  font-size: 13px; border: 1px solid #ccc; border-radius: 4px;
+  font-size: 17px; font-weight: 700; border: 1px solid #ccc; border-radius: 4px;
   padding: 3px 6px; background: #fafafa; cursor: pointer; min-width: 180px;
 }
 /* Metrics stack in one narrow column on the left; the chart takes the rest of the row's
@@ -661,7 +661,7 @@ select, input { font-family: inherit; }
 .ah-summary-value { font-size: 18px; font-weight: 700; color: #222; }
 .ah-summary-value.pos { color: #2e7d32; }
 .ah-summary-value.neg { color: #c62828; }
-.ah-summary-value.debt { color: #f59e0b; }
+.ah-summary-value.debt { color: #d08609; }
 .ah-summary-sub { font-size: 11px; color: #999; margin-top: 2px; }
 #acct-history-tooltip {
   position: fixed; display: none;
@@ -9990,7 +9990,8 @@ function drawAcctHistoryChart(keys, values, hoveredIdx, floatValues, isDebtAcct)
         + Math.round(Math.abs(trPerMonth)).toLocaleString('en-US') + '/mo';
       var trLabelY = Math.max(T_PAD + 10, yAt(trY1) - 5);
       ahDrawLabelPill(ctx, trLabel, L_PAD + plotW, trLabelY);
-      ctx.fillStyle = seriesColor;
+      // The darker debt orange reads better as text than the brighter line/fill color.
+      ctx.fillStyle = isDebtAcct ? '#d08609' : seriesColor;
       ctx.fillText(trLabel, L_PAD + plotW, trLabelY);
     }
   }
@@ -10080,7 +10081,7 @@ function showAcctHistoryTooltip(clientX, clientY, idx) {
   }
   // Match the balance line's own color (orange for debt accounts, blue otherwise) instead of
   // always showing blue, which read wrong against an orange chart.
-  var balColor = s.isDebtAcct ? '#f59e0b' : '#4285f4';
+  var balColor = s.isDebtAcct ? '#d08609' : '#4285f4';
   tt.innerHTML = '<div class="ahtt-month">' + mo + '</div>'
                + '<div class="ahtt-balance" style="color:' + balColor + '">' + balStr + '</div>'
                + floatLine;
