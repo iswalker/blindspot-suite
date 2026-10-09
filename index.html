@@ -769,10 +769,12 @@ select, input { font-family: inherit; }
 .rec-ghdr-counts { font-weight: 400; color: #999; font-size: 12px; margin-left: 4px; }
 
 /* ---- Home tab layout ---- */
-.home-body { display: flex; gap: 24px; align-items: flex-start; }
-.home-table-side { flex: 1 1 0; min-width: 0; overflow-x: auto; }
-.home-pending-side { width: 400px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; }
-.pending-card { background: #fff; border-radius: 8px; border: 1px solid #ddd; padding: 16px 20px 12px 20px; }
+/* Purchase Loops / Upcoming Charges / Strategic Trades sit in one row, with the Recoverable
+   Cost Areas table in its own full-width row below. */
+.home-body { display: flex; flex-direction: column; gap: 24px; align-items: stretch; }
+.home-table-side { width: 100%; min-width: 0; overflow-x: auto; }
+.home-pending-side { width: 100%; display: flex; flex-direction: row; gap: 16px; }
+.pending-card { flex: 1 1 0; min-width: 0; background: #fff; border-radius: 8px; border: 1px solid #ddd; padding: 16px 20px 12px 20px; }
 .pending-card-hdr { font-size: 14px; font-weight: 700; color: #333; display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #ccc; padding-bottom: 9px; }
 .pending-card-total { font-size: 14px; font-weight: 700; color: #c62828; }
 #opps-total { color: #2e7d32; }
@@ -1391,9 +1393,11 @@ td.hbt-num:last-child { width: 13%; }
   .home-metric-value { font-size: 18px; }
   .home-metric-value.na { font-size: 14px; }
 
-  /* Current Month body stacks; pending side becomes full width */
+  /* Current Month body stacks; pending side becomes full width and its 3 cards go back to
+     stacking vertically (the desktop single-row layout doesn't fit a phone screen). */
   .home-body { flex-direction: column; gap: 16px; }
-  .home-pending-side { width: 100%; }
+  .home-pending-side { width: 100%; flex-direction: column; }
+  .pending-card { flex: none; }
   .home-table-side { width: 100%; }
 
   /* Purchase Loops ahead of the metric cards on mobile; Recoverable Cost Areas
