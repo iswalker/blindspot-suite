@@ -699,29 +699,29 @@ select, input { font-family: inherit; }
 #reconcile-acct-sel { width: 230px; }
 .rec-vs-lbl { font-size: 13px; color: #aaa; align-self: center; }
 .rec-or-lbl { font-size: 13px; color: #aaa; display: block; margin: 4px 0; }
-#plaid-acct-remove-btn, #plaid-acct-rename-btn {
+.plaid-remove-btn, .plaid-rename-btn {
   padding: 4px 8px; background: none; border: 1px solid #ccc; border-radius: 4px;
   font-size: 12px; cursor: pointer; color: #999; line-height: 1;
 }
-#plaid-acct-remove-btn:hover { border-color: #c62828; color: #c62828; }
-#plaid-acct-rename-btn:hover { border-color: #1a1a2e; color: #1a1a2e; }
+.plaid-remove-btn:hover { border-color: #c62828; color: #c62828; }
+.plaid-rename-btn:hover { border-color: #1a1a2e; color: #1a1a2e; }
 .plaid-rename-icon { display: inline-block; transform: scaleX(-1); }
 #plaid-acct-sel-wrap { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-#plaid-rename-row { display: flex; align-items: center; gap: 6px; }
-#plaid-rename-input {
+.plaid-rename-row { display: flex; align-items: center; gap: 6px; }
+.plaid-rename-input {
   font-size: 13px; border: 1px solid #1a1a2e; border-radius: 4px;
   padding: 3px 8px; width: 200px; outline: none;
 }
-#plaid-rename-save-btn {
+.plaid-rename-save-btn {
   padding: 4px 10px; background: #1a1a2e; color: #fff; border: none;
   border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: 600;
 }
-#plaid-rename-save-btn:hover { background: #33334d; }
-#plaid-rename-cancel-btn {
+.plaid-rename-save-btn:hover { background: #33334d; }
+.plaid-rename-cancel-btn {
   padding: 4px 8px; background: none; border: 1px solid #ccc;
   border-radius: 4px; font-size: 13px; cursor: pointer; color: #666;
 }
-#plaid-rename-cancel-btn:hover { border-color: #999; }
+.plaid-rename-cancel-btn:hover { border-color: #999; }
 #reconcile-upload-btn {
   padding: 6px 14px; background: #fff; color: #555; border: 1px solid #ccc; border-radius: 6px;
   font-size: 13px; cursor: pointer; font-weight: 500; white-space: nowrap;
@@ -732,11 +732,11 @@ select, input { font-family: inherit; }
   font-size: 14px; cursor: pointer; font-weight: 600; white-space: nowrap;
 }
 #reconcile-go-btn:hover { background: #33334d; }
-#plaid-connect-btn {
+.plaid-connect-btn {
   padding: 6px 14px; background: #fff; color: #555; border: 1px solid #ccc; border-radius: 6px;
   font-size: 13px; cursor: pointer; font-weight: 500; white-space: nowrap;
 }
-#plaid-connect-btn:hover { background: #f0f0ec; }
+.plaid-connect-btn:hover { background: #f0f0ec; }
 /* Plaid secret key popover -- only shown when an action needs it and none is saved yet
    (see requirePlaidSecret()), instead of a permanently-visible input on the page. */
 .plaid-secret-wrap { position: relative; display: inline-flex; }
@@ -1185,20 +1185,28 @@ td.hbt-num:last-child { width: 13%; }
 .leverage-metric-value { font-size: 24px; font-weight: 700; color: #1565c0; }
 .leverage-metric-sub { font-size: 11px; color: #999; margin-top: 4px; }
 #leverage-pos-widget { flex: 0 1 25%; min-width: 220px; background: #fff; border: 1px solid #ddd; border-radius: 10px; padding: 12px 16px; }
-#leverage-pos-hdr { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+#leverage-pos-hdr { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 #leverage-pos-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #333; flex: 1; white-space: nowrap; }
-#leverage-pos-acct-sel { font-size: 12px; padding: 4px 6px; border: 1px solid #ddd; border-radius: 5px; max-width: 160px; }
-#leverage-pos-secret { font-size: 12px; padding: 4px 8px; border: 1px solid #ddd; border-radius: 5px; width: 130px; }
-#leverage-pos-fetch-btn { font-size: 12px; padding: 4px 10px; background: #1565c0; color: #fff; border: none; border-radius: 5px; cursor: pointer; white-space: nowrap; }
+#leverage-pos-help-icon {
+  width: 18px; height: 18px; border-radius: 50%; background: #eee; color: #888;
+  font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+  cursor: help; flex-shrink: 0;
+}
+#leverage-pos-help-icon:hover { background: #ddd; color: #555; }
+#leverage-pos-connect-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+#leverage-pos-secret { font-size: 13px; padding: 5px 8px; border: 1px solid #ddd; border-radius: 5px; width: 130px; }
+#leverage-pos-fetch-btn { font-size: 12px; padding: 5px 10px; background: #1565c0; color: #fff; border: none; border-radius: 5px; cursor: pointer; white-space: nowrap; }
 #leverage-pos-fetch-btn:hover { background: #0d47a1; }
-#leverage-pos-status { font-size: 11px; color: #888; }
-#leverage-pos-table { border-collapse: collapse; width: 100%; }
+#leverage-pos-acct-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+#leverage-pos-acct-sel { font-size: 12px; padding: 4px 6px; border: 1px solid #ddd; border-radius: 5px; max-width: 160px; }
+#leverage-pos-status { font-size: 11px; color: #888; display: block; margin-bottom: 4px; }
+#leverage-pos-table { border-collapse: collapse; width: 100%; table-layout: fixed; }
 #leverage-pos-table th { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #aaa; padding: 4px 8px; text-align: left; border-bottom: 1px solid #eee; }
 #leverage-pos-table th:last-child { text-align: right; }
 #leverage-pos-table td { font-size: 13px; padding: 5px 8px; border-bottom: 1px solid #f5f5f0; color: #333; }
 #leverage-pos-table td:last-child { text-align: right; font-weight: 600; color: #1565c0; }
 #leverage-pos-table tr:last-child td { border-bottom: none; }
-#leverage-pos-empty { font-size: 12px; color: #bbb; padding: 8px 0; }
+#leverage-pos-empty { font-size: 12px; color: #bbb; padding: 8px 0; white-space: normal; word-wrap: break-word; overflow-wrap: break-word; }
 #leverage-chart-wrap { flex: 3; min-width: 0; margin-bottom: 0; }
 #leverage-year-chart-wrap { flex: 1; min-width: 120px; margin-bottom: 0; }
 #leverage-breakdown-row { display: flex; gap: 16px; margin-bottom: 14px; align-items: flex-start; }
@@ -1517,10 +1525,11 @@ td.hbt-num:last-child { width: 13%; }
   #reconcile-upload-btn { width: 100%; }
   #rec-go-card { flex-direction: column; align-items: stretch; text-align: center; }
 
-  /* POS widget header wraps cleanly */
-  #leverage-pos-hdr { flex-direction: column; align-items: stretch; }
-  #leverage-pos-secret { width: 100%; }
+  /* POS widget controls stack cleanly */
+  #leverage-pos-connect-row { flex-direction: column; align-items: stretch; }
+  #leverage-pos-secret { width: 100%; box-sizing: border-box; }
   #leverage-pos-fetch-btn { width: 100%; }
+  #leverage-pos-acct-row { flex-direction: column; align-items: stretch; }
 
   /* Drive picker modal sized for phones */
   #gdrive-picker-panel { width: 96vw; max-height: 80vh; }
@@ -1975,14 +1984,27 @@ td.hbt-num:last-child { width: 13%; }
       <div id="leverage-pos-widget">
         <div id="leverage-pos-hdr">
           <span id="leverage-pos-title">Debit Card Transactions</span>
-          <select id="leverage-pos-acct-sel" style="display:none"></select>
+          <span id="leverage-pos-help-icon" title="Hover for configured debit card names">?</span>
+        </div>
+        <div id="leverage-pos-connect-row">
           <input type="password" id="leverage-pos-secret" placeholder="Plaid secret key">
           <button id="leverage-pos-fetch-btn">Fetch &#9654;</button>
-          <span id="leverage-pos-status"></span>
         </div>
-        <table id="leverage-pos-table">
-          <tr><td colspan="2" id="leverage-pos-empty">Enter secret key and click Fetch</td></tr>
-        </table>
+        <div id="leverage-pos-acct-row" style="display:none">
+          <select id="leverage-pos-acct-sel"></select>
+          <button id="leverage-pos-remove-btn" class="plaid-remove-btn" title="Remove selected Plaid connection" style="display:none">&#10005; Remove</button>
+          <button id="leverage-pos-rename-btn" class="plaid-rename-btn" title="Rename this connection" style="display:none"><span class="plaid-rename-icon">&#9998;</span> Rename</button>
+          <div class="plaid-secret-wrap" id="leverage-pos-secret-wrap">
+            <button id="leverage-pos-connect-btn" class="plaid-connect-btn">+ New</button>
+          </div>
+        </div>
+        <div id="leverage-pos-rename-row" class="plaid-rename-row" style="display:none">
+          <input type="text" id="leverage-pos-rename-input" class="plaid-rename-input" placeholder="Account name">
+          <button id="leverage-pos-rename-save-btn" class="plaid-rename-save-btn">&#10003;</button>
+          <button id="leverage-pos-rename-cancel-btn" class="plaid-rename-cancel-btn">&#10005;</button>
+        </div>
+        <span id="leverage-pos-status"></span>
+        <table id="leverage-pos-table"></table>
       </div>
       <div class="lw-chart-wrap lw-chart-wrap-period" id="leverage-chart-wrap">
         <div class="lw-chart-title">Month Breakdown</div>
@@ -2070,10 +2092,10 @@ td.hbt-num:last-child { width: 13%; }
           <div class="plaid-acct-top">
             <div id="plaid-acct-sel-wrap">
               <label>Plaid Account <select id="plaid-acct-sel"><option value="">&#8212; none &#8212;</option></select></label>
-              <button id="plaid-acct-remove-btn" title="Remove selected Plaid connection" style="display:none">&#10005; Remove</button>
-              <button id="plaid-acct-rename-btn" title="Rename this connection" style="display:none"><span class="plaid-rename-icon">&#9998;</span> Rename</button>
+              <button id="plaid-acct-remove-btn" class="plaid-remove-btn" title="Remove selected Plaid connection" style="display:none">&#10005; Remove</button>
+              <button id="plaid-acct-rename-btn" class="plaid-rename-btn" title="Rename this connection" style="display:none"><span class="plaid-rename-icon">&#9998;</span> Rename</button>
               <div class="plaid-secret-wrap" id="plaid-secret-wrap">
-                <button id="plaid-connect-btn">+ New</button>
+                <button id="plaid-connect-btn" class="plaid-connect-btn">+ New</button>
                 <div class="plaid-secret-panel" id="plaid-secret-panel" style="display:none">
                   <div class="plaid-secret-panel-hdr">Plaid secret key</div>
                   <input type="password" id="plaid-secret-input" placeholder="Enter secret key">
@@ -2084,10 +2106,10 @@ td.hbt-num:last-child { width: 13%; }
                 </div>
               </div>
             </div>
-            <div id="plaid-rename-row" style="display:none">
-              <input type="text" id="plaid-rename-input" placeholder="Account name">
-              <button id="plaid-rename-save-btn">&#10003;</button>
-              <button id="plaid-rename-cancel-btn">&#10005;</button>
+            <div id="plaid-rename-row" class="plaid-rename-row" style="display:none">
+              <input type="text" id="plaid-rename-input" class="plaid-rename-input" placeholder="Account name">
+              <button id="plaid-rename-save-btn" class="plaid-rename-save-btn">&#10003;</button>
+              <button id="plaid-rename-cancel-btn" class="plaid-rename-cancel-btn">&#10005;</button>
             </div>
           </div>
         </div>
@@ -2428,7 +2450,7 @@ var state = {
   reconcileAcctId:     localStorage.getItem('sel-reconcile-acct')    || null,
   reconcileFromKey:    localStorage.getItem('sel-reconcile-from')    || null,
   reconcileToKey:      localStorage.getItem('sel-reconcile-to')      || null,
-  leveragePosAcctLabel: localStorage.getItem('sel-leverage-pos-acct') || null,
+  leveragePosConnId:   localStorage.getItem('sel-leverage-pos-conn')  || null,
   rowShading:          localStorage.getItem('row-shading') !== '0',
   catSortMode:         localStorage.getItem('cat-sort') || 'ynab',
   showTotalExp:        localStorage.getItem('show-total-exp') !== '0',
@@ -5158,11 +5180,17 @@ function syncPlaidSecretInputs(value) {
   if (l && !l.value) l.value = value;
 }
 var plaidSecretPendingCb = null; // onReady callback from the requirePlaidSecret() call that opened the popover
-function openPlaidSecretPopover(onReady) {
+// There's only one secret-entry popover in the DOM, shared by every "+ New" button (Reconcile's
+// and the Leverage Debit Card widget's) -- it's reparented into whichever .plaid-secret-wrap
+// triggered it so it opens anchored to that button, wherever it is.
+function openPlaidSecretPopover(onReady, wrapId) {
   plaidSecretPendingCb = onReady;
+  var wrap  = document.getElementById(wrapId || 'plaid-secret-wrap');
+  var panel = document.getElementById('plaid-secret-panel');
+  wrap.appendChild(panel);
   var input = document.getElementById('plaid-secret-input');
   input.value = '';
-  document.getElementById('plaid-secret-panel').style.display = '';
+  panel.style.display = '';
   input.focus();
 }
 function closePlaidSecretPopover() {
@@ -5171,10 +5199,10 @@ function closePlaidSecretPopover() {
 }
 // Only prompt for the Plaid secret key when an action actually needs it and none is saved
 // yet -- otherwise it's used from localStorage silently, with no input shown on the page.
-function requirePlaidSecret(onReady) {
+function requirePlaidSecret(onReady, wrapId) {
   var secret = getPlaidSecret();
   if (secret) { onReady(secret); return; }
-  openPlaidSecretPopover(onReady);
+  openPlaidSecretPopover(onReady, wrapId);
 }
 var cfSparklineKeys    = [];
 
@@ -8613,71 +8641,93 @@ function leveragePosCfgs() {
 // via Config rows "Card Transactions 1" (tried first) and "Card Transactions 2" (fallback).
 // Each row's ID (aka "Text") column holds a substring to match against a Plaid connection's
 // name, and its Track Against column holds a substring to match anywhere within the
-// transaction name (e.g. "Card purchase /"). If the user has explicitly picked one via the
-// account dropdown (state.leveragePosAcctLabel), only that row is tried — no falling back to
-// another.
+// transaction name (e.g. "Card purchase /"). The account itself is picked directly via the
+// "Plaid Account" dropdown (state.leveragePosConnId, same control as Reconcile's) -- this just
+// finds whichever configured row's name-fragment matches that account's name, for its
+// trackAgainst/amount settings.
 function resolveLeveragePosSource() {
-  var cfgs = leveragePosCfgs();
+  var cfgs  = leveragePosCfgs();
   var conns = getPlaidConnections();
-  function findConn(cfg) {
-    var nameFrag = (cfg.id || '').toLowerCase();
-    if (!nameFrag) return null;
+  if (!conns.length) return { conn: null, cfgs: cfgs, noConnections: true };
+  var selConn = null;
+  if (state.leveragePosConnId) {
     for (var i = 0; i < conns.length; i++) {
-      if ((conns[i].name || '').toLowerCase().indexOf(nameFrag) !== -1) return conns[i];
-    }
-    return null;
-  }
-  var selLabel = state.leveragePosAcctLabel, selCfg = null;
-  if (selLabel) {
-    for (var si = 0; si < cfgs.length; si++) {
-      if ((cfgs[si].id || '').toLowerCase() === selLabel.toLowerCase()) { selCfg = cfgs[si]; break; }
+      if (conns[i].id === state.leveragePosConnId) { selConn = conns[i]; break; }
     }
   }
-  var orderedCfgs = selCfg ? [selCfg] : cfgs;
-  var tried = [];
-  for (var ci = 0; ci < orderedCfgs.length; ci++) {
-    var cfg = orderedCfgs[ci];
-    if (!cfg.id) continue;
-    tried.push(cfg.id);
-    var conn = findConn(cfg);
-    if (conn) return { conn: conn, prefix: cfg.trackAgainst || '', label: cfg.id, amount: cfg.amount, cfgs: cfgs };
+  if (!selConn) selConn = conns[0];
+  var matchedCfg = null;
+  for (var ci = 0; ci < cfgs.length; ci++) {
+    var frag = (cfgs[ci].id || '').toLowerCase();
+    if (frag && (selConn.name || '').toLowerCase().indexOf(frag) !== -1) { matchedCfg = cfgs[ci]; break; }
   }
-  return { conn: null, tried: tried, cfgs: cfgs };
+  if (!matchedCfg) return { conn: selConn, cfgs: cfgs, noMatch: true };
+  return { conn: selConn, prefix: matchedCfg.trackAgainst || '', label: matchedCfg.id, amount: matchedCfg.amount, cfgs: cfgs };
 }
 
-function populateLeveragePosAcctSelector(cfgs) {
+function leveragePosHelpText() {
+  var names = leveragePosCfgs().map(function(c) { return c.id; }).filter(Boolean);
+  return names.length ? 'Configured debit card names: ' + names.join(', ') : 'No debit card names configured (Card Transactions 1/2 Config rows)';
+}
+
+function populateLeveragePosAcctSel(conns) {
   var sel = document.getElementById('leverage-pos-acct-sel');
   if (!sel) return;
-  var labels = (cfgs || []).map(function(c) { return c.id; }).filter(Boolean);
-  if (labels.length < 2) { sel.style.display = 'none'; sel.innerHTML = ''; return; }
-  sel.style.display = '';
-  var curVal = state.leveragePosAcctLabel && labels.indexOf(state.leveragePosAcctLabel) !== -1
-    ? state.leveragePosAcctLabel : labels[0];
-  sel.innerHTML = labels.map(function(l) { return '<option value="' + escAttr(l) + '">' + escHtml(l) + '</option>'; }).join('');
+  var prev = sel.value;
+  sel.innerHTML = '';
+  conns.forEach(function(c) {
+    var opt = document.createElement('option');
+    opt.value = c.id;
+    opt.textContent = c.name;
+    sel.appendChild(opt);
+  });
+  var curVal = state.leveragePosConnId && conns.some(function(c) { return c.id === state.leveragePosConnId; })
+    ? state.leveragePosConnId
+    : (prev && conns.some(function(c) { return c.id === prev; }) ? prev : (conns[0] && conns[0].id));
   sel.value = curVal;
-  state.leveragePosAcctLabel = curVal;
+  state.leveragePosConnId = curVal;
+  localStorage.setItem('sel-leverage-pos-conn', curVal || '');
+  var removeBtn = document.getElementById('leverage-pos-remove-btn');
+  if (removeBtn) removeBtn.style.display = curVal ? '' : 'none';
+  var renameBtn = document.getElementById('leverage-pos-rename-btn');
+  if (renameBtn) renameBtn.style.display = curVal ? '' : 'none';
 }
 
 function renderLeveragePosWidget() {
   var tbl    = document.getElementById('leverage-pos-table');
   var status = document.getElementById('leverage-pos-status');
+  var connectRow = document.getElementById('leverage-pos-connect-row');
+  var acctRow    = document.getElementById('leverage-pos-acct-row');
   if (!tbl) return;
-  populateLeveragePosAcctSelector(leveragePosCfgs());
+  document.getElementById('leverage-pos-help-icon').title = leveragePosHelpText();
+  var conns = getPlaidConnections();
+
+  // Nothing connected yet -- just the secret key + Fetch button to connect a first account.
+  if (!conns.length) {
+    connectRow.style.display = '';
+    acctRow.style.display = 'none';
+    document.getElementById('leverage-pos-rename-row').style.display = 'none';
+    tbl.innerHTML = '';
+    if (status) status.textContent = '';
+    return;
+  }
+  connectRow.style.display = 'none';
+  acctRow.style.display = '';
+  populateLeveragePosAcctSel(conns);
+
   var src = resolveLeveragePosSource();
+  if (src.noMatch) {
+    tbl.innerHTML = '<tr><td colspan="2" id="leverage-pos-empty">No match to the configured debit card names for this account (' + escHtml(leveragePosHelpText()) + ')</td></tr>';
+    return;
+  }
   if (!leveragePosData) {
-    if (!src.conn) {
-      var triedMsg = src.tried && src.tried.length ? src.tried.map(function(t) { return '"' + t + '"'; }).join(' / ') : '"Card Transactions 1/2"';
-      tbl.innerHTML = '<tr><td colspan="2" id="leverage-pos-empty">No Plaid connection found matching ' + escHtml(triedMsg) + ' (configure via the Card Transactions 1/2 Config rows)</td></tr>';
-      return;
-    }
-    // Connection exists — auto-fetch if a secret is already available in the session
-    var autoSecret = document.getElementById('leverage-pos-secret').value.trim()
-                   || document.getElementById('plaid-secret-input').value.trim()
-                   || getPlaidSecret();
+    // Connection exists and matches a configured name -- auto-fetch if a secret is already
+    // available in the session, otherwise quietly wait (use "+ New" to reconnect with one).
+    var autoSecret = getPlaidSecret();
     if (autoSecret) {
       fetchLeveragePosData(autoSecret);
     } else {
-      tbl.innerHTML = '<tr><td colspan="2" id="leverage-pos-empty">Connection ready — enter Plaid secret key and click Fetch</td></tr>';
+      tbl.innerHTML = '<tr><td colspan="2" id="leverage-pos-empty">No Plaid secret saved — use "+ New" to provide one</td></tr>';
     }
     return;
   }
@@ -8764,14 +8814,87 @@ function renderLeveragePosWidget() {
   }
 }
 
+// Connects a brand-new Plaid account (same Link mechanics as Reconcile's "+ New"), then
+// switches the widget over to the account-managed view once one exists. Used both by the
+// "nothing connected yet" Fetch button and by the "+ New" button once accounts already exist.
+function leveragePosConnectFlow(secret) {
+  var statusEl = document.getElementById('leverage-pos-status');
+  var fetchBtn = document.getElementById('leverage-pos-fetch-btn');
+  if (statusEl) statusEl.textContent = 'Loading Plaid Link…';
+  if (fetchBtn) fetchBtn.disabled = true;
+
+  loadPlaidScript().then(function() {
+    if (statusEl) statusEl.textContent = 'Creating link token…';
+    return plaidPost('/link/token/create', {
+      client_id: PLAID_CLIENT_ID, secret: secret,
+      client_name: 'Finance Suite', products: ['transactions'],
+      country_codes: ['US'], language: 'en',
+      user: { client_user_id: 'finance-suite-user' }
+    });
+  }).then(function(data) {
+    if (data.error_code) throw new Error(data.error_message || data.error_code);
+    if (statusEl) statusEl.textContent = 'Opening Plaid Link…';
+    return new Promise(function(resolve, reject) {
+      var handler = window.Plaid.create({
+        token: data.link_token,
+        onSuccess: function(publicToken) { resolve(publicToken); },
+        onExit: function(err) {
+          reject(new Error(err ? (err.display_message || err.error_message || 'Plaid Link error') : 'cancelled'));
+        }
+      });
+      handler.open();
+    });
+  }).then(function(publicToken) {
+    if (statusEl) statusEl.textContent = 'Exchanging token…';
+    return plaidPost('/item/public_token/exchange', {
+      client_id: PLAID_CLIENT_ID, secret: secret, public_token: publicToken
+    });
+  }).then(function(data) {
+    if (data.error_code) throw new Error(data.error_message || data.error_code);
+    var accessToken = data.access_token;
+    if (statusEl) statusEl.textContent = 'Saving connection…';
+    return plaidPost('/accounts/get', {
+      client_id: PLAID_CLIENT_ID, secret: secret, access_token: accessToken
+    }).then(function(acctData) {
+      if (acctData.error_code) throw new Error(acctData.error_message || acctData.error_code);
+      var accounts = acctData.accounts || [];
+      if (!accounts.length) throw new Error('No accounts found');
+      var newIds = [];
+      accounts.forEach(function(a, i) {
+        var id = 'pc_' + Date.now() + '_' + i;
+        newIds.push(id);
+        savePlaidConnection({ id: id, accessToken: accessToken, accountId: a.account_id, name: a.name });
+      });
+      renderPlaidConnections();
+      // Prefer whichever newly-connected account matches a configured debit card name.
+      var conns = getPlaidConnections();
+      var newConns = conns.filter(function(c) { return newIds.indexOf(c.id) !== -1; });
+      var cfgs = leveragePosCfgs();
+      var picked = newConns.find(function(c) {
+        return cfgs.some(function(cfg) { return cfg.id && (c.name || '').toLowerCase().indexOf(cfg.id.toLowerCase()) !== -1; });
+      }) || newConns[0];
+      if (picked) {
+        state.leveragePosConnId = picked.id;
+        localStorage.setItem('sel-leverage-pos-conn', picked.id);
+      }
+      leveragePosData = null;
+      if (statusEl) statusEl.textContent = '';
+      renderLeveragePosWidget();
+    });
+  }).catch(function(err) {
+    if (statusEl) statusEl.textContent = err.message !== 'cancelled' ? '⚠ ' + err.message : '';
+  }).then(function() {
+    if (fetchBtn) fetchBtn.disabled = false;
+  });
+}
+
 function fetchLeveragePosData(secret) {
   var statusEl = document.getElementById('leverage-pos-status');
   var fetchBtn = document.getElementById('leverage-pos-fetch-btn');
   var src = resolveLeveragePosSource();
   var posConn = src.conn;
   if (!posConn) {
-    var triedMsg = src.tried && src.tried.length ? src.tried.map(function(t) { return '"' + t + '"'; }).join(' / ') : '"Card Transactions 1/2"';
-    if (statusEl) statusEl.textContent = 'No Plaid connection found matching ' + triedMsg;
+    if (statusEl) statusEl.textContent = 'No Plaid account connected.';
     return;
   }
   if (!posConn.accessToken) {
@@ -10794,6 +10917,7 @@ function removePlaidConnection(id) {
   var conns = getPlaidConnections().filter(function(c) { return c.id !== id; });
   localStorage.setItem(PLAID_STORAGE_KEY, JSON.stringify(conns));
   reconcileCSVTxns = null;
+  leveragePosData = null;
   renderPlaidConnections();
   document.getElementById('reconcile-status').innerHTML = '';
   document.getElementById('reconcile-results').style.display = 'none';
@@ -10810,25 +10934,30 @@ function renamePlaidConnection(id, newName) {
   if (sel && sel.value !== id) sel.value = id;
 }
 
+// Shared by both Plaid "Account" controls -- Reconcile's own and the Leverage Debit Card
+// widget's -- so either one connecting, removing, or renaming an account keeps the other in
+// sync, since they both read from the same underlying connection pool.
 function renderPlaidConnections() {
   var sel = document.getElementById('plaid-acct-sel');
-  if (!sel) return;
-  var prev = sel.value;
-  var conns = getPlaidConnections();
-  sel.innerHTML = '<option value=””>— none —</option>';
-  conns.forEach(function(c) {
-    var opt = document.createElement('option');
-    opt.value = c.id;
-    opt.dataset.accessToken = c.accessToken;
-    opt.dataset.accountId   = c.accountId || '';
-    opt.textContent = c.name;
-    sel.appendChild(opt);
-  });
-  if (prev) sel.value = prev;
-  var removeBtn = document.getElementById('plaid-acct-remove-btn');
-  if (removeBtn) removeBtn.style.display = sel.value ? '' : 'none';
-  var renameBtn = document.getElementById('plaid-acct-rename-btn');
-  if (renameBtn) renameBtn.style.display = sel.value ? '' : 'none';
+  if (sel) {
+    var prev = sel.value;
+    var conns = getPlaidConnections();
+    sel.innerHTML = '<option value="">&#8212; none &#8212;</option>';
+    conns.forEach(function(c) {
+      var opt = document.createElement('option');
+      opt.value = c.id;
+      opt.dataset.accessToken = c.accessToken;
+      opt.dataset.accountId   = c.accountId || '';
+      opt.textContent = c.name;
+      sel.appendChild(opt);
+    });
+    if (prev) sel.value = prev;
+    var removeBtn = document.getElementById('plaid-acct-remove-btn');
+    if (removeBtn) removeBtn.style.display = sel.value ? '' : 'none';
+    var renameBtn = document.getElementById('plaid-acct-rename-btn');
+    if (renameBtn) renameBtn.style.display = sel.value ? '' : 'none';
+  }
+  if (document.getElementById('leverage-pos-acct-sel')) renderLeveragePosWidget();
 }
 
 function loadPlaidConnection(accessToken, accountId, acctName) {
@@ -12716,23 +12845,85 @@ document.addEventListener('DOMContentLoaded', function() {
     renderLeverageSpeedometers();
   });
 
+  // "Fetch" only shows up before any account is connected -- it kicks off the Plaid Link
+  // connect flow (same mechanics as Reconcile's "+ New"), not a data fetch.
   document.getElementById('leverage-pos-fetch-btn').addEventListener('click', function() {
-    var secret = document.getElementById('leverage-pos-secret').value.trim()
-               || document.getElementById('plaid-secret-input').value.trim()
-               || getPlaidSecret();
+    var secret = document.getElementById('leverage-pos-secret').value.trim() || getPlaidSecret();
     if (!secret) {
       document.getElementById('leverage-pos-status').textContent = 'Enter Plaid secret key first.';
       return;
     }
-    fetchLeveragePosData(secret);
+    leveragePosConnectFlow(secret);
+  });
+
+  document.getElementById('leverage-pos-connect-btn').addEventListener('click', function() {
+    requirePlaidSecret(leveragePosConnectFlow, 'leverage-pos-secret-wrap');
   });
 
   document.getElementById('leverage-pos-acct-sel').addEventListener('change', function() {
-    state.leveragePosAcctLabel = this.value;
-    localStorage.setItem('sel-leverage-pos-acct', state.leveragePosAcctLabel);
+    state.leveragePosConnId = this.value;
+    localStorage.setItem('sel-leverage-pos-conn', state.leveragePosConnId || '');
+    var removeBtn = document.getElementById('leverage-pos-remove-btn');
+    if (removeBtn) removeBtn.style.display = this.value ? '' : 'none';
+    var renameBtn = document.getElementById('leverage-pos-rename-btn');
+    if (renameBtn) renameBtn.style.display = this.value ? '' : 'none';
     leveragePosData = null;
     renderLeveragePosWidget();
   });
+
+  document.getElementById('leverage-pos-remove-btn').addEventListener('click', function() {
+    var sel = document.getElementById('leverage-pos-acct-sel');
+    var opt = sel.options[sel.selectedIndex];
+    if (opt && opt.value) removePlaidConnection(opt.value);
+  });
+
+  function openLeveragePosRename() {
+    var sel = document.getElementById('leverage-pos-acct-sel');
+    var opt = sel.options[sel.selectedIndex];
+    if (!opt || !opt.value) return;
+    var input = document.getElementById('leverage-pos-rename-input');
+    input.value = opt.textContent;
+    document.getElementById('leverage-pos-acct-row').style.display = 'none';
+    document.getElementById('leverage-pos-rename-row').style.display = '';
+    input.focus();
+    input.select();
+  }
+  function closeLeveragePosRename(save) {
+    if (save) {
+      var sel = document.getElementById('leverage-pos-acct-sel');
+      var opt = sel.options[sel.selectedIndex];
+      var newName = document.getElementById('leverage-pos-rename-input').value.trim();
+      if (opt && opt.value && newName && newName !== opt.textContent) {
+        renamePlaidConnection(opt.value, newName);
+      }
+    }
+    document.getElementById('leverage-pos-rename-row').style.display = 'none';
+    document.getElementById('leverage-pos-acct-row').style.display = '';
+  }
+  document.getElementById('leverage-pos-rename-btn').addEventListener('click', openLeveragePosRename);
+  document.getElementById('leverage-pos-rename-save-btn').addEventListener('click', function() { closeLeveragePosRename(true); });
+  document.getElementById('leverage-pos-rename-cancel-btn').addEventListener('click', function() { closeLeveragePosRename(false); });
+  document.getElementById('leverage-pos-rename-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') closeLeveragePosRename(true);
+    if (e.key === 'Escape') closeLeveragePosRename(false);
+  });
+
+  // Help icon: hover shows the configured debit card names via the shared tooltip.
+  (function() {
+    var icon = document.getElementById('leverage-pos-help-icon');
+    var tip  = document.getElementById('lw-tooltip');
+    icon.addEventListener('mousemove', function(e) {
+      tip.innerHTML = '<div class="lwtt-label">' + escHtml(leveragePosHelpText()) + '</div>';
+      tip.style.display = 'block';
+      var tw = tip.offsetWidth;
+      var tx = e.clientX + 14, ty = e.clientY - tip.offsetHeight / 2;
+      if (tx + tw > window.innerWidth - 8) tx = e.clientX - tw - 14;
+      if (ty < 8) ty = 8;
+      tip.style.left = tx + 'px';
+      tip.style.top  = ty + 'px';
+    });
+    icon.addEventListener('mouseleave', function() { tip.style.display = 'none'; });
+  })();
 
   // Account History account selector
   document.getElementById('acct-history-sel').addEventListener('change', function() {
@@ -12796,7 +12987,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (panel.style.display === 'none') return;
     var path = e.composedPath ? e.composedPath() : [e.target];
     for (var i = 0; i < path.length; i++) {
-      if (path[i].id === 'plaid-secret-wrap') return;
+      if (path[i].classList && path[i].classList.contains('plaid-secret-wrap')) return;
     }
     closePlaidSecretPopover();
   });
