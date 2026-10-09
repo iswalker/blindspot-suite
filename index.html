@@ -691,7 +691,6 @@ select, input { font-family: inherit; }
 }
 #plaid-acct-group { flex-direction: column; align-items: flex-start; gap: 6px; }
 .plaid-acct-top { display: flex; align-items: center; gap: 6px; }
-.plaid-acct-mgmt { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 #reconcile-acct-group label, #plaid-acct-group label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 #reconcile-acct-group select, #plaid-acct-group select {
   font-size: 13px; border: 1px solid #ccc; border-radius: 4px;
@@ -706,7 +705,8 @@ select, input { font-family: inherit; }
 }
 #plaid-acct-remove-btn:hover { border-color: #c62828; color: #c62828; }
 #plaid-acct-rename-btn:hover { border-color: #1a1a2e; color: #1a1a2e; }
-#plaid-acct-sel-wrap { display: flex; align-items: center; gap: 6px; }
+.plaid-rename-icon { display: inline-block; transform: scaleX(-1); }
+#plaid-acct-sel-wrap { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 #plaid-rename-row { display: flex; align-items: center; gap: 6px; }
 #plaid-rename-input {
   font-size: 13px; border: 1px solid #1a1a2e; border-radius: 4px;
@@ -732,15 +732,36 @@ select, input { font-family: inherit; }
   font-size: 14px; cursor: pointer; font-weight: 600; white-space: nowrap;
 }
 #reconcile-go-btn:hover { background: #33334d; }
-#plaid-secret-input {
-  font-size: 13px; border: 1px solid #ccc; border-radius: 6px;
-  padding: 5px 10px; width: 200px; background: #fff;
-}
 #plaid-connect-btn {
   padding: 6px 14px; background: #fff; color: #555; border: 1px solid #ccc; border-radius: 6px;
   font-size: 13px; cursor: pointer; font-weight: 500; white-space: nowrap;
 }
 #plaid-connect-btn:hover { background: #f0f0ec; }
+/* Plaid secret key popover -- only shown when an action needs it and none is saved yet
+   (see requirePlaidSecret()), instead of a permanently-visible input on the page. */
+.plaid-secret-wrap { position: relative; display: inline-flex; }
+.plaid-secret-panel {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 500;
+  display: flex; flex-direction: column; gap: 10px;
+  background: #fff; border: 1px solid #ddd; border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.16); padding: 14px; width: 240px;
+}
+.plaid-secret-panel-hdr { font-size: 14px; font-weight: 700; color: #222; }
+#plaid-secret-input {
+  font-size: 15px; border: 1px solid #ccc; border-radius: 6px;
+  padding: 6px 10px; width: 100%; box-sizing: border-box; background: #fff;
+}
+.plaid-secret-panel-actions { display: flex; justify-content: flex-end; gap: 8px; }
+#plaid-secret-save-btn {
+  padding: 5px 14px; background: #1a1a2e; color: #fff; border: none;
+  border-radius: 4px; font-size: 14px; cursor: pointer; font-weight: 600;
+}
+#plaid-secret-save-btn:hover { background: #33334d; }
+#plaid-secret-cancel-btn {
+  padding: 5px 10px; background: none; border: 1px solid #ccc;
+  border-radius: 4px; font-size: 14px; cursor: pointer; color: #666;
+}
+#plaid-secret-cancel-btn:hover { border-color: #999; }
 #plaid-status-msg { font-size: 13px; color: #555; }
 #reconcile-status { padding: 12px 20px 4px; font-size: 14px; min-height: 36px; }
 .rec-ok   { color: #2e7d32; font-weight: 600; }
@@ -1492,9 +1513,7 @@ td.hbt-num:last-child { width: 13%; }
   .rec-card { width: 100%; box-sizing: border-box; }
   #reconcile-acct-group select, #plaid-acct-group select { width: 100%; min-width: 0; }
   #reconcile-acct-sel { width: 100%; }
-  .plaid-acct-mgmt { flex-direction: column; align-items: stretch; }
-  .plaid-acct-mgmt label { width: 100%; }
-  #plaid-secret-input { width: 100%; }
+  .plaid-secret-panel { position: fixed; left: 10px; right: 10px; top: auto; width: auto; }
   #reconcile-upload-btn { width: 100%; }
   #rec-go-card { flex-direction: column; align-items: stretch; text-align: center; }
 
@@ -2051,18 +2070,25 @@ td.hbt-num:last-child { width: 13%; }
           <div class="plaid-acct-top">
             <div id="plaid-acct-sel-wrap">
               <label>Plaid Account <select id="plaid-acct-sel"><option value="">&#8212; none &#8212;</option></select></label>
-              <button id="plaid-acct-remove-btn" title="Remove selected Plaid connection" style="display:none">&#10005;</button>
-              <button id="plaid-acct-rename-btn" title="Rename this connection" style="display:none">&#9998; Rename</button>
+              <button id="plaid-acct-remove-btn" title="Remove selected Plaid connection" style="display:none">&#10005; Remove</button>
+              <button id="plaid-acct-rename-btn" title="Rename this connection" style="display:none"><span class="plaid-rename-icon">&#9998;</span> Rename</button>
+              <div class="plaid-secret-wrap" id="plaid-secret-wrap">
+                <button id="plaid-connect-btn">+ New</button>
+                <div class="plaid-secret-panel" id="plaid-secret-panel" style="display:none">
+                  <div class="plaid-secret-panel-hdr">Plaid secret key</div>
+                  <input type="password" id="plaid-secret-input" placeholder="Enter secret key">
+                  <div class="plaid-secret-panel-actions">
+                    <button type="button" id="plaid-secret-cancel-btn">Cancel</button>
+                    <button type="button" id="plaid-secret-save-btn">Save</button>
+                  </div>
+                </div>
+              </div>
             </div>
             <div id="plaid-rename-row" style="display:none">
               <input type="text" id="plaid-rename-input" placeholder="Account name">
               <button id="plaid-rename-save-btn">&#10003;</button>
               <button id="plaid-rename-cancel-btn">&#10005;</button>
             </div>
-          </div>
-          <div class="plaid-acct-mgmt">
-            <label>Plaid secret key <input type="password" id="plaid-secret-input" placeholder="Enter secret key"></label>
-            <button id="plaid-connect-btn">+ Connect New Account</button>
           </div>
         </div>
         <span class="rec-or-lbl">or</span>
@@ -5130,6 +5156,25 @@ function syncPlaidSecretInputs(value) {
   var l = document.getElementById('leverage-pos-secret');
   if (r && !r.value) r.value = value;
   if (l && !l.value) l.value = value;
+}
+var plaidSecretPendingCb = null; // onReady callback from the requirePlaidSecret() call that opened the popover
+function openPlaidSecretPopover(onReady) {
+  plaidSecretPendingCb = onReady;
+  var input = document.getElementById('plaid-secret-input');
+  input.value = '';
+  document.getElementById('plaid-secret-panel').style.display = '';
+  input.focus();
+}
+function closePlaidSecretPopover() {
+  document.getElementById('plaid-secret-panel').style.display = 'none';
+  plaidSecretPendingCb = null;
+}
+// Only prompt for the Plaid secret key when an action actually needs it and none is saved
+// yet -- otherwise it's used from localStorage silently, with no input shown on the page.
+function requirePlaidSecret(onReady) {
+  var secret = getPlaidSecret();
+  if (secret) { onReady(secret); return; }
+  openPlaidSecretPopover(onReady);
 }
 var cfSparklineKeys    = [];
 
@@ -10787,9 +10832,12 @@ function renderPlaidConnections() {
 }
 
 function loadPlaidConnection(accessToken, accountId, acctName) {
-  var secret = document.getElementById('plaid-secret-input').value.trim() || getPlaidSecret();
+  requirePlaidSecret(function(secret) {
+    doLoadPlaidConnection(secret, accessToken, accountId, acctName);
+  });
+}
+function doLoadPlaidConnection(secret, accessToken, accountId, acctName) {
   var statusEl = document.getElementById('plaid-status-msg');
-  if (!secret) { statusEl.textContent = 'Please enter your Plaid secret key.'; return; }
   // Legacy connections without accountId: fetch accounts first then recurse
   if (!accountId) {
     statusEl.textContent = 'Fetching accounts…';
@@ -10797,7 +10845,7 @@ function loadPlaidConnection(accessToken, accountId, acctName) {
       .then(function(data) {
         if (data.error_code) throw new Error(data.error_message || data.error_code);
         if (!data.accounts || !data.accounts.length) throw new Error('No accounts found');
-        loadPlaidConnection(accessToken, data.accounts[0].account_id, data.accounts[0].name);
+        doLoadPlaidConnection(secret, accessToken, data.accounts[0].account_id, data.accounts[0].name);
       }).catch(function(err) { statusEl.textContent = '⚠ ' + err.message; });
   }
   var bounds = reconcileDateBounds();
@@ -10846,9 +10894,10 @@ function loadPlaidScript() {
 }
 
 function connectPlaid() {
-  var secret = document.getElementById('plaid-secret-input').value.trim() || getPlaidSecret();
+  requirePlaidSecret(doConnectPlaid);
+}
+function doConnectPlaid(secret) {
   var statusEl = document.getElementById('plaid-status-msg');
-  if (!secret) { statusEl.textContent = 'Please enter your Plaid secret key.'; return; }
   statusEl.textContent = 'Loading Plaid Link…';
 
   loadPlaidScript().then(function() {
@@ -12302,17 +12351,20 @@ document.addEventListener('DOMContentLoaded', function() {
   // Restore Plaid secret from localStorage and keep both inputs in sync
   var _storedSecret = getPlaidSecret();
   if (_storedSecret) syncPlaidSecretInputs(_storedSecret);
-  ['plaid-secret-input', 'leverage-pos-secret'].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (!el) return;
-    el.addEventListener('input', function() {
-      var v = this.value.trim();
-      savePlaidSecret(v);
-      // Push into the sibling input if it's still empty
-      var otherId = id === 'plaid-secret-input' ? 'leverage-pos-secret' : 'plaid-secret-input';
-      var other = document.getElementById(otherId);
-      if (other && !other.value) other.value = v;
-    });
+  // The Leverage tab's secret field is still always visible, so typing into it saves
+  // immediately as before. The Reconcile popover's field (#plaid-secret-input) only persists
+  // when its own Save button is clicked (see requirePlaidSecret()) so that Cancel actually
+  // discards what was typed -- it still live-syncs the sibling field for convenience.
+  document.getElementById('leverage-pos-secret').addEventListener('input', function() {
+    var v = this.value.trim();
+    savePlaidSecret(v);
+    var other = document.getElementById('plaid-secret-input');
+    if (other && !other.value) other.value = v;
+  });
+  document.getElementById('plaid-secret-input').addEventListener('input', function() {
+    var v = this.value.trim();
+    var other = document.getElementById('leverage-pos-secret');
+    if (other && !other.value) other.value = v;
   });
 
   // Date range pickers (one cohesive control per tab, shared implementation). Hovering the
@@ -12725,6 +12777,29 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   document.getElementById('plaid-connect-btn').addEventListener('click', connectPlaid);
+  document.getElementById('plaid-secret-save-btn').addEventListener('click', function() {
+    var input = document.getElementById('plaid-secret-input');
+    var v = input.value.trim();
+    if (!v) return;
+    savePlaidSecret(v);
+    var cb = plaidSecretPendingCb;
+    closePlaidSecretPopover();
+    if (cb) cb(v);
+  });
+  document.getElementById('plaid-secret-cancel-btn').addEventListener('click', closePlaidSecretPopover);
+  document.getElementById('plaid-secret-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') document.getElementById('plaid-secret-save-btn').click();
+    if (e.key === 'Escape') closePlaidSecretPopover();
+  });
+  document.addEventListener('click', function(e) {
+    var panel = document.getElementById('plaid-secret-panel');
+    if (panel.style.display === 'none') return;
+    var path = e.composedPath ? e.composedPath() : [e.target];
+    for (var i = 0; i < path.length; i++) {
+      if (path[i].id === 'plaid-secret-wrap') return;
+    }
+    closePlaidSecretPopover();
+  });
   document.getElementById('plaid-acct-sel').addEventListener('change', function() {
     var opt = this.options[this.selectedIndex];
     var id = opt ? opt.value : '';
