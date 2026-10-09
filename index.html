@@ -671,7 +671,7 @@ select, input { font-family: inherit; }
 .ahtt-float   { font-size: 13px; font-weight: 600; color: #f59e0b; margin-top: 3px; }
 
 /* ---- Reconcile tab ---- */
-#rec-cards-row, #rec-cards-row2 {
+#rec-cards-row {
   display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap;
   margin-bottom: 12px;
 }
@@ -684,7 +684,7 @@ select, input { font-family: inherit; }
 }
 #rec-bank-card { display: flex; flex-direction: column; align-items: flex-start; }
 #rec-date-card { display: flex; flex-direction: column; }
-#rec-go-card { display: flex; align-items: center; gap: 10px; }
+#rec-go-card { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
 #reconcile-acct-group, #plaid-acct-group {
   font-size: 13px; color: #555;
   display: flex; align-items: center; gap: 8px;
@@ -1487,7 +1487,7 @@ td.hbt-num:last-child { width: 13%; }
   #leverage-txn-table th, #leverage-txn-table td { padding: 8px 10px; font-size: 12px; }
 
   /* Reconcile cards stack */
-  #rec-cards-row, #rec-cards-row2 { flex-direction: column; align-items: stretch; gap: 10px; }
+  #rec-cards-row { flex-direction: column; align-items: stretch; gap: 10px; }
   .rec-vs-lbl, .rec-or-lbl { text-align: center; }
   .rec-card { width: 100%; box-sizing: border-box; }
   #reconcile-acct-group select, #plaid-acct-group select { width: 100%; min-width: 0; }
@@ -2069,18 +2069,16 @@ td.hbt-num:last-child { width: 13%; }
         <input type="file" id="reconcile-csv-input" accept=".csv" style="display:none">
         <button id="reconcile-upload-btn">&#8679; Upload CSV</button>
       </div>
-    </div>
-    <div id="rec-cards-row2">
       <div class="rec-card" id="rec-date-card">
         <div class="rec-card-hdr">Date Range</div>
         <div class="rp-wrap" id="reconcile-range-group">
           <button type="button" class="rp-btn" id="reconcile-range-btn"></button>
           <div class="rp-panel" id="reconcile-range-panel" style="display:none"></div>
         </div>
-      </div>
-      <div class="rec-card" id="rec-go-card">
-        <button id="reconcile-go-btn">Reconcile &#9654;</button>
-        <span id="plaid-status-msg"></span>
+        <div id="rec-go-card">
+          <button id="reconcile-go-btn">Reconcile &#9654;</button>
+          <span id="plaid-status-msg"></span>
+        </div>
       </div>
     </div>
     <div id="reconcile-status"></div>
@@ -2552,6 +2550,7 @@ var rpKeysCache = {};
 var rpPending   = {};
 var rpOpenId    = null;
 var rpDrag      = null; // { id, anchor } while a grid-cell drag is in progress
+var rpCloseTimer = null; // pending rpClose() from a mouseleave grace period (see wiring below)
 
 function rpTitleMonth(k) {
   var p = k.split('-');
@@ -2616,6 +2615,7 @@ function rpOpen(id) {
   if (btn) btn.classList.add('active');
 }
 function rpClose() {
+  if (rpCloseTimer) { clearTimeout(rpCloseTimer); rpCloseTimer = null; }
   if (!rpOpenId) return;
   var cfg = RP_CONFIGS[rpOpenId];
   var panel = document.getElementById(cfg.panelId);
@@ -12328,6 +12328,9 @@ document.addEventListener('DOMContentLoaded', function() {
     var wrap = btn ? btn.closest('.rp-wrap') : null;
     if (wrap) {
       wrap.addEventListener('mouseenter', function() {
+        // Cancel any pending close from a mouseleave grace period (below) -- the cursor made it
+        // back into the wrap (e.g. across the gap to the popover) before the timer fired.
+        if (rpCloseTimer) { clearTimeout(rpCloseTimer); rpCloseTimer = null; }
         // rpOpen() toggles closed when called again on an already-open picker (for the click
         // handler above) -- guard so re-entering an already-open wrap doesn't close it.
         if (rpOpenId !== rpId) rpOpen(rpId);
@@ -12336,7 +12339,16 @@ document.addEventListener('DOMContentLoaded', function() {
         // Don't close out from under an in-progress drag selection (see the drag listeners
         // below) just because the cursor briefly left the wrap's bounds mid-drag.
         if (rpDrag && rpDrag.id === rpId) return;
-        if (rpOpenId === rpId) rpClose();
+        // The dropdown button and its popover panel are visually touching but leave a few
+        // pixels of gap between their boxes, which isn't covered by either element -- crossing
+        // it diagonally fires mouseleave even though the cursor is still headed for the panel.
+        // Give it a short grace period to land back inside (mouseenter above cancels this) before
+        // actually closing, instead of closing instantly on every such flicker.
+        if (rpCloseTimer) clearTimeout(rpCloseTimer);
+        rpCloseTimer = setTimeout(function() {
+          rpCloseTimer = null;
+          if (rpOpenId === rpId) rpClose();
+        }, 200);
       });
     }
   });
