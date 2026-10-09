@@ -1810,6 +1810,11 @@ td.hbt-num:last-child { width: 13%; }
           <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
           Include Exception Accounts
         </label>
+        <label class="ios-toggle-wrap">
+          <input type="checkbox" id="lw-include-pipeline">
+          <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+          Include Pipeline
+        </label>
         <div id="lw-acct-filter-wrap">
           <button id="lw-acct-filter-btn">Accounts &#9660;</button>
           <div id="lw-acct-filter-panel"></div>
@@ -2373,6 +2378,7 @@ var state = {
   lwExcludeDistribution:    localStorage.getItem('lw-exclude-distribution') === '1',
   lwExcludeBudgeted:        localStorage.getItem('lw-exclude-budgeted') === '1',
   lwIncludeExceptionAccts:  localStorage.getItem('lw-include-exception-accts') !== '0',
+  lwIncludePipeline:        localStorage.getItem('lw-include-pipeline') === '1',
   leverageExcludeTracking:   localStorage.getItem('leverage-exclude-tracking') === '1',
   leverageExcludeForecasted: localStorage.getItem('leverage-exclude-forecasted') === '1',
   leverageIncludeTbd:        localStorage.getItem('leverage-include-tbd') === '1',
@@ -3603,6 +3609,21 @@ function fetchYnabData(apiKey, budgetId, opts) {
           }
         }
       }
+      // Config row Metric = "Pipeline", Text = the Account ID of a (usually not-yet-liquid)
+      // account to make available on the Liquid Balances tab behind its own "Include
+      // Pipeline" toggle -- same mechanism as "Liquid Account Exceptions" above, kept
+      // separate so the two can be shown/hidden independently.
+      var lwPipelineIds = {};
+      for (var lpi = 0; lpi < (state.catConfig || []).length; lpi++) {
+        var lpc = state.catConfig[lpi];
+        if (/^pipeline$/i.test(lpc.usedFor || '')) {
+          var lwPipeIdsRaw = (lpc.id || '').split(',');
+          for (var lpii = 0; lpii < lwPipeIdsRaw.length; lpii++) {
+            var lwPipeId = lwPipeIdsRaw[lpii].trim();
+            if (lwPipeId) lwPipelineIds[lwPipeId] = true;
+          }
+        }
+      }
       for (var ai = 0; ai < accs.length; ai++) {
         var a = accs[ai];
         allAccountsInfo[a.id] = {
@@ -3610,12 +3631,14 @@ function fetchYnabData(apiKey, budgetId, opts) {
           closed: a.closed, balance: a.balance / 1000
         };
         var isGenLiquid = LIQUID_TYPES[a.type] && a.on_budget && a.name.indexOf('~') === -1;
-        if (isGenLiquid || lwExceptionIds[a.id]) {
+        if (isGenLiquid || lwExceptionIds[a.id] || lwPipelineIds[a.id]) {
           // isException: true only for accounts that qualify solely via the exception list,
           // so the Liquid Balances chart can stack their balances separately from the
-          // generalized Cash accounts bar.
+          // generalized Cash accounts bar. isPipeline: true only for accounts that qualify
+          // solely via the "Pipeline" Config row, gated by its own "Include Pipeline" toggle.
           lwAccounts.push({ id: a.id, name: a.name, type: a.type, closed: a.closed, balance: a.balance / 1000,
-                             isException: !isGenLiquid && !!lwExceptionIds[a.id] });
+                             isException: !isGenLiquid && !!lwExceptionIds[a.id],
+                             isPipeline: !isGenLiquid && !lwExceptionIds[a.id] && !!lwPipelineIds[a.id] });
         }
         if (a.name.indexOf('~') === -1) {
           nwAccounts.push({ id: a.id, name: a.name, type: a.type, on_budget: a.on_budget,
@@ -6625,7 +6648,8 @@ function syncExclusionToggles() {
     ['ah-exclude-distribution', 'lwExcludeDistribution'],
     ['lw-exclude-budgeted',     'lwExcludeBudgeted'],
     ['ah-exclude-budgeted',     'lwExcludeBudgeted'],
-    ['lw-include-exceptions',   'lwIncludeExceptionAccts']
+    ['lw-include-exceptions',   'lwIncludeExceptionAccts'],
+    ['lw-include-pipeline',     'lwIncludePipeline']
   ];
   for (var i = 0; i < pairs.length; i++) {
     var el = document.getElementById(pairs[i][0]);
@@ -6647,19 +6671,22 @@ function populateLwAccountFilter() {
   for (var i = 0; i < accounts.length; i++) {
     var id = accounts[i].id;
     if (!(id in state.lwSelectedAccounts)) state.lwSelectedAccounts[id] = true;
-    // "Include Exception Accounts" off overrides any individual selection for accounts that
-    // qualify only via "Liquid Account Exceptions" -- they're unchecked and locked while off.
+    // "Include Exception Accounts" / "Include Pipeline" off overrides any individual selection
+    // for accounts that qualify only via their respective Config row -- they're unchecked and
+    // locked while off.
     if (accounts[i].isException && !state.lwIncludeExceptionAccts) state.lwSelectedAccounts[id] = false;
+    if (accounts[i].isPipeline && !state.lwIncludePipeline) state.lwSelectedAccounts[id] = false;
   }
   var panel = document.getElementById('lw-acct-filter-panel');
   var h = '';
   for (var j = 0; j < accounts.length; j++) {
     var a = accounts[j];
-    var locked = a.isException && !state.lwIncludeExceptionAccts;
+    var locked = (a.isException && !state.lwIncludeExceptionAccts) || (a.isPipeline && !state.lwIncludePipeline);
     h += '<label class="acct-chk-row' + (locked ? ' acct-chk-disabled' : '') + '">'
        + '<input type="checkbox" value="' + escAttr(a.id) + '"' + (state.lwSelectedAccounts[a.id] ? ' checked' : '') + (locked ? ' disabled' : '') + '>'
        + escAttr(a.name)
        + (a.isException ? ' <span style="font-size:10px;color:#64b5f6">(exception)</span>' : '')
+       + (a.isPipeline ? ' <span style="font-size:10px;color:#64b5f6">(pipeline)</span>' : '')
        + (a.closed ? ' <span style="font-size:10px;color:#bbb">(closed)</span>' : '')
        + '</label>';
   }
@@ -12371,6 +12398,22 @@ document.addEventListener('DOMContentLoaded', function() {
       // unchecked from when the toggle forced them off.
       for (var exI = 0; exI < state.data.lwAccounts.length; exI++) {
         if (state.data.lwAccounts[exI].isException) state.lwSelectedAccounts[state.data.lwAccounts[exI].id] = true;
+      }
+    }
+    syncExclusionToggles();
+    populateLwAccountFilter();
+    localStorage.setItem('sel-lw-accts', JSON.stringify(state.lwSelectedAccounts));
+    renderLiquidWorth();
+    refreshReconciliationData();
+  });
+  document.getElementById('lw-include-pipeline').addEventListener('change', function() {
+    state.lwIncludePipeline = this.checked;
+    localStorage.setItem('lw-include-pipeline', this.checked ? '1' : '0');
+    if (state.lwIncludePipeline && state.data && state.data.lwAccounts) {
+      // Restore pipeline accounts to selected when re-enabling, rather than leaving them
+      // unchecked from when the toggle forced them off.
+      for (var piI = 0; piI < state.data.lwAccounts.length; piI++) {
+        if (state.data.lwAccounts[piI].isPipeline) state.lwSelectedAccounts[state.data.lwAccounts[piI].id] = true;
       }
     }
     syncExclusionToggles();
