@@ -10323,13 +10323,16 @@ function renderAccountHistoryBody(d, acctId) {
     }
     // Debt/Liability accounts chart their magnitude (see isDebtAcctAH), so these are really
     // negative balances -- show them that way here too, in the chart's own orange, instead of
-    // a misleadingly "positive" green dollar figure.
-    function ahSummaryText(v) { return isDebtAcctAH ? lwFmtPlain(-v) : lwFmtSigned(v); }
-    function ahSummaryCls(v)  { return isDebtAcctAH ? 'debt' : (v >= 0 ? 'pos' : 'neg'); }
+    // a misleadingly "positive" green dollar figure. $0 is neither a gain nor a debt, though --
+    // it never gets a +/- sign or red/green/orange, just a plain black "$0.00" (isZeroish
+    // swallows float dust like -0.004 so it can't render as a signed "-$0.00").
+    function ahSummaryText(v) { return isZeroish(v) ? '$0.00' : (isDebtAcctAH ? lwFmtPlain(-v) : lwFmtSigned(v)); }
+    function ahSummaryCls(v)  { return isZeroish(v) ? '' : (isDebtAcctAH ? 'debt' : (v >= 0 ? 'pos' : 'neg')); }
     var curEl = document.getElementById('ah-summary-current');
     curEl.textContent = ahSummaryText(curVal);
     curEl.className   = 'ah-summary-value ' + ahSummaryCls(curVal);
-    document.getElementById('ah-summary-avg').textContent = lwFmtPlain(isDebtAcctAH ? -avgVal2 : avgVal2);
+    var avgDisp = isDebtAcctAH ? -avgVal2 : avgVal2;
+    document.getElementById('ah-summary-avg').textContent = isZeroish(avgDisp) ? '$0.00' : lwFmtPlain(avgDisp);
     var lowEl = document.getElementById('ah-summary-low');
     lowEl.textContent = ahSummaryText(lowVal);
     lowEl.className   = 'ah-summary-value ' + ahSummaryCls(lowVal);
