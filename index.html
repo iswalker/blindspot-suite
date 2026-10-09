@@ -9649,6 +9649,37 @@ function resolveCashBasisAcctId() {
   return null;
 }
 
+// Account History "pseudo-accounts" -- aggregate trend/balance views across every account of
+// a given type, instead of one account at a time. isDebt controls the same abs-value/orange
+// treatment real debt accounts get (see isDebtAcctType).
+var AH_PSEUDO_GROUPS = [
+  { id: '__ah_all_credit__',      name: 'All Credit Accounts', isDebt: true,
+    test: function(type) { return type === 'creditCard' || type === 'lineOfCredit'; } },
+  { id: '__ah_all_cash__',        name: 'All Cash Accounts',   isDebt: false,
+    test: function(type) { return !isDebtAcctType(type); } },
+  { id: '__ah_all_liabilities__', name: 'All Liabilities',     isDebt: true,
+    test: isDebtAcctType }
+];
+
+function ahPseudoGroup(acctId) {
+  for (var i = 0; i < AH_PSEUDO_GROUPS.length; i++) {
+    if (AH_PSEUDO_GROUPS[i].id === acctId) return AH_PSEUDO_GROUPS[i];
+  }
+  return null;
+}
+
+// The same open, non-exception accounts populateAcctHistoryFilter lists individually,
+// filtered down to the ones matching a pseudo-account group's type test.
+function ahPseudoGroupAcctIds(group) {
+  var d = state.data, ids = [];
+  if (!d || !d.allAccountsInfo) return ids;
+  for (var id in d.allAccountsInfo) {
+    var info = d.allAccountsInfo[id];
+    if (!info.closed && info.name.indexOf('~') === -1 && group.test(info.type)) ids.push(id);
+  }
+  return ids;
+}
+
 function populateAcctHistoryFilter() {
   var d = state.data;
   if (!d || !d.allAccountsInfo) return [];
@@ -9663,6 +9694,17 @@ function populateAcctHistoryFilter() {
   }
   allAccts.sort(function(a, b) { return a.name.localeCompare(b.name); });
   sel.innerHTML = '';
+  var pseudoGrp = document.createElement('optgroup');
+  pseudoGrp.label = 'Pseudo-Accounts';
+  for (var pgi = 0; pgi < AH_PSEUDO_GROUPS.length; pgi++) {
+    var pg = AH_PSEUDO_GROUPS[pgi];
+    if (!ahPseudoGroupAcctIds(pg).length) continue;
+    var pOpt = document.createElement('option');
+    pOpt.value       = pg.id;
+    pOpt.textContent = pg.name;
+    pseudoGrp.appendChild(pOpt);
+  }
+  if (pseudoGrp.children.length) sel.appendChild(pseudoGrp);
   for (var i = 0; i < allAccts.length; i++) {
     var opt = document.createElement('option');
     opt.value       = allAccts[i].id;
@@ -10052,9 +10094,27 @@ function renderAccountHistoryBody(d, acctId) {
   var availKeys  = allK.filter(function(k) { return k <= todayKey; });
   if (!availKeys.length) return;
 
+  // A pseudo-account (e.g. "All Credit Accounts") aggregates over every real account whose
+  // type matches the group -- everything below sums the same per-account math across that
+  // list instead of reading a single acctId, so the rest of this function doesn't need to
+  // know the difference.
+  var pseudoGroup = ahPseudoGroup(acctId);
+  var acctIds = pseudoGroup ? ahPseudoGroupAcctIds(pseudoGroup) : [acctId];
+  if (pseudoGroup && !acctIds.length) return;
+  function ahSumBalanceAt(monthKey) {
+    var t = 0;
+    for (var sbi = 0; sbi < acctIds.length; sbi++) t += acctBalanceAt(acctIds[sbi], monthKey);
+    return t;
+  }
+  function ahSumHoldingReserve(monthKey) {
+    var t = 0;
+    for (var shi = 0; shi < acctIds.length; shi++) t += lwHoldingReserve(acctIds[shi], monthKey);
+    return t;
+  }
+
   var firstNonZero = availKeys[0];
   for (var fi = 0; fi < availKeys.length; fi++) {
-    if (Math.round(acctBalanceAt(acctId, availKeys[fi]) * 100) !== 0) { firstNonZero = availKeys[fi]; break; }
+    if (Math.round(ahSumBalanceAt(availKeys[fi]) * 100) !== 0) { firstNonZero = availKeys[fi]; break; }
   }
   populateAcctHistoryRangeFilter(availKeys, firstNonZero);
 
@@ -10070,8 +10130,8 @@ function renderAccountHistoryBody(d, acctId) {
   // acctBalanceAt already nets out cumulative tracking and the Distribution reserve. The daily
   // walk below re-derives the reserve per day (it is a monthly figure that steps at month
   // boundaries), so add back the start month's reserve to avoid subtracting it twice.
-  var startBal = acctBalanceAt(acctId, prevMonthKey);
-  if (state.lwExcludeDistribution) startBal += lwHoldingReserve(acctId, prevMonthKey);
+  var startBal = ahSumBalanceAt(prevMonthKey);
+  if (state.lwExcludeDistribution) startBal += ahSumHoldingReserve(prevMonthKey);
 
   // Today as YYYY-MM-DD
   var todayD = new Date();
@@ -10089,17 +10149,19 @@ function renderAccountHistoryBody(d, acctId) {
 
   // Build daily net transaction map
   var dailyNet = {};
-  var txnList = (d.acctTxnsList || {})[acctId] || [];
-  for (var dti = 0; dti < txnList.length; dti++) {
-    var tdate = txnList[dti].date;
-    if (tdate >= fromDateStr && tdate <= toDateStr) {
-      var dayAmt = txnList[dti].amount;
-      if (state.lwExcludeTracking) dayAmt -= (txnList[dti].trackingAmount || 0);
-      dailyNet[tdate] = (dailyNet[tdate] || 0) + dayAmt;
+  for (var gai = 0; gai < acctIds.length; gai++) {
+    var txnList = (d.acctTxnsList || {})[acctIds[gai]] || [];
+    for (var dti = 0; dti < txnList.length; dti++) {
+      var tdate = txnList[dti].date;
+      if (tdate >= fromDateStr && tdate <= toDateStr) {
+        var dayAmt = txnList[dti].amount;
+        if (state.lwExcludeTracking) dayAmt -= (txnList[dti].trackingAmount || 0);
+        dailyNet[tdate] = (dailyNet[tdate] || 0) + dayAmt;
+      }
     }
   }
 
-  var isDebtAcctAH = isDebtAcctType((d.allAccountsInfo[acctId] || {}).type);
+  var isDebtAcctAH = pseudoGroup ? pseudoGroup.isDebt : isDebtAcctType((d.allAccountsInfo[acctId] || {}).type);
 
   // Walk forward day by day accumulating balance
   var keys = [], values = [];
@@ -10113,7 +10175,7 @@ function renderAccountHistoryBody(d, acctId) {
     bal += (dailyNet[ds] || 0);
     var shownBal = bal;
     // Reserve is a monthly Available figure, so it steps at month boundaries
-    if (state.lwExcludeDistribution) shownBal -= lwHoldingReserve(acctId, ds.slice(0, 7));
+    if (state.lwExcludeDistribution) shownBal -= ahSumHoldingReserve(ds.slice(0, 7));
     keys.push(ds);
     values.push(isDebtAcctAH ? Math.abs(shownBal) : shownBal);
     curD.setDate(curD.getDate() + 1);
