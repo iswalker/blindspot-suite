@@ -116,7 +116,7 @@ body {
   border-bottom: 1px solid #ddd;
   flex-wrap: wrap;
 }
-#nav-left { display: flex; align-items: center; gap: 28px; min-width: 0; }
+#nav-left { display: flex; align-items: center; min-width: 0; }
 .brand { display: flex; align-items: center; gap: 8px; flex: none; }
 .brand img {
   width: 26px;
@@ -127,7 +127,7 @@ body {
   border-radius: 5px;
   overflow: hidden;
 }
-#brand-name { font-size: 16px; font-weight: 700; color: #333; letter-spacing: -.2px; white-space: nowrap; padding-bottom: 3px; }
+#brand-name { font-size: 16px; font-weight: 700; color: #333; letter-spacing: -.2px; white-space: nowrap; padding-bottom: 3px; padding-right: 15px; }
 
 /* ---- Controls bar ---- */
 #controls-bar {
@@ -589,14 +589,14 @@ td.cell-active {
    viewBox) so each can be tuned independently; color/fill stays shared above. Height is
    intentionally omitted so each icon scales from width alone, preserving its aspect ratio. */
 .tab-icon-home         { width: 47px; margin: 0 -10px -3px -11px; }
-.tab-icon-margin       { width: 32px; margin: 0 -3px -1px -4px; }
-.tab-icon-lw           { width: 44px; margin: 0 -3px -1px -4px; }
+.tab-icon-margin       { width: 32px; margin: 0 3px -1px 0px; }
+.tab-icon-lw           { width: 42px; margin: 0 -3px -1px -10px; }
 .tab-icon-nw           { width: 38px; margin: 0px 2px -1px 0; }
-.tab-icon-lessons      { width: 37px; margin: 0 -2px -3px -3px; }
+.tab-icon-lessons      { width: 37px; margin: 0 -2px -3px -5px; }
 .tab-icon-leverage     { width: 35px; margin: 0 -2px -1px -5px; }
 .tab-icon-acct-history { width: 33px; margin: 0 -4px -5px -3px; }
-.tab-icon-reconcile    { width: 51px; margin: 0 -10px -4px -11px; }
-.tab-icon-runway       { width: 42px; margin: 0px 0px -4px 0px; }
+.tab-icon-reconcile    { width: 50px; margin: 0 -13px -3px -14px; }
+.tab-icon-runway       { width: 38px; margin: 0px -1px -4px -4px; }
 
 button { font-size: 14px; font-family: inherit; }
 select, input { font-family: inherit; }
@@ -1307,7 +1307,7 @@ td.hbt-num:last-child { width: 13%; }
      buttons and let their label wrap instead of overflowing, rather than collapsing to the
      mobile single-active-tab + dropdown layout (that only kicks in below 820px and wins
      over these rules there, since it's declared later). */
-  .tab-btn { font-size: 14px; width: 105px; white-space: normal; text-align: left; }
+  .tab-btn { font-size: 14px; width: 113px; white-space: normal; text-align: left; }
   body { padding: 5px 15px 10px 15px; }
 }
 @media (max-width: 820px) {
@@ -1591,7 +1591,7 @@ td.hbt-num:last-child { width: 13%; }
     <div id="nav-left">
       <div class="brand">
         <img src="logo.png" alt="">
-        <span id="brand-name">Blindspot</span>
+        <span id="brand-name">Blindspot Suite</span>
       </div>
       <div id="tab-nav">
        <div id="tab-nav-list">
