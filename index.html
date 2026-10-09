@@ -236,6 +236,9 @@ body {
 .rp-month {
   flex: 1; text-align: center; font-size: 12px; color: #555; padding: 5px 0;
   border-radius: 5px; cursor: pointer; white-space: nowrap;
+  /* Without this, a touch drag across months is interpreted as a page scroll before our own
+     touchmove handler ever sees it (see the touchstart/touchmove/touchend wiring below). */
+  touch-action: none;
 }
 .rp-month:hover:not(.disabled) { background: #f0f0ec; }
 .rp-month.in-range { background: #e8ecfb; color: #333; }
@@ -2613,6 +2616,7 @@ var rpPending   = {};
 var rpOpenId    = null;
 var rpDrag      = null; // { id, anchor } while a grid-cell drag is in progress
 var rpCloseTimer = null; // pending rpClose() from a mouseleave grace period (see wiring below)
+var rpLastTouchAt = 0; // timestamp of the last touchstart anywhere, to distinguish real hover from a touch's synthetic mouse events (see wiring below)
 
 function rpTitleMonth(k) {
   var p = k.split('-');
@@ -2685,6 +2689,41 @@ function rpClose() {
   var btn = document.getElementById(cfg.btnId);
   if (btn) btn.classList.remove('active');
   rpOpenId = null;
+}
+
+// Lightweight update used while a mouse/touch drag is in progress on the month grid -- unlike
+// rpRenderPanel() this only toggles classes on the existing cells and rewrites the header text
+// in place, never replacing the grid's innerHTML. That matters specifically for touch: if the
+// cell currently under the finger gets destroyed and rebuilt mid-gesture, Chromium (and real
+// mobile browsers, since touch identifiers track a node, not a point) silently stops delivering
+// any further touchmove/touchend for that touch, which otherwise made a drag -- and even a
+// plain tap, which is just a zero-movement drag -- stay stuck at "pending" and never apply.
+function rpUpdateDragHighlight(id) {
+  var cfg   = RP_CONFIGS[id];
+  var panel = document.getElementById(cfg.panelId);
+  var pend  = rpPending[id];
+  var rangeLo = pend.start, rangeHi = pend.end;
+  if (rangeLo && rangeHi && rangeLo > rangeHi) { var tmp = rangeLo; rangeLo = rangeHi; rangeHi = tmp; }
+  var cells = panel.querySelectorAll('.rp-month[data-mk]');
+  for (var i = 0; i < cells.length; i++) {
+    var mk = cells[i].getAttribute('data-mk');
+    var selected = (mk === pend.start || mk === pend.end);
+    var inRange  = !selected && !!(rangeLo && rangeHi && mk > rangeLo && mk < rangeHi);
+    cells[i].classList.toggle('selected', selected);
+    cells[i].classList.toggle('in-range', inRange);
+  }
+  var hdr = panel.querySelector('.rp-main-hdr');
+  if (hdr) {
+    if (pend.start && pend.end) {
+      var n = rpMonthCount(pend.start, pend.end);
+      hdr.innerHTML = rpTitleMonth(pend.start) + ' &#8211; ' + rpTitleMonth(pend.end)
+        + '<span class="rp-main-hdr-n">' + n + (n === 1 ? ' month' : ' months') + '</span>';
+    } else {
+      hdr.innerHTML = rpTitleMonth(pend.start) + '<span class="rp-main-hdr-n">pick an end month</span>';
+    }
+  }
+  var applyBtn = panel.querySelector('[data-rp-apply]');
+  if (applyBtn) applyBtn.disabled = !(pend.start && pend.end);
 }
 
 function rpRenderPanel(id) {
@@ -2770,19 +2809,29 @@ function rpRenderPanel(id) {
       rpRenderPanel(id);
     });
   }
-  // Press on a month to start a drag (see the document-level mousemove/mouseup listeners
-  // wired once at init) -- dragging across months extends the range live, and releasing
-  // anywhere applies it immediately. A plain click (press + release with no movement) is
-  // just a 1-month drag, so it still works as a single-month pick.
+  // Press on a month to start a drag (see the document-level mousemove/mouseup and
+  // touchmove/touchend listeners wired once at init) -- dragging across months extends the
+  // range live, and releasing anywhere applies it immediately. A plain click/tap (press +
+  // release with no movement) is just a 1-month drag, so it still works as a single-month pick.
   var mCells = panel.querySelectorAll('.rp-month[data-mk]');
+  function rpCellPress(cell) {
+    var mk = cell.getAttribute('data-mk');
+    rpPending[id] = { start: mk, end: mk };
+    rpDrag = { id: id, anchor: mk };
+    rpUpdateDragHighlight(id);
+  }
   for (var mi = 0; mi < mCells.length; mi++) {
     mCells[mi].addEventListener('mousedown', function(e) {
       e.preventDefault();
-      var mk = this.getAttribute('data-mk');
-      rpPending[id] = { start: mk, end: mk };
-      rpDrag = { id: id, anchor: mk };
-      rpRenderPanel(id);
+      rpCellPress(this);
     });
+    // touchstart's preventDefault both stops the page from scrolling under the drag and
+    // suppresses the synthetic mousedown/mouseup/click a touch would otherwise also fire,
+    // so this and the mousedown handler above never double-fire for the same tap.
+    mCells[mi].addEventListener('touchstart', function(e) {
+      e.preventDefault();
+      rpCellPress(this);
+    }, { passive: false });
   }
   var cancelBtn = panel.querySelector('[data-rp-cancel]');
   if (cancelBtn) cancelBtn.addEventListener('click', function() { rpClose(); });
@@ -12519,6 +12568,12 @@ document.addEventListener('DOMContentLoaded', function() {
   // Date range pickers (one cohesive control per tab, shared implementation). Hovering the
   // wrap (button + the popover panel it contains) opens/closes it automatically; a click
   // still works too, as a fallback for touch devices that have no hover.
+  //
+  // A tap can still produce a synthetic mouseenter afterwards (observed even with
+  // preventDefault() on the originating touchstart), which would otherwise reopen a picker a
+  // tap just applied-and-closed. Track the last touch so mouseenter can tell a synthetic echo
+  // of one from a real mouse hover and ignore it -- real mouse-only usage never touches this.
+  document.addEventListener('touchstart', function() { rpLastTouchAt = Date.now(); }, true);
   Object.keys(RP_CONFIGS).forEach(function(rpId) {
     var cfg = RP_CONFIGS[rpId];
     var btn = document.getElementById(cfg.btnId);
@@ -12529,6 +12584,8 @@ document.addEventListener('DOMContentLoaded', function() {
     var wrap = btn ? btn.closest('.rp-wrap') : null;
     if (wrap) {
       wrap.addEventListener('mouseenter', function() {
+        // A synthetic echo of a recent tap, not a real hover -- ignore it (see comment above).
+        if (Date.now() - rpLastTouchAt < 500) return;
         // Cancel any pending close from a mouseleave grace period (below) -- the cursor made it
         // back into the wrap (e.g. across the gap to the popover) before the timer fired.
         if (rpCloseTimer) { clearTimeout(rpCloseTimer); rpCloseTimer = null; }
@@ -12565,14 +12622,16 @@ document.addEventListener('DOMContentLoaded', function() {
     rpClose();
   });
 
-  // Date range picker drag: mousedown on a month cell (above) sets rpDrag and a 1-month
-  // pending range; while the button stays down, follow the cursor with elementFromPoint
-  // (not per-cell mousemove listeners, since rpRenderPanel replaces the grid's DOM on every
-  // update) and extend the pending range to whichever month is under it; mouseup anywhere
-  // applies the final range immediately, wherever the drag ends.
-  document.addEventListener('mousemove', function(e) {
+  // Date range picker drag: mousedown/touchstart on a month cell (above) sets rpDrag and a
+  // 1-month pending range; while the button/finger stays down, follow the pointer with
+  // elementFromPoint (not per-cell mousemove listeners, since the grid's cells get replaced
+  // whenever the picker is freshly opened) and extend the pending range to whichever month is
+  // under it; mouseup/touchend anywhere applies the final range immediately, wherever the drag
+  // ends. Uses rpUpdateDragHighlight() rather than a full rpRenderPanel() rebuild on every step
+  // -- see that function's comment for why a touch drag depends on that.
+  function rpDragTo(clientX, clientY) {
     if (!rpDrag) return;
-    var el = document.elementFromPoint(e.clientX, e.clientY);
+    var el = document.elementFromPoint(clientX, clientY);
     var cell = el && el.closest ? el.closest('.rp-month[data-mk]') : null;
     if (!cell) return;
     var mk = cell.getAttribute('data-mk');
@@ -12582,15 +12641,26 @@ document.addEventListener('DOMContentLoaded', function() {
     var p = rpPending[rpDrag.id];
     if (p && p.start === newStart && p.end === newEnd) return;
     rpPending[rpDrag.id] = { start: newStart, end: newEnd };
-    rpRenderPanel(rpDrag.id);
-  });
-  document.addEventListener('mouseup', function() {
+    rpUpdateDragHighlight(rpDrag.id);
+  }
+  function rpDragRelease() {
     if (!rpDrag) return;
     var id2 = rpDrag.id;
     var p = rpPending[id2];
     rpDrag = null;
     if (p && p.start && p.end) rpApply(id2, p.start, p.end);
-  });
+  }
+  document.addEventListener('mousemove', function(e) { rpDragTo(e.clientX, e.clientY); });
+  document.addEventListener('mouseup', rpDragRelease);
+  document.addEventListener('touchmove', function(e) {
+    if (!rpDrag) return;
+    var t = e.touches[0];
+    if (!t) return;
+    e.preventDefault(); // keep the page from scrolling while a month-range drag is in progress
+    rpDragTo(t.clientX, t.clientY);
+  }, { passive: false });
+  document.addEventListener('touchend', rpDragRelease);
+  document.addEventListener('touchcancel', rpDragRelease);
 
   document.getElementById('cf-show-glidepath').checked = !!state.showGlidepath;
   document.getElementById('cf-show-glidepath').addEventListener('change', function() {
