@@ -9936,10 +9936,10 @@ function resolveCashBasisAcctId() {
 // a given type, instead of one account at a time. isDebt controls the same abs-value/orange
 // treatment real debt accounts get (see isDebtAcctType).
 var AH_PSEUDO_GROUPS = [
-  { id: '__ah_all_credit__',      name: 'All Credit Accounts', isDebt: true,
-    test: function(type) { return type === 'creditCard' || type === 'lineOfCredit'; } },
   { id: '__ah_all_cash__',        name: 'All Cash Accounts',   isDebt: false,
     test: function(type) { return type === 'checking' || type === 'savings' || type === 'cash'; } },
+  { id: '__ah_all_credit__',      name: 'All Credit Accounts', isDebt: true,
+    test: function(type) { return type === 'creditCard' || type === 'lineOfCredit'; } },
   { id: '__ah_all_assets__',      name: 'All Assets',          isDebt: false,
     test: function(type) { return !isDebtAcctType(type); } },
   { id: '__ah_all_liabilities__', name: 'All Liabilities',     isDebt: true,
