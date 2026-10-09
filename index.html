@@ -645,7 +645,7 @@ select, input { font-family: inherit; }
 /* Metrics stack in one narrow column on the left; the chart takes the rest of the row's
    width, same pattern as #lessons-breakdown-row's metrics-left + chart layout. */
 #ah-chart-row { display: flex; gap: 14px; align-items: stretch; margin-bottom: 14px; }
-#ah-chart-row .lw-chart-wrap { flex: 1; min-width: 0; margin-bottom: 0; }
+#ah-chart-row .lw-chart-wrap { flex: 1; min-width: 0; margin-bottom: 0; padding: 0; }
 #ah-summary-row {
   display: flex;
   flex-direction: column;
@@ -1047,6 +1047,12 @@ td.hbt-num:last-child { width: 13%; }
   padding: 16px 16px 16px 0; margin-bottom: 14px; overflow: hidden;
 }
 #lw-canvas { display: block; }
+/* Payee/Category breakdown charts: padded on every side -- unlike a time-series chart, the
+   horizontal bars have no left-axis labels eating into the wrap's own left inset. */
+.lw-chart-wrap-breakdown { padding: 16px 16px 4px 16px; }
+/* Month/Year breakdown charts: same time-series shape as the main LW/NW charts, so they keep
+   the zero left/right inset those use, just with a tighter bottom. */
+.lw-chart-wrap-period { padding: 16px 0 4px 0; }
 
 /* ---- LW table ---- */
 .lw-table-wrap {
@@ -1878,20 +1884,22 @@ td.hbt-num:last-child { width: 13%; }
           <div class="lessons-metric-value" id="lessons-median-val">—</div>
         </div>
       </div>
-      <div class="lw-chart-wrap" id="lessons-chart-wrap">
+      <div class="lw-chart-wrap lw-chart-wrap-period" id="lessons-chart-wrap">
         <div class="lw-chart-title">Month Breakdown</div>
         <canvas id="lessons-canvas"></canvas>
       </div>
-      <div class="lw-chart-wrap" id="lessons-year-chart-wrap">
+      <div class="lw-chart-wrap lw-chart-wrap-period" id="lessons-year-chart-wrap">
         <div class="lw-chart-title">Year Breakdown</div>
         <canvas id="lessons-year-canvas"></canvas>
       </div>
     </div>
     <div id="lessons-breakdown-row">
-      <div class="lw-chart-wrap" id="lessons-payee-chart-wrap">
+      <div class="lw-chart-wrap lw-chart-wrap-breakdown" id="lessons-payee-chart-wrap">
+        <div class="lw-chart-title">Payee Breakdown</div>
         <canvas id="lessons-payee-canvas"></canvas>
       </div>
-      <div class="lw-chart-wrap" id="lessons-cat-chart-wrap">
+      <div class="lw-chart-wrap lw-chart-wrap-breakdown" id="lessons-cat-chart-wrap">
+        <div class="lw-chart-title">Category Breakdown</div>
         <canvas id="lessons-cat-canvas"></canvas>
       </div>
     </div>
@@ -1957,20 +1965,22 @@ td.hbt-num:last-child { width: 13%; }
           <tr><td colspan="2" id="leverage-pos-empty">Enter secret key and click Fetch</td></tr>
         </table>
       </div>
-      <div class="lw-chart-wrap" id="leverage-chart-wrap">
+      <div class="lw-chart-wrap lw-chart-wrap-period" id="leverage-chart-wrap">
         <div class="lw-chart-title">Month Breakdown</div>
         <canvas id="leverage-canvas"></canvas>
       </div>
-      <div class="lw-chart-wrap" id="leverage-year-chart-wrap">
+      <div class="lw-chart-wrap lw-chart-wrap-period" id="leverage-year-chart-wrap">
         <div class="lw-chart-title">Year Breakdown</div>
         <canvas id="leverage-year-canvas"></canvas>
       </div>
     </div>
     <div id="leverage-breakdown-row">
-      <div class="lw-chart-wrap" id="leverage-payee-chart-wrap">
+      <div class="lw-chart-wrap lw-chart-wrap-breakdown" id="leverage-payee-chart-wrap">
+        <div class="lw-chart-title">Payee Breakdown</div>
         <canvas id="leverage-payee-canvas"></canvas>
       </div>
-      <div class="lw-chart-wrap" id="leverage-cat-chart-wrap">
+      <div class="lw-chart-wrap lw-chart-wrap-breakdown" id="leverage-cat-chart-wrap">
+        <div class="lw-chart-title">Category Breakdown</div>
         <canvas id="leverage-cat-canvas"></canvas>
       </div>
     </div>
@@ -8090,7 +8100,7 @@ function drawLeverageYearChart(byYear, byYearCount, byYearTxns, curYear, projYE)
   leverageYearChartState = { years: years, byYearTxns: byYearTxns, n: n, groupW: groupW, L_PAD: L_PAD };
 }
 
-function drawHorizBreakdown(canvasId, wrapId, filteredTxns, field, heading, barColor) {
+function drawHorizBreakdown(canvasId, wrapId, filteredTxns, field, barColor) {
   var canvas = document.getElementById(canvasId);
   var wrap   = document.getElementById(wrapId);
   if (!canvas) return null;
@@ -8115,7 +8125,7 @@ function drawHorizBreakdown(canvasId, wrapId, filteredTxns, field, heading, barC
   if (!n) return null;
 
   var dpr    = window.devicePixelRatio || 1;
-  var L_PAD  = 140, R_PAD = 90, T_PAD = 28, B_PAD = 8;
+  var L_PAD  = 140, R_PAD = 90, T_PAD = 4, B_PAD = 8;
   var BAR_H  = 20, GAP = 8;
   var H      = T_PAD + n * (BAR_H + GAP) - GAP + B_PAD;
 
@@ -8132,12 +8142,6 @@ function drawHorizBreakdown(canvasId, wrapId, filteredTxns, field, heading, barC
   var ctx  = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, totalW, H);
-
-  ctx.fillStyle    = '#333';
-  ctx.font         = '700 11px "IBM Plex Sans", system-ui, sans-serif';
-  ctx.textAlign    = 'left';
-  ctx.textBaseline = 'top';
-  ctx.fillText(heading, L_PAD, 8);
 
   var maxV  = byItem[items[0]] || 1;
   var total = 0;
@@ -8185,19 +8189,19 @@ function drawHorizBreakdown(canvasId, wrapId, filteredTxns, field, heading, barC
 }
 
 function drawLessonsCategoryChart(filteredTxns) {
-  lessonsCatChartState = drawHorizBreakdown('lessons-cat-canvas', 'lessons-cat-chart-wrap', filteredTxns, 'category', 'CATEGORY BREAKDOWN', '#c62828');
+  lessonsCatChartState = drawHorizBreakdown('lessons-cat-canvas', 'lessons-cat-chart-wrap', filteredTxns, 'category', '#c62828');
 }
 
 function drawLessonsPayeeChart(filteredTxns) {
-  lessonsPayeeChartState = drawHorizBreakdown('lessons-payee-canvas', 'lessons-payee-chart-wrap', filteredTxns, 'payee', 'PAYEE BREAKDOWN', '#c62828');
+  lessonsPayeeChartState = drawHorizBreakdown('lessons-payee-canvas', 'lessons-payee-chart-wrap', filteredTxns, 'payee', '#c62828');
 }
 
 function drawLeverageCategoryChart(filteredTxns) {
-  leverageCatChartState = drawHorizBreakdown('leverage-cat-canvas', 'leverage-cat-chart-wrap', filteredTxns, 'category', 'CATEGORY BREAKDOWN', '#1565c0');
+  leverageCatChartState = drawHorizBreakdown('leverage-cat-canvas', 'leverage-cat-chart-wrap', filteredTxns, 'category', '#1565c0');
 }
 
 function drawLeveragePayeeChart(filteredTxns) {
-  leveragePayeeChartState = drawHorizBreakdown('leverage-payee-canvas', 'leverage-payee-chart-wrap', filteredTxns, 'payee', 'PAYEE BREAKDOWN', '#1565c0');
+  leveragePayeeChartState = drawHorizBreakdown('leverage-payee-canvas', 'leverage-payee-chart-wrap', filteredTxns, 'payee', '#1565c0');
 }
 
 function buildAndShowLessonsTt(clientX, clientY, title, txns, amtColor) {
@@ -9711,7 +9715,7 @@ function populateAcctHistoryFilter() {
   allAccts.sort(function(a, b) { return a.name.localeCompare(b.name); });
   sel.innerHTML = '';
   var pseudoGrp = document.createElement('optgroup');
-  pseudoGrp.label = 'Pseudo-Accounts';
+  pseudoGrp.label = 'Account Groups';
   for (var pgi = 0; pgi < AH_PSEUDO_GROUPS.length; pgi++) {
     var pg = AH_PSEUDO_GROUPS[pgi];
     if (!ahPseudoGroupAcctIds(pg).length) continue;
@@ -10074,8 +10078,11 @@ function showAcctHistoryTooltip(clientX, clientY, idx) {
   if (s.floatValues && s.floatValues[idx] !== null) {
     floatLine = '<div class="ahtt-float">Float Ratio: ' + s.floatValues[idx].toFixed(1) + '%</div>';
   }
+  // Match the balance line's own color (orange for debt accounts, blue otherwise) instead of
+  // always showing blue, which read wrong against an orange chart.
+  var balColor = s.isDebtAcct ? '#f59e0b' : '#4285f4';
   tt.innerHTML = '<div class="ahtt-month">' + mo + '</div>'
-               + '<div class="ahtt-balance">' + balStr + '</div>'
+               + '<div class="ahtt-balance" style="color:' + balColor + '">' + balStr + '</div>'
                + floatLine;
   tt.style.display = 'block';
   var vw = window.innerWidth, vh = window.innerHeight;
