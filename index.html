@@ -2811,8 +2811,7 @@ function rpRenderPanel(id) {
       var idx = this.getAttribute('data-qidx');
       if (idx === 'custom') return;
       var q2 = quicks[parseInt(idx, 10)];
-      rpPending[id] = { start: q2.from, end: q2.to };
-      rpRenderPanel(id);
+      rpApply(id, q2.from, q2.to);
     });
   }
   // Press on a month to start a drag (see the document-level mousemove/mouseup and
