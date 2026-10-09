@@ -241,9 +241,6 @@ body {
 .rp-month.in-range { background: #e8ecfb; color: #333; }
 .rp-month.selected { background: #1a1a2e; color: #fff; font-weight: 700; }
 .rp-month.disabled { color: #ddd; cursor: default; }
-.rp-month.today { text-decoration: underline; text-decoration-color: #4285f4; text-underline-offset: 3px; }
-.rp-month.projected:not(.selected):not(.in-range) { color: #e65100; }
-.rp-legend { display: flex; gap: 14px; font-size: 11px; color: #999; margin: 8px 0 12px; }
 .rp-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 16px; border-top: 1px solid #eee; margin-top: auto; }
 .rp-cancel-btn, .rp-apply-btn { padding: 6px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; }
 .rp-cancel-btn { background: #fff; border: 1px solid #ccc; color: #555; }
@@ -2549,6 +2546,7 @@ var RP_CONFIGS = {
 var rpKeysCache = {};
 var rpPending   = {};
 var rpOpenId    = null;
+var rpDrag      = null; // { id, anchor } while a grid-cell drag is in progress
 
 function rpTitleMonth(k) {
   var p = k.split('-');
@@ -2664,7 +2662,7 @@ function rpRenderPanel(id) {
   } else {
     hdrHtml = '<div class="rp-main-hdr">' + rpTitleMonth(pend.start) + '<span class="rp-main-hdr-n">pick an end month</span></div>';
   }
-  hdrHtml += '<div class="rp-main-hint">Click a start month, then an end month &mdash; or pick a quick range</div>';
+  hdrHtml += '<div class="rp-main-hint">Drag across months to pick a range &mdash; or pick a quick range</div>';
 
   var minYear = parseInt(keys[0].slice(0, 4), 10), maxYear = parseInt(keys[keys.length - 1].slice(0, 4), 10);
   var rangeLo = pend.start, rangeHi = pend.end;
@@ -2677,8 +2675,6 @@ function rpRenderPanel(id) {
       var available = keys.indexOf(mk) !== -1;
       var cls = 'rp-month';
       if (!available) cls += ' disabled';
-      if (mk === todayKey) cls += ' today';
-      if (available && mk > todayKey) cls += ' projected';
       if (available && (mk === pend.start || mk === pend.end)) cls += ' selected';
       else if (available && rangeLo && rangeHi && mk > rangeLo && mk < rangeHi) cls += ' in-range';
       gridHtml += '<div class="' + cls + '"' + (available ? ' data-mk="' + mk + '"' : '') + '>' + rpMonthAbbr(m) + '</div>';
@@ -2686,7 +2682,6 @@ function rpRenderPanel(id) {
     gridHtml += '</div>';
   }
 
-  var legendHtml = '<div class="rp-legend"><span>&bull; This month</span><span style="color:#e65100">&#8943; Projected</span></div>';
   var footerHtml = '<div class="rp-footer">'
     + '<button type="button" class="rp-cancel-btn" data-rp-cancel>Cancel</button>'
     + '<button type="button" class="rp-apply-btn" data-rp-apply' + (!(pend.start && pend.end) ? ' disabled' : '') + '>Apply</button>'
@@ -2694,7 +2689,7 @@ function rpRenderPanel(id) {
 
   panel.innerHTML = quickHtml
     + '<div class="rp-main-col-wrap">'
-    +   '<div class="rp-main-col">' + hdrHtml + gridHtml + legendHtml + '</div>'
+    +   '<div class="rp-main-col">' + hdrHtml + gridHtml + '</div>'
     +   footerHtml
     + '</div>';
 
@@ -2708,20 +2703,17 @@ function rpRenderPanel(id) {
       rpRenderPanel(id);
     });
   }
+  // Press on a month to start a drag (see the document-level mousemove/mouseup listeners
+  // wired once at init) -- dragging across months extends the range live, and releasing
+  // anywhere applies it immediately. A plain click (press + release with no movement) is
+  // just a 1-month drag, so it still works as a single-month pick.
   var mCells = panel.querySelectorAll('.rp-month[data-mk]');
   for (var mi = 0; mi < mCells.length; mi++) {
-    mCells[mi].addEventListener('click', function() {
+    mCells[mi].addEventListener('mousedown', function(e) {
+      e.preventDefault();
       var mk = this.getAttribute('data-mk');
-      var p = rpPending[id];
-      if (!p.start || (p.start && p.end)) {
-        rpPending[id] = { start: mk, end: null };
-      } else if (mk === p.start) {
-        rpPending[id] = { start: mk, end: mk };
-      } else if (mk < p.start) {
-        rpPending[id] = { start: mk, end: p.start };
-      } else {
-        rpPending[id] = { start: p.start, end: mk };
-      }
+      rpPending[id] = { start: mk, end: mk };
+      rpDrag = { id: id, anchor: mk };
       rpRenderPanel(id);
     });
   }
@@ -12414,6 +12406,33 @@ document.addEventListener('DOMContentLoaded', function() {
       if (path[i].classList && path[i].classList.contains('rp-wrap')) return;
     }
     rpClose();
+  });
+
+  // Date range picker drag: mousedown on a month cell (above) sets rpDrag and a 1-month
+  // pending range; while the button stays down, follow the cursor with elementFromPoint
+  // (not per-cell mousemove listeners, since rpRenderPanel replaces the grid's DOM on every
+  // update) and extend the pending range to whichever month is under it; mouseup anywhere
+  // applies the final range immediately, wherever the drag ends.
+  document.addEventListener('mousemove', function(e) {
+    if (!rpDrag) return;
+    var el = document.elementFromPoint(e.clientX, e.clientY);
+    var cell = el && el.closest ? el.closest('.rp-month[data-mk]') : null;
+    if (!cell) return;
+    var mk = cell.getAttribute('data-mk');
+    var anchor = rpDrag.anchor;
+    var newStart = mk < anchor ? mk : anchor;
+    var newEnd   = mk < anchor ? anchor : mk;
+    var p = rpPending[rpDrag.id];
+    if (p && p.start === newStart && p.end === newEnd) return;
+    rpPending[rpDrag.id] = { start: newStart, end: newEnd };
+    rpRenderPanel(rpDrag.id);
+  });
+  document.addEventListener('mouseup', function() {
+    if (!rpDrag) return;
+    var id2 = rpDrag.id;
+    var p = rpPending[id2];
+    rpDrag = null;
+    if (p && p.start && p.end) rpApply(id2, p.start, p.end);
   });
 
   document.getElementById('cf-show-glidepath').checked = !!state.showGlidepath;
