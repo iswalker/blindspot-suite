@@ -671,73 +671,76 @@ select, input { font-family: inherit; }
 .ahtt-float   { font-size: 13px; font-weight: 600; color: #f59e0b; margin-top: 3px; }
 
 /* ---- Reconcile tab ---- */
+#rec-cards-row, #rec-cards-row2 {
+  display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.rec-card {
+  background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 10px 14px;
+}
+.rec-card-hdr {
+  font-size: 11px; font-weight: 700; color: #333; letter-spacing: .06em;
+  text-transform: uppercase; margin-bottom: 8px;
+}
+#rec-bank-card { display: flex; flex-direction: column; align-items: flex-start; }
+#rec-date-card { display: flex; flex-direction: column; }
+#rec-go-card { display: flex; align-items: center; gap: 10px; }
 #reconcile-acct-group, #plaid-acct-group {
   font-size: 13px; color: #555;
-  background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 5px 12px;
+  display: flex; align-items: center; gap: 8px;
 }
-#reconcile-acct-group { display: flex; align-items: center; gap: 8px; }
-#plaid-acct-group { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+#plaid-acct-group { flex-direction: column; align-items: flex-start; gap: 6px; }
 .plaid-acct-top { display: flex; align-items: center; gap: 6px; }
-.plaid-acct-mgmt { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.plaid-acct-dates { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #555; }
-.plaid-acct-dates label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-.plaid-acct-dates input[type="date"] {
-  font-size: 13px; border: 1px solid #ccc; border-radius: 4px;
-  padding: 3px 6px; background: #fafafa; cursor: pointer; color: #333;
-}
-.plaid-date-sep { color: #aaa; }
+.plaid-acct-mgmt { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 #reconcile-acct-group label, #plaid-acct-group label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 #reconcile-acct-group select, #plaid-acct-group select {
   font-size: 13px; border: 1px solid #ccc; border-radius: 4px;
   padding: 3px 6px; background: #fafafa; cursor: pointer; min-width: 200px;
 }
 #reconcile-acct-sel { width: 230px; }
-#rec-controls-row {
-  display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap;
-  margin-bottom: 8px;
-}
-.rec-vs-lbl, .rec-or-lbl { font-size: 13px; color: #aaa; }
+.rec-vs-lbl { font-size: 13px; color: #aaa; align-self: center; }
+.rec-or-lbl { font-size: 13px; color: #aaa; display: block; margin: 4px 0; }
 #plaid-acct-remove-btn, #plaid-acct-rename-btn {
   padding: 4px 8px; background: none; border: 1px solid #ccc; border-radius: 4px;
   font-size: 12px; cursor: pointer; color: #999; line-height: 1;
 }
 #plaid-acct-remove-btn:hover { border-color: #c62828; color: #c62828; }
-#plaid-acct-rename-btn:hover { border-color: #4285f4; color: #4285f4; }
+#plaid-acct-rename-btn:hover { border-color: #1a1a2e; color: #1a1a2e; }
 #plaid-acct-sel-wrap { display: flex; align-items: center; gap: 6px; }
 #plaid-rename-row { display: flex; align-items: center; gap: 6px; }
 #plaid-rename-input {
-  font-size: 13px; border: 1px solid #4285f4; border-radius: 4px;
+  font-size: 13px; border: 1px solid #1a1a2e; border-radius: 4px;
   padding: 3px 8px; width: 200px; outline: none;
 }
 #plaid-rename-save-btn {
-  padding: 4px 10px; background: #1a73e8; color: #fff; border: none;
+  padding: 4px 10px; background: #1a1a2e; color: #fff; border: none;
   border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: 600;
 }
-#plaid-rename-save-btn:hover { background: #1557b0; }
+#plaid-rename-save-btn:hover { background: #33334d; }
 #plaid-rename-cancel-btn {
   padding: 4px 8px; background: none; border: 1px solid #ccc;
   border-radius: 4px; font-size: 13px; cursor: pointer; color: #666;
 }
 #plaid-rename-cancel-btn:hover { border-color: #999; }
 #reconcile-upload-btn {
-  padding: 6px 14px; background: #4285f4; color: #fff; border: none; border-radius: 6px;
+  padding: 6px 14px; background: #fff; color: #555; border: 1px solid #ccc; border-radius: 6px;
   font-size: 13px; cursor: pointer; font-weight: 500; white-space: nowrap;
 }
-#reconcile-upload-btn:hover { background: #3367d6; }
+#reconcile-upload-btn:hover { background: #f0f0ec; }
 #reconcile-go-btn {
-  padding: 6px 16px; background: #1a73e8; color: #fff; border: none; border-radius: 6px;
-  font-size: 13px; cursor: pointer; font-weight: 600; white-space: nowrap;
+  padding: 8px 20px; background: #1a1a2e; color: #fff; border: none; border-radius: 6px;
+  font-size: 14px; cursor: pointer; font-weight: 600; white-space: nowrap;
 }
-#reconcile-go-btn:hover { background: #1557b0; }
+#reconcile-go-btn:hover { background: #33334d; }
 #plaid-secret-input {
   font-size: 13px; border: 1px solid #ccc; border-radius: 6px;
   padding: 5px 10px; width: 200px; background: #fff;
 }
 #plaid-connect-btn {
-  padding: 6px 14px; background: #00b274; color: #fff; border: none; border-radius: 6px;
+  padding: 6px 14px; background: #fff; color: #555; border: 1px solid #ccc; border-radius: 6px;
   font-size: 13px; cursor: pointer; font-weight: 500; white-space: nowrap;
 }
-#plaid-connect-btn:hover { background: #009960; }
+#plaid-connect-btn:hover { background: #f0f0ec; }
 #plaid-status-msg { font-size: 13px; color: #555; }
 #reconcile-status { padding: 12px 20px 4px; font-size: 14px; min-height: 36px; }
 .rec-ok   { color: #2e7d32; font-weight: 600; }
@@ -1094,10 +1097,9 @@ td.hbt-num:last-child { width: 13%; }
 #lessons-breakdown-row .lw-chart-wrap { flex: 1; min-width: 0; margin-bottom: 0; }
 
 /* ---- Leverage speedometers ---- */
-#leverage-speedo-hdr { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
-#leverage-speedo-hdr label { font-size: 12px; color: #666; white-space: nowrap; }
+#leverage-speedo-month-wrap { font-size: 12px; color: #666; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
 #leverage-speedo-month-sel { font-size: 12px; padding: 3px 6px; border: 1px solid #ddd; border-radius: 5px; color: #333; }
-#leverage-acct-ideas { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+#leverage-acct-ideas { align-items: center; gap: 6px; flex-wrap: wrap; }
 .leverage-acct-idea-lbl { font-size: 11px; color: #999; }
 .leverage-acct-idea-tag {
   font-size: 11px; font-weight: 600; color: #666;
@@ -1484,14 +1486,17 @@ td.hbt-num:last-child { width: 13%; }
   #lessons-txn-table th, #lessons-txn-table td,
   #leverage-txn-table th, #leverage-txn-table td { padding: 8px 10px; font-size: 12px; }
 
-  /* Reconcile controls stack */
-  #rec-controls-row { flex-direction: column; align-items: stretch; gap: 10px; }
+  /* Reconcile cards stack */
+  #rec-cards-row, #rec-cards-row2 { flex-direction: column; align-items: stretch; gap: 10px; }
   .rec-vs-lbl, .rec-or-lbl { text-align: center; }
-  #reconcile-acct-group, #plaid-acct-group { width: 100%; }
+  .rec-card { width: 100%; box-sizing: border-box; }
   #reconcile-acct-group select, #plaid-acct-group select { width: 100%; min-width: 0; }
+  #reconcile-acct-sel { width: 100%; }
   .plaid-acct-mgmt { flex-direction: column; align-items: stretch; }
   .plaid-acct-mgmt label { width: 100%; }
   #plaid-secret-input { width: 100%; }
+  #reconcile-upload-btn { width: 100%; }
+  #rec-go-card { flex-direction: column; align-items: stretch; text-align: center; }
 
   /* POS widget header wraps cleanly */
   #leverage-pos-hdr { flex-direction: column; align-items: stretch; }
@@ -1912,6 +1917,7 @@ td.hbt-num:last-child { width: 13%; }
           <button type="button" class="rp-btn" id="leverage-range-btn"></button>
           <div class="rp-panel" id="leverage-range-panel" style="display:none"></div>
         </div>
+        <label id="leverage-speedo-month-wrap" style="display:none">Speedometer Month <select id="leverage-speedo-month-sel"></select></label>
         <label class="ios-toggle-wrap">
           <input type="checkbox" id="leverage-exclude-tracking">
           <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
@@ -1927,11 +1933,8 @@ td.hbt-num:last-child { width: 13%; }
           <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
           Include TBD Matches
         </label>
+        <span id="leverage-acct-ideas" style="display:none"></span>
       </div>
-    </div>
-    <div id="leverage-speedo-hdr" style="display:none">
-      <label>Speedometer Month <select id="leverage-speedo-month-sel"></select></label>
-      <span id="leverage-acct-ideas"></span>
     </div>
     <div id="leverage-speedo-row" style="display:none"></div>
     <div id="leverage-summary-row">
@@ -1992,16 +1995,16 @@ td.hbt-num:last-child { width: 13%; }
           <button type="button" class="rp-btn" id="acct-history-range-btn"></button>
           <div class="rp-panel" id="acct-history-range-panel" style="display:none"></div>
         </div>
-        <label class="ios-toggle-wrap">
-          <input type="checkbox" id="ah-match-lw-exclusions">
-          <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
-          Match Liquid Balance Exclusion Settings
-        </label>
       </div>
       <div id="acct-history-acct-wrap">
         <div id="acct-history-acct-group">
           <label>Account <select id="acct-history-sel"></select></label>
         </div>
+        <label class="ios-toggle-wrap">
+          <input type="checkbox" id="ah-match-lw-exclusions">
+          <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+          Match Liquid Balance Exclusion Settings
+        </label>
       </div>
     </div>
     <div id="ah-chart-row">
@@ -2034,41 +2037,51 @@ td.hbt-num:last-child { width: 13%; }
   <div id="reconcile-panel" style="display:none">
     <div class="panel-hdr">
     </div>
-    <div id="rec-controls-row">
-      <div id="reconcile-acct-group">
-        <label>YNAB Account <select id="reconcile-acct-sel"></select></label>
+    <div id="rec-cards-row">
+      <div class="rec-card">
+        <div class="rec-card-hdr">YNAB Account</div>
+        <div id="reconcile-acct-group">
+          <select id="reconcile-acct-sel"></select>
+        </div>
       </div>
       <span class="rec-vs-lbl">vs.</span>
-      <div id="plaid-acct-group">
-        <div class="plaid-acct-top">
-          <div id="plaid-acct-sel-wrap">
-            <label>Plaid Account <select id="plaid-acct-sel"><option value="">&#8212; none &#8212;</option></select></label>
-            <button id="plaid-acct-remove-btn" title="Remove selected Plaid connection" style="display:none">&#10005;</button>
-            <button id="plaid-acct-rename-btn" title="Rename this connection" style="display:none">&#9998; Rename</button>
+      <div class="rec-card" id="rec-bank-card">
+        <div class="rec-card-hdr">Bank Account</div>
+        <div id="plaid-acct-group">
+          <div class="plaid-acct-top">
+            <div id="plaid-acct-sel-wrap">
+              <label>Plaid Account <select id="plaid-acct-sel"><option value="">&#8212; none &#8212;</option></select></label>
+              <button id="plaid-acct-remove-btn" title="Remove selected Plaid connection" style="display:none">&#10005;</button>
+              <button id="plaid-acct-rename-btn" title="Rename this connection" style="display:none">&#9998; Rename</button>
+            </div>
+            <div id="plaid-rename-row" style="display:none">
+              <input type="text" id="plaid-rename-input" placeholder="Account name">
+              <button id="plaid-rename-save-btn">&#10003;</button>
+              <button id="plaid-rename-cancel-btn">&#10005;</button>
+            </div>
           </div>
-          <div id="plaid-rename-row" style="display:none">
-            <input type="text" id="plaid-rename-input" placeholder="Account name">
-            <button id="plaid-rename-save-btn">&#10003;</button>
-            <button id="plaid-rename-cancel-btn">&#10005;</button>
+          <div class="plaid-acct-mgmt">
+            <label>Plaid secret key <input type="password" id="plaid-secret-input" placeholder="Enter secret key"></label>
+            <button id="plaid-connect-btn">+ Connect New Account</button>
           </div>
         </div>
-        <div class="plaid-acct-mgmt">
-          <label>Plaid secret key <input type="password" id="plaid-secret-input" placeholder="Enter secret key"></label>
-          <button id="plaid-connect-btn">+ Connect New Account</button>
-        </div>
-        <div class="plaid-acct-dates">
-          <label>Date range
-            <input type="date" id="plaid-start-date">
-            <span class="plaid-date-sep">&#8211;</span>
-            <input type="date" id="plaid-end-date">
-          </label>
+        <span class="rec-or-lbl">or</span>
+        <input type="file" id="reconcile-csv-input" accept=".csv" style="display:none">
+        <button id="reconcile-upload-btn">&#8679; Upload CSV</button>
+      </div>
+    </div>
+    <div id="rec-cards-row2">
+      <div class="rec-card" id="rec-date-card">
+        <div class="rec-card-hdr">Date Range</div>
+        <div class="rp-wrap" id="reconcile-range-group">
+          <button type="button" class="rp-btn" id="reconcile-range-btn"></button>
+          <div class="rp-panel" id="reconcile-range-panel" style="display:none"></div>
         </div>
       </div>
-      <span class="rec-or-lbl">or</span>
-      <input type="file" id="reconcile-csv-input" accept=".csv" style="display:none">
-      <button id="reconcile-upload-btn">&#8679; Upload CSV</button>
-      <button id="reconcile-go-btn">Reconcile &#9654;</button>
-      <span id="plaid-status-msg"></span>
+      <div class="rec-card" id="rec-go-card">
+        <button id="reconcile-go-btn">Reconcile &#9654;</button>
+        <span id="plaid-status-msg"></span>
+      </div>
     </div>
     <div id="reconcile-status"></div>
     <div id="reconcile-results" style="display:none">
@@ -2389,6 +2402,8 @@ var state = {
   acctHistoryFromKey:  localStorage.getItem('sel-acct-history-from') || null,
   acctHistoryToKey:    localStorage.getItem('sel-acct-history-to')   || null,
   reconcileAcctId:     localStorage.getItem('sel-reconcile-acct')    || null,
+  reconcileFromKey:    localStorage.getItem('sel-reconcile-from')    || null,
+  reconcileToKey:      localStorage.getItem('sel-reconcile-to')      || null,
   leveragePosAcctLabel: localStorage.getItem('sel-leverage-pos-acct') || null,
   rowShading:          localStorage.getItem('row-shading') !== '0',
   catSortMode:         localStorage.getItem('cat-sort') || 'ynab',
@@ -2530,7 +2545,8 @@ var RP_CONFIGS = {
   nw:             { btnId: 'nw-range-btn',        panelId: 'nw-range-panel',        fromField: 'nwFromKey',         toField: 'nwToKey',         fromLS: 'sel-nw-from',        toLS: 'sel-nw-to',        render: function() { renderNetWorth(); } },
   lessons:        { btnId: 'lessons-range-btn',   panelId: 'lessons-range-panel',   fromField: 'lessonsFromKey',    toField: 'lessonsToKey',    fromLS: 'sel-lessons-from',   toLS: 'sel-lessons-to',   render: function() { renderLessonsLearned(); } },
   leverage:       { btnId: 'leverage-range-btn',  panelId: 'leverage-range-panel',  fromField: 'leverageFromKey',   toField: 'leverageToKey',   fromLS: 'sel-leverage-from',  toLS: 'sel-leverage-to',  render: function() { renderLeverage(); } },
-  'acct-history': { btnId: 'acct-history-range-btn', panelId: 'acct-history-range-panel', fromField: 'acctHistoryFromKey', toField: 'acctHistoryToKey', fromLS: 'sel-acct-history-from', toLS: 'sel-acct-history-to', render: function() { renderAccountHistory(); } }
+  'acct-history': { btnId: 'acct-history-range-btn', panelId: 'acct-history-range-panel', fromField: 'acctHistoryFromKey', toField: 'acctHistoryToKey', fromLS: 'sel-acct-history-from', toLS: 'sel-acct-history-to', render: function() { renderAccountHistory(); } },
+  reconcile:      { btnId: 'reconcile-range-btn',  panelId: 'reconcile-range-panel',  fromField: 'reconcileFromKey',   toField: 'reconcileToKey',   fromLS: 'sel-reconcile-from',  toLS: 'sel-reconcile-to',  render: function() {} }
 };
 var rpKeysCache = {};
 var rpPending   = {};
@@ -8950,7 +8966,8 @@ function populateSpeedoMonthPicker(acctIds) {
 
 function renderLeverageSpeedometers() {
   var row = document.getElementById('leverage-speedo-row');
-  var hdr = document.getElementById('leverage-speedo-hdr');
+  var monthWrap = document.getElementById('leverage-speedo-month-wrap');
+  var ideasElVis = document.getElementById('leverage-acct-ideas');
   if (!row) return;
   leverageSpeedoTxns = {};
   var cfgs = (state.catConfig || []).filter(function(c) {
@@ -8963,14 +8980,16 @@ function renderLeverageSpeedometers() {
   });
   if (!cfgs.length) {
     row.style.display = 'none'; row.innerHTML = '';
-    if (hdr) hdr.style.display = 'none';
+    if (monthWrap) monthWrap.style.display = 'none';
+    if (ideasElVis) ideasElVis.style.display = 'none';
     return;
   }
   // Split into full (has account or payee) and no-source configs (ideas)
   var fullCfgs = cfgs.filter(function(c) { return !!(c.id || ''); });
   var ideaCfgs = cfgs.filter(function(c) { return !(c.id || ''); });
 
-  if (hdr) hdr.style.display = '';
+  if (monthWrap) monthWrap.style.display = '';
+  if (ideasElVis) ideasElVis.style.display = 'flex';
   row.style.display = fullCfgs.length ? '' : 'none';
 
   // Determine the "as-of" date from the month picker
@@ -10649,9 +10668,45 @@ function runReconcile() {
   resultsEl.style.display = '';
 }
 
+// Reconcile's own Date Range picker, same shared rp-* component every other tab uses. Unlike
+// the Liquid Balances default (last full month, excluding the current partial one), Reconcile
+// defaults to including the current month -- it's comparing against a live bank feed, not a
+// closed budget period -- so defaultTo is simply today's month.
+function populateReconcileRangeFilter() {
+  if (!state.data) return;
+  var keys = lwAllKeys();
+  if (!keys.length) return;
+  var todayKey = dtKey(new Date());
+  var toIdx = keys.indexOf(todayKey);
+  var defaultTo = toIdx !== -1 ? todayKey : keys[keys.length - 1];
+  if (toIdx === -1) toIdx = keys.length - 1;
+  var defaultFrom = keys[Math.max(0, toIdx - 5)];
+  state.reconcileFromKey = state.reconcileFromKey && keys.indexOf(state.reconcileFromKey) !== -1 ? state.reconcileFromKey : defaultFrom;
+  state.reconcileToKey   = state.reconcileToKey   && keys.indexOf(state.reconcileToKey)   !== -1 ? state.reconcileToKey   : defaultTo;
+  rpKeysCache.reconcile = keys;
+  rpSetButtonLabel('reconcile');
+}
+
+// The actual YYYY-MM-DD bounds the Plaid fetch (and any other day-granular consumer) needs,
+// derived from the month-granular picker above: the 1st of the From month through the last day
+// of the To month, capped at today so a range including the current month doesn't ask Plaid for
+// future dates.
+function reconcileDateBounds() {
+  var fromKey = state.reconcileFromKey, toKey = state.reconcileToKey;
+  if (!fromKey || !toKey) return null;
+  var now = new Date();
+  var todayStr = dtKey(now) + '-' + String(now.getDate()).padStart(2, '0');
+  var tp = toKey.split('-');
+  var toLastDay = new Date(parseInt(tp[0], 10), parseInt(tp[1], 10), 0).getDate();
+  var toDateStr = toKey + '-' + String(toLastDay).padStart(2, '0');
+  if (toDateStr > todayStr) toDateStr = todayStr;
+  return { start: fromKey + '-01', end: toDateStr };
+}
+
 function renderReconcile() {
   var d = state.data;
   if (!d || !d.allAccountsInfo) return;
+  populateReconcileRangeFilter();
   var sel = document.getElementById('reconcile-acct-sel');
   if (!sel) return;
   var accounts = [];
@@ -10742,11 +10797,11 @@ function loadPlaidConnection(accessToken, accountId, acctName) {
         loadPlaidConnection(accessToken, data.accounts[0].account_id, data.accounts[0].name);
       }).catch(function(err) { statusEl.textContent = '⚠ ' + err.message; });
   }
-  var startDate = document.getElementById('plaid-start-date').value;
-  var endDate   = document.getElementById('plaid-end-date').value;
+  var bounds = reconcileDateBounds();
+  if (!bounds) { statusEl.textContent = 'Pick a date range first.'; return; }
   var txnPayload = {
     client_id: PLAID_CLIENT_ID, secret: secret, access_token: accessToken,
-    start_date: startDate, end_date: endDate,
+    start_date: bounds.start, end_date: bounds.end,
     options: { account_ids: [accountId], count: 100 }
   };
   var maxAttempts = 6, attempt = 0;
@@ -12257,7 +12312,9 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
-  // Date range pickers (one cohesive control per tab, shared implementation)
+  // Date range pickers (one cohesive control per tab, shared implementation). Hovering the
+  // wrap (button + the popover panel it contains) opens/closes it automatically; a click
+  // still works too, as a fallback for touch devices that have no hover.
   Object.keys(RP_CONFIGS).forEach(function(rpId) {
     var cfg = RP_CONFIGS[rpId];
     var btn = document.getElementById(cfg.btnId);
@@ -12265,6 +12322,20 @@ document.addEventListener('DOMContentLoaded', function() {
       e.stopPropagation();
       rpOpen(rpId);
     });
+    var wrap = btn ? btn.closest('.rp-wrap') : null;
+    if (wrap) {
+      wrap.addEventListener('mouseenter', function() {
+        // rpOpen() toggles closed when called again on an already-open picker (for the click
+        // handler above) -- guard so re-entering an already-open wrap doesn't close it.
+        if (rpOpenId !== rpId) rpOpen(rpId);
+      });
+      wrap.addEventListener('mouseleave', function() {
+        // Don't close out from under an in-progress drag selection (see the drag listeners
+        // below) just because the cursor briefly left the wrap's bounds mid-drag.
+        if (rpDrag && rpDrag.id === rpId) return;
+        if (rpOpenId === rpId) rpClose();
+      });
+    }
   });
   document.addEventListener('click', function(e) {
     if (!rpOpenId) return;
@@ -12603,15 +12674,6 @@ document.addEventListener('DOMContentLoaded', function() {
     renderAccountHistory();
   });
 
-  // Reconcile — default Plaid date range: start of month 5 months ago → today
-  (function() {
-    var today = new Date();
-    var endVal = today.toISOString().slice(0, 10);
-    var startDt = new Date(today.getFullYear(), today.getMonth() - 5, 1);
-    var startVal = startDt.toISOString().slice(0, 10);
-    document.getElementById('plaid-start-date').value = startVal;
-    document.getElementById('plaid-end-date').value   = endVal;
-  })();
   document.getElementById('reconcile-upload-btn').addEventListener('click', function() {
     document.getElementById('reconcile-csv-input').click();
   });
