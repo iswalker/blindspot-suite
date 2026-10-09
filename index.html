@@ -308,6 +308,11 @@ td:first-child::after, th:first-child::after {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* The Average column packs a percent, a +/- deviation note, and a shaded pill value into one
+   cell -- noticeably more content than a plain month column -- so under table-layout:fixed it
+   needs its own explicit width rather than sharing the even split the month columns get,
+   otherwise its content overflows the cell. */
+#main-table .avg-th, #main-table .avg-col { width: 230px; }
 body.hscroll-active #main-table td:first-child::after, body.hscroll-active #main-table th:first-child::after { display: block; }
 body.hscroll-active #main-table td:first-child, body.hscroll-active #main-table th:first-child { border-right: none; background: #fff; }
 
