@@ -657,6 +657,7 @@ select, input { font-family: inherit; }
 .ah-summary-value { font-size: 18px; font-weight: 700; color: #222; }
 .ah-summary-value.pos { color: #2e7d32; }
 .ah-summary-value.neg { color: #c62828; }
+.ah-summary-value.debt { color: #f59e0b; }
 .ah-summary-sub { font-size: 11px; color: #999; margin-top: 2px; }
 #acct-history-tooltip {
   position: fixed; display: none;
@@ -10245,17 +10246,22 @@ function renderAccountHistoryBody(d, acctId) {
       var p = k.split('-');
       return MONTH_ABBR[parseInt(p[1], 10) - 1].charAt(0) + MONTH_ABBR[parseInt(p[1], 10) - 1].slice(1).toLowerCase() + ' ' + parseInt(p[2], 10);
     }
+    // Debt/Liability accounts chart their magnitude (see isDebtAcctAH), so these are really
+    // negative balances -- show them that way here too, in the chart's own orange, instead of
+    // a misleadingly "positive" green dollar figure.
+    function ahSummaryText(v) { return isDebtAcctAH ? lwFmtPlain(-v) : lwFmtSigned(v); }
+    function ahSummaryCls(v)  { return isDebtAcctAH ? 'debt' : (v >= 0 ? 'pos' : 'neg'); }
     var curEl = document.getElementById('ah-summary-current');
-    curEl.textContent = lwFmtSigned(curVal);
-    curEl.className   = 'ah-summary-value ' + (curVal >= 0 ? 'pos' : 'neg');
-    document.getElementById('ah-summary-avg').textContent = lwFmtPlain(avgVal2);
+    curEl.textContent = ahSummaryText(curVal);
+    curEl.className   = 'ah-summary-value ' + ahSummaryCls(curVal);
+    document.getElementById('ah-summary-avg').textContent = lwFmtPlain(isDebtAcctAH ? -avgVal2 : avgVal2);
     var lowEl = document.getElementById('ah-summary-low');
-    lowEl.textContent = lwFmtSigned(lowVal);
-    lowEl.className   = 'ah-summary-value ' + (lowVal >= 0 ? 'pos' : 'neg');
+    lowEl.textContent = ahSummaryText(lowVal);
+    lowEl.className   = 'ah-summary-value ' + ahSummaryCls(lowVal);
     document.getElementById('ah-summary-low-date').textContent = ahShortDate(keys[lowIdx]);
     var highEl = document.getElementById('ah-summary-high');
-    highEl.textContent = lwFmtSigned(highVal);
-    highEl.className   = 'ah-summary-value ' + (highVal >= 0 ? 'pos' : 'neg');
+    highEl.textContent = ahSummaryText(highVal);
+    highEl.className   = 'ah-summary-value ' + ahSummaryCls(highVal);
     document.getElementById('ah-summary-high-date').textContent = ahShortDate(keys[highIdx]);
   } else if (summaryRow) {
     summaryRow.style.display = 'none';
