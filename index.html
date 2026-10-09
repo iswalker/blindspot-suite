@@ -10850,22 +10850,35 @@ function renderHome() {
     }
     var pMarginGrpName = applyMarginGroupOverride();
     var pGivingGrpName = applyGivingGroupOverride();
+    // Every EXPENSE_GROUPS figure below has EXCLUDE_CAT_NAMES subtracted, matching how the
+    // Cash Flow tab builds gVals for every group (not just the ones folded into Total
+    // Expenses) -- pulling straight from d.groupPivot here would double-count any excluded
+    // category still sitting in Distribution/Margin/Giving/Non-Liquid Savings.
+    var pGroupVal = function(grp) {
+      var v = (d.groupPivot[grp] || {})[curKey] || 0;
+      var exmap = d.catPivot[grp] || {};
+      for (var pgexcn in EXCLUDE_CAT_NAMES) {
+        if (exmap[pgexcn]) v -= (exmap[pgexcn][curKey] || 0);
+      }
+      return v;
+    };
     var pDist = 0;
-    for (var pdgi = 0; pdgi < DIST_GROUPS.length; pdgi++) pDist += (d.groupPivot[DIST_GROUPS[pdgi]] || {})[curKey] || 0;
-    var pMargin = (d.groupPivot[pMarginGrpName]    || {})[curKey] || 0;
-    var pGiving = (d.groupPivot[pGivingGrpName]    || {})[curKey] || 0;
+    for (var pdgi = 0; pdgi < DIST_GROUPS.length; pdgi++) pDist += pGroupVal(DIST_GROUPS[pdgi]);
+    var pMargin = pGroupVal(pMarginGrpName);
+    var pGiving = pGroupVal(pGivingGrpName);
     var pTotalExp = 0;
     for (var pei = 0; pei < EXPENSE_GROUPS.length; pei++) {
       var peg = EXPENSE_GROUPS[pei];
       if (DIST_GROUPS.indexOf(peg) !== -1 || peg === pMarginGrpName || peg === 'Non-Liquid Savings' || peg === pGivingGrpName) continue;
-      var pev = (d.groupPivot[peg] || {})[curKey] || 0;
-      var pexmap = d.catPivot[peg] || {};
-      for (var pexcn in EXCLUDE_CAT_NAMES) {
-        if (pexmap[pexcn]) pev -= (pexmap[pexcn][curKey] || 0);
-      }
-      pTotalExp += pev;
+      pTotalExp += pGroupVal(peg);
     }
-    var pNonLiqSavings = (d.groupPivot['Non-Liquid Savings'] || {})[curKey] || 0;
+    // Uncategorised spend counts as real outflow on the Cash Flow tab's Net Liquid (it reduces
+    // cash flow alongside Base Operations rather than sitting unexplained) -- match that here.
+    var pUncatList = ((d.reconTxns || {})['@UNCAT'] || {})[curKey] || [];
+    var pUncat = 0;
+    for (var pui = 0; pui < pUncatList.length; pui++) pUncat += pUncatList[pui].amt;
+    pTotalExp -= pUncat;
+    var pNonLiqSavings = pGroupVal('Non-Liquid Savings');
     plannedNetLiq = pIncome - pDist - pTotalExp - pMargin - pGiving - pNonLiqSavings;
   }
   var plannedLiqEl = document.getElementById('home-planned-liq-value');
