@@ -2103,20 +2103,9 @@ td.hbt-num:last-child { width: 13%; }
     <div id="home-panel-body">
     <div class="home-metric-row">
       <div class="home-metric-card" style="cursor:default">
-        <div class="home-metric-label">Cash Basis</div>
-        <div class="home-metric-sub" id="home-cash-basis-sub"></div>
-        <div style="display:flex;align-items:baseline;justify-content:flex-end;gap:6px">
-          <div class="home-metric-value na" id="home-cash-basis-value">&#8212;</div>
-          <div id="home-cash-basis-range" style="display:none;font-size:12px;color:#bbb;font-weight:400;white-space:nowrap"></div>
-        </div>
-      </div>
-      <div class="home-metric-card" style="cursor:default">
-        <div class="home-metric-label">Float Ratio</div>
-        <div class="home-metric-sub">Balance leverage &amp; tension</div>
-        <div style="display:flex;align-items:baseline;justify-content:flex-end;gap:6px">
-          <div class="home-metric-value na" id="home-float-ratio-value">&#8212;</div>
-          <div id="home-float-ratio-range" style="display:none;font-size:12px;color:#bbb;font-weight:400;white-space:nowrap"></div>
-        </div>
+        <div class="home-metric-label">Liquid Balances</div>
+        <div class="home-metric-sub" id="home-liquid-balances-sub"></div>
+        <div class="home-metric-value na" id="home-liquid-balances-value">&#8212;</div>
       </div>
       <div class="home-metric-op" style="color:#ccc">|</div>
       <div class="home-metric-card" id="home-actionable-card">
@@ -6637,6 +6626,24 @@ function lwAllKeys() {
   return Object.keys(keysSet).sort();
 }
 
+// The exact figure the Liquid Balances tab's own headline shows right now: Assets + Debts,
+// summed with acctBalanceAt (so exclusion toggles apply) over the tab's own selected accounts,
+// at the latest date in the tab's own selected range. Other tabs call this instead of
+// re-deriving their own approximation, so they always show the same number the Liquid
+// Balances tab itself displays.
+function lwCurrentNetLiquid() {
+  var d = state.data;
+  if (!d || !d.lwAccounts) return null;
+  var accts = d.lwAccounts.filter(function(a) { return state.lwSelectedAccounts[a.id]; });
+  var allK  = lwAllKeys();
+  var keys  = allK.filter(function(k) { return k >= state.lwFromKey && k <= state.lwToKey; });
+  if (!keys.length) return null;
+  var lastKey = keys[keys.length - 1];
+  var net = 0;
+  for (var i = 0; i < accts.length; i++) net += acctBalanceAt(accts[i].id, lastKey);
+  return net;
+}
+
 function populateLwRangeFilter() {
   if (!state.data || !state.data.acctTxns) return;
   var keys = lwAllKeys();
@@ -11111,30 +11118,10 @@ function renderHome() {
     }
   }
 
-  // Last Month Net Liquid Worth: sum of all liquid account balances at end of previous month
-  var allLwK2 = lwAllKeys();
-  var lwPrevKey = null;
-  for (var lwki = allLwK2.length - 1; lwki >= 0; lwki--) {
-    if (allLwK2[lwki] < curKey) { lwPrevKey = allLwK2[lwki]; break; }
-  }
-  // Current month liquid balances (sum of current account balances)
-  var lastMonthLiqWorth = null;
-  if (d.lwAccounts && d.lwAccounts.length > 0) {
-    lastMonthLiqWorth = 0;
-    for (var lwai = 0; lwai < d.lwAccounts.length; lwai++) {
-      lastMonthLiqWorth += d.lwAccounts[lwai].balance;
-    }
-  }
-  var liqEl = null; // removed — values now shown in Liquidity Delta parenthetical
-  if (liqEl) {
-    if (lastMonthLiqWorth === null) {
-      liqEl.innerHTML = '&#8212;'; liqEl.className = 'home-metric-value na';
-    } else {
-      liqEl.textContent = (lastMonthLiqWorth < 0 ? '-' : '') + '$' +
-        Math.abs(lastMonthLiqWorth).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-      liqEl.className = 'home-metric-value' + (lastMonthLiqWorth < 0 ? ' delta-neg' : '');
-    }
-  }
+  // Liquid Balances -- the exact figure the Liquid Balances tab itself currently shows (see
+  // lwCurrentNetLiquid), reused here so the Home tab's card and the Liquidity Delta numerator
+  // below both always match it exactly.
+  var liquidBalancesNow = lwCurrentNetLiquid();
 
   // Net Liquid Target + Liquidity Gap (from Config.csv)
   var liqGapCfg = null;
@@ -11144,13 +11131,13 @@ function renderHome() {
   var liqGapEl = document.getElementById('home-liq-gap-value');
   var liqGapRangeEl = document.getElementById('home-liq-gap-range');
   if (liqGapEl) {
-    if (lastMonthLiqWorth !== null && liqGapCfg && liqGapCfg.amount !== null) {
-      var liqGap = lastMonthLiqWorth - liqGapCfg.amount;
+    if (liquidBalancesNow !== null && liqGapCfg && liqGapCfg.amount !== null) {
+      var liqGap = liquidBalancesNow - liqGapCfg.amount;
       liqGapEl.textContent = (liqGap < 0 ? '-' : '+') + '$' +
         Math.abs(liqGap).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
       liqGapEl.className = 'home-metric-value' + (liqGap < 0 ? ' delta-neg' : '');
       if (liqGapRangeEl) {
-        var fmtLiqBal = '$' + Math.abs(lastMonthLiqWorth).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        var fmtLiqBal = '$' + Math.abs(liquidBalancesNow).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
         var fmtLiqTgt = '$' + liqGapCfg.amount.toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 0});
         liqGapRangeEl.textContent = '(' + fmtLiqBal + ' / ' + fmtLiqTgt + ')';
         liqGapRangeEl.style.display = '';
@@ -11189,136 +11176,19 @@ function renderHome() {
     }
   }
 
-  // Cash Basis + Float Ratio (with intra-month min/max)
-  var cashBasisCfg = null;
-  for (var fci = 0; fci < state.catConfig.length; fci++) {
-    if (state.catConfig[fci].usedFor === 'Cash Basis') { cashBasisCfg = state.catConfig[fci]; break; }
-  }
-
-  var floatRatio = null, cashBasisBal = null;
-  var floatMinRatio = null, floatMaxRatio = null;
-  var cashBasisMin = null, cashBasisMax = null;
-  var cbId = cashBasisCfg ? cashBasisCfg.id : null;
-
-  if (cbId && d.allAccountsInfo && d.allAccountsInfo[cbId]) {
-    cashBasisBal = d.allAccountsInfo[cbId].balance;
-
-    var cbSubEl = document.getElementById('home-cash-basis-sub');
-    if (cbSubEl) cbSubEl.textContent = 'Available for transfers';
-
-    // Credit card IDs + current total
-    var creditAcctIds = [];
-    var creditCurrentTotal = 0;
-    if (d.lwAccounts) {
-      for (var fri = 0; fri < d.lwAccounts.length; fri++) {
-        if (d.lwAccounts[fri].type === 'creditCard') {
-          creditAcctIds.push(d.lwAccounts[fri].id);
-          creditCurrentTotal += d.lwAccounts[fri].balance;
-        }
-      }
-    }
-
-    if (cashBasisBal > 0) floatRatio = Math.abs(creditCurrentTotal) / cashBasisBal * 100;
-
-    // Intra-month min/max via daily transaction walk
-    if (d.acctTxnsList) {
-      var allCbIds = [cbId].concat(creditAcctIds);
-
-      // Net amount of each account's transactions in curKey
-      var mmNet = {};
-      for (var mmi = 0; mmi < allCbIds.length; mmi++) {
-        var mmId = allCbIds[mmi];
-        var mmTxns = d.acctTxnsList[mmId] || [];
-        var mmSum = 0;
-        for (var mmj = 0; mmj < mmTxns.length; mmj++) {
-          if (mmTxns[mmj].date.slice(0, 7) === curKey) mmSum += mmTxns[mmj].amount;
-        }
-        mmNet[mmId] = mmSum;
-      }
-
-      // Start-of-month running balances
-      var runBals = {};
-      for (var rbi = 0; rbi < allCbIds.length; rbi++) {
-        var rbId = allCbIds[rbi];
-        runBals[rbId] = acctBalanceAt(rbId, curKey) - mmNet[rbId];
-      }
-
-      // Cash Basis min/max initialised to start-of-month value
-      cashBasisMin = runBals[cbId]; cashBasisMax = runBals[cbId];
-
-      // Float Ratio at start of month
-      var sbCredit = 0;
-      for (var sci = 0; sci < creditAcctIds.length; sci++) sbCredit += runBals[creditAcctIds[sci]];
-      var startRatio = runBals[cbId] > 0 ? Math.abs(sbCredit) / runBals[cbId] * 100 : null;
-      floatMinRatio = startRatio; floatMaxRatio = startRatio;
-
-      // Collect + sort all relevant transactions in curKey
-      var allFloatTxns = [];
-      for (var afi = 0; afi < allCbIds.length; afi++) {
-        var afId = allCbIds[afi];
-        var afTxns = d.acctTxnsList[afId] || [];
-        for (var afj = 0; afj < afTxns.length; afj++) {
-          if (afTxns[afj].date.slice(0, 7) === curKey)
-            allFloatTxns.push({ date: afTxns[afj].date, id: afId, amount: afTxns[afj].amount });
-        }
-      }
-      allFloatTxns.sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
-
-      // Walk forward, update running balances, track min/max
-      for (var ati = 0; ati < allFloatTxns.length; ati++) {
-        var atx = allFloatTxns[ati];
-        runBals[atx.id] += atx.amount;
-        if (atx.id === cbId) {
-          if (runBals[cbId] < cashBasisMin) cashBasisMin = runBals[cbId];
-          if (runBals[cbId] > cashBasisMax) cashBasisMax = runBals[cbId];
-        }
-        var curCreditSum = 0;
-        for (var csi = 0; csi < creditAcctIds.length; csi++) curCreditSum += runBals[creditAcctIds[csi]];
-        var curRatio = runBals[cbId] > 0 ? Math.abs(curCreditSum) / runBals[cbId] * 100 : null;
-        if (curRatio !== null) {
-          if (floatMinRatio === null || curRatio < floatMinRatio) floatMinRatio = curRatio;
-          if (floatMaxRatio === null || curRatio > floatMaxRatio) floatMaxRatio = curRatio;
-        }
-      }
-    }
-  }
-
-  // Render Cash Basis
-  var cashBasisValEl = document.getElementById('home-cash-basis-value');
-  var cashBasisRngEl = document.getElementById('home-cash-basis-range');
-  if (cashBasisValEl) {
-    if (cashBasisBal !== null) {
-      cashBasisValEl.textContent = '$' + Math.abs(cashBasisBal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-      cashBasisValEl.className = 'home-metric-value' + (cashBasisBal < 0 ? ' delta-neg' : '');
+  // Render Liquid Balances -- same figure as liquidBalancesNow above, computed once and
+  // reused for both this card and the Liquidity Delta numerator.
+  var liquidBalancesValEl = document.getElementById('home-liquid-balances-value');
+  var liquidBalancesSubEl = document.getElementById('home-liquid-balances-sub');
+  if (liquidBalancesSubEl) liquidBalancesSubEl.textContent = 'From the Liquid Balances tab';
+  if (liquidBalancesValEl) {
+    if (liquidBalancesNow !== null) {
+      liquidBalancesValEl.textContent = (liquidBalancesNow < 0 ? '-' : '') + '$' +
+        Math.abs(liquidBalancesNow).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      liquidBalancesValEl.className = 'home-metric-value' + (liquidBalancesNow < 0 ? ' delta-neg' : '');
     } else {
-      cashBasisValEl.innerHTML = '&#8212;'; cashBasisValEl.className = 'home-metric-value na';
+      liquidBalancesValEl.innerHTML = '&#8212;'; liquidBalancesValEl.className = 'home-metric-value na';
     }
-  }
-  if (cashBasisRngEl) {
-    if (cashBasisMin !== null && cashBasisMax !== null) {
-      cashBasisRngEl.textContent = '($' +
-        Math.abs(cashBasisMin).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' / $' +
-        Math.abs(cashBasisMax).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ')';
-      cashBasisRngEl.style.display = '';
-    } else { cashBasisRngEl.style.display = 'none'; }
-  }
-
-  // Render Float Ratio
-  var floatRatioEl = document.getElementById('home-float-ratio-value');
-  var floatRangeEl = document.getElementById('home-float-ratio-range');
-  if (floatRatioEl) {
-    if (floatRatio !== null) {
-      floatRatioEl.textContent = floatRatio.toFixed(1) + '%';
-      floatRatioEl.className = 'home-metric-value' + (floatRatio >= 100 ? ' delta-neg' : '');
-    } else {
-      floatRatioEl.innerHTML = '&#8212;'; floatRatioEl.className = 'home-metric-value na';
-    }
-  }
-  if (floatRangeEl) {
-    if (floatMinRatio !== null && floatMaxRatio !== null) {
-      floatRangeEl.textContent = '(' + floatMinRatio.toFixed(1) + '% / ' + floatMaxRatio.toFixed(1) + '%)';
-      floatRangeEl.style.display = '';
-    } else { floatRangeEl.style.display = 'none'; }
   }
 
   // First pass: collect per-group data and accumulate grand totals
