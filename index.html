@@ -722,6 +722,7 @@ select, input { font-family: inherit; }
   border-radius: 4px; font-size: 13px; cursor: pointer; color: #666;
 }
 .plaid-rename-cancel-btn:hover { border-color: #999; }
+.rec-upload-row { display: flex; align-items: center; gap: 8px; }
 #reconcile-upload-btn {
   padding: 6px 14px; background: #fff; color: #555; border: 1px solid #ccc; border-radius: 6px;
   font-size: 13px; cursor: pointer; font-weight: 500; white-space: nowrap;
@@ -1187,16 +1188,20 @@ td.hbt-num:last-child { width: 13%; }
 #leverage-pos-widget { flex: 0 1 25%; min-width: 220px; background: #fff; border: 1px solid #ddd; border-radius: 10px; padding: 12px 16px; }
 #leverage-pos-hdr { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 #leverage-pos-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #333; flex: 1; white-space: nowrap; }
-#leverage-pos-help-icon {
+/* Shared small circular "?" hover-help icon (Leverage's Debit Card widget, Reconcile's CSV
+   column hint, etc.) -- hovering shows the tooltip wired up by whoever placed it. */
+.plaid-help-icon {
   width: 18px; height: 18px; border-radius: 50%; background: #eee; color: #888;
   font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center;
   cursor: help; flex-shrink: 0;
 }
-#leverage-pos-help-icon:hover { background: #ddd; color: #555; }
-#leverage-pos-connect-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
-#leverage-pos-secret { font-size: 13px; padding: 5px 8px; border: 1px solid #ddd; border-radius: 5px; width: 130px; }
-#leverage-pos-fetch-btn { font-size: 12px; padding: 5px 10px; background: #1565c0; color: #fff; border: none; border-radius: 5px; cursor: pointer; white-space: nowrap; }
-#leverage-pos-fetch-btn:hover { background: #0d47a1; }
+.plaid-help-icon:hover { background: #ddd; color: #555; }
+/* Shared "nothing connected yet" controls -- Leverage's Debit Card widget and Reconcile's
+   Bank Account card both use this same secret-key-input + action-button layout. */
+.plaid-connect-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.plaid-connect-secret { font-size: 13px; padding: 5px 8px; border: 1px solid #ddd; border-radius: 5px; width: 130px; }
+.plaid-connect-action-btn { font-size: 12px; padding: 5px 10px; background: #1565c0; color: #fff; border: none; border-radius: 5px; cursor: pointer; white-space: nowrap; }
+.plaid-connect-action-btn:hover { background: #0d47a1; }
 #leverage-pos-acct-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
 #leverage-pos-acct-sel { font-size: 12px; padding: 4px 6px; border: 1px solid #ddd; border-radius: 5px; max-width: 160px; }
 #leverage-pos-status { font-size: 11px; color: #888; display: block; margin-bottom: 4px; }
@@ -1522,13 +1527,15 @@ td.hbt-num:last-child { width: 13%; }
   #reconcile-acct-group select, #plaid-acct-group select { width: 100%; min-width: 0; }
   #reconcile-acct-sel { width: 100%; }
   .plaid-secret-panel { position: fixed; left: 10px; right: 10px; top: auto; width: auto; }
-  #reconcile-upload-btn { width: 100%; }
+  .rec-upload-row { width: 100%; }
+  #reconcile-upload-btn { flex: 1; }
   #rec-go-card { flex-direction: column; align-items: stretch; text-align: center; }
 
-  /* POS widget controls stack cleanly */
-  #leverage-pos-connect-row { flex-direction: column; align-items: stretch; }
-  #leverage-pos-secret { width: 100%; box-sizing: border-box; }
-  #leverage-pos-fetch-btn { width: 100%; }
+  /* "Nothing connected yet" controls stack cleanly (Leverage's Debit Card widget + Reconcile's
+     Bank Account card) */
+  .plaid-connect-row { flex-direction: column; align-items: stretch; }
+  .plaid-connect-secret { width: 100%; box-sizing: border-box; }
+  .plaid-connect-action-btn { width: 100%; }
   #leverage-pos-acct-row { flex-direction: column; align-items: stretch; }
 
   /* Drive picker modal sized for phones */
@@ -1984,11 +1991,11 @@ td.hbt-num:last-child { width: 13%; }
       <div id="leverage-pos-widget">
         <div id="leverage-pos-hdr">
           <span id="leverage-pos-title">Debit Card Transactions</span>
-          <span id="leverage-pos-help-icon" title="Hover for configured debit card names">?</span>
+          <span id="leverage-pos-help-icon" class="plaid-help-icon" title="Hover for configured debit card names">?</span>
         </div>
-        <div id="leverage-pos-connect-row">
-          <input type="password" id="leverage-pos-secret" placeholder="Plaid secret key">
-          <button id="leverage-pos-fetch-btn">Fetch &#9654;</button>
+        <div id="leverage-pos-connect-row" class="plaid-connect-row">
+          <input type="password" id="leverage-pos-secret" class="plaid-connect-secret" placeholder="Plaid secret key">
+          <button id="leverage-pos-fetch-btn" class="plaid-connect-action-btn">Fetch &#9654;</button>
         </div>
         <div id="leverage-pos-acct-row" style="display:none">
           <select id="leverage-pos-acct-sel"></select>
@@ -2089,6 +2096,10 @@ td.hbt-num:last-child { width: 13%; }
       <div class="rec-card" id="rec-bank-card">
         <div class="rec-card-hdr">Bank Account</div>
         <div id="plaid-acct-group">
+          <div id="plaid-connect-row" class="plaid-connect-row" style="display:none">
+            <input type="password" id="plaid-connect-secret" class="plaid-connect-secret" placeholder="Plaid secret key">
+            <button id="plaid-first-connect-btn" class="plaid-connect-action-btn">Connect</button>
+          </div>
           <div class="plaid-acct-top">
             <div id="plaid-acct-sel-wrap">
               <label>Plaid Account <select id="plaid-acct-sel"><option value="">&#8212; none &#8212;</option></select></label>
@@ -2114,8 +2125,11 @@ td.hbt-num:last-child { width: 13%; }
           </div>
         </div>
         <span class="rec-or-lbl">or</span>
-        <input type="file" id="reconcile-csv-input" accept=".csv" style="display:none">
-        <button id="reconcile-upload-btn">&#8679; Upload CSV</button>
+        <div class="rec-upload-row">
+          <input type="file" id="reconcile-csv-input" accept=".csv" style="display:none">
+          <button id="reconcile-upload-btn">&#8679; Upload CSV</button>
+          <span id="reconcile-csv-help-icon" class="plaid-help-icon" title="Hover for expected CSV column names">?</span>
+        </div>
       </div>
       <div class="rec-card" id="rec-date-card">
         <div class="rec-card-hdr">Date Range</div>
@@ -5174,10 +5188,10 @@ function savePlaidSecret(v) {
   else localStorage.removeItem(PLAID_SECRET_KEY);
 }
 function syncPlaidSecretInputs(value) {
-  var r = document.getElementById('plaid-secret-input');
-  var l = document.getElementById('leverage-pos-secret');
-  if (r && !r.value) r.value = value;
-  if (l && !l.value) l.value = value;
+  ['plaid-secret-input', 'leverage-pos-secret', 'plaid-connect-secret'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el && !el.value) el.value = value;
+  });
 }
 var plaidSecretPendingCb = null; // onReady callback from the requirePlaidSecret() call that opened the popover
 // There's only one secret-entry popover in the DOM, shared by every "+ New" button (Reconcile's
@@ -10942,6 +10956,12 @@ function renderPlaidConnections() {
   if (sel) {
     var prev = sel.value;
     var conns = getPlaidConnections();
+    // Nothing connected yet -- match the Leverage Debit Card widget's "first connect" layout
+    // (just a secret key input + an action button) instead of an empty account dropdown.
+    var connectRow = document.getElementById('plaid-connect-row');
+    var acctTop     = document.querySelector('#plaid-acct-group .plaid-acct-top');
+    if (connectRow) connectRow.style.display = conns.length ? 'none' : '';
+    if (acctTop)    acctTop.style.display    = conns.length ? '' : 'none';
     sel.innerHTML = '<option value="">&#8212; none &#8212;</option>';
     conns.forEach(function(c) {
       var opt = document.createElement('option');
@@ -12477,23 +12497,23 @@ function init() {
 // ============================================================
 document.addEventListener('DOMContentLoaded', function() {
 
-  // Restore Plaid secret from localStorage and keep both inputs in sync
+  // Restore Plaid secret from localStorage and keep all inputs in sync
   var _storedSecret = getPlaidSecret();
   if (_storedSecret) syncPlaidSecretInputs(_storedSecret);
-  // The Leverage tab's secret field is still always visible, so typing into it saves
-  // immediately as before. The Reconcile popover's field (#plaid-secret-input) only persists
-  // when its own Save button is clicked (see requirePlaidSecret()) so that Cancel actually
-  // discards what was typed -- it still live-syncs the sibling field for convenience.
-  document.getElementById('leverage-pos-secret').addEventListener('input', function() {
-    var v = this.value.trim();
-    savePlaidSecret(v);
-    var other = document.getElementById('plaid-secret-input');
-    if (other && !other.value) other.value = v;
+  // The "nothing connected yet" secret fields (Leverage's widget and Reconcile's own) are
+  // always visible, so typing into either saves immediately. The shared popover's field
+  // (#plaid-secret-input) only persists when its own Save button is clicked (see
+  // requirePlaidSecret()) so that Cancel actually discards what was typed -- it still
+  // live-syncs the other fields for convenience.
+  ['leverage-pos-secret', 'plaid-connect-secret'].forEach(function(id) {
+    document.getElementById(id).addEventListener('input', function() {
+      var v = this.value.trim();
+      savePlaidSecret(v);
+      syncPlaidSecretInputs(v);
+    });
   });
   document.getElementById('plaid-secret-input').addEventListener('input', function() {
-    var v = this.value.trim();
-    var other = document.getElementById('leverage-pos-secret');
-    if (other && !other.value) other.value = v;
+    syncPlaidSecretInputs(this.value.trim());
   });
 
   // Date range pickers (one cohesive control per tab, shared implementation). Hovering the
@@ -12908,12 +12928,13 @@ document.addEventListener('DOMContentLoaded', function() {
     if (e.key === 'Escape') closeLeveragePosRename(false);
   });
 
-  // Help icon: hover shows the configured debit card names via the shared tooltip.
-  (function() {
-    var icon = document.getElementById('leverage-pos-help-icon');
+  // Wires a "?" help icon to show arbitrary HTML in the shared hover tooltip, positioned next
+  // to the cursor (flipped to the left when it would run off the right edge).
+  function wireHelpIconTooltip(iconId, htmlFn) {
+    var icon = document.getElementById(iconId);
     var tip  = document.getElementById('lw-tooltip');
     icon.addEventListener('mousemove', function(e) {
-      tip.innerHTML = '<div class="lwtt-label">' + escHtml(leveragePosHelpText()) + '</div>';
+      tip.innerHTML = htmlFn();
       tip.style.display = 'block';
       var tw = tip.offsetWidth;
       var tx = e.clientX + 14, ty = e.clientY - tip.offsetHeight / 2;
@@ -12923,7 +12944,28 @@ document.addEventListener('DOMContentLoaded', function() {
       tip.style.top  = ty + 'px';
     });
     icon.addEventListener('mouseleave', function() { tip.style.display = 'none'; });
-  })();
+  }
+
+  // Help icon: hover shows the configured debit card names via the shared tooltip.
+  wireHelpIconTooltip('leverage-pos-help-icon', function() {
+    return '<div class="lwtt-label">' + escHtml(leveragePosHelpText()) + '</div>';
+  });
+
+  // Help icon: hover shows the CSV column names the importer currently recognizes
+  // (kept in sync with detectCSVColumns()'s own keyword lists).
+  wireHelpIconTooltip('reconcile-csv-help-icon', function() {
+    return '<div style="max-width:260px">'
+      + '<div class="lwtt-month">Expected CSV columns</div>'
+      + '<div class="lwtt-hint" style="border-top:none;padding-top:0;margin-top:0;white-space:normal">Column names are matched case-insensitively, ignoring punctuation.</div>'
+      + '<div class="lwtt-divider"></div>'
+      + '<div class="lwtt-driver-row"><span class="lwtt-driver-name" style="font-weight:700;color:#333">Date</span></div>'
+      + '<div class="lwtt-driver-detail" style="white-space:normal">Date, Transaction Date, Post(ed) Date, Settle Date</div>'
+      + '<div class="lwtt-driver-row" style="margin-top:6px"><span class="lwtt-driver-name" style="font-weight:700;color:#333">Amount</span></div>'
+      + '<div class="lwtt-driver-detail" style="white-space:normal">Amount (signed), or separate Debit/Withdrawal + Credit/Deposit columns</div>'
+      + '<div class="lwtt-driver-row" style="margin-top:6px"><span class="lwtt-driver-name" style="font-weight:700;color:#333">Description</span> <span class="lwtt-driver-median">optional</span></div>'
+      + '<div class="lwtt-driver-detail" style="white-space:normal">Description, Payee, Merchant, Memo, Details, Name, Narrative</div>'
+      + '</div>';
+  });
 
   // Account History account selector
   document.getElementById('acct-history-sel').addEventListener('change', function() {
@@ -12968,6 +13010,14 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   document.getElementById('plaid-connect-btn').addEventListener('click', connectPlaid);
+  document.getElementById('plaid-first-connect-btn').addEventListener('click', function() {
+    var secret = document.getElementById('plaid-connect-secret').value.trim() || getPlaidSecret();
+    if (!secret) {
+      document.getElementById('plaid-status-msg').textContent = 'Enter Plaid secret key first.';
+      return;
+    }
+    doConnectPlaid(secret);
+  });
   document.getElementById('plaid-secret-save-btn').addEventListener('click', function() {
     var input = document.getElementById('plaid-secret-input');
     var v = input.value.trim();
