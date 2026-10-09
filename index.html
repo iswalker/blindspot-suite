@@ -9657,6 +9657,8 @@ var AH_PSEUDO_GROUPS = [
   { id: '__ah_all_credit__',      name: 'All Credit Accounts', isDebt: true,
     test: function(type) { return type === 'creditCard' || type === 'lineOfCredit'; } },
   { id: '__ah_all_cash__',        name: 'All Cash Accounts',   isDebt: false,
+    test: function(type) { return type === 'checking' || type === 'savings' || type === 'cash'; } },
+  { id: '__ah_all_assets__',      name: 'All Assets',          isDebt: false,
     test: function(type) { return !isDebtAcctType(type); } },
   { id: '__ah_all_liabilities__', name: 'All Liabilities',     isDebt: true,
     test: isDebtAcctType }
@@ -9732,6 +9734,35 @@ function fmtBalLabel(v) {
   else if (abs >= 1000)   s = '$' + (abs / 1000).toFixed(1) + 'k';
   else                    s = '$' + abs.toFixed(0);
   return v < 0 ? '-' + s : s;
+}
+
+// A translucent rounded-rect behind a right-aligned canvas text label, so it stays legible
+// over the chart's fill/gridlines/other series. Must be called with ctx.font and
+// ctx.textAlign('right')/ctx.textBaseline('alphabetic') already set to match the fillText
+// call it precedes, since it measures the text to size itself.
+function ahDrawLabelPill(ctx, text, rightX, baselineY) {
+  var m = ctx.measureText(text);
+  var w = m.width;
+  var ascent  = m.actualBoundingBoxAscent  || 8;
+  var descent = m.actualBoundingBoxDescent || 3;
+  var padX = 4, padY = 2, radius = 3;
+  var rx = rightX - w - padX, ry = baselineY - ascent - padY;
+  var rw = w + padX * 2, rh = ascent + descent + padY * 2;
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,0.78)';
+  ctx.beginPath();
+  ctx.moveTo(rx + radius, ry);
+  ctx.lineTo(rx + rw - radius, ry);
+  ctx.quadraticCurveTo(rx + rw, ry, rx + rw, ry + radius);
+  ctx.lineTo(rx + rw, ry + rh - radius);
+  ctx.quadraticCurveTo(rx + rw, ry + rh, rx + rw - radius, ry + rh);
+  ctx.lineTo(rx + radius, ry + rh);
+  ctx.quadraticCurveTo(rx, ry + rh, rx, ry + rh - radius);
+  ctx.lineTo(rx, ry + radius);
+  ctx.quadraticCurveTo(rx, ry, rx + radius, ry);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
 }
 
 function drawAcctHistoryChart(keys, values, hoveredIdx, floatValues, isDebtAcct) {
@@ -9896,11 +9927,14 @@ function drawAcctHistoryChart(keys, values, hoveredIdx, floatValues, isDebtAcct)
   ctx.lineTo(L_PAD + plotW, avgY);
   ctx.stroke();
   ctx.setLineDash([]);
-  ctx.fillStyle    = '#555';
   ctx.font         = '11px "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif';
   ctx.textAlign    = 'right';
   ctx.textBaseline = 'alphabetic';
-  ctx.fillText('Avg ' + fmtBalLabel(avgVal), L_PAD + plotW, Math.max(T_PAD + 10, avgY - 5));
+  var avgLabel = 'Avg ' + fmtBalLabel(avgVal);
+  var avgLabelY = Math.max(T_PAD + 10, avgY - 5);
+  ahDrawLabelPill(ctx, avgLabel, L_PAD + plotW, avgLabelY);
+  ctx.fillStyle = '#555';
+  ctx.fillText(avgLabel, L_PAD + plotW, avgLabelY);
 
   // Trend line — least-squares fit of balance over time, dashed in the balance line's own
   // color, labeled with the average $/month rate of change (e.g. "+$512/mo").
@@ -9932,13 +9966,15 @@ function drawAcctHistoryChart(keys, values, hoveredIdx, floatValues, isDebtAcct)
       ctx.stroke();
       ctx.setLineDash([]);
 
-      ctx.fillStyle    = seriesColor;
       ctx.font         = '11px "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.textAlign    = 'right';
       ctx.textBaseline = 'alphabetic';
       var trLabel = (trPerMonth >= 0 ? '+' : '-') + '$'
         + Math.round(Math.abs(trPerMonth)).toLocaleString('en-US') + '/mo';
-      ctx.fillText(trLabel, L_PAD + plotW, Math.max(T_PAD + 10, yAt(trY1) - 5));
+      var trLabelY = Math.max(T_PAD + 10, yAt(trY1) - 5);
+      ahDrawLabelPill(ctx, trLabel, L_PAD + plotW, trLabelY);
+      ctx.fillStyle = seriesColor;
+      ctx.fillText(trLabel, L_PAD + plotW, trLabelY);
     }
   }
 
