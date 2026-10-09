@@ -1750,31 +1750,6 @@ td.hbt-num:last-child { width: 13%; }
             </div>
             <span class="holding-warn" id="lw-holding-warn"></span>
           </div>
-          <div class="settings-tab-block" data-tab="acct-history">
-            <div class="settings-divider"></div>
-            <div class="settings-row">
-              <label class="ios-toggle-wrap">
-                <input type="checkbox" id="ah-exclude-distribution">
-                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
-                Exclude Distribution
-              </label>
-            </div>
-            <div class="settings-row">
-              <label class="ios-toggle-wrap">
-                <input type="checkbox" id="ah-exclude-budgeted">
-                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
-                Exclude Budgeted Expenses
-              </label>
-            </div>
-            <div class="settings-row">
-              <label class="ios-toggle-wrap">
-                <input type="checkbox" id="ah-exclude-tracking">
-                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
-                Exclude Tracking
-              </label>
-            </div>
-            <span class="holding-warn" id="ah-holding-warn"></span>
-          </div>
         </div>
       </div>
     </div>
@@ -1995,6 +1970,11 @@ td.hbt-num:last-child { width: 13%; }
           <button type="button" class="rp-btn" id="acct-history-range-btn"></button>
           <div class="rp-panel" id="acct-history-range-panel" style="display:none"></div>
         </div>
+        <label class="ios-toggle-wrap">
+          <input type="checkbox" id="ah-match-lw-exclusions">
+          <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+          Match Liquid Balance Exclusion Settings
+        </label>
       </div>
       <div id="acct-history-acct-wrap">
         <div id="acct-history-acct-group">
@@ -2379,6 +2359,7 @@ var state = {
   lwExcludeBudgeted:        localStorage.getItem('lw-exclude-budgeted') === '1',
   lwIncludeExceptionAccts:  localStorage.getItem('lw-include-exception-accts') !== '0',
   lwIncludePipeline:        localStorage.getItem('lw-include-pipeline') === '1',
+  ahMatchLwExclusions:      localStorage.getItem('ah-match-lw-exclusions') !== '0',
   leverageExcludeTracking:   localStorage.getItem('leverage-exclude-tracking') === '1',
   leverageExcludeForecasted: localStorage.getItem('leverage-exclude-forecasted') === '1',
   leverageIncludeTbd:        localStorage.getItem('leverage-include-tbd') === '1',
@@ -6643,26 +6624,21 @@ function populateLwRangeFilter() {
 function syncExclusionToggles() {
   var pairs = [
     ['lw-exclude-tracking',     'lwExcludeTracking'],
-    ['ah-exclude-tracking',     'lwExcludeTracking'],
     ['lw-exclude-distribution', 'lwExcludeDistribution'],
-    ['ah-exclude-distribution', 'lwExcludeDistribution'],
     ['lw-exclude-budgeted',     'lwExcludeBudgeted'],
-    ['ah-exclude-budgeted',     'lwExcludeBudgeted'],
     ['lw-include-exceptions',   'lwIncludeExceptionAccts'],
-    ['lw-include-pipeline',     'lwIncludePipeline']
+    ['lw-include-pipeline',     'lwIncludePipeline'],
+    ['ah-match-lw-exclusions',  'ahMatchLwExclusions']
   ];
   for (var i = 0; i < pairs.length; i++) {
     var el = document.getElementById(pairs[i][0]);
     if (el) el.checked = !!state[pairs[i][1]];
   }
-  // Without "<name> Holding" rows these two toggles have nothing to deduct and appear broken,
-  // which is what happens whenever the Config workbook has not loaded.
+  // Without "<name> Holding" rows this toggle has nothing to deduct and appears broken, which
+  // is what happens whenever the Config workbook has not loaded.
   var needsCfg = (state.lwExcludeDistribution || state.lwExcludeBudgeted) && lwHoldingRuleCount() === 0;
-  var warnIds  = ['lw-holding-warn', 'ah-holding-warn'];
-  for (var w = 0; w < warnIds.length; w++) {
-    var wEl = document.getElementById(warnIds[w]);
-    if (wEl) wEl.textContent = needsCfg ? '⚠ No "… Holding" keys loaded from Config — nothing to exclude' : '';
-  }
+  var lwWarnEl = document.getElementById('lw-holding-warn');
+  if (lwWarnEl) lwWarnEl.textContent = needsCfg ? '⚠ No "… Holding" keys loaded from Config — nothing to exclude' : '';
 }
 
 function populateLwAccountFilter() {
@@ -9636,6 +9612,22 @@ function populateAcctHistoryRangeFilter(availKeys, defaultFrom) {
   rpSetButtonLabel('acct-history');
 }
 
+// YNAB account types that represent a debt/liability balance (shown as a negative number) --
+// Account History flips these to their absolute value so a shrinking debt reads as the line
+// going down, instead of a smaller negative number reading as an "increase".
+function isDebtAcctType(type) {
+  return type === 'creditCard' || type === 'lineOfCredit' || type === 'mortgage'
+    || type === 'autoLoan' || type === 'studentLoan' || type === 'personalLoan'
+    || type === 'medicalDebt' || type === 'otherLiability' || type === 'otherDebt';
+}
+
+function resolveCashBasisAcctId() {
+  for (var i = 0; i < state.catConfig.length; i++) {
+    if (state.catConfig[i].usedFor === 'Cash Basis') return state.catConfig[i].id;
+  }
+  return null;
+}
+
 function populateAcctHistoryFilter() {
   var d = state.data;
   if (!d || !d.allAccountsInfo) return [];
@@ -9659,7 +9651,9 @@ function populateAcctHistoryFilter() {
   if (state.acctHistoryId && sel.querySelector('option[value="' + state.acctHistoryId + '"]')) {
     sel.value = state.acctHistoryId;
   } else if (allAccts.length > 0) {
-    sel.value           = allAccts[0].id;
+    var cashBasisAcctId = resolveCashBasisAcctId();
+    sel.value           = (cashBasisAcctId && sel.querySelector('option[value="' + cashBasisAcctId + '"]'))
+      ? cashBasisAcctId : allAccts[0].id;
     state.acctHistoryId = sel.value;
     localStorage.setItem('sel-acct-history-id', state.acctHistoryId);
   }
@@ -9676,10 +9670,15 @@ function fmtBalLabel(v) {
   return v < 0 ? '-' + s : s;
 }
 
-function drawAcctHistoryChart(keys, values, hoveredIdx, floatValues) {
+function drawAcctHistoryChart(keys, values, hoveredIdx, floatValues, isDebtAcct) {
   var canvas = document.getElementById('acct-history-canvas');
   var wrap   = document.getElementById('acct-history-chart-wrap');
   if (!canvas || !wrap || !keys.length) return;
+
+  // Debt/liability accounts are shown as magnitude (see isDebtAcctType), shaded in the same
+  // orange used for the Float Ratio overlay so a shrinking debt reads as the line going down.
+  var seriesColor     = isDebtAcct ? '#f59e0b' : '#4285f4';
+  var seriesFillColor = isDebtAcct ? 'rgba(245,158,11,0.12)' : 'rgba(66,133,244,0.12)';
 
   var dpr    = window.devicePixelRatio || 1;
   var totalW = wrap.clientWidth || 800;
@@ -9805,7 +9804,7 @@ function drawAcctHistoryChart(keys, values, hoveredIdx, floatValues) {
   ctx.lineTo(L_PAD + plotW, yAt(values[n - 1]));
   ctx.lineTo(L_PAD + plotW, T_PAD + plotH);
   ctx.closePath();
-  ctx.fillStyle = 'rgba(66,133,244,0.12)';
+  ctx.fillStyle = seriesFillColor;
   ctx.fill();
 
   // Line
@@ -9816,7 +9815,7 @@ function drawAcctHistoryChart(keys, values, hoveredIdx, floatValues) {
     ctx.lineTo(xAt(pi), yAt(values[pi]));
   }
   ctx.lineTo(L_PAD + plotW, yAt(values[n - 1]));
-  ctx.strokeStyle = '#4285f4';
+  ctx.strokeStyle = seriesColor;
   ctx.lineWidth   = 2;
   ctx.stroke();
 
@@ -9838,6 +9837,46 @@ function drawAcctHistoryChart(keys, values, hoveredIdx, floatValues) {
   ctx.textAlign    = 'right';
   ctx.textBaseline = 'alphabetic';
   ctx.fillText('Avg ' + fmtBalLabel(avgVal), L_PAD + plotW, Math.max(T_PAD + 10, avgY - 5));
+
+  // Trend line — least-squares fit of balance over time, dashed in the balance line's own
+  // color, labeled with the average $/month rate of change (e.g. "+$512/mo").
+  if (n > 1) {
+    var trSumX = 0, trSumY = 0, trSumXY = 0, trSumXX = 0;
+    for (var tri = 0; tri < n; tri++) {
+      trSumX += tri; trSumY += values[tri]; trSumXY += tri * values[tri]; trSumXX += tri * tri;
+    }
+    var trDenom = n * trSumXX - trSumX * trSumX;
+    if (trDenom !== 0) {
+      var trSlope     = (n * trSumXY - trSumX * trSumY) / trDenom;
+      var trIntercept = (trSumY - trSlope * trSumX) / n;
+      var trY0 = trIntercept;
+      var trY1 = trIntercept + trSlope * (n - 1);
+      function ahKeyToDate(k) {
+        var p = k.split('-');
+        return new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, p.length === 3 ? parseInt(p[2], 10) : 1);
+      }
+      var trSpanDays  = (ahKeyToDate(keys[n - 1]) - ahKeyToDate(keys[0])) / 86400000;
+      var trStepDays  = trSpanDays / (n - 1);
+      var trPerMonth  = trStepDays > 0 ? trSlope / trStepDays * 30.4368 : trSlope * 30.4368;
+
+      ctx.strokeStyle = seriesColor;
+      ctx.lineWidth   = 1.5;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.moveTo(L_PAD, yAt(trY0));
+      ctx.lineTo(L_PAD + plotW, yAt(trY1));
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle    = seriesColor;
+      ctx.font         = '11px "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.textAlign    = 'left';
+      ctx.textBaseline = 'alphabetic';
+      var trLabel = (trPerMonth >= 0 ? '+' : '-') + '$'
+        + Math.round(Math.abs(trPerMonth)).toLocaleString('en-US') + '/mo';
+      ctx.fillText(trLabel, L_PAD + 4, Math.max(T_PAD + 10, yAt(trY0) - 5));
+    }
+  }
 
   // Float ratio overlay
   if (hasFloat) {
@@ -9875,14 +9914,14 @@ function drawAcctHistoryChart(keys, values, hoveredIdx, floatValues) {
   if (hoveredIdx !== null && hoveredIdx >= 0 && hoveredIdx < n) {
     var hx = xAt(hoveredIdx);
     var hy = yAt(values[hoveredIdx]);
-    ctx.strokeStyle = 'rgba(66,133,244,0.35)';
+    ctx.strokeStyle = isDebtAcct ? 'rgba(245,158,11,0.35)' : 'rgba(66,133,244,0.35)';
     ctx.lineWidth   = 1;
     ctx.setLineDash([4, 3]);
     ctx.beginPath(); ctx.moveTo(hx, T_PAD); ctx.lineTo(hx, T_PAD + plotH); ctx.stroke();
     ctx.setLineDash([]);
     ctx.beginPath();
     ctx.arc(hx, hy, 5, 0, 2 * Math.PI);
-    ctx.fillStyle   = '#4285f4';
+    ctx.fillStyle   = seriesColor;
     ctx.fill();
     ctx.strokeStyle = '#fff';
     ctx.lineWidth   = 2;
@@ -9902,7 +9941,7 @@ function drawAcctHistoryChart(keys, values, hoveredIdx, floatValues) {
   acctHistoryChartState = {
     keys: keys, values: values, n: n,
     L_PAD: L_PAD, plotW: plotW, T_PAD: T_PAD, plotH: plotH,
-    floatValues: floatValues || null
+    floatValues: floatValues || null, isDebtAcct: !!isDebtAcct
   };
 }
 
@@ -9957,6 +9996,34 @@ function renderAccountHistory() {
   var acctId = state.acctHistoryId;
   if (!acctId) return;
 
+  // "Match Liquid Balance Exclusion Settings" off -> Account History ignores the Exclude
+  // Tracking/Distribution/Budgeted toggles regardless of what the Liquid Balances tab has them
+  // set to. Every exclusion-aware helper used below (acctBalanceAt, lwHoldingReserve, and the
+  // direct state reads further down this function) reads these three flags straight off
+  // state.*, so forcing them off for the duration of this render -- then restoring them in
+  // finally, however this function exits -- decouples the two tabs without threading an
+  // override parameter through every one of those helpers.
+  var ahSavedExclTracking     = state.lwExcludeTracking;
+  var ahSavedExclDistribution = state.lwExcludeDistribution;
+  var ahSavedExclBudgeted     = state.lwExcludeBudgeted;
+  if (!state.ahMatchLwExclusions) {
+    state.lwExcludeTracking     = false;
+    state.lwExcludeDistribution = false;
+    state.lwExcludeBudgeted     = false;
+  }
+  try {
+    renderAccountHistoryBody(d, acctId);
+  } finally {
+    state.lwExcludeTracking     = ahSavedExclTracking;
+    state.lwExcludeDistribution = ahSavedExclDistribution;
+    state.lwExcludeBudgeted     = ahSavedExclBudgeted;
+  }
+}
+
+// Body of renderAccountHistory, split out so the exclusion-override try/finally above wraps
+// every exit path -- including each early "no data for this range" return below -- with a
+// single finally block instead of having to duplicate the restore before each one.
+function renderAccountHistoryBody(d, acctId) {
   var allK = lwAllKeys();
   if (!allK.length) return;
 
@@ -10011,6 +10078,8 @@ function renderAccountHistory() {
     }
   }
 
+  var isDebtAcctAH = isDebtAcctType((d.allAccountsInfo[acctId] || {}).type);
+
   // Walk forward day by day accumulating balance
   var keys = [], values = [];
   var bal = startBal;
@@ -10025,7 +10094,7 @@ function renderAccountHistory() {
     // Reserve is a monthly Available figure, so it steps at month boundaries
     if (state.lwExcludeDistribution) shownBal -= lwHoldingReserve(acctId, ds.slice(0, 7));
     keys.push(ds);
-    values.push(shownBal);
+    values.push(isDebtAcctAH ? Math.abs(shownBal) : shownBal);
     curD.setDate(curD.getDate() + 1);
   }
 
@@ -10076,7 +10145,7 @@ function renderAccountHistory() {
     }
   }
 
-  drawAcctHistoryChart(keys, values, null, floatValues);
+  drawAcctHistoryChart(keys, values, null, floatValues, isDebtAcctAH);
 
   var summaryRow = document.getElementById('ah-summary-row');
   if (summaryRow && values.length) {
@@ -12375,8 +12444,11 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
 
-  // Exclude Tracking / Exclude Distribution are shared between the Liquid Balances and
-  // Account History tabs so the two views always reconcile against the same basis.
+  // Exclude Tracking / Exclude Distribution / Exclude Budgeted live on the Liquid Balances
+  // tab; Account History either mirrors them (its own "Match Liquid Balance Exclusion
+  // Settings" toggle on) or ignores them entirely (off) -- see the override in
+  // renderAccountHistory. Either way, a change on the LW tab's own toggles must still
+  // re-render Account History if it's the active tab, since "match" mode mirrors live.
   function applyExclusionToggle(key, storageKey, checked) {
     state[key] = checked;
     localStorage.setItem(storageKey, checked ? '1' : '0');
@@ -12391,17 +12463,14 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('lw-exclude-distribution').addEventListener('change', function() {
     applyExclusionToggle('lwExcludeDistribution', 'lw-exclude-distribution', this.checked);
   });
-  document.getElementById('ah-exclude-tracking').addEventListener('change', function() {
-    applyExclusionToggle('lwExcludeTracking', 'lw-exclude-tracking', this.checked);
-  });
-  document.getElementById('ah-exclude-distribution').addEventListener('change', function() {
-    applyExclusionToggle('lwExcludeDistribution', 'lw-exclude-distribution', this.checked);
-  });
   document.getElementById('lw-exclude-budgeted').addEventListener('change', function() {
     applyExclusionToggle('lwExcludeBudgeted', 'lw-exclude-budgeted', this.checked);
   });
-  document.getElementById('ah-exclude-budgeted').addEventListener('change', function() {
-    applyExclusionToggle('lwExcludeBudgeted', 'lw-exclude-budgeted', this.checked);
+  document.getElementById('ah-match-lw-exclusions').addEventListener('change', function() {
+    state.ahMatchLwExclusions = this.checked;
+    localStorage.setItem('ah-match-lw-exclusions', this.checked ? '1' : '0');
+    syncExclusionToggles();
+    renderAccountHistory();
   });
   document.getElementById('lw-include-exceptions').addEventListener('change', function() {
     state.lwIncludeExceptionAccts = this.checked;
@@ -12496,8 +12565,6 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('acct-history-sel').addEventListener('change', function() {
     state.acctHistoryId = this.value;
     localStorage.setItem('sel-acct-history-id', state.acctHistoryId);
-    state.acctHistoryFromKey = null;
-    localStorage.removeItem('sel-acct-history-from');
     renderAccountHistory();
   });
 
@@ -13175,12 +13242,12 @@ document.addEventListener('DOMContentLoaded', function() {
       var mx   = e.clientX - rect.left;
       if (mx < s.L_PAD || mx > s.L_PAD + s.plotW) { hideAcctHistoryTooltip(); return; }
       var best = s.n <= 1 ? 0 : Math.min(s.n - 1, Math.max(0, Math.floor((mx - s.L_PAD) * s.n / s.plotW)));
-      drawAcctHistoryChart(s.keys, s.values, best, s.floatValues);
+      drawAcctHistoryChart(s.keys, s.values, best, s.floatValues, s.isDebtAcct);
       showAcctHistoryTooltip(e.clientX, e.clientY, best);
     });
     ahCanvas.addEventListener('mouseleave', function() {
       var s = acctHistoryChartState;
-      if (s) drawAcctHistoryChart(s.keys, s.values, null, s.floatValues);
+      if (s) drawAcctHistoryChart(s.keys, s.values, null, s.floatValues, s.isDebtAcct);
       hideAcctHistoryTooltip();
     });
   })();
