@@ -9891,11 +9891,11 @@ function drawAcctHistoryChart(keys, values, hoveredIdx, floatValues, isDebtAcct)
 
       ctx.fillStyle    = seriesColor;
       ctx.font         = '11px "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.textAlign    = 'left';
+      ctx.textAlign    = 'right';
       ctx.textBaseline = 'alphabetic';
       var trLabel = (trPerMonth >= 0 ? '+' : '-') + '$'
         + Math.round(Math.abs(trPerMonth)).toLocaleString('en-US') + '/mo';
-      ctx.fillText(trLabel, L_PAD + 4, Math.max(T_PAD + 10, yAt(trY0) - 5));
+      ctx.fillText(trLabel, L_PAD + plotW, Math.max(T_PAD + 10, yAt(trY1) - 5));
     }
   }
 
