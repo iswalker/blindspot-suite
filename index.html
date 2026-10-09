@@ -642,17 +642,21 @@ select, input { font-family: inherit; }
   font-size: 13px; border: 1px solid #ccc; border-radius: 4px;
   padding: 3px 6px; background: #fafafa; cursor: pointer; min-width: 180px;
 }
-#acct-history-chart-wrap { margin-bottom: 0; }
+/* Metrics stack in one narrow column on the left; the chart takes the rest of the row's
+   width, same pattern as #lessons-breakdown-row's metrics-left + chart layout. */
+#ah-chart-row { display: flex; gap: 14px; align-items: stretch; margin-bottom: 14px; }
+#ah-chart-row .lw-chart-wrap { flex: 1; min-width: 0; margin-bottom: 0; }
 #ah-summary-row {
   display: flex;
+  flex-direction: column;
+  flex: 0 0 180px;
   background: #fff;
   border: 1px solid #ddd;
   border-radius: 6px;
-  margin-bottom: 14px;
   overflow: hidden;
 }
-.ah-summary-card { flex: 1; min-width: 0; padding: 12px 18px; border-right: 1px solid #eee; }
-.ah-summary-card:last-child { border-right: none; }
+.ah-summary-card { padding: 12px 18px; border-bottom: 1px solid #eee; }
+.ah-summary-card:last-child { border-bottom: none; }
 .ah-summary-label { font-size: 11px; font-weight: 700; color: #333; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 4px; }
 .ah-summary-value { font-size: 18px; font-weight: 700; color: #222; }
 .ah-summary-value.pos { color: #2e7d32; }
@@ -1498,6 +1502,13 @@ td.hbt-num:last-child { width: 13%; }
   #lw-range-wrap, #nw-range-wrap, #lessons-range-wrap,
   #leverage-range-wrap, #acct-history-range-wrap { flex-wrap: wrap; }
 
+  /* Account History: metrics column stacked beside the chart doesn't fit a phone screen --
+     go back to the metrics row stacked above the (now full-width) chart, cards side by side. */
+  #ah-chart-row { flex-direction: column; }
+  #ah-summary-row { flex-direction: row; flex: none; width: 100%; }
+  .ah-summary-card { flex: 1; min-width: 0; border-bottom: none; border-right: 1px solid #eee; }
+  .ah-summary-card:last-child { border-right: none; }
+
   /* Driver rows: the fixed-width value columns (needed for column alignment on desktop) don't
      fit beside the label on a narrow screen -- wrap them onto their own right-aligned line. */
   .nw-driver-row { flex-wrap: wrap; row-gap: 4px; }
@@ -1986,28 +1997,30 @@ td.hbt-num:last-child { width: 13%; }
         </div>
       </div>
     </div>
-    <div id="ah-summary-row" style="display:none">
-      <div class="ah-summary-card">
-        <div class="ah-summary-label">Current</div>
-        <div class="ah-summary-value" id="ah-summary-current"></div>
+    <div id="ah-chart-row">
+      <div id="ah-summary-row" style="display:none">
+        <div class="ah-summary-card">
+          <div class="ah-summary-label">Current</div>
+          <div class="ah-summary-value" id="ah-summary-current"></div>
+        </div>
+        <div class="ah-summary-card">
+          <div class="ah-summary-label">Period Average</div>
+          <div class="ah-summary-value" id="ah-summary-avg"></div>
+        </div>
+        <div class="ah-summary-card">
+          <div class="ah-summary-label">Low</div>
+          <div class="ah-summary-value" id="ah-summary-low"></div>
+          <div class="ah-summary-sub" id="ah-summary-low-date"></div>
+        </div>
+        <div class="ah-summary-card">
+          <div class="ah-summary-label">High</div>
+          <div class="ah-summary-value" id="ah-summary-high"></div>
+          <div class="ah-summary-sub" id="ah-summary-high-date"></div>
+        </div>
       </div>
-      <div class="ah-summary-card">
-        <div class="ah-summary-label">Period Average</div>
-        <div class="ah-summary-value" id="ah-summary-avg"></div>
+      <div class="lw-chart-wrap" id="acct-history-chart-wrap">
+        <canvas id="acct-history-canvas"></canvas>
       </div>
-      <div class="ah-summary-card">
-        <div class="ah-summary-label">Low</div>
-        <div class="ah-summary-value" id="ah-summary-low"></div>
-        <div class="ah-summary-sub" id="ah-summary-low-date"></div>
-      </div>
-      <div class="ah-summary-card">
-        <div class="ah-summary-label">High</div>
-        <div class="ah-summary-value" id="ah-summary-high"></div>
-        <div class="ah-summary-sub" id="ah-summary-high-date"></div>
-      </div>
-    </div>
-    <div class="lw-chart-wrap" id="acct-history-chart-wrap">
-      <canvas id="acct-history-canvas"></canvas>
     </div>
   </div>
   <div id="acct-history-tooltip"></div>
