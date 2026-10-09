@@ -5545,6 +5545,42 @@ function openLwDriverModal(idx, s) {
   var exclSummary = lwComputeExclusionsSummary(s.accounts, s.keys[idx]);
   var exclRow = { name: 'Excluded Transactions & Balances', isExclSummary: true, exclSummary: exclSummary };
 
+  // Balance composition: which accounts make up this month's Assets / Exceptions / Debts
+  // totals (the hover tooltip's summary numbers), as opposed to the Change Drivers rows
+  // below it, which only cover accounts whose balance moved this month.
+  var compositionRows = [];
+  if (s.accounts && s.accounts.length) {
+    // Assets = every positive balance (cash accounts AND exception accounts combined), matching
+    // s.assetVals exactly. Exceptions is a highlighted SUBSET of that same total, not a separate
+    // pool -- same convention the hover tooltip uses -- so an exception account legitimately
+    // appears under both headers; it isn't double-counted in Assets, since it was already in
+    // there before Exceptions existed as its own line.
+    var compGroups = [
+      { label: 'Assets',     test: function(a, bal) { return bal >= 0; } },
+      { label: 'Debts',      test: function(a, bal) { return bal < 0; } }
+    ];
+    if (s.exceptionVals) {
+      compGroups.splice(1, 0, { label: 'Exceptions', test: function(a, bal) { return bal >= 0 && a.isException; } });
+    }
+    for (var cgi = 0; cgi < compGroups.length; cgi++) {
+      var cg = compGroups[cgi], cgRows = [], cgTotal = 0;
+      for (var cai = 0; cai < s.accounts.length; cai++) {
+        var cAcct = s.accounts[cai];
+        var cBal  = acctBalanceAt(cAcct.id, s.keys[idx]);
+        if (!cg.test(cAcct, cBal) || Math.abs(cBal) < 0.005) continue;
+        cgRows.push({ name: cAcct.name, bal: cBal });
+        cgTotal += cBal;
+      }
+      if (!cgRows.length) continue;
+      cgRows.sort(function(a, b) { return Math.abs(b.bal) - Math.abs(a.bal); });
+      compositionRows.push({ isCompHeader: true, label: cg.label, total: cgTotal });
+      for (var cri = 0; cri < cgRows.length; cri++) {
+        compositionRows.push({ isCompAccount: true, name: cgRows[cri].name, bal: cgRows[cri].bal });
+      }
+    }
+    if (compositionRows.length) compositionRows.push({ isPlainHeader: true, label: 'Change Drivers' });
+  }
+
   var isNwChart = s.canvasId === 'nw-canvas';
   var sectionDefs = [
     { key: 'incentive', label: 'Incentives' },
@@ -5576,6 +5612,7 @@ function openLwDriverModal(idx, s) {
   } else {
     allRows = drivers.concat([exclRow]);
   }
+  allRows = compositionRows.concat(allRows);
 
   var html = '';
   for (var i = 0; i < allRows.length; i++) {
@@ -5588,6 +5625,25 @@ function openLwDriverModal(idx, s) {
            +      '<span class="lwdm-row-val" style="color:' + sumCol + '">' + lwFmtSigned(-exclSummary.total) + '</span>'
            +    '</div>'
            +    '<div class="lwdm-row-sub">Tracking / Distribution / Budgeted adjustments this month</div>'
+           +  '</div>';
+      continue;
+    }
+    if (d.isPlainHeader) {
+      html += '<div class="lwdm-sec-hdr"><span>' + escHtml(d.label) + '</span></div>';
+      continue;
+    }
+    if (d.isCompHeader) {
+      html += '<div class="lwdm-sec-hdr"><span>' + escHtml(d.label) + '</span>'
+           +    '<span class="lwdm-amts"><span>' + lwFmtPlain(Math.abs(d.total)) + '</span></span></div>';
+      continue;
+    }
+    if (d.isCompAccount) {
+      var compCol = d.bal >= 0 ? '#333' : '#c62828';
+      html += '<div class="lwdm-row" data-di="' + i + '">'
+           +    '<div class="lwdm-row-top">'
+           +      '<span class="lwdm-row-name">' + escHtml(d.name) + '</span>'
+           +      '<span class="lwdm-row-val" style="color:' + compCol + ';font-weight:400">' + lwFmtPlain(d.bal) + '</span>'
+           +    '</div>'
            +  '</div>';
       continue;
     }
@@ -5642,18 +5698,29 @@ function openLwDriverModal(idx, s) {
         var dd = allRows[parseInt(row.getAttribute('data-di'), 10)];
         if (dd.isExclSummary) renderLwExclusionsDetail(dd.exclSummary);
         else if (dd.isSectionAccount) renderLwDriverSectionDetail(dd, s.keys[idx], s.keys[idx - 1]);
+        else if (dd.isCompAccount) renderLwCompDetail(dd, s.keys[idx]);
         else renderLwDriverDetail(dd, s.keys[idx], s.keys[idx - 1]);
       });
     })(rows[r]);
   }
   var firstClickable = null;
   for (var fi = 0; fi < allRows.length; fi++) {
-    if (!allRows[fi].isExclSummary && !allRows[fi].isSectionHeader) { firstClickable = allRows[fi]; break; }
+    if (!allRows[fi].isExclSummary && !allRows[fi].isSectionHeader
+        && !allRows[fi].isCompHeader && !allRows[fi].isPlainHeader) { firstClickable = allRows[fi]; break; }
   }
   if (firstClickable && firstClickable.isSectionAccount) renderLwDriverSectionDetail(firstClickable, s.keys[idx], s.keys[idx - 1]);
+  else if (firstClickable && firstClickable.isCompAccount) renderLwCompDetail(firstClickable, s.keys[idx]);
   else if (firstClickable) renderLwDriverDetail(firstClickable, s.keys[idx], s.keys[idx - 1]);
   else if (allRows.length) renderLwExclusionsDetail(exclSummary);
   else document.getElementById('lwdm-detail').innerHTML = '';
+}
+
+function renderLwCompDetail(d, monthKey) {
+  var el = document.getElementById('lwdm-detail');
+  if (!el) return;
+  el.innerHTML = '<div class="lwdm-d-hdr">' + escHtml(d.name) + '</div>'
+    + '<div class="lwdm-d-sub">' + lwFmtPlain(d.bal) + ' as of ' + lwAsOfLabel(monthKey) + '</div>'
+    + '<div class="lwdm-empty">This is the account\'s balance at month end, not a change -- see Change Drivers below for what moved this month.</div>';
 }
 
 // The driver-group label for an account on the Liquid Balances tab -- matches
