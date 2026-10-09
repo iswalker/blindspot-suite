@@ -407,6 +407,7 @@ tr.grp-bordered > .avg-col, tr.cat-row-bordered.cat-row-last > .avg-col { box-sh
 .zero { color: #aaa; }
 .proj-spend-neg { color: #e65100; }
 .pct-lbl { font-size: 13px; font-style: italic; margin-right: 4px; cursor: help; }
+.lwtt-pct-lbl { font-size: 15px; margin-right: 0; margin-left: 4px; }
 .avg-note { font-size: 13px; font-style: italic; margin-right: 4px; white-space: nowrap; }
 .tithe-check { display: inline-block; margin-right: 8px; font-weight: 700; cursor: pointer; }
 .tithe-check-ok   { color: hsl(121,36%,35%); }
@@ -1030,6 +1031,8 @@ td.hbt-num:last-child { width: 13%; }
 .lwdm-empty { font-size: 13px; color: #aaa; font-style: italic; }
 .lwdm-sec-hdr { display: flex; justify-content: space-between; font-size: 14px; font-weight: 700; color: #888; letter-spacing: .06em; text-transform: uppercase; padding: 10px 16px 4px; }
 .lwdm-sec-hdr:first-child { padding-top: 6px; }
+.lwdm-sec-hdr-hoverable { cursor: default; border-left: 3px solid transparent; margin: 0 -3px; }
+.lwdm-sec-hdr-hoverable:hover, .lwdm-sec-hdr-hoverable.active { background: #f2f4fb; border-left-color: #3f51b5; }
 .lwdm-amts { display: flex; align-items: baseline; gap: 8px; flex-shrink: 0; }
 .lwdm-median { font-size: 13px; font-weight: 400; color: #777; white-space: nowrap; }
 
@@ -5470,6 +5473,14 @@ function showLwTooltip(clientX, clientY, idx, s) {
     '<div class="lwtt-row"><span class="lwtt-dot" style="background:#90caf9"></span>' +
       '<div><div class="lwtt-label">Exceptions</div><div class="lwtt-val">' + fmtTT(s.exceptionVals[idx]) + '</div></div></div>' : '';
   var netLabel = s.canvasId === 'nw-canvas' ? 'Net Worth' : 'Liquid Balances';
+  // Debts as a % of Assets minus Exceptions -- Exceptions already sits inside Assets (see the
+  // composition note in openLwDriverModal), so subtracting it isolates the "ordinary" liquid
+  // asset base debts are being weighed against.
+  var debtBase = s.assetVals[idx] - ((s.exceptionVals && s.exceptionVals[idx]) || 0);
+  var debtPctHtml = (debtBase > 0 && s.debtVals[idx] !== 0)
+    ? ' <span class="pct-lbl lwtt-pct-lbl" title="% of Assets minus Exceptions">('
+      + (Math.abs(s.debtVals[idx]) / debtBase * 100).toFixed(1) + '%)</span>'
+    : '';
   tt.innerHTML =
     '<div class="lwtt-month">' + monthLbl
       + ' <span class="lwtt-asof">as of ' + lwAsOfLabel(s.keys[idx]) + '</span></div>' +
@@ -5477,7 +5488,7 @@ function showLwTooltip(clientX, clientY, idx, s) {
       '<div><div class="lwtt-label">Assets</div><div class="lwtt-val">' + fmtTT(s.assetVals[idx]) + '</div></div></div>' +
     exceptionsHtml +
     '<div class="lwtt-row"><span class="lwtt-dot" style="background:#aaa"></span>' +
-      '<div><div class="lwtt-label">Debts</div><div class="lwtt-val">' + fmtTT(Math.abs(s.debtVals[idx])) + '</div></div></div>' +
+      '<div><div class="lwtt-label">Debts</div><div class="lwtt-val">' + fmtTT(Math.abs(s.debtVals[idx])) + debtPctHtml + '</div></div></div>' +
     '<div class="lwtt-row"><span class="lwtt-dash"></span>' +
       '<div><div class="lwtt-label">' + netLabel + '</div><div class="lwtt-val">' + fmtTT(s.netVals[idx]) + '</div></div></div>' +
     changeHtml + driversHtml;
@@ -5566,6 +5577,7 @@ function openLwDriverModal(idx, s) {
     if (s.exceptionVals) {
       compGroups.splice(1, 0, { label: 'Exceptions', test: function(a, bal) { return bal >= 0 && a.isException; } });
     }
+    var compTotalsByLabel = {};
     for (var cgi = 0; cgi < compGroups.length; cgi++) {
       var cg = compGroups[cgi], cgRows = [], cgTotal = 0;
       for (var cai = 0; cai < s.accounts.length; cai++) {
@@ -5577,10 +5589,17 @@ function openLwDriverModal(idx, s) {
       }
       if (!cgRows.length) continue;
       cgRows.sort(function(a, b) { return Math.abs(b.bal) - Math.abs(a.bal); });
-      compositionRows.push({ isCompHeader: true, label: cg.label, total: cgTotal });
-      for (var cri = 0; cri < cgRows.length; cri++) {
-        compositionRows.push({ isCompAccount: true, name: cgRows[cri].name, bal: cgRows[cri].bal });
-      }
+      compTotalsByLabel[cg.label] = cgTotal;
+      compositionRows.push({ isCompHeader: true, label: cg.label, total: cgTotal, accounts: cgRows });
+    }
+    // Debts as a % of Assets minus Exceptions -- see the matching note in showLwTooltip.
+    var debtsCompRow = null;
+    for (var dcri = 0; dcri < compositionRows.length; dcri++) {
+      if (compositionRows[dcri].label === 'Debts') { debtsCompRow = compositionRows[dcri]; break; }
+    }
+    if (debtsCompRow) {
+      var compDebtBase = (compTotalsByLabel['Assets'] || 0) - (compTotalsByLabel['Exceptions'] || 0);
+      if (compDebtBase > 0) debtsCompRow.pctOfNetAssets = Math.abs(debtsCompRow.total) / compDebtBase * 100;
     }
     if (compositionRows.length) compositionRows.push({ isPlainHeader: true, label: 'Change Drivers' });
   }
@@ -5637,18 +5656,11 @@ function openLwDriverModal(idx, s) {
       continue;
     }
     if (d.isCompHeader) {
-      html += '<div class="lwdm-sec-hdr"><span>' + escHtml(d.label) + '</span>'
-           +    '<span class="lwdm-amts"><span>' + lwFmtPlain(Math.abs(d.total)) + '</span></span></div>';
-      continue;
-    }
-    if (d.isCompAccount) {
-      var compCol = d.bal >= 0 ? '#333' : '#c62828';
-      html += '<div class="lwdm-row" data-di="' + i + '">'
-           +    '<div class="lwdm-row-top">'
-           +      '<span class="lwdm-row-name">' + escHtml(d.name) + '</span>'
-           +      '<span class="lwdm-row-val" style="color:' + compCol + ';font-weight:400">' + lwFmtPlain(d.bal) + '</span>'
-           +    '</div>'
-           +  '</div>';
+      var compPctHtml = (d.pctOfNetAssets !== undefined)
+        ? '<span class="pct-lbl lwtt-pct-lbl" title="% of Assets minus Exceptions">(' + d.pctOfNetAssets.toFixed(1) + '%)</span>'
+        : '';
+      html += '<div class="lwdm-sec-hdr lwdm-sec-hdr-hoverable" data-di="' + i + '"><span>' + escHtml(d.label) + '</span>'
+           +    '<span class="lwdm-amts"><span>' + lwFmtPlain(Math.abs(d.total)) + '</span>' + compPctHtml + '</span></div>';
       continue;
     }
     if (d.isSectionHeader) {
@@ -5693,7 +5705,7 @@ function openLwDriverModal(idx, s) {
   list.innerHTML = html || '<div class="lwdm-empty" style="padding:12px 16px">No drivers above $0.50 this month.</div>';
   modal.classList.add('open');
 
-  var rows = list.querySelectorAll('.lwdm-row');
+  var rows = list.querySelectorAll('.lwdm-row, .lwdm-sec-hdr-hoverable');
   for (var r = 0; r < rows.length; r++) {
     (function(row) {
       row.addEventListener('mouseenter', function() {
@@ -5702,7 +5714,7 @@ function openLwDriverModal(idx, s) {
         var dd = allRows[parseInt(row.getAttribute('data-di'), 10)];
         if (dd.isExclSummary) renderLwExclusionsDetail(dd.exclSummary);
         else if (dd.isSectionAccount) renderLwDriverSectionDetail(dd, s.keys[idx], s.keys[idx - 1]);
-        else if (dd.isCompAccount) renderLwCompDetail(dd, s.keys[idx]);
+        else if (dd.isCompHeader) renderLwCompDetail(dd, s.keys[idx]);
         else renderLwDriverDetail(dd, s.keys[idx], s.keys[idx - 1]);
       });
     })(rows[r]);
@@ -5710,21 +5722,30 @@ function openLwDriverModal(idx, s) {
   var firstClickable = null;
   for (var fi = 0; fi < allRows.length; fi++) {
     if (!allRows[fi].isExclSummary && !allRows[fi].isSectionHeader
-        && !allRows[fi].isCompHeader && !allRows[fi].isPlainHeader) { firstClickable = allRows[fi]; break; }
+        && !allRows[fi].isPlainHeader) { firstClickable = allRows[fi]; break; }
   }
   if (firstClickable && firstClickable.isSectionAccount) renderLwDriverSectionDetail(firstClickable, s.keys[idx], s.keys[idx - 1]);
-  else if (firstClickable && firstClickable.isCompAccount) renderLwCompDetail(firstClickable, s.keys[idx]);
+  else if (firstClickable && firstClickable.isCompHeader) renderLwCompDetail(firstClickable, s.keys[idx]);
   else if (firstClickable) renderLwDriverDetail(firstClickable, s.keys[idx], s.keys[idx - 1]);
   else if (allRows.length) renderLwExclusionsDetail(exclSummary);
   else document.getElementById('lwdm-detail').innerHTML = '';
 }
 
+// Hovering a composition header (Assets / Exceptions / Debts) in the Change Drivers list
+// shows its full account breakdown here instead of listing every account as its own row
+// on the left -- the left list stays to one line per group.
 function renderLwCompDetail(d, monthKey) {
   var el = document.getElementById('lwdm-detail');
   if (!el) return;
-  el.innerHTML = '<div class="lwdm-d-hdr">' + escHtml(d.name) + '</div>'
-    + '<div class="lwdm-d-sub">' + lwFmtPlain(d.bal) + ' as of ' + lwAsOfLabel(monthKey) + '</div>'
-    + '<div class="lwdm-empty">This is the account\'s balance at month end, not a change -- see Change Drivers below for what moved this month.</div>';
+  var h = '<div class="lwdm-d-hdr">' + escHtml(d.label) + '</div>'
+    + '<div class="lwdm-d-sub">' + lwFmtPlain(d.total) + ' as of ' + lwAsOfLabel(monthKey) + '</div>';
+  for (var i = 0; i < d.accounts.length; i++) {
+    var a = d.accounts[i];
+    var col = a.bal >= 0 ? '#333' : '#c62828';
+    h += '<div class="lwdm-d-grp-row"><span class="lwdm-d-grp">' + escHtml(a.name) + '</span>'
+      +  '<span class="lwdm-txn-amt" style="color:' + col + '">' + lwFmtPlain(a.bal) + '</span></div>';
+  }
+  el.innerHTML = h;
 }
 
 // The driver-group label for an account on the Liquid Balances tab -- matches
@@ -9870,11 +9891,11 @@ function drawAcctHistoryChart(keys, values, hoveredIdx, floatValues, isDebtAcct)
 
       ctx.fillStyle    = seriesColor;
       ctx.font         = '11px "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.textAlign    = 'left';
+      ctx.textAlign    = 'right';
       ctx.textBaseline = 'alphabetic';
       var trLabel = (trPerMonth >= 0 ? '+' : '-') + '$'
         + Math.round(Math.abs(trPerMonth)).toLocaleString('en-US') + '/mo';
-      ctx.fillText(trLabel, L_PAD + 4, Math.max(T_PAD + 10, yAt(trY0) - 5));
+      ctx.fillText(trLabel, L_PAD + plotW, Math.max(T_PAD + 10, yAt(trY1) - 5));
     }
   }
 
