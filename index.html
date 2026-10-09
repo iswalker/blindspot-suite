@@ -2056,6 +2056,11 @@ td.hbt-num:last-child { width: 13%; }
           <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
           Match Liquid Balance Exclusion Settings
         </label>
+        <label class="ios-toggle-wrap" id="ah-include-exceptions-wrap" style="display:none">
+          <input type="checkbox" id="ah-include-exceptions">
+          <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+          Include Exception Accounts
+        </label>
       </div>
     </div>
     <div id="ah-chart-row">
@@ -2449,6 +2454,7 @@ var state = {
   lwIncludeExceptionAccts:  localStorage.getItem('lw-include-exception-accts') !== '0',
   lwIncludePipeline:        localStorage.getItem('lw-include-pipeline') === '1',
   ahMatchLwExclusions:      localStorage.getItem('ah-match-lw-exclusions') !== '0',
+  ahIncludeExceptionAccts:  localStorage.getItem('ah-include-exception-accts') === '1',
   leverageExcludeTracking:   localStorage.getItem('leverage-exclude-tracking') === '1',
   leverageExcludeForecasted: localStorage.getItem('leverage-exclude-forecasted') === '1',
   leverageIncludeTbd:        localStorage.getItem('leverage-include-tbd') === '1',
@@ -6824,7 +6830,8 @@ function syncExclusionToggles() {
     ['lw-exclude-budgeted',     'lwExcludeBudgeted'],
     ['lw-include-exceptions',   'lwIncludeExceptionAccts'],
     ['lw-include-pipeline',     'lwIncludePipeline'],
-    ['ah-match-lw-exclusions',  'ahMatchLwExclusions']
+    ['ah-match-lw-exclusions',  'ahMatchLwExclusions'],
+    ['ah-include-exceptions',   'ahIncludeExceptionAccts']
   ];
   for (var i = 0; i < pairs.length; i++) {
     var el = document.getElementById(pairs[i][0]);
@@ -9946,6 +9953,17 @@ function ahPseudoGroupAcctIds(group) {
     var info = d.allAccountsInfo[id];
     if (!info.closed && info.name.indexOf('~') === -1 && group.test(info.type)) ids.push(id);
   }
+  // "All Cash Accounts" can optionally also pull in accounts that qualify as liquid only via
+  // the "Liquid Account Exceptions" Config row (see fetchYnabData's lwAccounts build) -- those
+  // typically have a type group.test() wouldn't match on its own, which is exactly why they
+  // need the exception in the first place. Gated so the aggregate's historical numbers don't
+  // shift under existing users until they opt in via the "Include Exception Accounts" toggle.
+  if (group.id === '__ah_all_cash__' && state.ahIncludeExceptionAccts && d.lwAccounts) {
+    for (var ei = 0; ei < d.lwAccounts.length; ei++) {
+      var exAcct = d.lwAccounts[ei];
+      if (exAcct.isException && !exAcct.closed && ids.indexOf(exAcct.id) === -1) ids.push(exAcct.id);
+    }
+  }
   return ids;
 }
 
@@ -10364,6 +10382,10 @@ function renderAccountHistory() {
   populateAcctHistoryFilter();
 
   var acctId = state.acctHistoryId;
+  // Only meaningful (and only possible to apply) while viewing the "All Cash Accounts"
+  // aggregate -- hide it for every individual account and every other pseudo-group.
+  var exceptionsWrap = document.getElementById('ah-include-exceptions-wrap');
+  if (exceptionsWrap) exceptionsWrap.style.display = (acctId === '__ah_all_cash__') ? '' : 'none';
   if (!acctId) return;
 
   // "Match Liquid Balance Exclusion Settings" off -> Account History ignores the Exclude
@@ -12861,6 +12883,12 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('ah-match-lw-exclusions').addEventListener('change', function() {
     state.ahMatchLwExclusions = this.checked;
     localStorage.setItem('ah-match-lw-exclusions', this.checked ? '1' : '0');
+    syncExclusionToggles();
+    renderAccountHistory();
+  });
+  document.getElementById('ah-include-exceptions').addEventListener('change', function() {
+    state.ahIncludeExceptionAccts = this.checked;
+    localStorage.setItem('ah-include-exception-accts', this.checked ? '1' : '0');
     syncExclusionToggles();
     renderAccountHistory();
   });
