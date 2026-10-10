@@ -272,7 +272,7 @@ body {
    nothing to scroll": CSS computes overflow-y:visible up to overflow-x:auto, so leaving
    overflow-x:auto still makes this a scroll container and traps the header's
    position:sticky inside it instead of the page -- defeating the sticky header below. */
-#margin-panel .scroll-wrap { overflow: visible; max-height: none; }
+#margin-panel .scroll-wrap { overflow: visible; max-height: none; width: max-content; }
 table {
   border-collapse: collapse;
   background: #fff;
@@ -305,9 +305,14 @@ th:first-child { z-index: 4; }
    it. table-layout:fixed (scoped to this table only) locks column widths to the first row once,
    with the remaining columns splitting the rest of the width evenly as before; a label too long
    for the fixed width ellipsizes instead of growing the column. */
-#main-table { table-layout: fixed; }
+#main-table {
+  table-layout: fixed;
+  --cf-first-w: 240px; --cf-month-w: 130px; --cf-avg-w: 230px;
+  /* --cf-months is set from JS (renderTable) to the number of month columns. */
+  width: calc(var(--cf-first-w) + var(--cf-avg-w) + var(--cf-months, 0) * var(--cf-month-w));
+}
 #main-table td:first-child, #main-table th:first-child {
-  width: 290px;
+  width: var(--cf-first-w);
   overflow: hidden;
   text-overflow: ellipsis;
   /* Cash Flow is the one exception to "no border until scrolled" above: it always shows a
@@ -319,7 +324,14 @@ th:first-child { z-index: 4; }
    cell -- noticeably more content than a plain month column -- so under table-layout:fixed it
    needs its own explicit width rather than sharing the even split the month columns get,
    otherwise its content overflows the cell. */
-#main-table .avg-th, #main-table .avg-col { width: 230px; }
+#main-table .avg-th, #main-table .avg-col { width: var(--cf-avg-w); }
+/* Month columns get a fixed width too (under table-layout:fixed the header row's cell widths
+   set every column) instead of splitting whatever space is left after the first and Average
+   columns -- that split is what squeezed them illegibly on narrow screens. The table's own
+   width is pinned to exactly the sum of its columns (see #main-table above) so spare container
+   width can't be spread back over them, and once they no longer fit the viewport the table just
+   grows past it: everything but the sticky first column scrolls sideways. */
+#main-table th:not(:first-child):not(.avg-th) { width: var(--cf-month-w); }
 /* Scrolling still upgrades Cash Flow's plain divider to the same solid 2px edge as every other
    table (more specific than the plain divider above so it wins). */
 body.hscroll-active #main-table td:first-child, body.hscroll-active #main-table th:first-child {
@@ -1399,6 +1411,11 @@ td.hbt-num:last-child { width: 13%; }
      (tab row, tables, etc.) that explicitly opt into overflow-x:auto should scroll. */
   html, body { overflow-x: hidden; }
   body { padding: 10px 12px; max-width: 100vw; }
+  /* Cash Flow's table is wider than a phone once its month columns hold their fixed width, and it
+     scrolls the page rather than a wrapper of its own (so its header can stay pinned to the
+     viewport) -- so on that one tab only, let the page scroll sideways instead of clipping it.
+     html.cf-tab-active is toggled in switchTab()/showReport(). */
+  html.cf-tab-active, html.cf-tab-active body { overflow-x: visible; }
 
   /* Date range picker: full-width panel, stacked columns, no overflow off-screen. The month
      grid (rp-main-col-wrap) is the primary control, so it's reordered above the quick-range
@@ -4325,6 +4342,7 @@ function renderTable(opts) {
   if (keys.length === 0) {
     document.getElementById(tableId).innerHTML =
       '<thead><tr><th>No data in range</th></tr></thead><tbody></tbody>';
+    document.getElementById(tableId).style.removeProperty('--cf-months');
     return;
   }
 
@@ -5236,6 +5254,7 @@ function renderTable(opts) {
   html += '</tbody>';
 
   document.getElementById(tableId).innerHTML = html;
+  document.getElementById(tableId).style.setProperty('--cf-months', String(keys.length));
   updateCfSectionLabel();
 }
 
@@ -6705,6 +6724,7 @@ function switchTab(tab) {
     tabBlocks[sti].style.display = tabBlocks[sti].getAttribute('data-tab') === tab ? '' : 'none';
   }
   updateSettingsGearAvailability(tab);
+  document.documentElement.classList.toggle('cf-tab-active', tab === 'margin');
   document.getElementById('home-panel').style.display     = tab === 'home'     ? 'block' : 'none';
   document.getElementById('margin-panel').style.display   = tab === 'margin'   ? 'block' : 'none';
   document.getElementById('lw-panel').style.display       = tab === 'lw'       ? 'block' : 'none';
@@ -12616,6 +12636,7 @@ function showReport() {
     initTabBlocks[stib].style.display = initTabBlocks[stib].getAttribute('data-tab') === tab ? '' : 'none';
   }
   updateSettingsGearAvailability(tab);
+  document.documentElement.classList.toggle('cf-tab-active', tab === 'margin');
 
   // Sync row-shading toggle state
   document.body.classList.toggle('shading-mode', state.rowShading);
