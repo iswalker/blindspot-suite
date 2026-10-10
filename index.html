@@ -191,6 +191,9 @@ body {
   touch-action: manipulation;
 }
 #settings-gear-btn:hover, #settings-gear-btn.active { background: #f0f0f0; color: #444; border-color: #ddd; }
+/* No tab-specific settings for the current tab -- grey out and disable rather than opening a
+   panel with nothing but empty space where the per-tab section would be. */
+#settings-gear-btn:disabled { opacity: .35; cursor: not-allowed; }
 #settings-panel {
   position: absolute; top: calc(100% + 6px); right: 0; z-index: 400;
   background: #fff; border: 1px solid #e0e0e8; border-radius: 12px;
@@ -1233,11 +1236,17 @@ td.hbt-num:last-child { width: 13%; }
 #leverage-pos-table td { font-size: 13px; padding: 5px 8px; border-bottom: 1px solid #f5f5f0; color: #333; }
 #leverage-pos-table td:last-child { font-weight: 600; color: #1565c0; }
 #leverage-pos-table tr:last-child td { border-bottom: none; }
-#leverage-pos-empty {
+/* Scoped as #leverage-pos-table td#leverage-pos-empty (not just #leverage-pos-empty) so these
+   overrides outrank #leverage-pos-table td:last-child's color/font-weight and #leverage-pos-table
+   td's border-bottom -- the empty-state message is colspan=2, so it's simultaneously the table's
+   first AND last cell and was inheriting both the value column's blue/bold styling and the
+   sticky-first-column border/shadow treatment. */
+#leverage-pos-table td#leverage-pos-empty {
+  position: static; font-weight: 400;
   font-size: 12px; color: #bbb; padding: 8px 0; white-space: normal; word-wrap: break-word; overflow-wrap: break-word;
   border-bottom: none; box-shadow: none;
 }
-#leverage-pos-empty::after { display: none; }
+#leverage-pos-table td#leverage-pos-empty::after { display: none; }
 #leverage-chart-wrap { flex: 3; min-width: 0; margin-bottom: 0; }
 #leverage-year-chart-wrap { flex: 1; min-width: 120px; margin-bottom: 0; }
 #leverage-breakdown-row { display: flex; gap: 16px; margin-bottom: 14px; align-items: flex-start; }
@@ -1450,7 +1459,7 @@ td.hbt-num:last-child { width: 13%; }
     box-shadow: 0 8px 24px rgba(0,0,0,.18);
   }
   #tab-nav-dropdown .tab-btn { display: flex; width: 100%; justify-content: flex-start; }
-  #controls-bar { position: absolute; top: 0; right: 0; }
+  #controls-bar { position: absolute; top: 50%; right: 0; transform: translateY(-50%); }
   /* Gear sits pinned on top of the scrolling tab row here, so give it the same
      background/border it gets on hover/active at all times -- otherwise it's a transparent
      square and tab labels show through behind it as the row scrolls. */
@@ -1505,7 +1514,7 @@ td.hbt-num:last-child { width: 13%; }
   #home-budget-wrap .hbt th.hbt-name, #home-budget-wrap .hbt td.hbt-name {
     min-width: 0; width: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  #home-budget-wrap .hbt th:last-child, #home-budget-wrap .hbt td:last-child { width: 108px; }
+  #home-budget-wrap .hbt th:last-child, #home-budget-wrap .hbt td:last-child { width: 160px; }
 
   /* All summary metric rows wrap on mobile */
   #lessons-summary-row,
@@ -6667,6 +6676,21 @@ function updateAcctFilterBtn() {
 // LIQUID WORTH TAB
 // ============================================================
 
+// Greys out and disables the Settings gear when the active tab has no tab-specific settings
+// block -- opening the panel there would show nothing but the global top section, which isn't
+// "settings for the current page". Also closes a panel left open from a previous tab.
+function updateSettingsGearAvailability(tab) {
+  var gear = document.getElementById('settings-gear-btn');
+  if (!gear) return;
+  var hasSettings = !!document.querySelector('.settings-tab-block[data-tab="' + tab + '"]');
+  gear.disabled = !hasSettings;
+  if (!hasSettings) {
+    gear.classList.remove('active');
+    var panel = document.getElementById('settings-panel');
+    if (panel) panel.style.display = 'none';
+  }
+}
+
 function switchTab(tab) {
   state.activeTab = tab;
   localStorage.setItem('sel-tab', tab);
@@ -6678,6 +6702,7 @@ function switchTab(tab) {
   for (var sti = 0; sti < tabBlocks.length; sti++) {
     tabBlocks[sti].style.display = tabBlocks[sti].getAttribute('data-tab') === tab ? '' : 'none';
   }
+  updateSettingsGearAvailability(tab);
   document.getElementById('home-panel').style.display     = tab === 'home'     ? 'block' : 'none';
   document.getElementById('margin-panel').style.display   = tab === 'margin'   ? 'block' : 'none';
   document.getElementById('lw-panel').style.display       = tab === 'lw'       ? 'block' : 'none';
@@ -12561,6 +12586,7 @@ function showReport() {
   for (var stib = 0; stib < initTabBlocks.length; stib++) {
     initTabBlocks[stib].style.display = initTabBlocks[stib].getAttribute('data-tab') === tab ? '' : 'none';
   }
+  updateSettingsGearAvailability(tab);
 
   // Sync row-shading toggle state
   document.body.classList.toggle('shading-mode', state.rowShading);
