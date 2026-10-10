@@ -319,6 +319,17 @@ td:first-child::after, th:first-child::after {
 body.hscroll-active #main-table td:first-child::after, body.hscroll-active #main-table th:first-child::after { display: block; }
 body.hscroll-active #main-table td:first-child, body.hscroll-active #main-table th:first-child { border-right: none; background: #fff; }
 
+/* Same first-column treatment as Cash Flow above, for every other detail table (Liquid
+   Balances, Net Worth, Lessons Learned and Leverage's transaction drilldowns) -- they scroll
+   horizontally within their own wrapper instead of the page, so the active state is tracked
+   per-wrapper (.lw-table-wrap.hscroll-active, toggled in JS) rather than on body. Without the
+   opaque background on scroll, the sticky column is transparent and the row text scrolling
+   underneath it bleeds through. */
+.lw-table-wrap td:first-child::after, .lw-table-wrap th:first-child::after { display: none; }
+.lw-table-wrap td:first-child, .lw-table-wrap th:first-child { border-right: 1px solid #e8e8e8; }
+.lw-table-wrap.hscroll-active td:first-child::after, .lw-table-wrap.hscroll-active th:first-child::after { display: block; }
+.lw-table-wrap.hscroll-active td:first-child, .lw-table-wrap.hscroll-active th:first-child { border-right: none; background: #fff; }
+
 /* ---- th ---- */
 th {
   position: sticky;
@@ -361,9 +372,8 @@ td:first-child { text-align: left; }
 .scroll-wrap::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
 
 /* ---- Expanded group borders ---- */
-tr.grp-bordered > td { border-bottom: 2px solid #777; }
-tr.cat-row-bordered.cat-row-last > td { border-bottom: 2px solid #777; }
-tr.grp-bordered > .avg-col, tr.cat-row-bordered.cat-row-last > .avg-col { box-shadow: inset 0 -2px 0 #777; }
+tr.grp-bordered > td { border-bottom: 2px solid #ccc; }
+tr.cat-row-bordered.cat-row-last > td { border-bottom: 2px solid #ccc; }
 
 /* ---- Section headers ---- */
 .sec-hdr td { padding-top: 6px; padding-bottom: 5px; font-size: 14px; font-weight: 700; border-bottom: none; }
@@ -932,13 +942,13 @@ td.hbt-num:last-child { width: 13%; }
 /* ---- LW / NW summary card ---- */
 #lw-summary-card, #nw-summary-card {
   background: #fff; border-radius: 8px; border: 1px solid #ddd;
-  padding: 20px 24px 18px; margin-bottom: 14px;
+  padding: 16px 20px; margin-bottom: 14px;
 }
 #nw-summary-row { display: flex; gap: 16px; align-items: stretch; margin-bottom: 14px; }
 #nw-summary-row #nw-summary-card { margin-bottom: 0; flex-shrink: 0; }
 #nw-driver-card {
   background: #fff; border-radius: 8px; border: 1px solid #ddd;
-  padding: 20px 24px 18px; flex: 1; min-width: 180px;
+  padding: 10px 20px; flex: 1; min-width: 180px;
 }
 .nw-driver-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; cursor: default; border-radius: 5px; padding: 2px 4px; margin-left: -4px; }
 .nw-driver-row:last-child { margin-bottom: 0; }
@@ -1092,7 +1102,7 @@ td.hbt-num:last-child { width: 13%; }
 }
 #lw-table { border-collapse: collapse; width: 100%; }
 #lw-table th {
-  text-align: left; font-size: 11px; font-weight: 600; color: #333;
+  text-align: left; font-size: 13px; font-weight: 600; color: #333;
   letter-spacing: .06em; padding: 10px 20px; border-bottom: 1px solid #e4e4e0;
   background: #fff; white-space: nowrap;
 }
@@ -1104,7 +1114,7 @@ td.hbt-num:last-child { width: 13%; }
 #lw-table tr:hover td { background: #fafaf7; }
 /* NW table shares the same style pattern */
 #nw-table { border-collapse: collapse; width: 100%; }
-#nw-table th { text-align: left; font-size: 11px; font-weight: 600; color: #333; letter-spacing: .06em; padding: 10px 20px; border-bottom: 1px solid #e4e4e0; background: #fff; white-space: nowrap; }
+#nw-table th { text-align: left; font-size: 13px; font-weight: 600; color: #333; letter-spacing: .06em; padding: 10px 20px; border-bottom: 1px solid #e4e4e0; background: #fff; white-space: nowrap; }
 #nw-table th:nth-child(2), #nw-table th:nth-child(3), #nw-table th:last-child { text-align: right; }
 #nw-table td { padding: 10px 20px; font-size: 13px; border-bottom: 1px solid #f0f0ec; white-space: nowrap; }
 #nw-table td:first-child { white-space: normal; }
@@ -1331,7 +1341,7 @@ td.hbt-num:last-child { width: 13%; }
 /* ---- Lessons transaction table ---- */
 #lessons-txn-table { border-collapse: collapse; width: 100%; }
 #lessons-txn-table th {
-  text-align: left; font-size: 11px; font-weight: 600; color: #333;
+  text-align: left; font-size: 13px; font-weight: 600; color: #333;
   letter-spacing: .06em; padding: 10px 20px; border-bottom: 1px solid #e4e4e0;
   background: #fff; white-space: nowrap;
 }
@@ -1344,7 +1354,7 @@ td.hbt-num:last-child { width: 13%; }
 /* ---- Leverage transaction table ---- */
 #leverage-txn-table { border-collapse: collapse; width: 100%; }
 #leverage-txn-table th {
-  text-align: left; font-size: 11px; font-weight: 600; color: #333;
+  text-align: left; font-size: 13px; font-weight: 600; color: #333;
   letter-spacing: .06em; padding: 10px 20px; border-bottom: 1px solid #e4e4e0;
   background: #fff; white-space: nowrap;
 }
@@ -1858,6 +1868,11 @@ td.hbt-num:last-child { width: 13%; }
           <button type="button" class="rp-btn" id="range-btn"></button>
           <div class="rp-panel" id="range-panel" style="display:none"></div>
         </div>
+        <label class="ios-toggle-wrap">
+          <input type="checkbox" id="cf-include-pipeline">
+          <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+          Include Pipeline
+        </label>
         <button id="expand-all-btn" style="margin-left:auto">Expand All</button>
         <button id="collapse-all-btn">Collapse All</button>
       </div>
@@ -2460,6 +2475,7 @@ var state = {
   toKey:               localStorage.getItem('sel-to')   || null,
   expanded:            parseJsonLS('ynab-expanded-groups') || {},
   selectedAccounts:    parseJsonLS('sel-accts')       || {},
+  cfIncludePipeline:   localStorage.getItem('cf-include-pipeline') !== '0',
   loadedAt:            null,
   activeTab:           localStorage.getItem('sel-tab') || 'home',
   lwFromKey:           localStorage.getItem('sel-lw-from') || null,
@@ -6600,17 +6616,24 @@ function populateAccountFilter() {
   // Initialize new accounts; preserve existing selections across re-renders
   for (var i = 0; i < accounts.length; i++) {
     var acc = accounts[i];
+    var isPipe = homeAcctIsPipeline(acc);
     if (!(acc in state.selectedAccounts)) {
-      state.selectedAccounts[acc] = acc.indexOf('~') === -1;
+      state.selectedAccounts[acc] = acc.indexOf('~') === -1 || (state.cfIncludePipeline && isPipe);
     }
+    // "Include Pipeline" off overrides any individual selection for accounts that qualify only
+    // via the Config "Pipeline" row -- they're unchecked and locked while off (same pattern as
+    // Liquid Balances' own "Include Pipeline" toggle).
+    if (isPipe && !state.cfIncludePipeline) state.selectedAccounts[acc] = false;
   }
   var panel = document.getElementById('acct-filter-panel');
   var h = '';
   for (var j = 0; j < accounts.length; j++) {
     var a = accounts[j];
-    h += '<label class="acct-chk-row">'
-       + '<input type="checkbox" value="' + escAttr(a) + '"' + (state.selectedAccounts[a] ? ' checked' : '') + '>'
+    var locked = homeAcctIsPipeline(a) && !state.cfIncludePipeline;
+    h += '<label class="acct-chk-row' + (locked ? ' acct-chk-disabled' : '') + '">'
+       + '<input type="checkbox" value="' + escAttr(a) + '"' + (state.selectedAccounts[a] ? ' checked' : '') + (locked ? ' disabled' : '') + '>'
        + escAttr(a)
+       + (homeAcctIsPipeline(a) ? ' <span style="font-size:10px;color:#64b5f6">(pipeline)</span>' : '')
        + '</label>';
   }
   panel.innerHTML = h || '<div style="padding:10px 14px;font-size:12px;color:#aaa">No accounts</div>';
@@ -6855,6 +6878,7 @@ function populateLwRangeFilter() {
 // refreshed from state together rather than only the one that was clicked.
 function syncExclusionToggles() {
   var pairs = [
+    ['cf-include-pipeline',     'cfIncludePipeline'],
     ['lw-exclude-tracking',     'lwExcludeTracking'],
     ['lw-exclude-distribution', 'lwExcludeDistribution'],
     ['lw-exclude-budgeted',     'lwExcludeBudgeted'],
@@ -12784,6 +12808,22 @@ document.addEventListener('DOMContentLoaded', function() {
     renderTable();
   });
 
+  document.getElementById('cf-include-pipeline').checked = !!state.cfIncludePipeline;
+  document.getElementById('cf-include-pipeline').addEventListener('change', function() {
+    state.cfIncludePipeline = this.checked;
+    localStorage.setItem('cf-include-pipeline', this.checked ? '1' : '0');
+    if (state.cfIncludePipeline && state.data && state.data.allAccounts) {
+      // Restore pipeline accounts to selected when re-enabling, rather than leaving them
+      // unchecked from when the toggle forced them off.
+      for (var piI = 0; piI < state.data.allAccounts.length; piI++) {
+        if (homeAcctIsPipeline(state.data.allAccounts[piI])) state.selectedAccounts[state.data.allAccounts[piI]] = true;
+      }
+    }
+    populateAccountFilter();
+    localStorage.setItem('sel-accts', JSON.stringify(state.selectedAccounts));
+    renderTable();
+  });
+
   // Row shading toggle
   document.getElementById('shade-toggle').addEventListener('change', function() {
     state.rowShading = this.checked;
@@ -13573,6 +13613,22 @@ document.addEventListener('DOMContentLoaded', function() {
     window.addEventListener('scroll', updateHscroll);
     window.addEventListener('resize', updateHscroll);
     updateHscroll();
+  })();
+
+  // Same sticky-first-column treatment as Cash Flow's, for every other detail table -- each
+  // scrolls within its own .lw-table-wrap instead of the page, so track scroll state per wrapper.
+  // The wrapper div itself is never replaced (only the <table> inside is re-rendered), so wiring
+  // this once at init time is safe.
+  (function() {
+    var wraps = document.querySelectorAll('.lw-table-wrap');
+    for (var i = 0; i < wraps.length; i++) {
+      (function(wrap) {
+        function update() { wrap.classList.toggle('hscroll-active', wrap.scrollLeft > 0); }
+        wrap.addEventListener('scroll', update);
+        window.addEventListener('resize', update);
+        update();
+      })(wraps[i]);
+    }
   })();
 
   wireChartTooltip(document.getElementById('lw-canvas'), function() { return lwChartState; });
