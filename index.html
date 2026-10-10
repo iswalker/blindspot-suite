@@ -1203,8 +1203,11 @@ td.hbt-num:last-child { width: 13%; }
    Bank Account card both use this same secret-key-input + action-button layout. */
 .plaid-connect-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 .plaid-connect-secret { font-size: 13px; padding: 5px 8px; border: 1px solid #ddd; border-radius: 5px; width: 130px; }
-.plaid-connect-action-btn { font-size: 12px; padding: 5px 10px; background: #1565c0; color: #fff; border: none; border-radius: 5px; cursor: pointer; white-space: nowrap; }
-.plaid-connect-action-btn:hover { background: #0d47a1; }
+.plaid-connect-action-btn {
+  padding: 6px 14px; background: #fff; color: #555; border: 1px solid #ccc; border-radius: 6px;
+  font-size: 13px; cursor: pointer; font-weight: 500; white-space: nowrap;
+}
+.plaid-connect-action-btn:hover { background: #f0f0ec; }
 #leverage-pos-acct-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
 #leverage-pos-acct-sel { font-size: 12px; padding: 4px 6px; border: 1px solid #ddd; border-radius: 5px; max-width: 160px; }
 #leverage-pos-status { font-size: 11px; color: #888; display: block; margin-bottom: 4px; }
@@ -1694,10 +1697,6 @@ td.hbt-num:last-child { width: 13%; }
           <svg class="tab-icon tab-icon-nw" viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg"><path d="m170.29 505.69c-6.2344 0-11.297-5.0625-11.297-11.156 0-6.2344 5.0625-11.297 11.156-11.297 1.3125 0 128.29-1.3125 295.08-54.938 149.06-47.859 360.24-148.45 532.08-355.78l-75.609 5.5312c-6.2344 0.46875-11.625-4.2188-12-10.453-0.46875-6.2344 4.2188-11.625 10.453-12l101.39-7.5938c3-0.23437 5.8594 0.70313 8.1562 2.7656 2.2969 1.9219 3.6094 4.6875 3.8438 7.6875l7.4531 101.53c0.46875 6.2344-4.2188 11.625-10.453 12-6.2344 0.46875-11.625-4.2188-12-10.453l-5.2969-73.219c-75.141 90.375-163.31 168-262.69 231.14-85.547 54.469-179.53 98.297-279.24 130.22-169.87 54.703-295.78 56.016-301.03 56.016zm956.76 597.94v-736.78c0-26.625-19.688-48.375-43.781-48.375h-121.97c-24.141 0-43.781 21.703-43.781 48.375v736.78c0 26.625 19.688 48.375 43.781 48.375h121.92c24.141 0 43.828-21.703 43.828-48.375zm-43.828-762.56c11.625 0 21.234 11.625 21.234 25.781v736.78c0 14.297-9.4688 25.781-21.234 25.781l-121.92 0.046875c-11.625 0-21.234-11.625-21.234-25.781v-736.78c0-14.297 9.4688-25.781 21.234-25.781zm-237.71 762.56v-572.63c0-26.625-19.688-48.375-43.781-48.375h-121.97c-24.141 0-43.781 21.703-43.781 48.375v572.63c0 26.625 19.688 48.375 43.781 48.375h121.92c24.141 0 43.828-21.703 43.828-48.375zm-43.828-598.4c11.625 0 21.234 11.625 21.234 25.781v572.63c0 14.297-9.4688 25.781-21.234 25.781l-121.92 0.046875c-11.766 0-21.234-11.625-21.234-25.781v-572.68c0-14.297 9.4688-25.781 21.234-25.781zm-237.84 598.4v-408.47c0-26.625-19.688-48.375-43.781-48.375h-121.78c-24.141 0-43.781 21.703-43.781 48.375v408.47c0 26.625 19.688 48.375 43.781 48.375h121.92c24.094 0 43.641-21.703 43.641-48.375zm-43.641-434.26c11.766 0 21.234 11.625 21.234 25.781v408.47c0 14.297-9.4688 25.781-21.234 25.781l-121.92 0.046875c-11.766 0-21.234-11.625-21.234-25.781v-408.52c0-14.297 9.4688-25.781 21.234-25.781zm-237.84 434.26v-244.18c0-26.625-19.688-48.375-43.781-48.375h-121.82c-24.141 0-43.781 21.703-43.781 48.375v244.22c0 26.625 19.688 48.375 43.781 48.375h121.92c24.094-0.046875 43.688-21.75 43.688-48.422zm-43.688-270.1c11.766 0 21.234 11.625 21.234 25.781v244.22c0 14.297-9.4688 25.781-21.234 25.781h-121.92c-11.625 0-21.234-11.625-21.234-25.781v-244.08c0-14.297 9.4688-25.781 21.234-25.781l121.92-0.046875z"/></svg>
           Net Worth
         </button>
-        <button class="tab-btn" data-tab="lessons">
-          <svg class="tab-icon tab-icon-lessons" viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg"><path d="m600 37.5c-196.88 0-356.25 159.38-356.25 356.25v26.25c0 71.25 22.5 142.5 61.875 202.5l144.38 208.12v46.875l-7.5 16.875c-7.5 15-7.5 33.75 0 50.625l5.625 13.125-5.625 13.125c-7.5 15-7.5 33.75 0 50.625l7.5 16.875v43.125c0 24.375 16.875 46.875 41.25 54.375l108.75 26.25 108.75-31.875c24.375-7.5 41.25-28.125 41.25-54.375v-43.125l7.5-16.875c7.5-15 7.5-33.75 0-50.625l-5.625-9.375 5.625-13.125c7.5-15 7.5-33.75 0-50.625l-7.5-15v-46.875l144.38-208.12c39.375-60 61.875-129.38 61.875-202.5v-26.25c0-196.88-159.38-356.25-356.25-356.25zm-125.62 888.75c-1.875-5.625-1.875-11.25 0-16.875l13.125-24.375v-41.25h225v22.5l-234.38 67.5zm69.375-382.5h-46.875c-26.25 0-46.875-20.625-46.875-46.875s20.625-46.875 46.875-46.875 46.875 20.625 46.875 46.875zm75 262.5h-37.5v-225h37.5zm-131.25 219.38-11.25-24.375c-1.875-5.625-1.875-11.25 0-16.875l7.5-13.125 240-69.375 3.75 7.5c1.875 5.625 1.875 11.25 0 16.875l-16.875 30 3.75 9.375zm225 1.875v50.625c0 7.5-5.625 15-13.125 18.75l-99.375 28.125-99.375-28.125c-7.5-1.875-13.125-9.375-13.125-18.75v-13.125l238.12-63.75v1.875zm206.25-607.5c0 63.75-18.75 127.5-56.25 180l-140.62 206.25h-65.625v-225h46.875c46.875 0 84.375-37.5 84.375-84.375s-37.5-84.375-84.375-84.375-84.375 37.5-84.375 84.375v46.875h-37.5v-46.875c0-46.875-37.5-84.375-84.375-84.375s-84.375 37.5-84.375 84.375 37.5 84.375 84.375 84.375h46.875v225h-65.625l-140.62-206.25c-37.5-52.5-56.25-116.25-56.25-180v-18.75l37.5-37.5 56.25 56.25 50.625-50.625-26.25-26.25-24.375 24.375-56.25-56.25-33.75 33.75c28.125-174.38 191.25-292.5 363.75-266.25 97.5 15 181.88 75 228.75 159.38l-52.5 54.375-84.375-84.375-84.375 84.375-86.25-86.25h-82.5v37.5h67.5l101.25 101.25 84.375-84.375 84.375 84.375 71.25-71.25c15 37.5 22.5 78.75 22.5 118.12zm-262.5 123.75v-46.875c0-26.25 20.625-46.875 46.875-46.875s46.875 20.625 46.875 46.875-20.625 46.875-46.875 46.875z"/><path d="m943.36 155.12 75.57-75.57 26.516 26.516-75.57 75.57z"/><path d="m975 225h93.75v37.5h-93.75z"/><path d="m984.36 353.72 19.293-32.156 93.254 55.953-19.293 32.156z"/><path d="m93.75 356.25h93.75v37.5h-93.75z"/><path d="m118.37 219.89 26.516-26.516 75.57 75.57-26.516 26.516z"/><path d="m118.36 548.86 75.57-75.57 26.516 26.516-75.57 75.57z"/></svg>
-          Lessons Learned
-        </button>
         <button class="tab-btn" data-tab="leverage">
           <svg class="tab-icon tab-icon-leverage" viewBox="0 0 1200 1200" style="transform:scaleX(-1)" xmlns="http://www.w3.org/2000/svg"><path d="m1075 1e3h-125c0.5-67.238-18.523-133.18-54.762-189.82-36.238-56.641-88.137-101.55-149.39-129.28-61.258-27.727-129.25-37.078-195.72-26.926l-156.82-271.63 21.633-12.492c5.7422-3.3125 9.9375-8.7734 11.652-15.18 1.7188-6.4062 0.82031-13.23-2.4961-18.973l-100-173.2c-3.3203-5.7383-8.7812-9.9258-15.184-11.641-6.4062-1.7188-13.227-0.82422-18.973 2.4844l-86.598 50c-5.7422 3.3164-9.9336 8.7773-11.652 15.184-1.7148 6.4023-0.81641 13.23 2.5 18.973l100 173.2c3.3164 5.7383 8.7773 9.9297 15.18 11.645 6.4062 1.7188 13.23 0.82031 18.973-2.4922l21.656-12.5 148.78 257.71c-71.883 21.805-134.86 66.121-179.65 126.43-44.789 60.301-69.023 133.4-69.129 208.52h-125c-8.9297 0-17.184 4.7656-21.652 12.5-4.4648 7.7344-4.4648 17.266 0 25 4.4688 7.7344 12.723 12.5 21.652 12.5h950c8.9297 0 17.184-4.7656 21.652-12.5 4.4648-7.7344 4.4648-17.266 0-25-4.4688-7.7344-12.723-12.5-21.652-12.5zm-750-635.96-75-129.88 43.285-25 75 129.88zm125 635.96c0-53.59 28.59-103.11 75-129.9 46.41-26.797 103.59-26.797 150 0 46.41 26.793 75 76.312 75 129.9zm150-200c-53.023 0.0625-103.86 21.152-141.36 58.645-37.492 37.496-58.582 88.332-58.645 141.36h-100c0-79.566 31.605-155.87 87.867-212.13 56.262-56.262 132.57-87.867 212.13-87.867s155.87 31.605 212.13 87.867c56.262 56.262 87.867 132.57 87.867 212.13h-100c-0.0625-53.023-21.152-103.86-58.645-141.36-37.496-37.492-88.332-58.582-141.36-58.645z"/></svg>
           Leverage
@@ -1709,6 +1708,10 @@ td.hbt-num:last-child { width: 13%; }
         <button class="tab-btn" data-tab="reconcile">
           <svg class="tab-icon tab-icon-reconcile" viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg"><path d="m600 319.56c-154.62 0-280.45 125.81-280.45 280.44s125.83 280.44 280.45 280.44c154.64 0 280.45-125.81 280.45-280.44s-125.81-280.44-280.45-280.44zm0 530.16c-137.68 0-249.71-112.01-249.71-249.72 0-9.9492 0.75781-19.727 1.8711-29.352h193.36l-54.984 54.984 21.73 21.742 92.09-92.09-92.09-92.102-21.73 21.73 54.984 55.008-187.61 0.007813c27.027-108.72 125.16-189.65 242.09-189.65 137.7 0 249.73 112.01 249.73 249.72 0 18.973-2.3164 37.379-6.3477 55.164h-201.92l54.984-54.996-21.73-21.73-92.09 92.102 92.09 92.074 21.73-21.73-54.984-54.984h192.73c-35.137 95.422-126.71 163.82-234.19 163.82z"/></svg>
           Reconcile
+        </button>
+        <button class="tab-btn" data-tab="lessons">
+          <svg class="tab-icon tab-icon-lessons" viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg"><path d="m600 37.5c-196.88 0-356.25 159.38-356.25 356.25v26.25c0 71.25 22.5 142.5 61.875 202.5l144.38 208.12v46.875l-7.5 16.875c-7.5 15-7.5 33.75 0 50.625l5.625 13.125-5.625 13.125c-7.5 15-7.5 33.75 0 50.625l7.5 16.875v43.125c0 24.375 16.875 46.875 41.25 54.375l108.75 26.25 108.75-31.875c24.375-7.5 41.25-28.125 41.25-54.375v-43.125l7.5-16.875c7.5-15 7.5-33.75 0-50.625l-5.625-9.375 5.625-13.125c7.5-15 7.5-33.75 0-50.625l-7.5-15v-46.875l144.38-208.12c39.375-60 61.875-129.38 61.875-202.5v-26.25c0-196.88-159.38-356.25-356.25-356.25zm-125.62 888.75c-1.875-5.625-1.875-11.25 0-16.875l13.125-24.375v-41.25h225v22.5l-234.38 67.5zm69.375-382.5h-46.875c-26.25 0-46.875-20.625-46.875-46.875s20.625-46.875 46.875-46.875 46.875 20.625 46.875 46.875zm75 262.5h-37.5v-225h37.5zm-131.25 219.38-11.25-24.375c-1.875-5.625-1.875-11.25 0-16.875l7.5-13.125 240-69.375 3.75 7.5c1.875 5.625 1.875 11.25 0 16.875l-16.875 30 3.75 9.375zm225 1.875v50.625c0 7.5-5.625 15-13.125 18.75l-99.375 28.125-99.375-28.125c-7.5-1.875-13.125-9.375-13.125-18.75v-13.125l238.12-63.75v1.875zm206.25-607.5c0 63.75-18.75 127.5-56.25 180l-140.62 206.25h-65.625v-225h46.875c46.875 0 84.375-37.5 84.375-84.375s-37.5-84.375-84.375-84.375-84.375 37.5-84.375 84.375v46.875h-37.5v-46.875c0-46.875-37.5-84.375-84.375-84.375s-84.375 37.5-84.375 84.375 37.5 84.375 84.375 84.375h46.875v225h-65.625l-140.62-206.25c-37.5-52.5-56.25-116.25-56.25-180v-18.75l37.5-37.5 56.25 56.25 50.625-50.625-26.25-26.25-24.375 24.375-56.25-56.25-33.75 33.75c28.125-174.38 191.25-292.5 363.75-266.25 97.5 15 181.88 75 228.75 159.38l-52.5 54.375-84.375-84.375-84.375 84.375-86.25-86.25h-82.5v37.5h67.5l101.25 101.25 84.375-84.375 84.375 84.375 71.25-71.25c15 37.5 22.5 78.75 22.5 118.12zm-262.5 123.75v-46.875c0-26.25 20.625-46.875 46.875-46.875s46.875 20.625 46.875 46.875-20.625 46.875-46.875 46.875z"/><path d="m943.36 155.12 75.57-75.57 26.516 26.516-75.57 75.57z"/><path d="m975 225h93.75v37.5h-93.75z"/><path d="m984.36 353.72 19.293-32.156 93.254 55.953-19.293 32.156z"/><path d="m93.75 356.25h93.75v37.5h-93.75z"/><path d="m118.37 219.89 26.516-26.516 75.57 75.57-26.516 26.516z"/><path d="m118.36 548.86 75.57-75.57 26.516 26.516-75.57 75.57z"/></svg>
+          Lessons Learned
         </button>
         <button class="tab-btn" data-tab="runway">
           <svg class="tab-icon tab-icon-runway" viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg"><path d="m1102 873.24c0-20.109-16.359-36.469-36.469-36.469l-906.47 0.046875c-20.109 0-36.469 16.359-36.469 36.469v50.109c0 20.109 16.359 36.469 36.469 36.469l906.52-0.046875c20.109 0 36.469-16.359 36.469-36.469v-50.109zm-36.469 50.25-906.66-0.14062v-50.109s0.09375-0.14062 0.14062-0.14062l906.61 0.14062-0.14062 50.25z"/><path d="m282.47 710.9 226.45-73.688-46.641 83.672c-5.1562 9.2812-3.7969 20.719 3.375 28.5 4.7344 5.1562 11.297 7.875 18 7.875 3.4219 0 6.8906-0.70312 10.172-2.2031l92.812-42.281 187.31-202.22 257.21-133.82c31.734-19.734 49.875-41.906 53.906-65.859 4.1719-24.75-8.625-41.344-10.688-43.875-38.672-43.125-107.58-22.594-123.98-16.875h-35.297c-20.062 0-40.125 4.8281-57.984 13.922l-510.42 260.26-172.08-87.281c-11.438-5.8125-25.312-5.1094-36.094 1.7812l-23.766 15.188c-8.3906 5.3438-14.25 14.016-16.172 23.812-1.875 9.75 0.32812 20.016 6.0938 28.078l136.82 191.58c9.2812 12.984 25.734 18.375 40.922 13.453zm-148.18-226.31 23.906-15.188 172.03 87.281c10.359 5.25 22.734 5.25 33.047-0.046875l510.28-260.26c12.797-6.5156 27.141-9.9844 41.484-9.9844h41.953l3.1875-1.2656c0.60937-0.23437 61.219-22.781 86.25 5.0156 0.1875 0.23437 4.4062 6.2812 2.625 15.375-1.7812 8.9531-9.6562 23.25-35.953 39.656l-261.61 136.03-186.66 201.52-53.438 24.375 48.234-86.484c4.2188-7.5938 3.375-16.781-2.1094-23.484-4.0781-4.9688-9.9844-7.6406-16.078-7.6406-2.1562 0-4.3594 0.32812-6.5156 1.0312l-263.9 85.781-136.82-191.72h0.046876z"/></svg>
@@ -2011,7 +2014,7 @@ td.hbt-num:last-child { width: 13%; }
         </div>
         <div id="leverage-pos-connect-row" class="plaid-connect-row">
           <input type="password" id="leverage-pos-secret" class="plaid-connect-secret" placeholder="Plaid secret key">
-          <button id="leverage-pos-fetch-btn" class="plaid-connect-action-btn">Fetch &#9654;</button>
+          <button id="leverage-pos-fetch-btn" class="plaid-connect-action-btn">Connect</button>
         </div>
         <div id="leverage-pos-acct-row" style="display:none">
           <select id="leverage-pos-acct-sel"></select>
@@ -2159,7 +2162,7 @@ td.hbt-num:last-child { width: 13%; }
           <div class="rp-panel" id="reconcile-range-panel" style="display:none"></div>
         </div>
         <div id="rec-go-card">
-          <button id="reconcile-go-btn">Reconcile &#9654;</button>
+          <button id="reconcile-go-btn">Reconcile</button>
           <span id="plaid-status-msg"></span>
         </div>
       </div>
@@ -3505,6 +3508,16 @@ function fetchYnabData(apiKey, budgetId, opts) {
     }
     var acctTxnsList = {};
     var catIdTxns = {}; // { catId: [{ date, account, payee, amount }] } outflows only
+    // Config row Metric = "Cancel Out", Text = a single category ID. Accounts with "~" in
+    // their name are normally invisible to every Liquid Balances calculation -- but when
+    // Exclude Tracking is on, transactions/sub-transactions filed under this one category
+    // inside those otherwise-excluded accounts are deliberately pulled back in (see
+    // lwCancelOutThrough() and its call sites).
+    var cancelOutCatId = null;
+    for (var coci = 0; coci < (state.catConfig || []).length; coci++) {
+      if ((state.catConfig[coci].usedFor || '') === 'Cancel Out') { cancelOutCatId = state.catConfig[coci].id; break; }
+    }
+    var cancelOutByMonth = {}; // { monthKey: amount }
     for (var ti = 0; ti < txns.length; ti++) {
       var t = txns[ti];
       // Track top-level amount per account per month for balance reconstruction
@@ -3537,6 +3550,21 @@ function fetchYnabData(apiKey, budgetId, opts) {
         if (trackingAmt !== 0) {
           if (!acctTxnsTracking[t.account_id]) acctTxnsTracking[t.account_id] = {};
           acctTxnsTracking[t.account_id][tKey2] = (acctTxnsTracking[t.account_id][tKey2] || 0) + trackingAmt;
+        }
+        // Cancel Out: pulls the matching category's amount back in from an otherwise-excluded
+        // (~) account -- only applied (via lwCancelOutThrough) when Exclude Tracking is on.
+        if (cancelOutCatId && (t.account_name || '').indexOf('~') !== -1) {
+          var coAmt = 0;
+          if (t.subtransactions && t.subtransactions.length) {
+            for (var cosi = 0; cosi < t.subtransactions.length; cosi++) {
+              var costx = t.subtransactions[cosi];
+              if (costx.deleted || costx.category_id !== cancelOutCatId) continue;
+              coAmt += (costx.amount || 0) / 1000;
+            }
+          } else if (t.category_id === cancelOutCatId) {
+            coAmt = (t.amount || 0) / 1000;
+          }
+          if (coAmt !== 0) cancelOutByMonth[tKey2] = (cancelOutByMonth[tKey2] || 0) + coAmt;
         }
         if (!t.deleted) {
           if (!acctTxnsList[t.account_id]) acctTxnsList[t.account_id] = [];
@@ -3900,6 +3928,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
                regTxns: regTxns, allAccounts: allAccounts,
                allAccountsInfo: allAccountsInfo, lwAccounts: lwAccounts,
                nwAccounts: nwAccounts, acctTxns: acctTxns, acctTxnsTracking: acctTxnsTracking, acctTrkTxns: acctTrkTxns, acctTxnsList: acctTxnsList, catIdTxns: catIdTxns, catIdAllTxns: catIdAllTxns, catIdToName: catIdToName, catIdToGroup: catIdToGroup,
+               cancelOutByMonth: cancelOutByMonth,
                pendingTxns: pendingTxns,
                upcomingRenewals: upcomingRenewals,
                catActivityPivot: catActivityPivot, catAvailPivot: catAvailPivot,
@@ -4974,7 +5003,7 @@ function renderTable(opts) {
       }
       return out;
     };
-    // Category activity sitting in excluded accounts (e.g. Planned~). YNAB counts it toward the
+    // Category activity sitting in excluded accounts (e.g. a Pipeline~ account). YNAB counts it toward the
     // category, the Liquid Balances side cannot see it, so it belongs on its own line rather
     // than inflating the group's budget variance.
     // includeMapped distinguishes two different needs. The reported row wants every category,
@@ -6769,6 +6798,18 @@ function lwHoldingReserve(acctId, monthKey) {
   return Math.max(0, distSum) + Math.max(0, budgetSum);
 }
 
+// Cumulative "Cancel Out" amount through monthKey (see fetchYnabData's cancelOutByMonth) --
+// money pulled back in from otherwise-excluded (~) accounts when Exclude Tracking is on. Not
+// tied to any one liquid account (its source accounts never appear in lwAccounts), so it's
+// applied once as an aggregate adjustment rather than inside acctBalanceAt.
+function lwCancelOutThrough(monthKey) {
+  if (!state.lwExcludeTracking) return 0;
+  var map = ((state.data || {}).cancelOutByMonth) || {};
+  var total = 0;
+  for (var k in map) { if (k <= monthKey) total += map[k]; }
+  return total;
+}
+
 function acctBalanceAt(acctId, monthKey) {
   var info = (state.data.allAccountsInfo || {})[acctId];
   if (!info) return 0;
@@ -6811,6 +6852,7 @@ function lwCurrentNetLiquid() {
   var lastKey = keys[keys.length - 1];
   var net = 0;
   for (var i = 0; i < accts.length; i++) net += acctBalanceAt(accts[i].id, lastKey);
+  net += lwCancelOutThrough(lastKey);
   return net;
 }
 
@@ -6943,6 +6985,11 @@ function renderLiquidWorth() {
         debts += bal;
       }
     }
+    // Cancel Out (Exclude Tracking on): folded into the generalized Cash bucket, same as a
+    // normal liquid account's balance -- see lwCancelOutThrough().
+    var coAmt = lwCancelOutThrough(keys[ki]);
+    assets += coAmt;
+    cash   += coAmt;
     assetVals.push(assets);
     debtVals.push(debts);
     netVals.push(assets + debts);
@@ -7521,13 +7568,23 @@ function renderLwSummary(nw, assets, debts, changeAmt, changePct, targetId) {
 // ============================================================
 // HOME TAB
 // ============================================================
+// Name-keyed lookup since populateHomeAccountFilter only has account names (state.data.allAccounts),
+// not IDs -- matches against the same isPipeline flag the "Pipeline" Config row drives elsewhere
+// (see fetchYnabData's lwPipelineIds).
+function homeAcctIsPipeline(name) {
+  var lw = (state.data && state.data.lwAccounts) || [];
+  for (var i = 0; i < lw.length; i++) {
+    if (lw[i].name === name) return !!lw[i].isPipeline;
+  }
+  return false;
+}
 function populateHomeAccountFilter() {
   var accounts = (state.data && state.data.allAccounts) || [];
   for (var i = 0; i < accounts.length; i++) {
     var acc = accounts[i];
     if (!(acc in state.homeSelectedAccounts)) {
-      // Include everything except ~ accounts, but always include Planned~
-      state.homeSelectedAccounts[acc] = (acc.indexOf('~') === -1) || (acc.indexOf('Planned') !== -1);
+      // Include everything except ~ accounts, but always include a Pipeline-flagged one
+      state.homeSelectedAccounts[acc] = (acc.indexOf('~') === -1) || homeAcctIsPipeline(acc);
     }
   }
   var panel = document.getElementById('home-acct-filter-panel');
