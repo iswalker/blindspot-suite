@@ -272,7 +272,22 @@ body {
    nothing to scroll": CSS computes overflow-y:visible up to overflow-x:auto, so leaving
    overflow-x:auto still makes this a scroll container and traps the header's
    position:sticky inside it instead of the page -- defeating the sticky header below. */
-#margin-panel .scroll-wrap { overflow: visible; max-height: none; width: max-content; }
+#margin-panel .scroll-wrap { overflow: visible; max-height: none; width: max-content; display: flex; }
+/* Cash Flow's pinned first column sits over cells scrolling underneath it. If a mobile browser
+   pins it inset from the screen's left edge, those cells show through in the gap. While scrolled
+   sideways, a white sticky "curtain" fills exactly that gap (0 to the column's left edge, kept in
+   --cf-pin-gap by updateHscroll() in JS -- 0px, so no curtain at all, whenever the column pins
+   flush to the edge). It is a flex item of the wrapper stretching to the table's full height,
+   with a negative margin so it takes no layout space, and it sticks to the viewport's left edge
+   like the column does. It never overlaps the column itself, so it can sit above everything else
+   (including the sticky header) without hiding the column's own collapsed-border row lines.
+   (A box-shadow or pseudo-element on the cells can't do this: collapsed-border cells don't paint
+   outer shadows, and the first column's overflow:hidden clips pseudo-elements.) */
+#margin-panel .scroll-wrap > #main-table { flex: none; }
+body.hscroll-active #margin-panel .scroll-wrap::before {
+  content: ''; flex: none; align-self: stretch; position: sticky; left: 0; z-index: 5;
+  width: var(--cf-pin-gap, 0px); margin-right: calc(-1 * var(--cf-pin-gap, 0px)); background: #fff;
+}
 table {
   border-collapse: collapse;
   background: #fff;
@@ -13703,6 +13718,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // border until the page is actually scrolled horizontally past it.
     function updateHscroll() {
       document.body.classList.toggle('hscroll-active', (window.scrollX || window.pageXOffset || (document.scrollingElement && document.scrollingElement.scrollLeft) || 0) > 0);
+      // Gap between the screen's left edge and the pinned first column (see the curtain in the
+      // CSS): 0 unless the table has scrolled past its natural position and the column is
+      // pinned somewhere other than flush left.
+      var cell = document.querySelector('#main-table td:first-child, #main-table th:first-child');
+      var wrap = document.querySelector('#margin-panel .scroll-wrap');
+      var gap = 0;
+      if (cell && wrap && wrap.getBoundingClientRect().left < 0) gap = Math.max(0, Math.round(cell.getBoundingClientRect().left));
+      document.body.style.setProperty('--cf-pin-gap', gap + 'px');
     }
     window.addEventListener('scroll', updateHscroll);
     window.addEventListener('resize', updateHscroll);
