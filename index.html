@@ -1775,13 +1775,6 @@ td.hbt-num:last-child { width: 13%; }
             </div>
             <div class="settings-row">
               <label class="ios-toggle-wrap">
-                <input type="checkbox" id="cf-show-glidepath">
-                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
-                Show Day 1 Glidepath
-              </label>
-            </div>
-            <div class="settings-row">
-              <label class="ios-toggle-wrap">
                 <input type="checkbox" id="shade-toggle">
                 <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
                 Row Shading
@@ -2443,17 +2436,6 @@ var LW_CUSTOM_DRIVER_GROUPS = ['Checking', 'Prepaids', 'Cash', 'Exchanges', 'Loy
 // Pending category rules are loaded from the Google Sheet Config tab at runtime (see
 // parseConfigCsv / state.catConfig). Categories are matched by ID.
 var RECOVERABLE_MARKER = '='; // categories whose name contains this substring count toward Recoverable Costs
-var GLIDEPATH_CAT = 'Cash Flow & Opportunities Glidepath'; // Day-1 balance tracked separately
-// YNAB only exposes the current net budgeted value per month, never the day-1 assignment.
-// We reconstruct day-1 as the max-ever-seen budgeted value and persist it to localStorage so
-// it survives full rebuilds (config reload, re-auth, fresh session) — not just incremental refreshes.
-var GLIDEPATH_LS_KEY = 'glidepath-snapshot';
-function loadGlidepathSnapshot() {
-  try { return JSON.parse(localStorage.getItem(GLIDEPATH_LS_KEY) || '{}') || {}; } catch (e) { return {}; }
-}
-function saveGlidepathSnapshot(snap) {
-  try { localStorage.setItem(GLIDEPATH_LS_KEY, JSON.stringify(snap || {})); } catch (e) {}
-}
 
 // ============================================================
 // STATE
@@ -2503,7 +2485,6 @@ var state = {
   catSortMode:         localStorage.getItem('cat-sort') || 'ynab',
   showTotalExp:        localStorage.getItem('show-total-exp') !== '0',
   showRecovTrend:      localStorage.getItem('show-recov-trend') === '1',
-  showGlidepath:       localStorage.getItem('show-glidepath') === '1',
   excludeUnknownIncome: localStorage.getItem('cf-exclude-unknown-income') !== '0',
   includeTitheCheck:    localStorage.getItem('cf-include-tithe-check') !== '0',
   homeSelectedAccounts: parseJsonLS('sel-home-accts') || {},
@@ -3294,7 +3275,6 @@ function fetchYnabData(apiKey, budgetId, opts) {
   var prevMonthsKnowledge   = (opts.serverKnowledge && opts.serverKnowledge.months) || null;
   var prevRawMonthCache     = opts.rawMonthCache       || {};
   var prevAllMonthKeys      = opts.allMonthKeys        || null;
-  var prevGlidepathSnapshot = opts.glidepathSnapshot   || {};
 
   var catIdToGroup   = {};
   var catIdToName    = {};
@@ -3328,17 +3308,6 @@ function fetchYnabData(apiKey, budgetId, opts) {
   var catIdAllTxns     = {};
   var recovCatAvail    = {}; // { catNm: { key: balance } } for "=" categories
   var recovCatActivity = {}; // { catNm: { key: activity } } for "=" categories
-  // Snapshot: { key: day1Value } — highest budgeted value seen per month (pre-move)
-  // Future months always update; current/past months keep max-ever-seen (moves only reduce budgeted)
-  // Seed from the durable localStorage snapshot, then max-merge the in-memory snapshot passed by
-  // an incremental refresh. This keeps each past month's day-1 value even on a full rebuild, where
-  // opts.glidepathSnapshot is empty and YNAB would otherwise report the post-move ($0) budgeted value.
-  var glidepathSnapshot = {};
-  var persistedGlidepath = loadGlidepathSnapshot();
-  for (var ppk in persistedGlidepath) glidepathSnapshot[ppk] = persistedGlidepath[ppk];
-  for (var gpk in prevGlidepathSnapshot) {
-    glidepathSnapshot[gpk] = Math.max(glidepathSnapshot[gpk] || 0, prevGlidepathSnapshot[gpk] || 0);
-  }
   // Resolved at category-load time: category ID → dueDays
   // Targets: "Pending Packing & Dropoff ~", "Pending Return Creation / Listing ~", "Pending Decision ~"
   var pendingCatIdMap = {};
@@ -3450,16 +3419,6 @@ function fetchYnabData(apiKey, budgetId, opts) {
           recovCatAvail[catNm][key]    = catBal;
           recovCatActivity[catNm][key] = catAct;
           // fall through — also process as expense group if applicable
-        }
-        if (catNm.indexOf(GLIDEPATH_CAT) !== -1) {
-          var todayKey = new Date().toISOString().slice(0, 7);
-          var gpBgt    = cat.budgeted / 1000;
-          // Future months: always update (pre-move value, still being planned)
-          // Current/past: keep the highest budgeted ever seen — moves only reduce it,
-          // so the max preserves the original Day-1 assignment
-          if (key > todayKey || gpBgt > (glidepathSnapshot[key] || 0)) {
-            glidepathSnapshot[key] = gpBgt;
-          }
         }
         var isExpGrp = false;
         for (var eg = 0; eg < EXPENSE_GROUPS.length; eg++) {
@@ -3930,8 +3889,6 @@ function fetchYnabData(apiKey, budgetId, opts) {
       upcomingRenewals.sort(function(a, b) { return a.nextDate - b.nextDate; });
 
       setProgress('');
-      // Persist day-1 glidepath values so they survive full rebuilds (config reload / re-auth / new session)
-      saveGlidepathSnapshot(glidepathSnapshot);
       return { allKeys: allKeys, incomePivot: incomePivot, incomeAcctPivot: incomeAcctPivot, incomePayeePivot: incomePayeePivot,
                groupPivot: groupPivot, catPivot: catPivot, activeCats: activeCats,
                regTxns: regTxns, allAccounts: allAccounts,
@@ -3946,7 +3903,6 @@ function fetchYnabData(apiKey, budgetId, opts) {
                reconTxnsByAcct: reconTxnsByAcct, grpActByAcct: grpActByAcct,
                nonLiqCatAct: nonLiqCatAct,
                recovCatAvail: recovCatAvail, recovCatActivity: recovCatActivity,
-               glidepathSnapshot: glidepathSnapshot,
                serverKnowledge: { months: newMonthsKnow },
                rawMonthCache: updatedMonthCache,
                allMonthKeys: finalAllMonthKeys };
@@ -4231,7 +4187,6 @@ function refreshYnab() {
     refreshOpts.serverKnowledge   = state.data.serverKnowledge;
     refreshOpts.rawMonthCache     = state.data.rawMonthCache     || {};
     refreshOpts.allMonthKeys      = state.data.allMonthKeys      || null;
-    refreshOpts.glidepathSnapshot = state.data.glidepathSnapshot || {};
   }
   ensureConfigLoaded()
   .then(function() { return fetchYnabData(apiKey, budgetId, refreshOpts); })
@@ -5209,15 +5164,6 @@ function renderTable(opts) {
     }
 
     html += '<tr class="row-spacer"><td></td>' + emptyCells() + '</tr>';
-  }
-
-  // Glidepath Day-1 balance (API only — omit row if no data; hidden unless toggle ON)
-  if (state.showGlidepath && d.glidepathSnapshot) {
-    var gpVals = keys.map(function(k) { return d.glidepathSnapshot[k] || 0; });
-    var gpAny  = gpVals.some(function(v) { return v !== 0; });
-    if (gpAny) {
-      html += '<tr class="data-row"><td>Day 1 Glidepath</td>' + valCells(gpVals, mean(gpVals), false, '') + '</tr>';
-    }
   }
 
   // Last Month Liquid Balances (API only — reference row)
@@ -12775,13 +12721,6 @@ document.addEventListener('DOMContentLoaded', function() {
   }, { passive: false });
   document.addEventListener('touchend', rpDragRelease);
   document.addEventListener('touchcancel', rpDragRelease);
-
-  document.getElementById('cf-show-glidepath').checked = !!state.showGlidepath;
-  document.getElementById('cf-show-glidepath').addEventListener('change', function() {
-    state.showGlidepath = this.checked;
-    localStorage.setItem('show-glidepath', this.checked ? '1' : '0');
-    renderTable();
-  });
 
   document.getElementById('home-show-trend').checked = !!state.showRecovTrend;
   document.getElementById('home-show-trend').addEventListener('change', function() {
