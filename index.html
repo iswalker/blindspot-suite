@@ -382,9 +382,7 @@ td {
   white-space: nowrap;
 }
 td:first-child { text-align: left; }
-/* Like th above, a sticky td detaches from the table's collapsed border grid and loses its
-   row's border-bottom -- an inset shadow repaints it so the row line still reaches the edge. */
-.avg-col { border-left: 1px solid #e8e8e8 !important; position: sticky; z-index: 1; box-shadow: inset 0 -1px 0 #efefef; }
+.avg-col { border-left: 1px solid #e8e8e8 !important; }
 
 /* ---- Thin horizontal scrollbar ---- */
 .scroll-wrap::-webkit-scrollbar { height: 5px; }
@@ -394,8 +392,6 @@ td:first-child { text-align: left; }
 /* ---- Expanded group borders ---- */
 tr.grp-bordered > td { border-bottom: 2px solid #ccc; }
 tr.cat-row-bordered.cat-row-last > td { border-bottom: 2px solid #ccc; }
-/* The Average column's 1px inset row-line shadow would double up with these 2px borders. */
-tr.grp-bordered > .avg-col, tr.cat-row-bordered.cat-row-last > .avg-col { box-shadow: none; }
 
 /* ---- Section headers ---- */
 .sec-hdr td { padding-top: 6px; padding-bottom: 5px; font-size: 14px; font-weight: 700; border-bottom: none; }
@@ -417,7 +413,7 @@ tr.grp-bordered > .avg-col, tr.cat-row-bordered.cat-row-last > .avg-col { box-sh
 /* ---- Category sub-rows ---- */
 .cat-row td { background: #f8f8f5; border-bottom: 1px solid #eeeeec; }
 .cat-row td:first-child { padding-left: 54px; color: #666; background: #f8f8f5; }
-.cat-row .avg-col { background: #f3f3ef; box-shadow: inset 0 -1px 0 #eeeeec; }
+.cat-row .avg-col { background: #f3f3ef; }
 /* Nested one level below .cat-row (54px), so it must indent further, not less */
 .recon-cat-row td:first-child { padding-left: 72px; color: #777; }
 .holding-warn { font-size: 11px; color: #b26a00; white-space: nowrap; }
@@ -1564,10 +1560,8 @@ td.hbt-num:last-child { width: 13%; }
 
   /* Cash Flow table: cap the (sticky) first column to a static width so expanding a category
      with a long name doesn't reflow the whole table and squeeze the month columns illegibly --
-     it ellipsizes instead. The Average column's header (.avg-th) is never horizontally sticky
-     at all now (its position/right/top were dropped at the source); its data cells (.avg-col)
-     still are elsewhere, so un-stick them here so the freed width goes to the month columns;
-     scroll right to see the Average column.
+     it ellipsizes instead. The Average column is never horizontally sticky (neither its header
+     nor its data cells), so the freed width goes to the month columns; scroll right to see it.
      The table also has to give up its normal width:100% here -- with a fixed first column,
      100% forces the browser's auto-layout to stretch the remaining columns to fill the leftover
      space, and it hands most of that stretch to whichever column has the widest content (the
@@ -1579,7 +1573,6 @@ td.hbt-num:last-child { width: 13%; }
     width: 130px; max-width: 130px; min-width: 130px;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  #lw-table .avg-col { position: static; }
   #lessons-txn-table th, #lessons-txn-table td,
   #leverage-txn-table th, #leverage-txn-table td { padding: 8px 10px; font-size: 12px; }
 
