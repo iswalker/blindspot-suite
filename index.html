@@ -1864,6 +1864,13 @@ td.hbt-num:last-child { width: 13%; }
           <div class="settings-tab-block" data-tab="nw">
             <div class="settings-divider"></div>
             <div class="settings-row">
+              <label class="ios-toggle-wrap">
+                <input type="checkbox" id="nw-match-lw-exclusions">
+                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+                Match Liquid Balance Exclusion Settings
+              </label>
+            </div>
+            <div class="settings-row">
               <div id="nw-acct-filter-wrap">
                 <button id="nw-acct-filter-btn">Accounts &#9660;</button>
                 <div id="nw-acct-filter-panel"></div>
@@ -2500,6 +2507,7 @@ var state = {
   lwIncludePipeline:        localStorage.getItem('lw-include-pipeline') === '1',
   ahMatchLwExclusions:      localStorage.getItem('ah-match-lw-exclusions') !== '0',
   ahIncludeExceptionAccts:  localStorage.getItem('ah-include-exception-accts') === '1',
+  nwMatchLwExclusions:      localStorage.getItem('nw-match-lw-exclusions') !== '0',
   leverageExcludeTracking:   localStorage.getItem('leverage-exclude-tracking') === '1',
   leverageExcludeForecasted: localStorage.getItem('leverage-exclude-forecasted') === '1',
   leverageIncludeTbd:        localStorage.getItem('leverage-include-tbd') === '1',
@@ -6914,7 +6922,8 @@ function syncExclusionToggles() {
     ['lw-include-exceptions',   'lwIncludeExceptionAccts'],
     ['lw-include-pipeline',     'lwIncludePipeline'],
     ['ah-match-lw-exclusions',  'ahMatchLwExclusions'],
-    ['ah-include-exceptions',   'ahIncludeExceptionAccts']
+    ['ah-include-exceptions',   'ahIncludeExceptionAccts'],
+    ['nw-match-lw-exclusions',  'nwMatchLwExclusions']
   ];
   for (var i = 0; i < pairs.length; i++) {
     var el = document.getElementById(pairs[i][0]);
@@ -7119,7 +7128,33 @@ function classifyNwAcct(a, heSet) {
   return 'savings';
 }
 
+// "Match Liquid Balance Exclusion Settings" off -> Net Worth ignores the Exclude
+// Tracking/Distribution/Budgeted toggles regardless of what the Liquid Balances tab has them
+// set to (same override pattern as Account History's own "Match" toggle -- see
+// renderAccountHistory). Every exclusion-aware helper used below (acctBalanceAt, etc.) reads
+// these three flags straight off state.*, so forcing them off for the duration of this render
+// -- then restoring them in finally, however renderNetWorthBody exits -- decouples the two tabs
+// without threading an override parameter through every helper.
 function renderNetWorth() {
+  syncExclusionToggles();
+  var nwSavedExclTracking     = state.lwExcludeTracking;
+  var nwSavedExclDistribution = state.lwExcludeDistribution;
+  var nwSavedExclBudgeted     = state.lwExcludeBudgeted;
+  if (!state.nwMatchLwExclusions) {
+    state.lwExcludeTracking     = false;
+    state.lwExcludeDistribution = false;
+    state.lwExcludeBudgeted     = false;
+  }
+  try {
+    renderNetWorthBody();
+  } finally {
+    state.lwExcludeTracking     = nwSavedExclTracking;
+    state.lwExcludeDistribution = nwSavedExclDistribution;
+    state.lwExcludeBudgeted     = nwSavedExclBudgeted;
+  }
+}
+
+function renderNetWorthBody() {
   var summaryEl = document.getElementById('nw-summary-card');
   var chartWrap = document.getElementById('nw-chart-wrap');
   var tableEl   = document.getElementById('nw-table');
@@ -13008,10 +13043,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
   // Exclude Tracking / Exclude Distribution / Exclude Budgeted live on the Liquid Balances
-  // tab; Account History either mirrors them (its own "Match Liquid Balance Exclusion
-  // Settings" toggle on) or ignores them entirely (off) -- see the override in
-  // renderAccountHistory. Either way, a change on the LW tab's own toggles must still
-  // re-render Account History if it's the active tab, since "match" mode mirrors live.
+  // tab; Account History and Net Worth each either mirror them (their own "Match Liquid
+  // Balance Exclusion Settings" toggle on) or ignore them entirely (off) -- see the overrides
+  // in renderAccountHistory / renderNetWorth. Either way, a change on the LW tab's own toggles
+  // must still re-render whichever of those tabs is active, since "match" mode mirrors live.
   function applyExclusionToggle(key, storageKey, checked) {
     state[key] = checked;
     localStorage.setItem(storageKey, checked ? '1' : '0');
@@ -13019,6 +13054,7 @@ document.addEventListener('DOMContentLoaded', function() {
     renderLiquidWorth();
     renderTable();
     if (state.activeTab === 'acct-history') renderAccountHistory();
+    if (state.activeTab === 'nw')           renderNetWorth();
   }
   document.getElementById('lw-exclude-tracking').addEventListener('change', function() {
     applyExclusionToggle('lwExcludeTracking', 'lw-exclude-tracking', this.checked);
@@ -13040,6 +13076,12 @@ document.addEventListener('DOMContentLoaded', function() {
     localStorage.setItem('ah-include-exception-accts', this.checked ? '1' : '0');
     syncExclusionToggles();
     renderAccountHistory();
+  });
+  document.getElementById('nw-match-lw-exclusions').addEventListener('change', function() {
+    state.nwMatchLwExclusions = this.checked;
+    localStorage.setItem('nw-match-lw-exclusions', this.checked ? '1' : '0');
+    syncExclusionToggles();
+    renderNetWorth();
   });
   document.getElementById('lw-include-exceptions').addEventListener('change', function() {
     state.lwIncludeExceptionAccts = this.checked;
