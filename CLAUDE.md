@@ -2,6 +2,7 @@
 
 ## Pull Requests
 - Always merge PRs to main via squash merge as soon as CI passes — do not wait for the user to say "merge".
+- Do not wait on the Vercel deployment status: merge without it (Vercel's free plan rate-limits deployments).
 
 ## Settings Gear Panel Design
 - **Top section (cross-cutting controls)**: cache/refresh, config picker, plan selector — always visible on every tab.
