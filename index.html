@@ -394,6 +394,8 @@ td:first-child { text-align: left; }
 /* ---- Expanded group borders ---- */
 tr.grp-bordered > td { border-bottom: 2px solid #ccc; }
 tr.cat-row-bordered.cat-row-last > td { border-bottom: 2px solid #ccc; }
+/* The Average column's 1px inset row-line shadow would double up with these 2px borders. */
+tr.grp-bordered > .avg-col, tr.cat-row-bordered.cat-row-last > .avg-col { box-shadow: none; }
 
 /* ---- Section headers ---- */
 .sec-hdr td { padding-top: 6px; padding-bottom: 5px; font-size: 14px; font-weight: 700; border-bottom: none; }
