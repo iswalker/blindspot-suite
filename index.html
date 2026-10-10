@@ -186,6 +186,9 @@ body {
   background: none; border: 1px solid transparent;
   cursor: pointer; display: flex; align-items: center; justify-content: center;
   border-radius: 8px; color: #888; padding: 0;
+  /* Without this, two quick taps on iOS Safari are read as a double-tap-to-zoom
+     gesture instead of two separate clicks. */
+  touch-action: manipulation;
 }
 #settings-gear-btn:hover, #settings-gear-btn.active { background: #f0f0f0; color: #444; border-color: #ddd; }
 #settings-panel {
@@ -582,6 +585,9 @@ td.cell-active {
   font-size: 16px;
   font-weight: 500;
   cursor: pointer;
+  /* Without this, two quick taps on iOS Safari (e.g. opening the collapsed mobile
+     nav, then picking a tab) are read as a double-tap-to-zoom gesture. */
+  touch-action: manipulation;
   background: transparent;
   color: inherit;
   -webkit-appearance: none;
@@ -1400,7 +1406,7 @@ td.hbt-num:last-child { width: 13%; }
      to scroll (so the chrome never collapses). */
   #tab-row { position: relative; flex-wrap: nowrap; }
   #nav-left { min-width: 0; flex: 1 1 auto; }
-  #tab-nav { position: relative; overflow: visible; min-width: 0; min-height: 50px; flex-wrap: nowrap; padding-right: 44px; box-sizing: border-box; }
+  #tab-nav { position: relative; overflow: visible; min-width: 0; min-height: 50px; flex-wrap: nowrap; padding-right: 44px; box-sizing: border-box; touch-action: manipulation; }
   .tab-btn { font-size: 13px; width: auto; white-space: nowrap; flex-shrink: 0; display: none; }
   .tab-btn.tab-active { display: inline-flex; }
   #tab-nav-list .tab-btn.tab-active::after {
