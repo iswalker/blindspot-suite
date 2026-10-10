@@ -2004,7 +2004,10 @@ td.hbt-num:last-child { width: 13%; }
           <div class="leverage-metric-value" id="leverage-median-val">—</div>
         </div>
         <div class="lessons-metric-card" id="leverage-expiration-card" style="display:none">
-          <div class="lessons-metric-label">Next Points Expiration</div>
+          <div class="lessons-metric-label" style="display:flex;align-items:center;gap:6px">
+            Next Points Expiration
+            <span id="leverage-expiration-help-icon" class="plaid-help-icon" title="Hover for how this is calculated">?</span>
+          </div>
           <div class="leverage-metric-value" id="leverage-expiration-val">—</div>
           <div class="leverage-metric-sub" id="leverage-expiration-sub"></div>
         </div>
@@ -8734,6 +8737,33 @@ function renderPointsExpiration() {
   subEl.textContent = filterLabel;
 }
 
+// Explains the currently-configured "Expiration N" rule for the hover tooltip on
+// the Next Points Expiration card's help icon.
+function pointsExpirationHelpText() {
+  var cfg = expirationCfgs()[0];
+  if (!cfg) {
+    return '<div class="lwtt-hint" style="border-top:none;padding-top:0;margin-top:0;white-space:normal">'
+      + 'No expiration rule configured (add an "Expiration N" Config row).</div>';
+  }
+  var filt   = parseExpirationFilter(cfg.trackAgainstRaw);
+  var amount = cfg.dueDays != null ? cfg.dueDays : (cfg.amount != null ? cfg.amount : 0);
+  var unit   = (cfg.unit || 'months').trim();
+  var triggerDetail = filt ? escHtml(filt.label + " = '" + filt.value + "'") : 'Most recent transaction in the account';
+  return '<div style="max-width:260px">'
+    + '<div class="lwtt-month">How this is calculated</div>'
+    + '<div class="lwtt-hint" style="border-top:none;padding-top:0;margin-top:0;white-space:normal">'
+    +   'Finds the latest matching transaction in the configured account, then adds the configured offset to its date.'
+    + '</div>'
+    + '<div class="lwtt-divider"></div>'
+    + '<div class="lwtt-driver-row"><span class="lwtt-driver-name" style="font-weight:700;color:#333">Account</span></div>'
+    + '<div class="lwtt-driver-detail" style="white-space:normal">' + escHtml(cfg.id || '—') + '</div>'
+    + '<div class="lwtt-driver-row" style="margin-top:6px"><span class="lwtt-driver-name" style="font-weight:700;color:#333">Trigger transaction</span></div>'
+    + '<div class="lwtt-driver-detail" style="white-space:normal">' + triggerDetail + '</div>'
+    + '<div class="lwtt-driver-row" style="margin-top:6px"><span class="lwtt-driver-name" style="font-weight:700;color:#333">Expires</span></div>'
+    + '<div class="lwtt-driver-detail" style="white-space:normal">' + amount + ' ' + unit + ' after that transaction’s date</div>'
+    + '</div>';
+}
+
 function leveragePosCfgs() {
   return (state.catConfig || []).filter(function(c) {
     return /^Card Transactions \d+$/i.test(c.usedFor || '');
@@ -13079,6 +13109,9 @@ document.addEventListener('DOMContentLoaded', function() {
   wireHelpIconTooltip('leverage-pos-help-icon', function() {
     return '<div class="lwtt-label">' + escHtml(leveragePosHelpText()) + '</div>';
   });
+
+  // Help icon: hover shows how the Next Points Expiration card's date is derived.
+  wireHelpIconTooltip('leverage-expiration-help-icon', pointsExpirationHelpText);
 
   // Help icon: hover shows the CSV column names the importer currently recognizes
   // (kept in sync with detectCSVColumns()'s own keyword lists).
