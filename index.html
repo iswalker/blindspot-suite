@@ -5670,14 +5670,13 @@ function showLwTooltip(clientX, clientY, idx, s) {
   tt.style.display = 'block';
   var ttRect = tt.getBoundingClientRect();
   var ttW = ttRect.width || 155, ttH = ttRect.height || 128;
-  var vw = window.innerWidth, vh = window.innerHeight;
+  var vw = window.innerWidth;
   var left = clientX + 16;
   var top  = clientY - 20;
   if (left + ttW > vw - 8) left = clientX - ttW - 16;
-  if (top + ttH > vh - 8)  top  = vh - ttH - 8;
-  if (top < 8) top = 8;
-  tt.style.left = left + 'px';
-  tt.style.top  = top  + 'px';
+  var pos = clampToViewport(left, top, ttW, ttH);
+  tt.style.left = pos.x + 'px';
+  tt.style.top  = pos.y + 'px';
 }
 
 // ---- Change Drivers modal: full driver list + why a balance was adjusted ----
@@ -7470,13 +7469,12 @@ function showNwOutlookTooltip(clientX, clientY, yearIdx, s) {
   tt.style.display = 'block';
   var ttRect = tt.getBoundingClientRect();
   var ttW = ttRect.width || 160, ttH = ttRect.height || 120;
-  var vw = window.innerWidth, vh = window.innerHeight;
+  var vw = window.innerWidth;
   var left = clientX + 16, top = clientY - 20;
   if (left + ttW > vw - 8) left = clientX - ttW - 16;
-  if (top + ttH > vh - 8)  top  = vh - ttH - 8;
-  if (top < 8) top = 8;
-  tt.style.left = left + 'px';
-  tt.style.top  = top  + 'px';
+  var pos = clampToViewport(left, top, ttW, ttH);
+  tt.style.left = pos.x + 'px';
+  tt.style.top  = pos.y + 'px';
 }
 
 function wireNwOutlookHover(canvas) {
@@ -8428,12 +8426,12 @@ function buildAndShowLessonsTt(clientX, clientY, title, txns, amtColor) {
   tt.innerHTML = html;
   var vw = window.innerWidth;
   tt.style.display = 'block';
-  var tw = tt.offsetWidth;
-  var tx = clientX + 14, ty = clientY - tt.offsetHeight / 2;
+  var tw = tt.offsetWidth, th = tt.offsetHeight;
+  var tx = clientX + 14, ty = clientY - th / 2;
   if (tx + tw > vw - 8) tx = clientX - tw - 14;
-  if (ty < 8) ty = 8;
-  tt.style.left = tx + 'px';
-  tt.style.top  = ty + 'px';
+  var pos = clampToViewport(tx, ty, tw, th);
+  tt.style.left = pos.x + 'px';
+  tt.style.top  = pos.y + 'px';
 }
 
 function showLessonsTooltip(clientX, clientY, idx) {
@@ -8937,12 +8935,12 @@ function renderLeveragePosWidget() {
           + '</span></div>';
         posTooltip.innerHTML = h;
         posTooltip.style.display = 'block';
-        var tw = posTooltip.offsetWidth;
-        var tx = e.clientX + 14, ty = e.clientY - posTooltip.offsetHeight / 2;
+        var tw = posTooltip.offsetWidth, th = posTooltip.offsetHeight;
+        var tx = e.clientX + 14, ty = e.clientY - th / 2;
         if (tx + tw > window.innerWidth - 8) tx = e.clientX - tw - 14;
-        if (ty < 8) ty = 8;
-        posTooltip.style.left = tx + 'px';
-        posTooltip.style.top  = ty + 'px';
+        var pos = clampToViewport(tx, ty, tw, th);
+        posTooltip.style.left = pos.x + 'px';
+        posTooltip.style.top  = pos.y + 'px';
       });
       cell.addEventListener('mouseleave', function() {
         posTooltip.style.display = 'none';
@@ -9239,12 +9237,12 @@ function buildAndShowSpeedoTt(clientX, clientY, data, amtColor) {
   tt.innerHTML = html;
   var vw = window.innerWidth;
   tt.style.display = 'block';
-  var tw = tt.offsetWidth;
-  var tx = clientX + 14, ty = clientY - tt.offsetHeight / 2;
+  var tw = tt.offsetWidth, th = tt.offsetHeight;
+  var tx = clientX + 14, ty = clientY - th / 2;
   if (tx + tw > vw - 8) tx = clientX - tw - 14;
-  if (ty < 8) ty = 8;
-  tt.style.left = tx + 'px';
-  tt.style.top  = ty + 'px';
+  var pos = clampToViewport(tx, ty, tw, th);
+  tt.style.left = pos.x + 'px';
+  tt.style.top  = pos.y + 'px';
 }
 
 function populateSpeedoMonthPicker(acctIds) {
@@ -10420,13 +10418,13 @@ function showAcctHistoryTooltip(clientX, clientY, idx) {
                + '<div class="ahtt-balance" style="color:' + balColor + '">' + balStr + '</div>'
                + floatLine;
   tt.style.display = 'block';
-  var vw = window.innerWidth, vh = window.innerHeight;
+  var vw = window.innerWidth;
   var tw = tt.offsetWidth + 4, th = tt.offsetHeight + 4;
   var tx = clientX + 14, ty = clientY - 14;
   if (tx + tw > vw) tx = clientX - tw - 4;
-  if (ty + th > vh) ty = vh - th - 4;
-  tt.style.left = tx + 'px';
-  tt.style.top  = ty + 'px';
+  var pos = clampToViewport(tx, ty, tw, th, 4);
+  tt.style.left = pos.x + 'px';
+  tt.style.top  = pos.y + 'px';
 }
 
 function hideAcctHistoryTooltip() {
@@ -10670,6 +10668,20 @@ function renderAccountHistoryBody(d, acctId) {
 
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Final safety clamp for hover tooltips/popovers: whatever side-flipping logic a caller
+// already did to pick a preferred (x, y), this pulls the box back onto every edge of the
+// viewport it would otherwise overflow -- critical on mobile, where a tooltip sized for
+// desktop can easily be wider/taller than the whole screen.
+function clampToViewport(x, y, w, h, pad) {
+  pad = pad == null ? 8 : pad;
+  var vw = window.innerWidth, vh = window.innerHeight;
+  if (x + w > vw - pad) x = vw - w - pad;
+  if (x < pad) x = pad;
+  if (y + h > vh - pad) y = vh - h - pad;
+  if (y < pad) y = pad;
+  return { x: x, y: y };
 }
 
 function parseCSVLine(line) {
@@ -13095,12 +13107,12 @@ document.addEventListener('DOMContentLoaded', function() {
     icon.addEventListener('mousemove', function(e) {
       tip.innerHTML = htmlFn();
       tip.style.display = 'block';
-      var tw = tip.offsetWidth;
-      var tx = e.clientX + 14, ty = e.clientY - tip.offsetHeight / 2;
+      var tw = tip.offsetWidth, th = tip.offsetHeight;
+      var tx = e.clientX + 14, ty = e.clientY - th / 2;
       if (tx + tw > window.innerWidth - 8) tx = e.clientX - tw - 14;
-      if (ty < 8) ty = 8;
-      tip.style.left = tx + 'px';
-      tip.style.top  = ty + 'px';
+      var pos = clampToViewport(tx, ty, tw, th);
+      tip.style.left = pos.x + 'px';
+      tip.style.top  = pos.y + 'px';
     });
     icon.addEventListener('mouseleave', function() { tip.style.display = 'none'; });
   }
@@ -13309,13 +13321,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function positionCfTt(e) {
       var ttW = cfTt.offsetWidth || 340, ttH = cfTt.offsetHeight || 150;
-      var vw = window.innerWidth, vh = window.innerHeight;
+      var vw = window.innerWidth;
       var left = e.clientX + 14, top = e.clientY - 20;
       if (left + ttW > vw - 8) left = e.clientX - ttW - 14;
-      if (top + ttH > vh - 8)  top  = vh - ttH - 8;
-      if (top < 8) top = 8;
-      cfTt.style.left = left + 'px';
-      cfTt.style.top  = top  + 'px';
+      var pos = clampToViewport(left, top, ttW, ttH);
+      cfTt.style.left = pos.x + 'px';
+      cfTt.style.top  = pos.y + 'px';
     }
 
     mainTbl.addEventListener('mouseover', function(e) {
@@ -13361,13 +13372,12 @@ document.addEventListener('DOMContentLoaded', function() {
   function positionRecovTt(e) {
     if (!recovTt || recovTt.style.display === 'none') return;
     var ttW = recovTt.offsetWidth || 200, ttH = recovTt.offsetHeight || 100;
-    var vw = window.innerWidth, vh = window.innerHeight;
+    var vw = window.innerWidth;
     var left = e.clientX + 14, top = e.clientY - 20;
     if (left + ttW > vw - 8) left = e.clientX - ttW - 14;
-    if (top + ttH > vh - 8)  top  = vh - ttH - 8;
-    if (top < 8) top = 8;
-    recovTt.style.left = left + 'px';
-    recovTt.style.top  = top  + 'px';
+    var pos = clampToViewport(left, top, ttW, ttH);
+    recovTt.style.left = pos.x + 'px';
+    recovTt.style.top  = pos.y + 'px';
   }
   if (recovCard && recovTt) {
     recovCard.addEventListener('mouseenter', function(e) {
@@ -13395,13 +13405,12 @@ document.addEventListener('DOMContentLoaded', function() {
   function positionTrendTt(e) {
     if (!trendTt || trendTt.style.display === 'none') return;
     var ttW = trendTt.offsetWidth || 320, ttH = trendTt.offsetHeight || 160;
-    var vw = window.innerWidth, vh = window.innerHeight;
+    var vw = window.innerWidth;
     var left = e.clientX + 14, top = e.clientY - 20;
     if (left + ttW > vw - 8) left = e.clientX - ttW - 14;
-    if (top + ttH > vh - 8)  top  = vh - ttH - 8;
-    if (top < 8) top = 8;
-    trendTt.style.left = left + 'px';
-    trendTt.style.top  = top  + 'px';
+    var pos = clampToViewport(left, top, ttW, ttH);
+    trendTt.style.left = pos.x + 'px';
+    trendTt.style.top  = pos.y + 'px';
   }
   if (trendCard && trendTt) {
     trendCard.addEventListener('mouseenter', function(e) {
@@ -13615,10 +13624,11 @@ document.addEventListener('DOMContentLoaded', function() {
       positionTt(e);
     }
     function positionTt(e) {
+      var ttW = tt.offsetWidth || 310, ttH = tt.offsetHeight;
       var x = e.clientX + 14, y = e.clientY - 10;
-      if (x + 310 > window.innerWidth)  x = e.clientX - 320;
-      if (y + tt.offsetHeight > window.innerHeight) y = window.innerHeight - tt.offsetHeight - 8;
-      tt.style.left = x + 'px'; tt.style.top = y + 'px';
+      if (x + ttW > window.innerWidth) x = e.clientX - ttW - 14;
+      var pos = clampToViewport(x, y, ttW, ttH);
+      tt.style.left = pos.x + 'px'; tt.style.top = pos.y + 'px';
     }
     panel.addEventListener('mouseover', function(e) {
       var row = e.target.closest ? e.target.closest('.nw-driver-row') : null;
