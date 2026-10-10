@@ -288,16 +288,21 @@ td:first-child, th:first-child {
 }
 th:first-child { z-index: 4; }
 
-/* No border on the sticky first column while its table fits without horizontal scrolling --
+/* No edge on the sticky first column while its table fits without horizontal scrolling --
    only once the table's own scroll container is actually scrolled (.hscroll-active, toggled in
    JS: per-wrapper for every table with its own scroll zone, or on body for Cash Flow, whose
    table scrolls the page instead of a wrapper of its own) does the column need a real edge: a
-   2px solid border, plus an opaque background so the row text scrolling underneath the sticky
+   2px solid line, plus an opaque background so the row text scrolling underneath the sticky
    column can't bleed through. Descendant-based (not scoped to one table/wrapper id) so every
-   detail table gets the same treatment automatically. */
-.hscroll-active td:first-child, .hscroll-active th:first-child {
-  border-right: 2px solid #ccc;
-  background: #fff;
+   detail table gets the same treatment automatically.
+   The edge is a ::after line rather than border-right: under border-collapse the table grid
+   paints cell borders at the column's original position, so a border on a pinned sticky cell
+   stays behind instead of travelling with it. An absolutely positioned pseudo-element is part
+   of the cell and does travel. */
+.hscroll-active td:first-child, .hscroll-active th:first-child { background: #fff; }
+.hscroll-active td:first-child::after, .hscroll-active th:first-child::after {
+  content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 2px;
+  background: #ccc; pointer-events: none;
 }
 /* Fix the first column's width so it can't shift as groups/categories expand and collapse --
    under the default table-layout:auto, the column re-measures to the widest currently-visible
@@ -307,7 +312,7 @@ th:first-child { z-index: 4; }
    for the fixed width ellipsizes instead of growing the column. */
 #main-table {
   table-layout: fixed;
-  --cf-first-w: 240px; --cf-month-w: 130px; --cf-avg-w: 230px;
+  --cf-first-w: 240px; --cf-month-w: 177px; --cf-avg-w: 230px;
   /* --cf-months is set from JS (renderTable) to the number of month columns. */
   width: calc(var(--cf-first-w) + var(--cf-avg-w) + var(--cf-months, 0) * var(--cf-month-w));
 }
@@ -315,11 +320,17 @@ th:first-child { z-index: 4; }
   width: var(--cf-first-w);
   overflow: hidden;
   text-overflow: ellipsis;
-  /* Cash Flow is the one exception to "no border until scrolled" above: it always shows a
-     plain divider on the first column even before any scrolling, since the table is wide
-     enough that the column boundary is useful immediately. */
-  border-right: 1px solid #e8e8e8;
 }
+/* Cash Flow is the one exception to "no edge until scrolled" above: it always shows a plain
+   1px divider on the first column even before any scrolling, since the table is wide enough
+   that the column boundary is useful immediately. */
+#main-table td:first-child::after, #main-table th:first-child::after {
+  content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 1px;
+  background: #e8e8e8; pointer-events: none;
+}
+/* The first column is always opaque white (zero specificity, so the row tints and hover
+   colors below still win) -- never transparent over the cells scrolling underneath it. */
+:where(#main-table) td:first-child, :where(#main-table) th:first-child { background: #fff; }
 /* The Average column packs a percent, a +/- deviation note, and a shaded pill value into one
    cell -- noticeably more content than a plain month column -- so under table-layout:fixed it
    needs its own explicit width rather than sharing the even split the month columns get,
@@ -332,10 +343,11 @@ th:first-child { z-index: 4; }
    width can't be spread back over them, and once they no longer fit the viewport the table just
    grows past it: everything but the sticky first column scrolls sideways. */
 #main-table th:not(:first-child):not(.avg-th) { width: var(--cf-month-w); }
-/* Scrolling still upgrades Cash Flow's plain divider to the same solid 2px edge as every other
-   table (more specific than the plain divider above so it wins). */
-body.hscroll-active #main-table td:first-child, body.hscroll-active #main-table th:first-child {
-  border-right: 2px solid #ccc; background: #fff;
+/* Scrolling upgrades Cash Flow's plain divider to the same solid 2px edge as every other
+   table (more specific than the plain divider above so it wins). The row tints (.cat-row,
+   hover) still apply on top of the white default, so only the plain rows go white here. */
+body.hscroll-active #main-table td:first-child::after, body.hscroll-active #main-table th:first-child::after {
+  width: 2px; background: #ccc;
 }
 
 /* ---- th ---- */
@@ -347,7 +359,7 @@ th {
   font-size: 13px;
   font-weight: 600;
   letter-spacing: .06em;
-  padding: 12px 18px;
+  padding: 12px;
   border-bottom: 2px solid #e2e2e2;
   /* border-collapse hands borders to the table grid, so the header loses its rule once it
      detaches and floats. An inset shadow paints on the cell itself and survives scrolling. */
@@ -365,7 +377,7 @@ body.cf-header-stuck #main-table th { background: #fff; }
 td {
   text-align: right;
   font-size: 14px;
-  padding: 5px 18px;
+  padding: 5px 12px;
   border-bottom: 1px solid #efefef;
   white-space: nowrap;
 }
@@ -13695,7 +13707,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Cash Flow's first column drops its sticky-edge shadow in favor of a plain divider
     // border until the page is actually scrolled horizontally past it.
     function updateHscroll() {
-      document.body.classList.toggle('hscroll-active', window.scrollX > 0);
+      document.body.classList.toggle('hscroll-active', (window.scrollX || window.pageXOffset || (document.scrollingElement && document.scrollingElement.scrollLeft) || 0) > 0);
     }
     window.addEventListener('scroll', updateHscroll);
     window.addEventListener('resize', updateHscroll);
