@@ -719,11 +719,11 @@ select, input { font-family: inherit; }
 .rec-vs-lbl { font-size: 13px; color: #aaa; align-self: center; }
 .rec-or-lbl { font-size: 13px; color: #aaa; display: block; margin: 4px 0; }
 .plaid-remove-btn, .plaid-rename-btn {
-  padding: 4px 8px; background: none; border: 1px solid #ccc; border-radius: 4px;
-  font-size: 12px; cursor: pointer; color: #999; line-height: 1;
+  padding: 6px 14px; background: #fff; border: 1px solid #ccc; border-radius: 6px;
+  font-size: 13px; cursor: pointer; color: #555; font-weight: 500; white-space: nowrap; line-height: 1;
 }
-.plaid-remove-btn:hover { border-color: #c62828; color: #c62828; }
-.plaid-rename-btn:hover { border-color: #1a1a2e; color: #1a1a2e; }
+.plaid-remove-btn:hover { background: #f0f0ec; border-color: #c62828; color: #c62828; }
+.plaid-rename-btn:hover { background: #f0f0ec; border-color: #1a1a2e; color: #1a1a2e; }
 .plaid-rename-icon { display: inline-block; transform: scaleX(-1); }
 #plaid-acct-sel-wrap { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .plaid-rename-row { display: flex; align-items: center; gap: 6px; }
@@ -1231,9 +1231,13 @@ td.hbt-num:last-child { width: 13%; }
 #leverage-pos-table th { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #aaa; padding: 4px 8px; text-align: left; border-bottom: 1px solid #eee; }
 #leverage-pos-table th:last-child { text-align: right; }
 #leverage-pos-table td { font-size: 13px; padding: 5px 8px; border-bottom: 1px solid #f5f5f0; color: #333; }
-#leverage-pos-table td:last-child { text-align: right; font-weight: 600; color: #1565c0; }
+#leverage-pos-table td:last-child { font-weight: 600; color: #1565c0; }
 #leverage-pos-table tr:last-child td { border-bottom: none; }
-#leverage-pos-empty { font-size: 12px; color: #bbb; padding: 8px 0; white-space: normal; word-wrap: break-word; overflow-wrap: break-word; }
+#leverage-pos-empty {
+  font-size: 12px; color: #bbb; padding: 8px 0; white-space: normal; word-wrap: break-word; overflow-wrap: break-word;
+  border-bottom: none; box-shadow: none;
+}
+#leverage-pos-empty::after { display: none; }
 #leverage-chart-wrap { flex: 3; min-width: 0; margin-bottom: 0; }
 #leverage-year-chart-wrap { flex: 1; min-width: 120px; margin-bottom: 0; }
 #leverage-breakdown-row { display: flex; gap: 16px; margin-bottom: 14px; align-items: flex-start; }
