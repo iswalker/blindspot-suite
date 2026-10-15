@@ -9394,6 +9394,42 @@ function populateSpeedoMonthPicker(acctIds) {
   state.leverageSpeedoMonth = sel.value;
 }
 
+// Parses a Payee-type Speedometer's "Track Against" value for inflow rules. Returns null unless
+// the value is an inflow rule (anything else tracks outflows). Otherwise { require, exclude }:
+// lowercase memo phrases that must / must not appear in a transaction's memo. Case-insensitive.
+//   Inflows WITH "shipping" AND NOT "return" in Memo  -> require [shipping], exclude [return]
+//   Inflows WITH "return" AND "shipping" in Memo      -> require [return, shipping]
+//   Inflows                                           -> every inflow
+// Older free-text values with no quoted phrases keep their original meaning: "inflows ...
+// shipping" requires "shipping" in the memo, and with minus / no / without it excludes it.
+function parseInflowMemoRule(raw) {
+  var text = (raw || '').trim();
+  if (!/^inflows?\b/i.test(text)) return null;
+  var rule = { require: [], exclude: [] };
+  var phraseRe = /(?:\b(and\s+not|but\s+not|and|not)\s+)?["\u201c\u201d']([^"\u201c\u201d']+)["\u201c\u201d']/gi;
+  var m, found = false;
+  while ((m = phraseRe.exec(text)) !== null) {
+    found = true;
+    var phrase = m[2].trim().toLowerCase();
+    if (!phrase) continue;
+    var op = (m[1] || '').toLowerCase();
+    if (op === 'and not' || op === 'but not' || op === 'not') rule.exclude.push(phrase);
+    else rule.require.push(phrase);
+  }
+  if (found) return rule;
+  var lc = text.toLowerCase();
+  var legacyExclude = lc.indexOf('minus') !== -1 || lc.indexOf('no ') !== -1 || lc.indexOf('without') !== -1;
+  if (legacyExclude) rule.exclude.push('shipping');
+  else if (lc.indexOf('shipping') !== -1) rule.require.push('shipping');
+  return rule;
+}
+function inflowMemoMatches(rule, memo) {
+  var lc = (memo || '').toLowerCase();
+  for (var i = 0; i < rule.require.length; i++) if (lc.indexOf(rule.require[i]) === -1) return false;
+  for (var j = 0; j < rule.exclude.length; j++) if (lc.indexOf(rule.exclude[j]) !== -1) return false;
+  return true;
+}
+
 function renderLeverageSpeedometers() {
   var row = document.getElementById('leverage-speedo-row');
   var monthWrap = document.getElementById('leverage-speedo-month-wrap');
@@ -9496,10 +9532,8 @@ function renderLeverageSpeedometers() {
 
     if (isPayeeType && payeeName && period) {
       var targetPayeeLc   = payeeName.toLowerCase();
-      var trackMode        = cfg.trackAgainst || 'all';
-      var wantInflow        = trackMode.indexOf('inflow') !== -1;
-      var excludeShipping  = wantInflow && (trackMode.indexOf('minus') !== -1 || trackMode.indexOf('no ') !== -1 || trackMode.indexOf('without') !== -1);
-      var wantShipping     = wantInflow && !excludeShipping && trackMode.indexOf('shipping') !== -1;
+      var inflowRule       = parseInflowMemoRule(cfg.trackAgainstRaw);
+      var wantInflow       = !!inflowRule;
       for (var allAid in acctList) {
         var aTxs = acctList[allAid] || [];
         for (var ati2 = 0; ati2 < aTxs.length; ati2++) {
@@ -9515,17 +9549,11 @@ function renderLeverageSpeedometers() {
               for (var si2 = 0; si2 < at2.subs.length; si2++) {
                 var sub2 = at2.subs[si2];
                 if (sub2.amount <= 0) continue;
-                var subMemoLc = (sub2.memo || '').toLowerCase();
-                var subHasShip = subMemoLc.indexOf('shipping') !== -1;
-                if (excludeShipping && subHasShip) continue;
-                if (wantShipping && !subHasShip) continue;
+                if (!inflowMemoMatches(inflowRule, sub2.memo)) continue;
                 spend2 += sub2.amount;
               }
             } else {
-              var memoLc = (at2.memo || '').toLowerCase();
-              var hasShip = memoLc.indexOf('shipping') !== -1;
-              if (excludeShipping && hasShip) continue;
-              if (wantShipping && !hasShip) continue;
+              if (!inflowMemoMatches(inflowRule, at2.memo)) continue;
               spend2 = rawAmt2;
             }
           } else {
