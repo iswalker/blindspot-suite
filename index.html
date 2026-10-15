@@ -9478,21 +9478,24 @@ function populateSpeedoMonthPicker(acctIds) {
 // lowercase memo phrases that must / must not appear in a transaction's memo. Case-insensitive.
 //   Inflows WITH "shipping" AND NOT "return" in Memo  -> require [shipping], exclude [return]
 //   Inflows WITH "return" AND "shipping" in Memo      -> require [return, shipping]
+//   Inflows MINUS "shipping" in Memo                  -> exclude [shipping]
 //   Inflows                                           -> every inflow
+// The word before a phrase sets its role: MINUS / WITHOUT / EXCLUDING / EXCEPT / NOT / NO (also
+// "AND NOT", "AND MINUS", ...) exclude it; WITH / AND / INCLUDING / PLUS, or no word, require it.
 // Older free-text values with no quoted phrases keep their original meaning: "inflows ...
 // shipping" requires "shipping" in the memo, and with minus / no / without it excludes it.
 function parseInflowMemoRule(raw) {
   var text = (raw || '').trim();
   if (!/^inflows?\b/i.test(text)) return null;
   var rule = { require: [], exclude: [] };
-  var phraseRe = /(?:\b(and\s+not|but\s+not|and|not)\s+)?["\u201c\u201d']([^"\u201c\u201d']+)["\u201c\u201d']/gi;
+  var phraseRe = /(?:\b((?:and|but)\s+(?:not|no|minus|without|excluding|except)|minus|without|excluding|except|not|no|and|with|including|plus)\b\s*)?["\u201c\u201d']([^"\u201c\u201d']+)["\u201c\u201d']/gi;
   var m, found = false;
   while ((m = phraseRe.exec(text)) !== null) {
     found = true;
     var phrase = m[2].trim().toLowerCase();
     if (!phrase) continue;
-    var op = (m[1] || '').toLowerCase();
-    if (op === 'and not' || op === 'but not' || op === 'not') rule.exclude.push(phrase);
+    var op = (m[1] || '').toLowerCase().replace(/^(and|but)\s+/, '');
+    if (/^(not|no|minus|without|excluding|except)$/.test(op)) rule.exclude.push(phrase);
     else rule.require.push(phrase);
   }
   if (found) return rule;
