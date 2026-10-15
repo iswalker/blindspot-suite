@@ -1959,6 +1959,7 @@ td.hbt-num:last-child { width: 13%; }
             <button type="button" class="nwo-seg-btn" id="lw-pipeline-minus-btn" data-mode="minus">Minus Budgeted Available</button>
           </div>
         </div>
+        <span class="holding-warn" id="lw-pipeline-warn"></span>
       </div>
     </div>
     <div id="lw-summary-card"></div>
@@ -3563,6 +3564,9 @@ function fetchYnabData(apiKey, budgetId, opts) {
     var txns    = data.transactions || [];
     var acctTxns = {};
     var acctTxnsTracking = {}; // Tracking-group amounts only, for ExTracking toggle
+    // Red-flagged transactions only ({ acctId: { monthKey: amount } }): the Liquid Balances
+    // Pipeline counts just these from a Pipeline account, not its whole balance.
+    var acctTxnsRed = {};
     // Line-level detail behind acctTxnsTracking, so the driver modal can show exactly which
     // transactions Exclude Tracking removed: { acctId: { monthKey: [ {date,cat,payee,memo,amount} ] } }
     var acctTrkTxns = {};
@@ -3630,6 +3634,10 @@ function fetchYnabData(apiKey, budgetId, opts) {
             coAmt = (t.amount || 0) / 1000;
           }
           if (coAmt !== 0) cancelOutByMonth[tKey2] = (cancelOutByMonth[tKey2] || 0) + coAmt;
+        }
+        if (!t.deleted && t.flag_color === 'red') {
+          if (!acctTxnsRed[t.account_id]) acctTxnsRed[t.account_id] = {};
+          acctTxnsRed[t.account_id][tKey2] = (acctTxnsRed[t.account_id][tKey2] || 0) + (t.amount || 0) / 1000;
         }
         if (!t.deleted) {
           if (!acctTxnsList[t.account_id]) acctTxnsList[t.account_id] = [];
@@ -3990,7 +3998,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
                groupPivot: groupPivot, catPivot: catPivot, activeCats: activeCats,
                regTxns: regTxns, allAccounts: allAccounts,
                allAccountsInfo: allAccountsInfo, lwAccounts: lwAccounts,
-               nwAccounts: nwAccounts, acctTxns: acctTxns, acctTxnsTracking: acctTxnsTracking, acctTrkTxns: acctTrkTxns, acctTxnsList: acctTxnsList, catIdTxns: catIdTxns, catIdAllTxns: catIdAllTxns, catIdToName: catIdToName, catIdToGroup: catIdToGroup,
+               nwAccounts: nwAccounts, acctTxns: acctTxns, acctTxnsTracking: acctTxnsTracking, acctTxnsRed: acctTxnsRed, acctTrkTxns: acctTrkTxns, acctTxnsList: acctTxnsList, catIdTxns: catIdTxns, catIdAllTxns: catIdAllTxns, catIdToName: catIdToName, catIdToGroup: catIdToGroup,
                cancelOutByMonth: cancelOutByMonth,
                pendingTxns: pendingTxns,
                upcomingRenewals: upcomingRenewals,
@@ -6314,6 +6322,11 @@ function renderLwDriverDetail(d, monthKey, prevKey) {
       +    (deducted > 0 ? '-' : '') + lwFmtPlain(deducted) + '</span></div>';
   }
 
+  if (d.id && state.lwPipelineMode !== '' && lwIsPipelineAcct(d.id)) {
+    h += '<div class="lwdm-d-sec">Pipeline — Red-flagged transactions only</div>'
+      +  '<div class="lwdm-d-tot"><span>Counted from this account</span><span>'
+      +    lwFmtSigned(lwRedFlaggedThrough(d.id, monthKey)) + '</span></div>';
+  }
   // Pipeline "Minus Budgeted Available": shown on the one Pipeline account it is charged to
   if (d.id && d.id === lwPipelineBudgetHolderId()) {
     var pipeB = lwPipelineBudgetedAvailable(monthKey);
@@ -7035,16 +7048,35 @@ function lwCancelOutThrough(monthKey) {
   return total;
 }
 
+// Pipeline accounts (the "Pipeline" Config row) contribute only their Red-flagged transactions,
+// cumulative through monthKey, whenever the Liquid Balances Pipeline toggle is on -- not the
+// account's whole balance.
+function lwIsPipelineAcct(acctId) {
+  var accts = (state.data && state.data.lwAccounts) || [];
+  for (var i = 0; i < accts.length; i++) { if (accts[i].id === acctId) return !!accts[i].isPipeline; }
+  return false;
+}
+function lwRedFlaggedThrough(acctId, monthKey) {
+  var m = ((state.data || {}).acctTxnsRed || {})[acctId] || {}, total = 0;
+  for (var k in m) { if (k <= monthKey) total += m[k]; }
+  return total;
+}
+
 function acctBalanceAt(acctId, monthKey) {
   var info = (state.data.allAccountsInfo || {})[acctId];
   if (!info) return 0;
-  var bal  = info.balance;
-  var txns = (state.data.acctTxns || {})[acctId] || {};
-  for (var k in txns) { if (k > monthKey) bal -= txns[k]; }
-  if (state.lwExcludeTracking) {
-    var trk = (state.data.acctTxnsTracking || {})[acctId] || {};
-    for (var k2 in trk) {
-      if (k2 <= monthKey) bal -= trk[k2];
+  var bal;
+  if (state.lwPipelineMode !== '' && lwIsPipelineAcct(acctId)) {
+    bal = lwRedFlaggedThrough(acctId, monthKey);
+  } else {
+    bal = info.balance;
+    var txns = (state.data.acctTxns || {})[acctId] || {};
+    for (var k in txns) { if (k > monthKey) bal -= txns[k]; }
+    if (state.lwExcludeTracking) {
+      var trk = (state.data.acctTxnsTracking || {})[acctId] || {};
+      for (var k2 in trk) {
+        if (k2 <= monthKey) bal -= trk[k2];
+      }
     }
   }
   // Returns 0 when neither holding toggle is on, so this is safe unconditionally
@@ -7126,6 +7158,12 @@ function syncExclusionToggles() {
     var pipeInc = document.getElementById('lw-pipeline-include-btn'), pipeMin = document.getElementById('lw-pipeline-minus-btn');
     if (pipeInc) pipeInc.classList.toggle('active', state.lwPipelineMode === 'include');
     if (pipeMin) pipeMin.classList.toggle('active', state.lwPipelineMode === 'minus');
+  }
+  // Cached data from before flags were loaded has no Red-flag sums; a refresh brings them in.
+  var pipeWarnEl = document.getElementById('lw-pipeline-warn');
+  if (pipeWarnEl) {
+    var needsFlags = state.lwPipelineMode !== '' && state.data && state.data.lwAccounts && !state.data.acctTxnsRed;
+    pipeWarnEl.textContent = needsFlags ? '⚠ Refresh YNAB data to load transaction flags' : '';
   }
   // Without "<name> Holding" rows this toggle has nothing to deduct and appears broken, which
   // is what happens whenever the Config workbook has not loaded.
@@ -7343,7 +7381,7 @@ function renderNetWorth() {
     state.lwExcludeTracking     = false;
     state.lwExcludeDistribution = false;
     state.lwExcludeBudgeted     = false;
-    state.lwPipelineMode        = state.lwPipelineMode === 'minus' ? 'include' : state.lwPipelineMode;
+    state.lwPipelineMode        = '';
   }
   try {
     renderNetWorthBody();
@@ -10794,7 +10832,7 @@ function renderAccountHistory() {
     state.lwExcludeTracking     = false;
     state.lwExcludeDistribution = false;
     state.lwExcludeBudgeted     = false;
-    state.lwPipelineMode        = state.lwPipelineMode === 'minus' ? 'include' : state.lwPipelineMode;
+    state.lwPipelineMode        = '';
   }
   try {
     renderAccountHistoryBody(d, acctId);
