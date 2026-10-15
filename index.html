@@ -272,7 +272,15 @@ body {
    nothing to scroll": CSS computes overflow-y:visible up to overflow-x:auto, so leaving
    overflow-x:auto still makes this a scroll container and traps the header's
    position:sticky inside it instead of the page -- defeating the sticky header below. */
-#margin-panel .scroll-wrap { overflow: visible; max-height: none; width: max-content; display: flex; }
+/* The wrapper fills its container, but never gets narrower than the sum of the table's columns
+   (+6px: its own border plus the table's collapsed-border slack): below that the table keeps its fixed column widths and the page
+   scrolls sideways instead. The column-width variables live here (not on the table) so this
+   min-width can use them; --cf-months is set on this element from renderTable(). */
+#margin-panel .scroll-wrap {
+  overflow: visible; max-height: none; display: flex;
+  --cf-first-w: 240px; --cf-month-w: 177px; --cf-avg-w: 230px;
+  min-width: calc(var(--cf-first-w) + var(--cf-avg-w) + var(--cf-months, 0) * var(--cf-month-w) + 6px);
+}
 /* Cash Flow's pinned first column sits over cells scrolling underneath it. If a mobile browser
    pins it inset from the screen's left edge, those cells show through in the gap. While scrolled
    sideways, a white sticky "curtain" fills exactly that gap (0 to the column's left edge, kept in
@@ -327,9 +335,7 @@ th:first-child { z-index: 4; }
    for the fixed width ellipsizes instead of growing the column. */
 #main-table {
   table-layout: fixed;
-  --cf-first-w: 240px; --cf-month-w: 177px; --cf-avg-w: 230px;
-  /* --cf-months is set from JS (renderTable) to the number of month columns. */
-  width: calc(var(--cf-first-w) + var(--cf-avg-w) + var(--cf-months, 0) * var(--cf-month-w));
+  width: 100%;
 }
 #main-table td:first-child, #main-table th:first-child {
   width: var(--cf-first-w);
@@ -351,13 +357,12 @@ th:first-child { z-index: 4; }
    needs its own explicit width rather than sharing the even split the month columns get,
    otherwise its content overflows the cell. */
 #main-table .avg-th, #main-table .avg-col { width: var(--cf-avg-w); }
-/* Month columns get a fixed width too (under table-layout:fixed the header row's cell widths
-   set every column) instead of splitting whatever space is left after the first and Average
-   columns -- that split is what squeezed them illegibly on narrow screens. The table's own
-   width is pinned to exactly the sum of its columns (see #main-table above) so spare container
-   width can't be spread back over them, and once they no longer fit the viewport the table just
-   grows past it: everything but the sticky first column scrolls sideways. */
-#main-table th:not(:first-child):not(.avg-th) { width: var(--cf-month-w); }
+/* Month columns have no explicit width: under table-layout:fixed they split whatever is left
+   after the first and Average columns evenly. The wrapper's min-width (see .scroll-wrap above)
+   guarantees that is never less than --cf-month-w each -- that is what keeps them legible on
+   narrow screens, where the table grows past the viewport and everything but the sticky first
+   column scrolls sideways -- while spare container width on wide screens is shared out among
+   the month columns only, so the first and Average columns stay at their fixed widths. */
 /* Scrolling upgrades Cash Flow's plain divider to the same solid 2px edge as every other
    table (more specific than the plain divider above so it wins). The row tints (.cat-row,
    hover) still apply on top of the white default, so only the plain rows go white here. */
@@ -4066,11 +4071,14 @@ function extractSheetId(url) {
 // Google's access token (and the "fresh fetch on every page load" behavior it enables)
 // is only good for about an hour. Once it's older than that, ensureConfigLoaded() is no
 // longer pulling live values from the sheet — it's just reusing the last cached CSV.
+// A linked sheet whose token is gone counts as stale too: a 401 from Google (an expired
+// token) deletes the token, and the reconnect button has to stay available then -- it is the
+// only way to get a fresh pull -- rather than vanishing at the moment it is needed most.
 function isGoogleSheetStale() {
+  if (!extractSheetId(localStorage.getItem('google-sheet-url') || '')) return false;
   var token = localStorage.getItem('google-access-token');
-  if (!token || !extractSheetId(localStorage.getItem('google-sheet-url') || '')) return false;
   var ts = parseInt(localStorage.getItem('google-access-token-ts') || '0', 10);
-  if (!ts) return false;
+  if (!token || !ts) return true;
   return (Date.now() - ts) > 3600000;
 }
 
@@ -4361,7 +4369,7 @@ function renderTable(opts) {
   if (keys.length === 0) {
     document.getElementById(tableId).innerHTML =
       '<thead><tr><th>No data in range</th></tr></thead><tbody></tbody>';
-    document.getElementById(tableId).style.removeProperty('--cf-months');
+    document.getElementById(tableId).parentNode.style.removeProperty('--cf-months');
     return;
   }
 
@@ -5273,7 +5281,7 @@ function renderTable(opts) {
   html += '</tbody>';
 
   document.getElementById(tableId).innerHTML = html;
-  document.getElementById(tableId).style.setProperty('--cf-months', String(keys.length));
+  document.getElementById(tableId).parentNode.style.setProperty('--cf-months', String(keys.length));
   updateCfSectionLabel();
 }
 
