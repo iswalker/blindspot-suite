@@ -273,12 +273,15 @@ body {
    overflow-x:auto still makes this a scroll container and traps the header's
    position:sticky inside it instead of the page -- defeating the sticky header below. */
 /* The wrapper fills its container, but never gets narrower than the sum of the table's columns
-   (+6px: its own border plus the table's collapsed-border slack): below that the table keeps its fixed column widths and the page
-   scrolls sideways instead. The column-width variables live here (not on the table) so this
-   min-width can use them; --cf-months is set on this element from renderTable(). */
+   (+6px: its own border plus the table's collapsed-border slack): below that the table keeps its
+   minimum column widths and the page scrolls sideways instead. The column-width variables live
+   here (not on the table) so this min-width can use them. The -min variables are the floors;
+   --cf-months (renderTable) and the three -w widths (layoutCashFlowColumns) are set on this
+   element from JS and default to the floors. */
 #margin-panel .scroll-wrap {
   overflow: visible; max-height: none; display: flex;
-  --cf-first-w: 240px; --cf-month-w: 177px; --cf-avg-w: 230px;
+  --cf-first-min: 240px; --cf-month-min: 177px; --cf-avg-min: 230px;
+  --cf-first-w: var(--cf-first-min); --cf-month-w: var(--cf-month-min); --cf-avg-w: var(--cf-avg-min);
   min-width: calc(var(--cf-first-w) + var(--cf-avg-w) + var(--cf-months, 0) * var(--cf-month-w) + 6px);
 }
 /* Cash Flow's pinned first column sits over cells scrolling underneath it. If a mobile browser
@@ -357,12 +360,13 @@ th:first-child { z-index: 4; }
    needs its own explicit width rather than sharing the even split the month columns get,
    otherwise its content overflows the cell. */
 #main-table .avg-th, #main-table .avg-col { width: var(--cf-avg-w); }
-/* Month columns have no explicit width: under table-layout:fixed they split whatever is left
-   after the first and Average columns evenly. The wrapper's min-width (see .scroll-wrap above)
-   guarantees that is never less than --cf-month-w each -- that is what keeps them legible on
-   narrow screens, where the table grows past the viewport and everything but the sticky first
-   column scrolls sideways -- while spare container width on wide screens is shared out among
-   the month columns only, so the first and Average columns stay at their fixed widths. */
+/* Month columns get an explicit width too (under table-layout:fixed the header row's cell widths
+   set every column). All three widths are CSS variables on the wrapper: they start at the
+   minimums below, and layoutCashFlowColumns() (JS) raises them when the container has spare
+   width -- first column up to its longest label, the rest split evenly -- but never below the
+   minimums. On narrow screens the minimums hold and the page scrolls sideways, everything but
+   the sticky first column moving. */
+#main-table th:not(:first-child):not(.avg-th) { width: var(--cf-month-w); }
 /* Scrolling upgrades Cash Flow's plain divider to the same solid 2px edge as every other
    table (more specific than the plain divider above so it wins). The row tints (.cat-row,
    hover) still apply on top of the white default, so only the plain rows go white here. */
@@ -4082,6 +4086,14 @@ function isGoogleSheetStale() {
   return (Date.now() - ts) > 3600000;
 }
 
+// Shows/hides the settings panel's Reconnect Google Sheet button and re-evaluates the gear's
+// enabled state (which depends on it). Called wherever the token can go stale or be removed.
+function updateGoogleSheetButton() {
+  var gsheetBtn = document.getElementById('config-gsheet-btn');
+  if (gsheetBtn) gsheetBtn.style.display = isGoogleSheetStale() ? '' : 'none';
+  updateSettingsGearAvailability(state.activeTab || 'home');
+}
+
 function sheetValuesToCsv(values) {
   return (values || []).map(function(row) {
     return (row || []).map(function(cell) {
@@ -4101,7 +4113,7 @@ function fetchConfigFromGoogleSheet(token) {
     'https://sheets.googleapis.com/v4/spreadsheets/' + encodeURIComponent(sheetId) + '/values/A:Z?majorDimension=ROWS',
     { headers: { 'Authorization': 'Bearer ' + token } }
   ).then(function(r) {
-    if (r.status === 401) { localStorage.removeItem('google-access-token'); localStorage.removeItem('google-access-token-ts'); }
+    if (r.status === 401) { localStorage.removeItem('google-access-token'); localStorage.removeItem('google-access-token-ts'); updateGoogleSheetButton(); }
     if (!r.ok) throw new Error('Google Sheets API error ' + r.status);
     return r.json();
   }).then(function(json) {
@@ -4157,6 +4169,7 @@ function showDrivePicker(token) {
     if (r.status === 401 || r.status === 403) {
       localStorage.removeItem('google-access-token');
       localStorage.removeItem('google-access-token-ts');
+      updateGoogleSheetButton();
       throw new Error('Session expired or missing Drive permission — click Google Sheet again to re-link.');
     }
     return r.json();
@@ -4355,6 +4368,59 @@ function updateCfSectionLabel() {
   }
   if (lbl.textContent !== cur) lbl.textContent = cur;
   if (lbl.style.color !== col) lbl.style.color = col;
+}
+
+// ---- Cash Flow column sizing ----
+// The first, month and Average columns each have a minimum width (--cf-*-min on the wrapper).
+// With room to spare, the first column grows to fit its longest label (any row, expanded or
+// not, so expanding a group never shifts the layout) and the other columns split whatever
+// remains evenly; with no room, every column stays at its minimum and the page scrolls sideways.
+var cfFirstNeed = 0;
+function measureCfFirstColumn(table) {
+  var probe = document.createElement('span');
+  probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;left:-9999px;top:0;';
+  document.body.appendChild(probe);
+  var cells = table.querySelectorAll('tr > :first-child');
+  var widest = 0;
+  for (var i = 0; i < cells.length; i++) {
+    var cs = getComputedStyle(cells[i]);
+    probe.style.fontFamily = cs.fontFamily;
+    probe.style.fontSize = cs.fontSize;
+    probe.style.fontWeight = cs.fontWeight;
+    probe.style.fontStyle = cs.fontStyle;
+    probe.style.letterSpacing = cs.letterSpacing;
+    probe.innerHTML = cells[i].innerHTML;
+    var w = probe.getBoundingClientRect().width + (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+    if (w > widest) widest = w;
+  }
+  document.body.removeChild(probe);
+  return Math.ceil(widest) + 2;
+}
+function layoutCashFlowColumns() {
+  var wrap = document.querySelector('#margin-panel .scroll-wrap');
+  if (!wrap) return;
+  var n = parseInt(wrap.style.getPropertyValue('--cf-months'), 10) || 0;
+  var panel = wrap.parentNode;
+  var pcs = getComputedStyle(panel);
+  var avail = panel.clientWidth - (parseFloat(pcs.paddingLeft) || 0) - (parseFloat(pcs.paddingRight) || 0) - 6;
+  if (!n || !(avail > 0)) return; // no month columns, or the tab is hidden: nothing to measure against
+  var wcs = getComputedStyle(wrap);
+  var minFirst = parseFloat(wcs.getPropertyValue('--cf-first-min'));
+  var minMonth = parseFloat(wcs.getPropertyValue('--cf-month-min'));
+  var minAvg   = parseFloat(wcs.getPropertyValue('--cf-avg-min'));
+  var extra = Math.max(0, avail - (minFirst + minAvg + n * minMonth));
+  var firstExtra = Math.min(extra, Math.max(0, cfFirstNeed - minFirst));
+  var each = (extra - firstExtra) / (n + 1);
+  function px(v) { return (Math.floor(v * 100) / 100) + 'px'; }
+  wrap.style.setProperty('--cf-first-w', px(minFirst + firstExtra));
+  wrap.style.setProperty('--cf-month-w', px(minMonth + each));
+  wrap.style.setProperty('--cf-avg-w',   px(minAvg + each));
+}
+function remeasureCashFlowColumns() {
+  var table = document.getElementById('main-table');
+  if (!table || !table.rows.length) return;
+  cfFirstNeed = measureCfFirstColumn(table);
+  layoutCashFlowColumns();
 }
 
 function renderTable(opts) {
@@ -5282,6 +5348,7 @@ function renderTable(opts) {
 
   document.getElementById(tableId).innerHTML = html;
   document.getElementById(tableId).parentNode.style.setProperty('--cf-months', String(keys.length));
+  if (tableId === 'main-table') remeasureCashFlowColumns();
   updateCfSectionLabel();
 }
 
@@ -6727,10 +6794,13 @@ function updateAcctFilterBtn() {
 // Greys out and disables the Settings gear when the active tab has no tab-specific settings
 // block -- opening the panel there would show nothing but the global top section, which isn't
 // "settings for the current page". Also closes a panel left open from a previous tab.
+// Exception: while the Reconnect Google Sheet button is showing (isGoogleSheetStale), the gear
+// stays enabled on every tab, since that button lives in the panel's global top section and is
+// the only way to pull a fresh config.
 function updateSettingsGearAvailability(tab) {
   var gear = document.getElementById('settings-gear-btn');
   if (!gear) return;
-  var hasSettings = !!document.querySelector('.settings-tab-block[data-tab="' + tab + '"]');
+  var hasSettings = !!document.querySelector('.settings-tab-block[data-tab="' + tab + '"]') || isGoogleSheetStale();
   gear.disabled = !hasSettings;
   if (!hasSettings) {
     gear.classList.remove('active');
@@ -6750,7 +6820,7 @@ function switchTab(tab) {
   for (var sti = 0; sti < tabBlocks.length; sti++) {
     tabBlocks[sti].style.display = tabBlocks[sti].getAttribute('data-tab') === tab ? '' : 'none';
   }
-  updateSettingsGearAvailability(tab);
+  updateGoogleSheetButton();
   document.documentElement.classList.toggle('cf-tab-active', tab === 'margin');
   document.getElementById('home-panel').style.display     = tab === 'home'     ? 'block' : 'none';
   document.getElementById('margin-panel').style.display   = tab === 'margin'   ? 'block' : 'none';
@@ -6761,6 +6831,7 @@ function switchTab(tab) {
   document.getElementById('acct-history-panel').style.display = tab === 'acct-history' ? 'block' : 'none';
   document.getElementById('runway-panel').style.display       = tab === 'runway'       ? 'block' : 'none';
   document.getElementById('reconcile-panel').style.display    = tab === 'reconcile'     ? 'block' : 'none';
+  if (tab === 'margin')       layoutCashFlowColumns();
   if (tab === 'home')         renderHome();
   if (tab === 'lw')           renderLiquidWorth();
   if (tab === 'nw')           renderNetWorth();
@@ -12724,8 +12795,7 @@ function showReport() {
   var planWrap = document.getElementById('plan-sel-wrap');
   if (planWrap) planWrap.style.display = hasYnab ? 'flex' : 'none';
   if (hasYnab) populatePlanSelector();
-  var gsheetBtn = document.getElementById('config-gsheet-btn');
-  if (gsheetBtn) gsheetBtn.style.display = isGoogleSheetStale() ? '' : 'none';
+  updateGoogleSheetButton();
   if (state.loadedAt) {
     var d = new Date(state.loadedAt);
     document.getElementById('cache-label').textContent =
@@ -13762,6 +13832,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     window.addEventListener('scroll', updateHscroll);
     window.addEventListener('resize', updateHscroll);
+    window.addEventListener('resize', layoutCashFlowColumns);
+    // Label widths depend on the web font, which may finish loading after the first render.
+    if (document.fonts) {
+      if (document.fonts.ready) document.fonts.ready.then(remeasureCashFlowColumns);
+      if (document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', remeasureCashFlowColumns);
+    }
     updateHscroll();
   })();
 
