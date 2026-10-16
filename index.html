@@ -11968,12 +11968,6 @@ function renderHome() {
   var hasApiData  = !!(d.catActivityPivot);
   var grandAssigned = 0, grandActivity = 0, grandAvail = 0, grandProjSpend = 0, grandEstRecov = 0;
   var allCatData = [];
-  // Est. Recoverable display threshold: Config.csv row with Metric = "Recoverable Costs", column Amount
-  var estRecovThreshold = 75;
-  for (var tci = 0; tci < (state.catConfig || []).length; tci++) {
-    var tcfg = state.catConfig[tci];
-    if (tcfg.usedFor === 'Recoverable Costs' && tcfg.amount !== null) { estRecovThreshold = tcfg.amount; break; }
-  }
   for (var gi = 0; gi < EXPENSE_GROUPS.length; gi++) {
     var grp     = EXPENSE_GROUPS[gi];
     var allCats = d.activeCats[grp] || [];
@@ -12014,9 +12008,9 @@ function renderHome() {
     grandEstRecov  += grpEstRecov;
   }
 
-  // Only show categories whose Est. Recoverable exceeds the configured threshold,
-  // sorted largest to smallest by Est. Recoverable. Category Group rows are omitted.
-  var visibleCatData = allCatData.filter(function(cd) { return cd.estRecov > estRecovThreshold; });
+  // Every recoverable category is listed (no minimum amount), sorted largest to smallest by
+  // Est. Recoverable. Category Group rows are omitted.
+  var visibleCatData = allCatData.slice();
   visibleCatData.sort(function(a, b) { return b.estRecov - a.estRecov; });
 
   // Second pass: render table with Total row first
