@@ -3275,6 +3275,21 @@ function ynabGet(path, apiKey) {
 // account included, and again by refreshReconciliationData() whenever the Liquid Balances
 // Accounts selection or "Include Exception Accounts" toggle changes, so Reconciliation always
 // reflects whichever accounts currently count as liquid there.
+// A Pipeline account (while the Pipeline toggle is on) is liquid only for its Red-flagged
+// transactions -- the same rule acctBalanceAt applies to its balance -- so everything else in it
+// is treated like activity in a non-liquid account here.
+function lwReconTxnIsLiquid(acctIdSet, acctId, txn) {
+  if (!acctIdSet[acctId]) return false;
+  if (state.lwPipelineMode !== '' && lwIsPipelineAcct(acctId)) return !!txn.isRed;
+  return true;
+}
+// A transfer between two liquid accounts nets to zero. The other leg only counts as liquid if
+// its account is, and (for a Pipeline account) only if that leg is Red-flagged.
+function lwReconXferIsInternal(acctIdSet, txn) {
+  if (!txn.xferAcctId || !acctIdSet[txn.xferAcctId]) return false;
+  if (state.lwPipelineMode !== '' && lwIsPipelineAcct(txn.xferAcctId)) return !!txn.xferRed;
+  return true;
+}
 function computeLiqReconData(acctIdSet, reconTxnsByAcct) {
   // Transfers between two liquid accounts net to zero across the set, so they are dropped
   // entirely rather than shown as offsetting noise -- whether the leg is YNAB's own
@@ -3290,7 +3305,8 @@ function computeLiqReconData(acctIdSet, reconTxnsByAcct) {
         if (!acctIdSet[rtAid]) continue;
         var rtSrc = rtMap[rtAid];
         for (var rti = 0; rti < rtSrc.length; rti++) {
-          if (rtSrc[rti].xferAcctId && acctIdSet[rtSrc[rti].xferAcctId]) continue;
+          if (!lwReconTxnIsLiquid(acctIdSet, rtAid, rtSrc[rti])) continue;
+          if (lwReconXferIsInternal(acctIdSet, rtSrc[rti])) continue;
           rtList.push(rtSrc[rti]);
         }
       }
@@ -3306,9 +3322,9 @@ function computeLiqReconData(acctIdSet, reconTxnsByAcct) {
     for (var nlm in reconTxnsByAcct[nlk]) {
       var nlMap = reconTxnsByAcct[nlk][nlm];
       for (var nlAid in nlMap) {
-        if (acctIdSet[nlAid]) continue;
         var nlArr = nlMap[nlAid];
         for (var nli = 0; nli < nlArr.length; nli++) {
+          if (lwReconTxnIsLiquid(acctIdSet, nlAid, nlArr[nli])) continue;
           var nlCat = nlArr[nli].category;
           if (!nonLiqCatAct[nlk])              nonLiqCatAct[nlk]              = {};
           if (!nonLiqCatAct[nlk][nlCat])       nonLiqCatAct[nlk][nlCat]       = {};
@@ -3585,6 +3601,18 @@ function fetchYnabData(apiKey, budgetId, opts) {
       if ((state.catConfig[coci].usedFor || '') === 'Cancel Out') { cancelOutCatId = state.catConfig[coci].id; break; }
     }
     var cancelOutByMonth = {}; // { monthKey: amount }
+    // Flag colour by transaction id (a split's sub-transactions inherit the parent's), so a
+    // transfer can tell whether its other leg is Red-flagged -- see computeLiqReconData.
+    var flagById = {};
+    for (var fli = 0; fli < txns.length; fli++) {
+      var flt = txns[fli];
+      if (flt.id) flagById[flt.id] = flt.flag_color;
+      if (flt.subtransactions) {
+        for (var flsi = 0; flsi < flt.subtransactions.length; flsi++) {
+          if (flt.subtransactions[flsi].id) flagById[flt.subtransactions[flsi].id] = flt.flag_color;
+        }
+      }
+    }
     for (var ti = 0; ti < txns.length; ti++) {
       var t = txns[ti];
       // Track top-level amount per account per month for balance reconstruction
@@ -3668,7 +3696,8 @@ function fetchYnabData(apiKey, budgetId, opts) {
                      memo: st.memo || t.memo,
                      amount: st.amount, category_id: st.category_id,
                      category_name: st.category_name || '',
-                     transfer_account_id: st.transfer_account_id || null };
+                     transfer_account_id: st.transfer_account_id || null,
+                     transfer_transaction_id: st.transfer_transaction_id || null };
           })
         : [t];
       for (var si = 0; si < subs.length; si++) {
@@ -3705,6 +3734,8 @@ function fetchYnabData(apiKey, budgetId, opts) {
             category: catNm || (xferId ? '(transfer)' : '(no category)'),
             outflow: amt < 0 ? -amt : 0, inflow: amt > 0 ? amt : 0,
             xferAcctId: xferId, amt: amt,
+            isRed: t.flag_color === 'red',
+            xferRed: !!(s.transfer_transaction_id && flagById[s.transfer_transaction_id] === 'red'),
             isTrk: catNm ? catNm.slice(-1) === '~' : false
           });
         }
