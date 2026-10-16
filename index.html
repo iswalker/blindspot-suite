@@ -3107,6 +3107,21 @@ function ensureConfigLoaded() {
   return Promise.resolve();
 }
 
+// Messup tags from Config (Used For = "Messup"), default "#messup"; lowercased for memo matching
+function getMessupTags() {
+  var tags = [];
+  for (var ci = 0; ci < (state.catConfig || []).length; ci++) {
+    var cfg = state.catConfig[ci];
+    if (cfg.usedFor === 'Messup' && cfg.id) tags.push(cfg.id.toLowerCase());
+  }
+  return tags.length ? tags : ['#messup'];
+}
+function memoHasMessupTag(memo, tags) {
+  var m = (memo || '').toLowerCase();
+  for (var i = 0; i < tags.length; i++) { if (m.indexOf(tags[i]) !== -1) return true; }
+  return false;
+}
+
 function parseConfigCsv(text) {
   if (!text) return [];
   var rows = parseCSV(text);
@@ -3788,7 +3803,10 @@ function fetchYnabData(apiKey, budgetId, opts) {
           // Primary: match by category ID from Config.csv; fallback covers hidden/archived cats.
           var catCfg2      = pendingCatIdMap[catId];
           var isPending2   = catCfg2 !== undefined;
-          if (!isExpGrp2 && !isPending2) continue;
+          // Messup-tagged outflows always reach Lessons Learned, even in untracked groups
+          // (e.g. Zzz. Archive) or Uncategorized
+          var isMessup2 = amt < 0 && memoHasMessupTag(s.memo, getMessupTags());
+          if (!isExpGrp2 && !isPending2 && !isMessup2) continue;
           if (isPending2) {
             var pendingDays2    = catCfg2.dueDays;
             var pendingSection2 = catCfg2.section || 'Purchase Loops';
@@ -8863,13 +8881,7 @@ function renderLessonsLearned() {
     return;
   }
 
-  // Search tags from Config (Used For = "Messup"), default to "#messup"
-  var tags = [];
-  for (var ci = 0; ci < (state.catConfig || []).length; ci++) {
-    var cfg = state.catConfig[ci];
-    if (cfg.usedFor === 'Messup' && cfg.id) tags.push(cfg.id.toLowerCase());
-  }
-  if (!tags.length) tags = ['#messup'];
+  var tags = getMessupTags();
 
   var byMonth     = {};
   var byMonthTxns = {};
@@ -8882,12 +8894,7 @@ function renderLessonsLearned() {
         var txns = monthData[grp][cat] || [];
         for (var ti = 0; ti < txns.length; ti++) {
           var txn  = txns[ti];
-          var memo = (txn.memo || '').toLowerCase();
-          var matched = false;
-          for (var tgi = 0; tgi < tags.length; tgi++) {
-            if (memo.indexOf(tags[tgi]) !== -1) { matched = true; break; }
-          }
-          if (!matched) continue;
+          if (!memoHasMessupTag(txn.memo, tags)) continue;
           var net = (txn.outflow || 0) - (txn.inflow || 0);
           byMonth[mkey] = (byMonth[mkey] || 0) + net;
           if (!byMonthTxns[mkey]) byMonthTxns[mkey] = [];

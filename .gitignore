@@ -3,3 +3,6 @@
 
 # Google Apps Script server-side file
 Code.gs
+
+# Local secrets (YNAB API key for debugging)
+.env*
