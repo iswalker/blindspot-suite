@@ -3821,7 +3821,8 @@ function fetchYnabData(apiKey, budgetId, opts) {
               section: pendingSection2,
               usedFor: pendingUsedFor2
             });
-            continue;
+            // Messup-tagged pending rows (e.g. Cancel Out) also fall through to regTxns for Lessons
+            if (!isMessup2) continue;
           }
           if (!regTxns[key])               regTxns[key]               = {};
           if (!regTxns[key][grpNm])        regTxns[key][grpNm]        = {};
