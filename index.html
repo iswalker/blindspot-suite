@@ -1927,11 +1927,6 @@ td.hbt-num:last-child { width: 13%; }
           <button type="button" class="rp-btn" id="range-btn"></button>
           <div class="rp-panel" id="range-panel" style="display:none"></div>
         </div>
-        <label class="ios-toggle-wrap">
-          <input type="checkbox" id="cf-include-pipeline">
-          <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
-          Include Pipeline
-        </label>
         <button id="expand-all-btn" style="margin-left:auto">Expand All</button>
         <button id="collapse-all-btn">Collapse All</button>
       </div>
@@ -2537,7 +2532,6 @@ var state = {
   toKey:               localStorage.getItem('sel-to')   || null,
   expanded:            parseJsonLS('ynab-expanded-groups') || {},
   selectedAccounts:    parseJsonLS('sel-accts')       || {},
-  cfIncludePipeline:   localStorage.getItem('cf-include-pipeline') !== '0',
   loadedAt:            null,
   activeTab:           localStorage.getItem('sel-tab') || 'home',
   lwFromKey:           localStorage.getItem('sel-lw-from') || null,
@@ -3356,12 +3350,16 @@ function lwReactiveAcctIdSet() {
 // account selection and re-renders the Cash Flow table, so toggling an account there is
 // immediately reflected in Reconciliation line items.
 function refreshReconciliationData() {
-  if (!state.data || !state.data.reconTxnsByAcct) return;
-  var reconData = computeLiqReconData(lwReactiveAcctIdSet(), state.data.reconTxnsByAcct);
-  state.data.reconTxns      = reconData.reconTxns;
-  state.data.nonLiqCatAct   = reconData.nonLiqCatAct;
-  state.data.liqGrpActivity = reconData.liqGrpActivity;
-  if (state.activeTab === 'cashflow') renderTable();
+  if (!state.data) return;
+  if (state.data.reconTxnsByAcct) {
+    var reconData = computeLiqReconData(lwReactiveAcctIdSet(), state.data.reconTxnsByAcct);
+    state.data.reconTxns      = reconData.reconTxns;
+    state.data.nonLiqCatAct   = reconData.nonLiqCatAct;
+    state.data.liqGrpActivity = reconData.liqGrpActivity;
+  }
+  // Always re-render, whichever tab is showing: Cash Flow has no render of its own when it is
+  // switched to, so skipping it here left the table stale until something else redrew it.
+  renderTable();
 }
 
 function fetchYnabData(apiKey, budgetId, opts) {
@@ -4313,12 +4311,13 @@ function refreshYnab() {
     dbPut('processed', { data: state.data, savedAt: state.loadedAt }).catch(function() {});
     populateRangeFilter();
     populateAccountFilter();
-    renderTable();
     populateLwRangeFilter();
     populateLwAccountFilter();
     populateNwRangeFilter();
     populateNwAccountFilter();
     populateHomeAccountFilter();
+    // After the Liquid Balances selection exists: Cash Flow's reconciliation follows it
+    refreshReconciliationData();
     if (state.activeTab === 'home') renderHome();
     if (state.activeTab === 'lw')   renderLiquidWorth();
     if (state.activeTab === 'nw')   renderNetWorth();
@@ -5051,7 +5050,10 @@ function renderTable(opts) {
       for (var ri = 0; ri < rcAccts.length; ri++) tot += acctBalanceAt(rcAccts[ri].id, mk);
       return tot;
     };
-    var rcActualVals = keys.map(function(k) { return rcBalAt(k) - rcBalAt(rcPrevKey(k)); });
+    // Includes the month's Cancel Out movement (Exclude Tracking on), like the Liquid Balances headline
+    var rcActualVals = keys.map(function(k) {
+      return rcBalAt(k) - rcBalAt(rcPrevKey(k)) + (lwCancelOutThrough(k) - lwCancelOutThrough(rcPrevKey(k)));
+    });
     var rcGapVals    = keys.map(function(_, i) { return netVals[i] - rcActualVals[i]; });
 
     html += '<tr class="row-spacer"><td></td>' + emptyCells() + '</tr>';
@@ -6799,18 +6801,18 @@ function populateAccountFilter() {
     var acc = accounts[i];
     var isPipe = homeAcctIsPipeline(acc);
     if (!(acc in state.selectedAccounts)) {
-      state.selectedAccounts[acc] = acc.indexOf('~') === -1 || (state.cfIncludePipeline && isPipe);
+      state.selectedAccounts[acc] = acc.indexOf('~') === -1 || (state.lwIncludePipeline && isPipe);
     }
-    // "Include Pipeline" off overrides any individual selection for accounts that qualify only
-    // via the Config "Pipeline" row -- they're unchecked and locked while off (same pattern as
-    // Liquid Balances' own "Include Pipeline" toggle).
-    if (isPipe && !state.cfIncludePipeline) state.selectedAccounts[acc] = false;
+    // Pipeline off (Liquid Balances' Pipeline toggle -- Cash Flow follows it) overrides any
+    // individual selection for accounts that qualify only via the Config "Pipeline" row --
+    // they're unchecked and locked while it is off.
+    if (isPipe && !state.lwIncludePipeline) state.selectedAccounts[acc] = false;
   }
   var panel = document.getElementById('acct-filter-panel');
   var h = '';
   for (var j = 0; j < accounts.length; j++) {
     var a = accounts[j];
-    var locked = homeAcctIsPipeline(a) && !state.cfIncludePipeline;
+    var locked = homeAcctIsPipeline(a) && !state.lwIncludePipeline;
     h += '<label class="acct-chk-row' + (locked ? ' acct-chk-disabled' : '') + '">'
        + '<input type="checkbox" value="' + escAttr(a) + '"' + (state.selectedAccounts[a] ? ' checked' : '') + (locked ? ' disabled' : '') + '>'
        + escAttr(a)
@@ -7139,7 +7141,6 @@ function populateLwRangeFilter() {
 // refreshed from state together rather than only the one that was clicked.
 function syncExclusionToggles() {
   var pairs = [
-    ['cf-include-pipeline',     'cfIncludePipeline'],
     ['lw-exclude-tracking',     'lwExcludeTracking'],
     ['lw-exclude-distribution', 'lwExcludeDistribution'],
     ['lw-exclude-budgeted',     'lwExcludeBudgeted'],
@@ -12903,12 +12904,13 @@ function showReport() {
   if (titheCheckToggle) titheCheckToggle.checked = state.includeTitheCheck;
   populateRangeFilter();
   populateAccountFilter();
-  renderTable();
   populateLwRangeFilter();
   populateLwAccountFilter();
   populateNwRangeFilter();
   populateNwAccountFilter();
   populateHomeAccountFilter();
+  // After the Liquid Balances selection exists: Cash Flow's reconciliation follows it
+  refreshReconciliationData();
   if (tab === 'home')     renderHome();
   if (tab === 'lw')       renderLiquidWorth();
   if (tab === 'nw')       renderNetWorth();
@@ -13140,22 +13142,6 @@ document.addEventListener('DOMContentLoaded', function() {
     renderTable();
   });
 
-  document.getElementById('cf-include-pipeline').checked = !!state.cfIncludePipeline;
-  document.getElementById('cf-include-pipeline').addEventListener('change', function() {
-    state.cfIncludePipeline = this.checked;
-    localStorage.setItem('cf-include-pipeline', this.checked ? '1' : '0');
-    if (state.cfIncludePipeline && state.data && state.data.allAccounts) {
-      // Restore pipeline accounts to selected when re-enabling, rather than leaving them
-      // unchecked from when the toggle forced them off.
-      for (var piI = 0; piI < state.data.allAccounts.length; piI++) {
-        if (homeAcctIsPipeline(state.data.allAccounts[piI])) state.selectedAccounts[state.data.allAccounts[piI]] = true;
-      }
-    }
-    populateAccountFilter();
-    localStorage.setItem('sel-accts', JSON.stringify(state.selectedAccounts));
-    renderTable();
-  });
-
   // Row shading toggle
   document.getElementById('shade-toggle').addEventListener('change', function() {
     state.rowShading = this.checked;
@@ -13380,9 +13366,18 @@ document.addEventListener('DOMContentLoaded', function() {
           if (state.data.lwAccounts[piI].isPipeline) state.lwSelectedAccounts[state.data.lwAccounts[piI].id] = true;
         }
       }
+      // Cash Flow follows this toggle (its own Include Pipeline toggle is gone): bring its pipeline
+      // accounts back into the selection on turn-on, and refresh its Accounts filter.
+      if (state.lwIncludePipeline && !wasIncluded && state.data && state.data.allAccounts) {
+        for (var cpI = 0; cpI < state.data.allAccounts.length; cpI++) {
+          if (homeAcctIsPipeline(state.data.allAccounts[cpI])) state.selectedAccounts[state.data.allAccounts[cpI]] = true;
+        }
+      }
       syncExclusionToggles();
       populateLwAccountFilter();
+      populateAccountFilter();
       localStorage.setItem('sel-lw-accts', JSON.stringify(state.lwSelectedAccounts));
+      localStorage.setItem('sel-accts', JSON.stringify(state.selectedAccounts));
       renderLiquidWorth();
       refreshReconciliationData();
     });
