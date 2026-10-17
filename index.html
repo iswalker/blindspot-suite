@@ -8089,28 +8089,34 @@ function drawNwOutlookChart(s, hoveredIdx) {
     }
   }
 
-  // Milestone labels run down the line from the top of the plot, on the line's right, with a white
-  // halo so they stay readable over the series lines.
+  // Milestone labels sit horizontally on the left of their line, right-aligned to it, with a white
+  // halo so they stay readable over the series lines. Labels that would collide with an earlier one
+  // drop to the next row down; ones too wide for the room to their left are cut with an ellipsis.
   ctx.font = '600 12px "IBM Plex Sans", system-ui, -apple-system, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'top';
+  ctx.lineJoin = 'round';
+  var ROW_H = 17, msRows = [];
   for (var mli = 0; mli < msList.length; mli++) {
     var mlText = msList[mli].label || ('Age ' + msList[mli].age);
-    var mlAvail = chartH - 10;
+    var mlX = xPos(msList[mli].idx) - 5;
+    var mlAvail = mlX - L_PAD - 2;
+    if (mlAvail < 20) continue;
     if (ctx.measureText(mlText).width > mlAvail) {
       while (mlText.length > 1 && ctx.measureText(mlText + '\u2026').width > mlAvail) mlText = mlText.slice(0, -1);
       mlText += '\u2026';
     }
-    ctx.save();
-    ctx.translate(xPos(msList[mli].idx) + 4, T_PAD + 5);
-    ctx.rotate(Math.PI / 2);
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'bottom';
-    ctx.lineJoin = 'round';
+    var mlLeft = mlX - ctx.measureText(mlText).width - 3;
+    var mlRow = 0;
+    while (mlRow < msRows.length && msRows[mlRow] > mlLeft) mlRow++;
+    msRows[mlRow] = mlX;       // rightmost edge now used in this row
+    var mlY = T_PAD + 4 + mlRow * ROW_H;
+    if (mlY + ROW_H > H - B_PAD) continue;
     ctx.lineWidth = 3;
     ctx.strokeStyle = '#fff';
-    ctx.strokeText(mlText, 0, 0);
+    ctx.strokeText(mlText, mlX, mlY);
     ctx.fillStyle = MS_COLOR;
-    ctx.fillText(mlText, 0, 0);
-    ctx.restore();
+    ctx.fillText(mlText, mlX, mlY);
   }
 }
 
