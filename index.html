@@ -809,11 +809,11 @@ select, input { font-family: inherit; }
 .rec-vs-lbl { font-size: 13px; color: #aaa; align-self: center; }
 .rec-or-lbl { font-size: 13px; color: #aaa; display: block; margin: 4px 0; }
 .plaid-remove-btn, .plaid-rename-btn {
-  padding: 6px 14px; background: #fff; border: 1px solid #ccc; border-radius: 6px;
+  padding: 6px 10px; background: #fff; border: 1px solid #ccc; border-radius: 6px;
   font-size: 13px; cursor: pointer; color: #555; font-weight: 500; white-space: nowrap; line-height: 1;
 }
 .plaid-remove-btn:hover { background: #f0f0ec; border-color: #c62828; color: #c62828; }
-.plaid-rename-btn:hover { background: #f0f0ec; border-color: #1a1a2e; color: #1a1a2e; }
+.plaid-rename-btn:hover { background: #f0f0ec; }
 .plaid-rename-icon { display: inline-block; transform: scaleX(-1); }
 #plaid-acct-sel-wrap { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .plaid-rename-row { display: flex; align-items: center; gap: 6px; }
@@ -843,7 +843,7 @@ select, input { font-family: inherit; }
 }
 #reconcile-go-btn:hover { background: #33334d; }
 .plaid-connect-btn {
-  padding: 6px 14px; background: #fff; color: #555; border: 1px solid #ccc; border-radius: 6px;
+  padding: 4px 10px; background: #fff; color: #555; border: 1px solid #ccc; border-radius: 6px;
   font-size: 13px; cursor: pointer; font-weight: 500; white-space: nowrap;
 }
 .plaid-connect-btn:hover { background: #f0f0ec; }
@@ -2162,10 +2162,10 @@ td.hbt-num:last-child { width: 13%; }
         </div>
         <div id="leverage-pos-acct-row" style="display:none">
           <select id="leverage-pos-acct-sel"></select>
-          <button id="leverage-pos-remove-btn" class="plaid-remove-btn" title="Remove selected Plaid connection" style="display:none">&#10005; Remove</button>
-          <button id="leverage-pos-rename-btn" class="plaid-rename-btn" title="Rename this connection" style="display:none"><span class="plaid-rename-icon">&#9998;</span> Rename</button>
+          <button id="leverage-pos-remove-btn" class="plaid-remove-btn" title="Remove selected Plaid connection" style="display:none">&#10005;&nbsp;&nbsp;Remove</button>
+          <button id="leverage-pos-rename-btn" class="plaid-rename-btn" title="Rename this connection" style="display:none"><span class="plaid-rename-icon">&#9998;</span>&nbsp;&nbsp;Rename</button>
           <div class="plaid-secret-wrap" id="leverage-pos-secret-wrap">
-            <button id="leverage-pos-connect-btn" class="plaid-connect-btn">+ New</button>
+            <button id="leverage-pos-connect-btn" class="plaid-connect-btn">+&nbsp;&nbsp;New</button>
           </div>
         </div>
         <div id="leverage-pos-rename-row" class="plaid-rename-row" style="display:none">
@@ -4418,6 +4418,18 @@ function handleOAuthCallback() {
   return 'ynab';
 }
 
+// Pipeline needs each transaction's flag, which data cached before flags were loaded lacks.
+// Rather than leaving the user to find the refresh button, turning Pipeline on fetches it.
+var pipelineFlagsRefreshing = false;
+function ensurePipelineFlags() {
+  if (pipelineFlagsRefreshing || !state.data || state.data.acctTxnsRed) return;
+  var p = refreshYnab();
+  if (!p) return;
+  pipelineFlagsRefreshing = true;
+  var done = function() { pipelineFlagsRefreshing = false; syncExclusionToggles(); };
+  p.then(done, done);
+}
+
 function refreshYnab() {
   var apiKey   = localStorage.getItem('ynab-api-key');
   var budgetId = localStorage.getItem('ynab-budget-id');
@@ -4428,7 +4440,7 @@ function refreshYnab() {
     refreshOpts.rawMonthCache     = state.data.rawMonthCache     || {};
     refreshOpts.allMonthKeys      = state.data.allMonthKeys      || null;
   }
-  ensureConfigLoaded()
+  return ensureConfigLoaded()
   .then(function() { return fetchYnabData(apiKey, budgetId, refreshOpts); })
   .then(function(data) {
     state.data     = data;
@@ -7302,13 +7314,13 @@ function syncExclusionToggles() {
   var nwPipeWarnEl = document.getElementById('nw-pipeline-warn');
   if (nwPipeWarnEl) {
     var nwNeedsFlags = state.nwPipelineMode !== '' && state.data && state.data.lwAccounts && !state.data.acctTxnsRed;
-    nwPipeWarnEl.textContent = nwNeedsFlags ? '⚠ Refresh YNAB data to load transaction flags' : '';
+    nwPipeWarnEl.textContent = nwNeedsFlags ? (pipelineFlagsRefreshing ? 'Loading transaction flags…' : '⚠ Refresh YNAB data to load transaction flags') : '';
   }
   // Cached data from before flags were loaded has no Red-flag sums; a refresh brings them in.
   var pipeWarnEl = document.getElementById('lw-pipeline-warn');
   if (pipeWarnEl) {
     var needsFlags = state.lwPipelineMode !== '' && state.data && state.data.lwAccounts && !state.data.acctTxnsRed;
-    pipeWarnEl.textContent = needsFlags ? '⚠ Refresh YNAB data to load transaction flags' : '';
+    pipeWarnEl.textContent = needsFlags ? (pipelineFlagsRefreshing ? 'Loading transaction flags…' : '⚠ Refresh YNAB data to load transaction flags') : '';
   }
   // Without "<name> Holding" rows this toggle has nothing to deduct and appears broken, which
   // is what happens whenever the Config workbook has not loaded.
@@ -13772,6 +13784,7 @@ document.addEventListener('DOMContentLoaded', function() {
           if (homeAcctIsPipeline(state.data.allAccounts[cpI])) state.selectedAccounts[state.data.allAccounts[cpI]] = true;
         }
       }
+      if (state.lwPipelineMode !== '') ensurePipelineFlags();
       syncExclusionToggles();
       populateLwAccountFilter();
       populateAccountFilter();
@@ -13787,6 +13800,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('nw-pipeline-' + mode + '-btn').addEventListener('click', function() {
       state.nwPipelineMode = state.nwPipelineMode === mode ? '' : mode;
       localStorage.setItem('nw-pipeline-mode', state.nwPipelineMode || 'off');
+      if (state.nwPipelineMode !== '') ensurePipelineFlags();
       syncExclusionToggles();
       renderNetWorth();
     });
