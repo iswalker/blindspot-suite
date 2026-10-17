@@ -1432,9 +1432,13 @@ td.hbt-num:last-child { width: 13%; }
 .nwo-seg-btn.active:hover { background: #1565c0; }
 .nwo-custom { display: inline-flex; align-items: center; gap: 6px; }
 .nwo-custom input {
-  width: 76px; padding: 5px 8px; font-size: 13px; color: #333; background: #fff;
+  box-sizing: border-box; width: 38px; padding: 5px 4px; text-align: center;
+  font-size: 13px; color: #333; background: #fff;
   border: 1px solid #ccc; border-radius: 6px; outline: none;
+  -moz-appearance: textfield; appearance: textfield;
 }
+.nwo-custom input::-webkit-outer-spin-button,
+.nwo-custom input::-webkit-inner-spin-button { -webkit-appearance: none; appearance: none; margin: 0; }
 .nwo-custom-lbl { font-size: 12px; color: #888; margin-left: -2px; margin-right: 4px; }
 .nwo-custom input:focus { border-color: #1565c0; }
 .nwo-custom.active input:not(:placeholder-shown) { border-color: #1565c0; }
@@ -2043,8 +2047,8 @@ td.hbt-num:last-child { width: 13%; }
             <button type="button" class="nwo-seg-btn" id="nw-outlook-30y-btn" data-horizon="30y">30y</button>
           </div>
           <span class="nwo-custom" id="nw-custom-wrap">
-            <input type="number" id="nw-custom-years" min="1" max="60" step="1" inputmode="numeric" placeholder="Custom" aria-label="Custom number of years"><span class="nwo-custom-lbl">yrs</span>
-            <input type="number" id="nw-custom-age" min="1" max="120" step="1" inputmode="numeric" placeholder="Age" aria-label="Age to project to"><span class="nwo-custom-lbl">age</span>
+            <input type="number" id="nw-custom-years" min="1" max="60" step="1" inputmode="numeric" placeholder="#" aria-label="Custom number of years"><span class="nwo-custom-lbl">yrs</span>
+            <input type="number" id="nw-custom-age" min="1" max="120" step="1" inputmode="numeric" placeholder="#" aria-label="Age to project to"><span class="nwo-custom-lbl">age</span>
           </span>
         </div>
         <div class="nwo-seg-wrap" id="nw-pipeline-seg-wrap" data-active="">
@@ -7889,9 +7893,12 @@ function syncNwCustomInputs() {
   yEl.title = 'Project this many years out (1-60)';
   var isCustom = !!seg && seg.getAttribute('data-active') === 'custom' && state.nwCustomYears > 0;
   wrapEl.classList.toggle('active', isCustom);
-  // The boxes only hold a value while the custom preview is showing; a preset or "off" clears them.
+  // Years only holds a value for the custom preview; both clear when the preview is off.
+  // Age follows whichever preview is showing -- a preset's horizon too (12m = 1 year, 15y, 30y).
+  var activeH = seg ? seg.getAttribute('data-active') : '';
+  var shownYears = isCustom ? state.nwCustomYears : ({ '12m': 1, '15y': 15, '30y': 30 }[activeH] || 0);
   if (document.activeElement !== yEl) { yEl.value = isCustom ? state.nwCustomYears : ''; yEl.classList.remove('invalid'); }
-  if (document.activeElement !== aEl) { aEl.value = (isCustom && curAge !== null) ? curAge + state.nwCustomYears : ''; aEl.classList.remove('invalid'); }
+  if (document.activeElement !== aEl) { aEl.value = (shownYears && curAge !== null) ? curAge + shownYears : ''; aEl.classList.remove('invalid'); }
 }
 
 // Highlights the active Axis option and words the chart's subtitle to match.
