@@ -1449,7 +1449,18 @@ td.hbt-num:last-child { width: 13%; }
 #nw-outlook-hdr { margin: 0 16px 6px 16px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 #nw-outlook-title { font-size: 15px; font-weight: 700; color: #222; }
 #nw-outlook-sub { font-size: 11px; color: #999; margin-top: 2px; }
-#nw-outlook-legend { display: flex; gap: 16px; margin: 8px 0 6px 16px; font-size: 12px; font-weight: 600; }
+#nw-outlook-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 8px 16px 6px 16px; font-size: 12px; font-weight: 600; }
+#nw-outlook-legend .nwo-leg-items { display: contents; }
+#nw-outlook-legend .nwo-leg-custom { display: flex; align-items: center; gap: 6px; }
+#nw-outlook-legend .nwo-leg-custom input {
+  box-sizing: border-box; width: 52px; padding: 3px 4px; text-align: center; font: inherit; font-size: 13px;
+  font-weight: 600; color: #333; background: #fff; border: 1px solid #ccc; border-radius: 6px; outline: none;
+  -moz-appearance: textfield; appearance: textfield;
+}
+#nw-outlook-legend .nwo-leg-custom input::-webkit-outer-spin-button,
+#nw-outlook-legend .nwo-leg-custom input::-webkit-inner-spin-button { -webkit-appearance: none; appearance: none; margin: 0; }
+#nw-outlook-legend .nwo-leg-custom input:focus { border-color: #d81b60; }
+#nw-outlook-legend .nwo-leg-custom input.invalid { border-color: #c62828; }
 #nw-outlook-legend .nwo-leg-item { display: flex; align-items: center; gap: 6px; }
 #nw-outlook-legend .nwo-leg-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 #nw-outlook-canvas { display: block; }
@@ -2648,6 +2659,8 @@ var state = {
   // Net Worth Preview chart's Y axis: 'log' (default) or 'linear'.
   // Custom Preview horizon in whole years (null until the user enters one).
   nwCustomYears:            (function() { var y = parseInt(localStorage.getItem('nw-custom-years'), 10); return y > 0 && y <= 60 ? y : null; })(),
+  // User-entered extra monthly growth rate (%) plotted alongside the preset lines; null = none.
+  nwCustomRate:             (function() { var r = parseFloat(localStorage.getItem('nw-custom-rate')); return isFinite(r) && r > -50 && r <= 50 ? r : null; })(),
   nwOutlookAxis:            localStorage.getItem('nw-outlook-axis') === 'linear' ? 'linear' : 'log',
   nwPipelineMode:           (function() {
     var m = localStorage.getItem('nw-pipeline-mode');
@@ -7789,6 +7802,11 @@ function computeNwOutlookSeries(startNw, targetPct, horizon) {
     { pct: targetPct - 0.25, color: '#f9a825' },
     { pct: targetPct - 0.5,  color: '#e65100' }
   ];
+  // The user's own rate, when it isn't already one of the preset lines.
+  var cr = state.nwCustomRate;
+  if (cr !== null && !rateDefs.some(function(rd) { return Math.abs(rd.pct - cr) < 1e-9; })) {
+    rateDefs.push({ pct: cr, color: '#d81b60', custom: true });
+  }
   var totalMonths = horizon === '12m' ? 12 : (horizon === '15y' ? 180 : (horizon === 'custom' ? state.nwCustomYears * 12 : 360));
   var stepMonths  = horizon === '12m' ? 1  : 12;
   return rateDefs.map(function(rd) {
@@ -7800,7 +7818,7 @@ function computeNwOutlookSeries(startNw, targetPct, horizon) {
       if (m % stepMonths === 0) vals.push(v);
     }
     var pctLbl = Math.round(rd.pct * 100) / 100;
-    return { pct: rd.pct, color: rd.color, label: pctLbl + '% / month', vals: vals };
+    return { pct: rd.pct, color: rd.color, custom: !!rd.custom, label: pctLbl + '% / month', vals: vals };
   });
 }
 
@@ -7850,14 +7868,32 @@ function renderNwOutlook(startNw, horizon) {
     : (startAge !== null ? 'at Age ' + startAge : String(startYear));
   document.getElementById('nw-outlook-title').textContent = 'Net Worth Growth: ' + fmtNwOutlookY(startNw)
     + ' Starting ' + startLabel;
-  document.getElementById('nw-outlook-legend').innerHTML = series.map(function(ser) {
-    return '<span class="nwo-leg-item"><span class="nwo-leg-dot" style="background:' + ser.color + '"></span>'
-      + escAttr(ser.label) + '</span>';
-  }).join('');
+  document.getElementById('nw-outlook-legend').innerHTML = '<span class="nwo-leg-items" id="nw-outlook-leg-items"></span>'
+    + '<span class="nwo-leg-custom" id="nw-outlook-leg-custom"><span class="nwo-leg-dot" id="nw-custom-rate-dot"></span>'
+    + '<input type="number" id="nw-custom-rate" step="any" inputmode="decimal" placeholder="#" aria-label="Custom monthly growth rate" '
+    + 'title="Add your own monthly growth rate (%) to compare"> % / month</span>';
 
   nwOutlookChartState = { series: series, horizon: horizon, startYear: startYear, startMonth: startMonth,
                            startAge: startAge, canvasId: 'nw-outlook-canvas', axis: state.nwOutlookAxis,
-                           axisUnit: axisUnit, milestones: [], milestonesHidden: 0 };
+                           axisUnit: axisUnit, milestones: [], milestonesHidden: 0,
+                           startNw: startNw, targetPct: targetPct };
+  renderNwOutlookLegend();
+  var rateEl = document.getElementById('nw-custom-rate');
+  rateEl.value = state.nwCustomRate !== null ? state.nwCustomRate : '';
+  rateEl.addEventListener('input', function() {
+    var v = parseFloat(this.value);
+    var ok = isFinite(v) && v > -50 && v <= 50;
+    this.classList.toggle('invalid', this.value !== '' && !ok);
+    if (ok) state.nwCustomRate = v;
+    else if (this.value === '' && !this.validity.badInput) state.nwCustomRate = null;
+    else return;                      // invalid or half-typed entry: leave the chart as it is
+    localStorage.setItem('nw-custom-rate', state.nwCustomRate === null ? '' : String(state.nwCustomRate));
+    var cs = nwOutlookChartState;
+    if (!cs) return;
+    cs.series = computeNwOutlookSeries(cs.startNw, cs.targetPct, cs.horizon);
+    renderNwOutlookLegend();
+    drawNwOutlookChart(cs, -1);
+  });
   // Milestones are ages, so they need a Birth Year and an age-labelled axis (not the 12m view).
   // Only those inside the plotted window are drawn.
   var allMilestones = getNwMilestones();
@@ -7885,6 +7921,18 @@ function renderNwOutlook(startNw, horizon) {
   var canvas = document.getElementById('nw-outlook-canvas');
   wireNwOutlookHover(canvas);
   requestAnimationFrame(function() { drawNwOutlookChart(nwOutlookChartState, -1); });
+}
+
+// Fills the legend's preset entries (and tints the custom-rate dot) from the chart's series.
+function renderNwOutlookLegend() {
+  var cs = nwOutlookChartState, items = document.getElementById('nw-outlook-leg-items');
+  if (!cs || !items) return;
+  items.innerHTML = cs.series.filter(function(ser) { return !ser.custom; }).map(function(ser) {
+    return '<span class="nwo-leg-item"><span class="nwo-leg-dot" style="background:' + ser.color + '"></span>'
+      + escAttr(ser.label) + '</span>';
+  }).join('');
+  var dot = document.getElementById('nw-custom-rate-dot');
+  if (dot) dot.style.background = cs.series.some(function(ser) { return ser.custom; }) ? '#d81b60' : '#ccc';
 }
 
 // Current age as the Preview axis counts it (this year minus the configured Birth Year), or null.
