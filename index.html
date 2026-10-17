@@ -4421,6 +4421,10 @@ function handleOAuthCallback() {
 // Pipeline needs each transaction's flag, which data cached before flags were loaded lacks.
 // Rather than leaving the user to find the refresh button, turning Pipeline on fetches it.
 var pipelineFlagsRefreshing = false;
+function pipelineFlagsHint() {
+  if (pipelineFlagsRefreshing) return 'Loading transaction flags…';
+  return '⚠ Transaction flags not loaded — ' + (state.refreshProblem || 'refresh YNAB data');
+}
 function ensurePipelineFlags() {
   if (pipelineFlagsRefreshing || !state.data || state.data.acctTxnsRed) return;
   var p = refreshYnab();
@@ -4433,7 +4437,13 @@ function ensurePipelineFlags() {
 function refreshYnab() {
   var apiKey   = localStorage.getItem('ynab-api-key');
   var budgetId = localStorage.getItem('ynab-budget-id');
-  if (!apiKey || !budgetId) return;
+  if (!apiKey || !budgetId) {
+    // Nothing to refresh with -- remember why, so the Pipeline hint can say so instead of
+    // implying a refresh will work (a fresh YNAB sign-in clears the saved budget).
+    state.refreshProblem = !apiKey ? 'not connected to YNAB' : 'no budget selected (reconnect to YNAB and pick one)';
+    return;
+  }
+  state.refreshProblem = null;
   var refreshOpts = {};
   if (state.data && state.data.serverKnowledge) {
     refreshOpts.serverKnowledge   = state.data.serverKnowledge;
@@ -4463,6 +4473,7 @@ function refreshYnab() {
   })
   .catch(function(e) {
     var msg = (e && e.message) || 'Unknown error';
+    state.refreshProblem = 'YNAB refresh failed: ' + msg;
     if (msg.toLowerCase().indexOf('unauthorized') !== -1 || msg.indexOf('401') !== -1) {
       localStorage.removeItem('ynab-api-key');
       showUpload();
@@ -7314,13 +7325,13 @@ function syncExclusionToggles() {
   var nwPipeWarnEl = document.getElementById('nw-pipeline-warn');
   if (nwPipeWarnEl) {
     var nwNeedsFlags = state.nwPipelineMode !== '' && state.data && state.data.lwAccounts && !state.data.acctTxnsRed;
-    nwPipeWarnEl.textContent = nwNeedsFlags ? (pipelineFlagsRefreshing ? 'Loading transaction flags…' : '⚠ Refresh YNAB data to load transaction flags') : '';
+    nwPipeWarnEl.textContent = nwNeedsFlags ? pipelineFlagsHint() : '';
   }
   // Cached data from before flags were loaded has no Red-flag sums; a refresh brings them in.
   var pipeWarnEl = document.getElementById('lw-pipeline-warn');
   if (pipeWarnEl) {
     var needsFlags = state.lwPipelineMode !== '' && state.data && state.data.lwAccounts && !state.data.acctTxnsRed;
-    pipeWarnEl.textContent = needsFlags ? (pipelineFlagsRefreshing ? 'Loading transaction flags…' : '⚠ Refresh YNAB data to load transaction flags') : '';
+    pipeWarnEl.textContent = needsFlags ? pipelineFlagsHint() : '';
   }
   // Without "<name> Holding" rows this toggle has nothing to deduct and appears broken, which
   // is what happens whenever the Config workbook has not loaded.
@@ -13370,6 +13381,13 @@ function init() {
 
   // 1. Try IndexedDB cache (stores processed data object, not raw CSV)
   dbGet('processed').then(function(cached) {
+    // A fresh YNAB sign-in clears the saved budget. Showing stale cached data then would leave
+    // refreshYnab() with nothing to refresh from, forever -- so go pick the budget first.
+    if (cached && cached.data && localStorage.getItem('ynab-api-key') && !localStorage.getItem('ynab-budget-id')) {
+      showUpload();
+      connectYnab();
+      return;
+    }
     if (cached && cached.data) {
       state.data     = cached.data;
       state.loadedAt = cached.savedAt || null;
