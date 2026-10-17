@@ -1432,7 +1432,7 @@ td.hbt-num:last-child { width: 13%; }
 .nwo-seg-btn.active:hover { background: #1565c0; }
 
 /* ---- Net Worth Outlook (12m / 30y) ---- */
-#nw-outlook-hdr { margin: 0 0 6px 16px; }
+#nw-outlook-hdr { margin: 0 16px 6px 16px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 #nw-outlook-title { font-size: 15px; font-weight: 700; color: #222; }
 #nw-outlook-sub { font-size: 11px; color: #999; margin-top: 2px; }
 #nw-outlook-legend { display: flex; gap: 16px; margin: 8px 0 6px 16px; font-size: 12px; font-weight: 600; }
@@ -2054,8 +2054,10 @@ td.hbt-num:last-child { width: 13%; }
     </div>
     <div class="lw-chart-wrap" id="nw-outlook-wrap" style="display:none">
       <div id="nw-outlook-hdr">
-        <div id="nw-outlook-title"></div>
-        <div id="nw-outlook-sub">Hover any point to see values at that year &middot; log scale</div>
+        <div>
+          <div id="nw-outlook-title"></div>
+          <div id="nw-outlook-sub">Hover any point to see values at that year &middot; log scale</div>
+        </div>
       </div>
       <div id="nw-outlook-legend"></div>
       <canvas id="nw-outlook-canvas"></canvas>
@@ -2624,6 +2626,8 @@ var state = {
   ahIncludeClosed:          localStorage.getItem('ah-include-closed') === '1',
   nwMatchLwExclusions:      localStorage.getItem('nw-match-lw-exclusions') !== '0',
   // Net Worth's own Pipeline toggle ('' / 'include' / 'minus'), independent of Liquid Balances'.
+  // Net Worth Preview chart's Y axis: 'log' (default) or 'linear'.
+  nwOutlookAxis:            localStorage.getItem('nw-outlook-axis') === 'linear' ? 'linear' : 'log',
   nwPipelineMode:           (function() {
     var m = localStorage.getItem('nw-pipeline-mode');
     return (m === 'include' || m === 'minus') ? m : '';
@@ -7802,8 +7806,17 @@ function renderNwOutlook(startNw, horizon) {
 
   wrap.innerHTML =
       '<div id="nw-outlook-hdr">'
-    +   '<div id="nw-outlook-title"></div>'
-    +   '<div id="nw-outlook-sub">Hover any point to see values at that ' + axisUnit + ' &middot; log scale</div>'
+    +   '<div>'
+    +     '<div id="nw-outlook-title"></div>'
+    +     '<div id="nw-outlook-sub"></div>'
+    +   '</div>'
+    +   '<div class="nwo-seg-wrap" id="nw-axis-seg-wrap">'
+    +     '<span class="nwo-seg-label">Axis</span>'
+    +     '<div class="nwo-seg-btns">'
+    +       '<button type="button" class="nwo-seg-btn" data-axis="linear">Linear</button>'
+    +       '<button type="button" class="nwo-seg-btn" data-axis="log">Logarithmic</button>'
+    +     '</div>'
+    +   '</div>'
     + '</div>'
     + '<div id="nw-outlook-legend"></div>'
     + '<canvas id="nw-outlook-canvas"></canvas>';
@@ -7821,10 +7834,35 @@ function renderNwOutlook(startNw, horizon) {
   }).join('');
 
   nwOutlookChartState = { series: series, horizon: horizon, startYear: startYear, startMonth: startMonth,
-                           startAge: startAge, canvasId: 'nw-outlook-canvas' };
+                           startAge: startAge, canvasId: 'nw-outlook-canvas', axis: state.nwOutlookAxis,
+                           axisUnit: axisUnit };
+  syncNwOutlookAxisUi();
+  Array.prototype.forEach.call(wrap.querySelectorAll('#nw-axis-seg-wrap .nwo-seg-btn'), function(btn) {
+    btn.addEventListener('click', function() {
+      var ax = btn.getAttribute('data-axis');
+      if (ax === state.nwOutlookAxis) return;     // one option is always selected
+      state.nwOutlookAxis = ax;
+      localStorage.setItem('nw-outlook-axis', ax);
+      if (nwOutlookChartState) nwOutlookChartState.axis = ax;
+      syncNwOutlookAxisUi();
+      if (nwOutlookChartState) drawNwOutlookChart(nwOutlookChartState, -1);
+    });
+  });
   var canvas = document.getElementById('nw-outlook-canvas');
   wireNwOutlookHover(canvas);
   requestAnimationFrame(function() { drawNwOutlookChart(nwOutlookChartState, -1); });
+}
+
+// Highlights the active Axis option and words the chart's subtitle to match.
+function syncNwOutlookAxisUi() {
+  var seg = document.getElementById('nw-axis-seg-wrap');
+  if (seg) Array.prototype.forEach.call(seg.querySelectorAll('.nwo-seg-btn'), function(b) {
+    b.classList.toggle('active', b.getAttribute('data-axis') === state.nwOutlookAxis);
+  });
+  var sub = document.getElementById('nw-outlook-sub');
+  var s = nwOutlookChartState;
+  if (sub && s) sub.innerHTML = 'Hover any point to see values at that ' + s.axisUnit + ' &middot; '
+    + (state.nwOutlookAxis === 'linear' ? 'linear' : 'log') + ' scale';
 }
 
 // "Nov-26" style month label, i months after (year, month).
@@ -7876,6 +7914,7 @@ function drawNwOutlookChart(s, hoveredIdx) {
     }
   }
   if (!(minV > 0)) minV = 1;
+  var linear = s.axis === 'linear';
 
   // Scale bounds come from the actual data (with a little padding) so every point -- including
   // the shared starting value -- is guaranteed to land inside the plotted area. Ticks are then
@@ -7899,9 +7938,22 @@ function drawNwOutlookChart(s, hoveredIdx) {
     }
     return ticks.length ? ticks : [lo, hi];
   }
-  var ticks = niceLogTicks(Math.pow(10, logLo), Math.pow(10, logHi));
+  // Linear axis: evenly spaced gridlines from $0 up past the highest point, at a 1/2/5 x 10^n step.
+  var linHi = maxV * 1.05;
+  function niceLinearTicks(hi) {
+    var rough = hi / 8;
+    var mag   = Math.pow(10, Math.floor(Math.log(rough) / Math.LN10));
+    var step  = [1, 2, 5, 10].map(function(m) { return m * mag; }).filter(function(st) { return st >= rough; })[0];
+    var out = [];
+    for (var t = 0; t <= hi; t += step) out.push(t);
+    return out;
+  }
+  var ticks = linear ? niceLinearTicks(linHi) : niceLogTicks(Math.pow(10, logLo), Math.pow(10, logHi));
 
-  function yPos(v) { return T_PAD + chartH * (1 - (Math.log(v) / Math.LN10 - logLo) / (logHi - logLo)); }
+  function yPos(v) {
+    if (linear) return T_PAD + chartH * (1 - v / linHi);
+    return T_PAD + chartH * (1 - (Math.log(v) / Math.LN10 - logLo) / (logHi - logLo));
+  }
   function xPos(yearIdx) { return L_PAD + chartW * (yearIdx / (nYears - 1)); }
 
   // Persist geometry so the hover handler can hit-test without redoing this layout math.
