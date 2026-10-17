@@ -10906,7 +10906,7 @@ function showAcctHistoryTooltip(clientX, clientY, idx) {
   // Group view: the accounts that sum to the total on this date, largest first
   var breakdownHtml = '';
   if (acctHistoryBreakdown && acctHistoryBreakdown.length) {
-    var rows = acctHistoryBreakdown.map(function(a) { return { name: a.name, v: a.vals[idx] }; })
+    var rows = acctHistoryBreakdown.map(function(a) { return { name: a.name, v: a.vals[idx], isDebt: a.isDebt }; })
       .filter(function(r) { return r.v !== undefined && Math.round(r.v * 100) !== 0; })
       .sort(function(x, y) { return Math.abs(y.v) - Math.abs(x.v); });
     var cap = 12;
@@ -10915,7 +10915,7 @@ function showAcctHistoryTooltip(clientX, clientY, idx) {
       rows.slice(0, cap).forEach(function(r) {
         var rv = Math.round(r.v * 100) / 100;
         breakdownHtml += '<div class="ahtt-acct-row"><span class="ahtt-acct-name">' + escHtml(r.name) + '</span>'
-          + '<span class="ahtt-acct-val" style="color:' + balColor + '">' + (rv < 0 ? '-' : '') + '$'
+          + '<span class="ahtt-acct-val" style="color:' + (r.isDebt ? '#d08609' : balColor) + '">' + (rv < 0 ? '-' : '') + '$'
           + Math.abs(rv).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</span></div>';
       });
       if (rows.length > cap) breakdownHtml += '<div class="ahtt-more">+ ' + (rows.length - cap) + ' more</div>';
@@ -11134,7 +11134,7 @@ function renderAccountHistoryBody(d, acctId) {
         abVals.push(isDebtAcctAH ? -abShown : abShown);
       }
       var abInfo = (d.allAccountsInfo || {})[abId] || {};
-      acctHistoryBreakdown.push({ id: abId, name: (abInfo.name || abId) + (abInfo.closed ? ' (closed)' : ''), vals: abVals });
+      acctHistoryBreakdown.push({ id: abId, name: (abInfo.name || abId) + (abInfo.closed ? ' (closed)' : ''), vals: abVals, isDebt: isDebtAcctType(abInfo.type) });
     }
   }
 
