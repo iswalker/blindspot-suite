@@ -1459,7 +1459,7 @@ td.hbt-num:last-child { width: 13%; }
 }
 #nw-outlook-legend .nwo-leg-custom input::-webkit-outer-spin-button,
 #nw-outlook-legend .nwo-leg-custom input::-webkit-inner-spin-button { -webkit-appearance: none; appearance: none; margin: 0; }
-#nw-outlook-legend .nwo-leg-custom input:focus { border-color: #d81b60; }
+#nw-outlook-legend .nwo-leg-custom input:focus { border-color: #000; }
 #nw-outlook-legend .nwo-leg-custom input.invalid { border-color: #c62828; }
 #nw-outlook-legend .nwo-leg-item { display: flex; align-items: center; gap: 6px; }
 #nw-outlook-legend .nwo-leg-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
@@ -7805,7 +7805,7 @@ function computeNwOutlookSeries(startNw, targetPct, horizon) {
   // The user's own rate, when it isn't already one of the preset lines.
   var cr = state.nwCustomRate;
   if (cr !== null && !rateDefs.some(function(rd) { return Math.abs(rd.pct - cr) < 1e-9; })) {
-    rateDefs.push({ pct: cr, color: '#d81b60', custom: true });
+    rateDefs.push({ pct: cr, color: '#000', custom: true });
   }
   var totalMonths = horizon === '12m' ? 12 : (horizon === '15y' ? 180 : (horizon === 'custom' ? state.nwCustomYears * 12 : 360));
   var stepMonths  = horizon === '12m' ? 1  : 12;
@@ -7932,7 +7932,7 @@ function renderNwOutlookLegend() {
       + escAttr(ser.label) + '</span>';
   }).join('');
   var dot = document.getElementById('nw-custom-rate-dot');
-  if (dot) dot.style.background = cs.series.some(function(ser) { return ser.custom; }) ? '#d81b60' : '#ccc';
+  if (dot) dot.style.background = cs.series.some(function(ser) { return ser.custom; }) ? '#000' : '#ccc';
 }
 
 // Current age as the Preview axis counts it (this year minus the configured Birth Year), or null.
