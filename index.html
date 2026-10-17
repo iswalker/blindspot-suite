@@ -1419,7 +1419,7 @@ td.hbt-num:last-child { width: 13%; }
 .runway-phase-title { font-size: 20px; font-weight: 700; color: #222; margin-top: 8px; text-align: center; }
 .runway-phase-subtext { font-size: 15px; color: #888; line-height: 1.35; padding: 10px 12px; }
 
-/* ---- Net Worth Outlook preview toggle (12m / 30y) ---- */
+/* ---- Net Worth Outlook preview toggle (12m / 15y / 30y) ---- */
 .nwo-seg-wrap { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #555; }
 .nwo-seg-btns { display: inline-flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden; }
 .nwo-seg-btn {
@@ -1431,7 +1431,7 @@ td.hbt-num:last-child { width: 13%; }
 .nwo-seg-btn.active { background: #1565c0; color: #fff; }
 .nwo-seg-btn.active:hover { background: #1565c0; }
 
-/* ---- Net Worth Outlook (12m / 30y) ---- */
+/* ---- Net Worth Outlook (12m / 15y / 30y) ---- */
 #nw-outlook-hdr { margin: 0 16px 6px 16px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 #nw-outlook-title { font-size: 15px; font-weight: 700; color: #222; }
 #nw-outlook-sub { font-size: 11px; color: #999; margin-top: 2px; }
@@ -2029,6 +2029,7 @@ td.hbt-num:last-child { width: 13%; }
           <span class="nwo-seg-label">Preview</span>
           <div class="nwo-seg-btns">
             <button type="button" class="nwo-seg-btn" id="nw-outlook-12m-btn" data-horizon="12m">12m</button>
+            <button type="button" class="nwo-seg-btn" id="nw-outlook-15y-btn" data-horizon="15y">15y</button>
             <button type="button" class="nwo-seg-btn" id="nw-outlook-30y-btn" data-horizon="30y">30y</button>
           </div>
         </div>
@@ -7729,7 +7730,7 @@ function renderNetWorthBody() {
   var outlookSegWrap = document.getElementById('nw-outlook-seg-wrap');
   var outlookHorizon = outlookSegWrap ? outlookSegWrap.getAttribute('data-active') : '';
   var outlookWrap     = document.getElementById('nw-outlook-wrap');
-  var showOutlook     = outlookHorizon === '12m' || outlookHorizon === '30y';
+  var showOutlook     = outlookHorizon === '12m' || outlookHorizon === '15y' || outlookHorizon === '30y';
   if (chartWrap)   chartWrap.style.display = showOutlook ? 'none' : '';
   var tableWrapEl = document.getElementById('nw-table-wrap');
   if (tableWrapEl) tableWrapEl.style.display = showOutlook ? 'none' : '';
@@ -7755,7 +7756,7 @@ function fmtNwOutlookY(v) {
   return '$' + Math.round(v).toLocaleString('en-US');
 }
 
-// One point per year (0..30, horizon '30y') or per month (0..12, horizon '12m') for the target
+// One point per year (0..30 for '30y', 0..15 for '15y') or per month (0..12, horizon '12m') for the target
 // rate and +/-0.25 and +/-0.5 either side (highest rate first), compounded monthly throughout
 // either way. Colors reuse the app's existing meet/miss-target convention (green above, orange
 // below, blue at the configured target) rather than the arbitrary palette of any one reference chart.
@@ -7767,7 +7768,7 @@ function computeNwOutlookSeries(startNw, targetPct, horizon) {
     { pct: targetPct - 0.25, color: '#f9a825' },
     { pct: targetPct - 0.5,  color: '#e65100' }
   ];
-  var totalMonths = horizon === '12m' ? 12 : 360;
+  var totalMonths = horizon === '12m' ? 12 : (horizon === '15y' ? 180 : 360);
   var stepMonths  = horizon === '12m' ? 1  : 12;
   return rateDefs.map(function(rd) {
     var vals = [startNw];
@@ -7782,7 +7783,7 @@ function computeNwOutlookSeries(startNw, targetPct, horizon) {
   });
 }
 
-// horizon: '12m' (12 months out, x-axis = calendar month) or '30y' (30 years out, x-axis = age
+// horizon: '12m' (12 months out, x-axis = calendar month), '15y' or '30y' (15 / 30 years out, x-axis = age
 // if a Birth Year is configured, else calendar year).
 function renderNwOutlook(startNw, horizon) {
   var wrap = document.getElementById('nw-outlook-wrap');
@@ -7800,7 +7801,7 @@ function renderNwOutlook(startNw, horizon) {
   var now         = new Date();
   var startYear   = now.getFullYear();
   var startMonth  = now.getMonth();
-  var birthYear   = horizon === '30y' ? getNwBirthYear() : null;
+  var birthYear   = horizon !== '12m' ? getNwBirthYear() : null;
   var startAge    = birthYear !== null ? startYear - birthYear : null;
   var axisUnit    = horizon === '12m' ? 'month' : (startAge !== null ? 'age' : 'year');
 
@@ -13879,12 +13880,13 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   // Clicking the active horizon again deselects it, reverting to the plain Net Worth chart.
-  ['12m', '30y'].forEach(function(h) {
+  ['12m', '15y', '30y'].forEach(function(h) {
     document.getElementById('nw-outlook-' + h + '-btn').addEventListener('click', function() {
       var wrap = document.getElementById('nw-outlook-seg-wrap');
       var next = wrap.getAttribute('data-active') === h ? '' : h;
       wrap.setAttribute('data-active', next);
       document.getElementById('nw-outlook-12m-btn').classList.toggle('active', next === '12m');
+      document.getElementById('nw-outlook-15y-btn').classList.toggle('active', next === '15y');
       document.getElementById('nw-outlook-30y-btn').classList.toggle('active', next === '30y');
       renderNetWorth();
     });
