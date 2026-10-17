@@ -256,6 +256,47 @@ body {
 .rp-cancel-btn:hover { background: #f0f0ec; }
 .rp-apply-btn { background: #1a1a2e; border: none; color: #fff; font-weight: 600; }
 .rp-apply-btn:disabled { background: #bbb; cursor: not-allowed; }
+/* ---- Custom dropdowns (replace every native <select>; same look as the date range picker) ---- */
+.csel { position: relative; display: inline-block; vertical-align: middle; max-width: 100%; }
+.csel-native { display: none !important; }
+.csel-btn {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%;
+  padding: 6px 12px; background: #fff; border: 1px solid #ccc; border-radius: 8px;
+  font-family: inherit; font-size: 13px; color: #333; cursor: pointer; text-align: left;
+}
+.csel-btn:hover, .csel-btn.active { background: #f5f4ea; }
+.csel-btn:disabled { opacity: .55; cursor: default; background: #fff; }
+.csel-btn:focus-visible { outline: 2px solid #1a1a2e; outline-offset: 1px; }
+.csel-lbl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.csel-chev {
+  flex-shrink: 0; width: 7px; height: 7px; margin-top: -3px;
+  border-right: 2px solid #888; border-bottom: 2px solid #888; transform: rotate(45deg);
+  transition: transform .12s;
+}
+.csel-btn.active .csel-chev { transform: rotate(-135deg); margin-top: 3px; }
+.csel-panel {
+  position: fixed; z-index: 600; display: none; overflow-y: auto; padding: 6px 0;
+  background: #fff; border: 1px solid #ddd; border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,.16);
+  scrollbar-width: thin; scrollbar-color: #ccc transparent;
+}
+.csel-grp { font-size: 12px; font-weight: 700; color: #999; letter-spacing: .06em; text-transform: uppercase; padding: 8px 16px 4px; }
+.csel-item { padding: 8px 16px; font-size: 14px; color: #333; cursor: pointer; white-space: nowrap; }
+.csel-item:hover, .csel-item.hl { background: #f0efe9; }
+.csel-item.selected { background: #1a1a2e; color: #fff; }
+.csel-item.disabled { color: #bbb; cursor: default; }
+.csel-item.disabled:hover { background: transparent; }
+/* Per-dropdown sizing, carried over from the native selects' own rules */
+.csel[data-for="budget-sel"] { display: block; flex: 1; min-width: 0; }
+.csel[data-for="budget-sel"] .csel-btn { font-size: 12px; padding: 4px 10px; }
+.csel[data-for="plan-sel"] { max-width: 200px; }
+.csel[data-for="plan-sel"] .csel-btn { font-size: 12px; padding: 4px 10px; }
+.csel[data-for="leverage-speedo-month-sel"] .csel-btn { font-size: 12px; padding: 4px 10px; }
+.csel[data-for="leverage-pos-acct-sel"] { max-width: 160px; }
+.csel[data-for="leverage-pos-acct-sel"] .csel-btn { font-size: 12px; padding: 4px 10px; }
+.csel[data-for="acct-history-sel"] { min-width: 180px; }
+.csel[data-for="acct-history-sel"] .csel-btn { font-size: 17px; font-weight: 700; padding: 4px 12px; }
+.csel[data-for="reconcile-acct-sel"] { width: 230px; }
+.csel[data-for="plaid-acct-sel"] { min-width: 200px; }
 #cache-label { font-size: 11px; color: #aaa; margin-left: 4px; }
 
 /* ---- Table wrapper ---- */
@@ -1635,6 +1676,7 @@ td.hbt-num:last-child { width: 13%; }
      stack each on its own line instead of overflowing off the right edge of the screen. */
   #acct-history-acct-wrap { flex-direction: column; align-items: stretch; }
   #acct-history-acct-group select { width: 100%; min-width: 0; box-sizing: border-box; }
+  #acct-history-acct-group .csel, .csel[data-for="reconcile-acct-sel"], .csel[data-for="plaid-acct-sel"] { display: block; width: 100%; min-width: 0; }
 
   /* Account History: metrics column stacked beside the chart doesn't fit a phone screen --
      go back to the metrics row stacked above the (now full-width) chart, cards side by side.
@@ -11176,6 +11218,148 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// ---- Custom dropdowns ----
+// Every native <select> is hidden (kept in the DOM as the source of truth, so existing code that
+// reads/writes .value, rebuilds its options or listens for 'change' keeps working untouched) and
+// fronted by a button + popover styled like the date range picker. The popover is position:fixed
+// so no overflow:hidden card can clip it.
+var cselOpen = null;
+function cselCloseOpen() { if (cselOpen) { cselOpen.close(); } }
+function enhanceSelect(sel) {
+  if (sel._csel) return sel._csel;
+  var wrap  = document.createElement('div');   wrap.className = 'csel'; wrap.setAttribute('data-for', sel.id || '');
+  var btn   = document.createElement('button'); btn.type = 'button'; btn.className = 'csel-btn';
+  btn.setAttribute('aria-haspopup', 'listbox'); btn.setAttribute('aria-expanded', 'false');
+  var lbl   = document.createElement('span');  lbl.className = 'csel-lbl';
+  var chev  = document.createElement('span');  chev.className = 'csel-chev';
+  var panel = document.createElement('div');   panel.className = 'csel-panel'; panel.setAttribute('role', 'listbox');
+  btn.appendChild(lbl); btn.appendChild(chev); wrap.appendChild(btn); wrap.appendChild(panel);
+  sel.parentNode.insertBefore(wrap, sel.nextSibling);
+  sel.classList.add('csel-native');
+
+  var items = [], hl = -1;
+  function enabledItems() { return items.filter(function(it) { return !it.opt.disabled; }); }
+  function paintSelection() {
+    var cur = sel.selectedIndex;
+    var o = sel.options[cur];
+    lbl.textContent = o ? o.textContent : '';
+    lbl.title = lbl.textContent;
+    items.forEach(function(it) { it.el.classList.toggle('selected', it.opt.index === cur); });
+  }
+  function rebuild() {
+    panel.innerHTML = ''; items = [];
+    function addOpt(o) {
+      var el = document.createElement('div'); el.className = 'csel-item' + (o.disabled ? ' disabled' : '');
+      el.setAttribute('role', 'option'); el.textContent = o.textContent;
+      el.addEventListener('mousedown', function(e) { e.preventDefault(); });
+      el.addEventListener('click', function() { if (!o.disabled) choose(o); });
+      panel.appendChild(el); items.push({ el: el, opt: o });
+    }
+    for (var i = 0; i < sel.children.length; i++) {
+      var c = sel.children[i];
+      if (c.tagName === 'OPTGROUP') {
+        var g = document.createElement('div'); g.className = 'csel-grp'; g.textContent = c.label; panel.appendChild(g);
+        for (var j = 0; j < c.children.length; j++) addOpt(c.children[j]);
+      } else if (c.tagName === 'OPTION') addOpt(c);
+    }
+    btn.disabled = sel.disabled;
+    paintSelection();
+  }
+  function choose(o) {
+    var protoSet = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'selectedIndex').set;
+    protoSet.call(sel, o.index);
+    paintSelection();
+    close();
+    btn.focus();
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  function place() {
+    var r = btn.getBoundingClientRect();
+    panel.style.minWidth = r.width + 'px';
+    panel.style.maxHeight = '';
+    panel.style.left = r.left + 'px'; panel.style.top = (r.bottom + 6) + 'px';
+    var pw = panel.offsetWidth, ph = panel.offsetHeight;
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var left = r.left;
+    if (left + pw > vw - 8) left = Math.max(8, vw - 8 - pw);
+    var top = r.bottom + 6, room = vh - top - 12;
+    if (ph > room && r.top - 18 > room) {                     // flip above when there is more room there
+      var aboveRoom = r.top - 18;
+      panel.style.maxHeight = Math.min(ph, aboveRoom) + 'px';
+      top = r.top - 6 - Math.min(ph, aboveRoom);
+    } else if (ph > room) { panel.style.maxHeight = Math.max(120, room) + 'px'; }
+    panel.style.left = left + 'px'; panel.style.top = top + 'px';
+  }
+  function setHl(i) {
+    var en = enabledItems(); if (!en.length) return;
+    hl = Math.max(0, Math.min(en.length - 1, i));
+    items.forEach(function(it) { it.el.classList.remove('hl'); });
+    en[hl].el.classList.add('hl');
+    var el = en[hl].el, pt = panel.scrollTop, ph = panel.clientHeight;
+    if (el.offsetTop < pt) panel.scrollTop = el.offsetTop - 28;
+    else if (el.offsetTop + el.offsetHeight > pt + ph) panel.scrollTop = el.offsetTop + el.offsetHeight - ph + 8;
+  }
+  function open() {
+    if (btn.disabled) return;
+    cselCloseOpen();
+    panel.style.display = 'block'; place();
+    btn.classList.add('active'); btn.setAttribute('aria-expanded', 'true');
+    var en = enabledItems(), cur = sel.selectedIndex;
+    var at = 0; for (var k = 0; k < en.length; k++) { if (en[k].opt.index === cur) { at = k; break; } }
+    setHl(at);
+    var selEl = panel.querySelector('.csel-item.selected');
+    if (selEl) panel.scrollTop = Math.max(0, selEl.offsetTop - panel.clientHeight / 2 + selEl.offsetHeight / 2);
+    cselOpen = api;
+  }
+  function close() {
+    panel.style.display = 'none'; btn.classList.remove('active'); btn.setAttribute('aria-expanded', 'false');
+    items.forEach(function(it) { it.el.classList.remove('hl'); });
+    if (cselOpen === api) cselOpen = null;
+  }
+  var api = { open: open, close: close, rebuild: rebuild, wrap: wrap, panel: panel, isOpen: function() { return panel.style.display === 'block'; } };
+
+  btn.addEventListener('click', function() { if (api.isOpen()) close(); else open(); });
+  btn.addEventListener('keydown', function(e) {
+    var en = enabledItems();
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!api.isOpen()) { open(); return; }
+      setHl(hl + (e.key === 'ArrowDown' ? 1 : -1));
+    } else if (e.key === 'Home' && api.isOpen()) { e.preventDefault(); setHl(0); }
+    else if (e.key === 'End' && api.isOpen()) { e.preventDefault(); setHl(en.length - 1); }
+    else if ((e.key === 'Enter' || e.key === ' ') && api.isOpen()) { e.preventDefault(); if (en[hl]) choose(en[hl].opt); }
+    else if (e.key === 'Escape' && api.isOpen()) { e.preventDefault(); e.stopPropagation(); close(); }
+    else if (e.key === 'Tab' && api.isOpen()) { close(); }
+  });
+
+  // Programmatic changes: code sets sel.value / sel.selectedIndex directly, so mirror them.
+  ['value', 'selectedIndex'].forEach(function(prop) {
+    var d = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, prop);
+    Object.defineProperty(sel, prop, {
+      configurable: true,
+      get: function() { return d.get.call(sel); },
+      set: function(v) { d.set.call(sel, v); paintSelection(); }
+    });
+  });
+  sel.addEventListener('change', paintSelection);
+  new MutationObserver(rebuild).observe(sel, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'label'], characterData: true });
+  window.addEventListener('resize', function() { if (api.isOpen()) close(); });
+  rebuild();
+  sel._csel = api;
+  return api;
+}
+function enhanceAllSelects() {
+  var all = document.querySelectorAll('select');
+  for (var i = 0; i < all.length; i++) enhanceSelect(all[i]);
+  // One document-level pair of listeners closes whichever dropdown is open
+  document.addEventListener('mousedown', function(e) {
+    if (cselOpen && !cselOpen.wrap.contains(e.target)) cselOpen.close();
+  });
+  window.addEventListener('scroll', function(e) {
+    if (cselOpen && !cselOpen.panel.contains(e.target)) cselOpen.close();
+  }, true);
+}
+
 // Final safety clamp for hover tooltips/popovers: whatever side-flipping logic a caller
 // already did to pick a preferred (x, y), this pulls the box back onto every edge of the
 // viewport it would otherwise overflow -- critical on mobile, where a tooltip sized for
@@ -14430,6 +14614,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (e.key === 'Escape') closeDetailPane();
   });
 
+  enhanceAllSelects();
   init();
 });
 </script>
