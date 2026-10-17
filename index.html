@@ -774,7 +774,8 @@ select, input { font-family: inherit; }
 .ahtt-divider { border-top: 1px solid #eee; margin: 7px 0 5px; }
 .ahtt-acct-row { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; margin-bottom: 3px; }
 .ahtt-acct-name { font-size: 14px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; }
-.ahtt-acct-val { font-size: 14px; font-weight: 600; white-space: nowrap; }
+.ahtt-acct-val { font-size: 14px; font-weight: 600; white-space: nowrap; margin-left: auto; }
+.ahtt-acct-delta { font-size: 13px; font-weight: 600; white-space: nowrap; min-width: 92px; text-align: right; }
 .ahtt-more { font-size: 13px; color: #bbb; margin-top: 2px; }
 
 /* ---- Reconcile tab ---- */
@@ -10906,17 +10907,28 @@ function showAcctHistoryTooltip(clientX, clientY, idx) {
   // Group view: the accounts that sum to the total on this date, largest first
   var breakdownHtml = '';
   if (acctHistoryBreakdown && acctHistoryBreakdown.length) {
-    var rows = acctHistoryBreakdown.map(function(a) { return { name: a.name, v: a.vals[idx], isDebt: a.isDebt }; })
-      .filter(function(r) { return r.v !== undefined && Math.round(r.v * 100) !== 0; })
+    // Keep accounts that were non-zero at the start of the period too, so a balance paid down to
+    // zero still shows its change.
+    var rows = acctHistoryBreakdown.map(function(a) { return { name: a.name, v: a.vals[idx], v0: a.vals[0], isDebt: a.isDebt }; })
+      .filter(function(r) { return r.v !== undefined && (Math.round(r.v * 100) !== 0 || (idx > 0 && Math.round(r.v0 * 100) !== 0)); })
       .sort(function(x, y) { return Math.abs(y.v) - Math.abs(x.v); });
     var cap = 12;
     if (rows.length) {
       breakdownHtml = '<div class="ahtt-divider"></div>';
       rows.slice(0, cap).forEach(function(r) {
         var rv = Math.round(r.v * 100) / 100;
+        // Per-account change since the start of the period, same colouring rule as the total's
+        var rowDelta = '';
+        if (idx > 0 && r.v0 !== undefined) {
+          var rd = Math.round((r.v - r.v0) * 100) / 100;
+          var rGood = s.isDebtAcct ? rd <= 0 : rd >= 0;
+          rowDelta = '<span class="ahtt-acct-delta" style="color:' + (isZeroish(rd) ? '#888' : (rGood ? '#2e7d32' : '#c62828')) + '">'
+            + (rd > 0 ? '&#8593; +' : (rd < 0 ? '&#8595; -' : '')) + '$'
+            + Math.abs(rd).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</span>';
+        }
         breakdownHtml += '<div class="ahtt-acct-row"><span class="ahtt-acct-name">' + escHtml(r.name) + '</span>'
           + '<span class="ahtt-acct-val" style="color:' + (r.isDebt ? '#d08609' : balColor) + '">' + (rv < 0 ? '-' : '') + '$'
-          + Math.abs(rv).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</span></div>';
+          + Math.abs(rv).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</span>' + rowDelta + '</div>';
       });
       if (rows.length > cap) breakdownHtml += '<div class="ahtt-more">+ ' + (rows.length - cap) + ' more</div>';
     }
