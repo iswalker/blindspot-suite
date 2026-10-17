@@ -727,6 +727,11 @@ select, input { font-family: inherit; }
 .ahtt-month   { font-size: 11px; font-weight: 700; color: #bbb; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 4px; }
 .ahtt-balance { font-size: 15px; font-weight: 700; color: #4285f4; }
 .ahtt-float   { font-size: 13px; font-weight: 600; color: #f59e0b; margin-top: 3px; }
+.ahtt-divider { border-top: 1px solid #eee; margin: 7px 0 5px; }
+.ahtt-acct-row { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; margin-bottom: 3px; }
+.ahtt-acct-name { font-size: 14px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; }
+.ahtt-acct-val { font-size: 14px; font-weight: 600; white-space: nowrap; }
+.ahtt-more { font-size: 13px; color: #bbb; margin-top: 2px; }
 
 /* ---- Reconcile tab ---- */
 #rec-cards-row {
@@ -1064,8 +1069,9 @@ td.hbt-num:last-child { width: 13%; }
 .lwtt-drivers-section:first-of-type { margin-top: 0; }
 .lwtt-driver-amts { display: flex; align-items: baseline; gap: 8px; flex-shrink: 0; }
 .lwtt-driver-median { font-size: 13px; font-weight: 400; color: #777; white-space: nowrap; }
-.lwtt-drivers-colhdr { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 2px 0 3px; }
-.lwtt-average-hdr { font-size: 10px; font-weight: 700; color: #bbb; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+.lwtt-drivers-colhdr { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 0 0 4px; }
+.lwtt-drivers-colhdr .lwtt-drivers-hdr { margin-bottom: 0; }
+.lwtt-average-hdr { font-size: 12px; font-weight: 700; color: #bbb; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
 .lwtt-asof { font-size: 12px; font-weight: 400; color: #aaa; }
 .lwtt-hint { font-size: 12px; color: #bbb; margin-top: 6px; border-top: 1px solid #eee; padding-top: 5px; }
 
@@ -5462,6 +5468,9 @@ var leverageCatChartState  = null;
 var leverageYearChartState = null;
 var leveragePayeeChartState = null;
 var acctHistoryChartState    = null;
+// Per-account daily values behind a group view (e.g. All Assets), parallel to the chart's keys;
+// null for a single account. Kept outside the chart state because every hover redraws that.
+var acctHistoryBreakdown     = null;
 var reconcileCSVTxns         = null;
 var PLAID_CLIENT_ID     = '69fe8a6def2ece000e2425f0';
 var PLAID_STORAGE_KEY   = 'plaid-connections';
@@ -5830,9 +5839,10 @@ function showLwTooltip(clientX, clientY, idx, s) {
           + lwRenderDriverRows(sec.rows, 6, key, averages);
       }
       if (secHtml) {
-        var colHdrHtml = '<div class="lwtt-drivers-colhdr"><span></span>'
-          + '<span class="lwtt-driver-amts"><span></span><span class="lwtt-average-hdr">Average</span></span></div>';
-        driversHtml = '<div class="lwtt-divider"></div><div class="lwtt-drivers-hdr">Change Drivers</div>' + colHdrHtml + secHtml
+        // "Change Drivers" far left, "Average" far right, on one row
+        var colHdrHtml = '<div class="lwtt-drivers-colhdr"><span class="lwtt-drivers-hdr">Change Drivers</span>'
+          + '<span class="lwtt-average-hdr">Average</span></div>';
+        driversHtml = '<div class="lwtt-divider"></div>' + colHdrHtml + secHtml
           + '<div class="lwtt-hint">Click for all drivers &amp; excluded transactions</div>';
       }
     } else {
@@ -10818,9 +10828,27 @@ function showAcctHistoryTooltip(clientX, clientY, idx) {
   // Match the balance line's own color (orange for debt accounts, blue otherwise) instead of
   // always showing blue, which read wrong against an orange chart.
   var balColor = s.isDebtAcct ? '#d08609' : '#4285f4';
+  // Group view: the accounts that sum to the total on this date, largest first
+  var breakdownHtml = '';
+  if (acctHistoryBreakdown && acctHistoryBreakdown.length) {
+    var rows = acctHistoryBreakdown.map(function(a) { return { name: a.name, v: a.vals[idx] }; })
+      .filter(function(r) { return r.v !== undefined && Math.round(r.v * 100) !== 0; })
+      .sort(function(x, y) { return Math.abs(y.v) - Math.abs(x.v); });
+    var cap = 12;
+    if (rows.length) {
+      breakdownHtml = '<div class="ahtt-divider"></div>';
+      rows.slice(0, cap).forEach(function(r) {
+        var rv = Math.round(r.v * 100) / 100;
+        breakdownHtml += '<div class="ahtt-acct-row"><span class="ahtt-acct-name">' + escHtml(r.name) + '</span>'
+          + '<span class="ahtt-acct-val" style="color:' + balColor + '">' + (rv < 0 ? '-' : '') + '$'
+          + Math.abs(rv).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</span></div>';
+      });
+      if (rows.length > cap) breakdownHtml += '<div class="ahtt-more">+ ' + (rows.length - cap) + ' more</div>';
+    }
+  }
   tt.innerHTML = '<div class="ahtt-month">' + mo + '</div>'
                + '<div class="ahtt-balance" style="color:' + balColor + '">' + balStr + '</div>'
-               + floatLine;
+               + floatLine + breakdownHtml;
   tt.style.display = 'block';
   var vw = window.innerWidth;
   var tw = tt.offsetWidth + 4, th = tt.offsetHeight + 4;
@@ -10888,6 +10916,7 @@ function renderAccountHistory() {
 // every exit path -- including each early "no data for this range" return below -- with a
 // single finally block instead of having to duplicate the restore before each one.
 function renderAccountHistoryBody(d, acctId) {
+  acctHistoryBreakdown = null;
   var allK = lwAllKeys();
   if (!allK.length) return;
 
@@ -10980,6 +11009,40 @@ function renderAccountHistoryBody(d, acctId) {
     keys.push(ds);
     values.push(isDebtAcctAH ? Math.abs(shownBal) : shownBal);
     curD.setDate(curD.getDate() + 1);
+  }
+
+  // Group views (All Assets, ...): each account's own daily value, built with the same math as
+  // the total above so the rows in the hover add up to it exactly.
+  if (pseudoGroup) {
+    var ahReserveCache = {};
+    var ahReserveAt = function(aid, mk) {
+      var ck = aid + '|' + mk;
+      if (!(ck in ahReserveCache)) ahReserveCache[ck] = lwHoldingReserve(aid, mk);
+      return ahReserveCache[ck];
+    };
+    acctHistoryBreakdown = [];
+    for (var abi = 0; abi < acctIds.length; abi++) {
+      var abId = acctIds[abi];
+      var abBal = acctBalanceAt(abId, prevMonthKey) + (state.lwExcludeDistribution ? ahReserveAt(abId, prevMonthKey) : 0);
+      var abNet = {};
+      var abTxns = (d.acctTxnsList || {})[abId] || [];
+      for (var abt = 0; abt < abTxns.length; abt++) {
+        var abDate = abTxns[abt].date;
+        if (abDate >= fromDateStr && abDate <= toDateStr) {
+          var abAmt = abTxns[abt].amount;
+          if (state.lwExcludeTracking) abAmt -= (abTxns[abt].trackingAmount || 0);
+          abNet[abDate] = (abNet[abDate] || 0) + abAmt;
+        }
+      }
+      var abVals = [];
+      for (var abk = 0; abk < keys.length; abk++) {
+        abBal += (abNet[keys[abk]] || 0);
+        var abShown = abBal;
+        if (state.lwExcludeDistribution) abShown -= ahReserveAt(abId, keys[abk].slice(0, 7));
+        abVals.push(isDebtAcctAH ? -abShown : abShown);
+      }
+      acctHistoryBreakdown.push({ id: abId, name: ((d.allAccountsInfo || {})[abId] || {}).name || abId, vals: abVals });
+    }
   }
 
   // Float Ratio overlay when viewing the Cash Basis account
