@@ -688,6 +688,7 @@ select, input { font-family: inherit; }
 
 /* ---- Account History ---- */
 #acct-history-acct-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ah-closed-toggle { display: inline-flex; align-items: center; gap: 6px; }
 #acct-history-acct-group {
   display: flex; align-items: center; gap: 8px;
   font-size: 13px; color: #555;
@@ -727,6 +728,8 @@ select, input { font-family: inherit; }
 .ahtt-month   { font-size: 11px; font-weight: 700; color: #bbb; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 4px; }
 .ahtt-balance { font-size: 15px; font-weight: 700; color: #4285f4; }
 .ahtt-float   { font-size: 13px; font-weight: 600; color: #f59e0b; margin-top: 3px; }
+.ahtt-delta { font-size: 14px; font-weight: 600; margin-top: 3px; }
+.ahtt-delta-lbl { font-size: 12px; font-weight: 400; color: #999; }
 .ahtt-divider { border-top: 1px solid #eee; margin: 7px 0 5px; }
 .ahtt-acct-row { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; margin-bottom: 3px; }
 .ahtt-acct-name { font-size: 14px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; }
@@ -2166,6 +2169,14 @@ td.hbt-num:last-child { width: 13%; }
           <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
           Include Exception Accounts
         </label>
+        <span class="ah-closed-toggle">
+          <label class="ios-toggle-wrap">
+            <input type="checkbox" id="ah-include-closed">
+            <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+            Include Closed Accounts in List
+          </label>
+          <span id="ah-closed-help-icon" class="plaid-help-icon">i</span>
+        </span>
       </div>
     </div>
     <div id="ah-chart-row">
@@ -2558,6 +2569,7 @@ var state = {
   lwIncludePipeline:        false,
   ahMatchLwExclusions:      localStorage.getItem('ah-match-lw-exclusions') !== '0',
   ahIncludeExceptionAccts:  localStorage.getItem('ah-include-exception-accts') === '1',
+  ahIncludeClosed:          localStorage.getItem('ah-include-closed') === '1',
   nwMatchLwExclusions:      localStorage.getItem('nw-match-lw-exclusions') !== '0',
   leverageExcludeTracking:   localStorage.getItem('leverage-exclude-tracking') === '1',
   leverageExcludeForecasted: localStorage.getItem('leverage-exclude-forecasted') === '1',
@@ -7207,6 +7219,7 @@ function syncExclusionToggles() {
     ['lw-include-exceptions',   'lwIncludeExceptionAccts'],
     ['ah-match-lw-exclusions',  'ahMatchLwExclusions'],
     ['ah-include-exceptions',   'ahIncludeExceptionAccts'],
+    ['ah-include-closed',       'ahIncludeClosed'],
     ['nw-match-lw-exclusions',  'nwMatchLwExclusions']
   ];
   for (var i = 0; i < pairs.length; i++) {
@@ -10459,8 +10472,8 @@ function populateAcctHistoryFilter() {
   var allAccts = [];
   for (var id in d.allAccountsInfo) {
     var info = d.allAccountsInfo[id];
-    if (!info.closed && info.name.indexOf('~') === -1) {
-      allAccts.push({ id: id, name: info.name });
+    if ((state.ahIncludeClosed || !info.closed) && info.name.indexOf('~') === -1) {
+      allAccts.push({ id: id, name: info.name + (info.closed ? ' (closed)' : '') });
     }
   }
   allAccts.sort(function(a, b) { return a.name.localeCompare(b.name); });
@@ -10851,9 +10864,26 @@ function showAcctHistoryTooltip(clientX, clientY, idx) {
       if (rows.length > cap) breakdownHtml += '<div class="ahtt-more">+ ' + (rows.length - cap) + ' more</div>';
     }
   }
+  // Change from the first point of the measuring period (the chart's left edge) to this date.
+  // For debt accounts the chart plots the magnitude, so a bigger number is bad (red) and a
+  // smaller one good (green); everywhere else up is green.
+  var deltaLine = '';
+  if (s.n > 1 && idx > 0) {
+    var dlt = Math.round((val - s.values[0]) * 100) / 100;
+    var startRef = Math.abs(s.values[0]);
+    var dPct = startRef > 0.005 ? dlt / startRef * 100 : null;
+    var good = s.isDebtAcct ? dlt <= 0 : dlt >= 0;
+    var sp  = s.keys[0].split('-');
+    var sinceLbl = MONTH_ABBR[parseInt(sp[1], 10) - 1] + ' ' + parseInt(sp[2], 10);
+    deltaLine = '<div class="ahtt-delta" style="color:' + (isZeroish(dlt) ? '#888' : (good ? '#2e7d32' : '#c62828')) + '">'
+      + (dlt > 0 ? '&#8593; +' : (dlt < 0 ? '&#8595; -' : '')) + '$'
+      + Math.abs(dlt).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})
+      + (dPct !== null ? ' (' + (dlt >= 0 ? '+' : '-') + Math.abs(dPct).toFixed(1) + '%)' : '')
+      + ' <span class="ahtt-delta-lbl">since ' + sinceLbl + '</span></div>';
+  }
   tt.innerHTML = '<div class="ahtt-month">' + mo + '</div>'
                + '<div class="ahtt-balance" style="color:' + balColor + '">' + balStr + '</div>'
-               + floatLine + breakdownHtml;
+               + deltaLine + floatLine + breakdownHtml;
   tt.style.display = 'block';
   var vw = window.innerWidth;
   var tw = tt.offsetWidth + 4, th = tt.offsetHeight + 4;
@@ -13432,6 +13462,13 @@ document.addEventListener('DOMContentLoaded', function() {
     syncExclusionToggles();
     renderAccountHistory();
   });
+  document.getElementById('ah-include-closed').addEventListener('change', function() {
+    state.ahIncludeClosed = this.checked;
+    localStorage.setItem('ah-include-closed', this.checked ? '1' : '0');
+    syncExclusionToggles();
+    populateAcctHistoryFilter();
+    renderAccountHistory();
+  });
   document.getElementById('ah-include-exceptions').addEventListener('change', function() {
     state.ahIncludeExceptionAccts = this.checked;
     localStorage.setItem('ah-include-exception-accts', this.checked ? '1' : '0');
@@ -13632,6 +13669,14 @@ document.addEventListener('DOMContentLoaded', function() {
       + '<div class="lwtt-driver-row" style="margin-top:6px"><span class="lwtt-driver-name" style="font-weight:700;color:#333">Description</span> <span class="lwtt-driver-median">optional</span></div>'
       + '<div class="lwtt-driver-detail" style="white-space:normal">Description, Payee, Merchant, Memo, Details, Name, Narrative</div>'
       + '</div>';
+  });
+
+  // Info icon: closed accounts always count inside Account Groups
+  wireHelpIconTooltip('ah-closed-help-icon', function() {
+    return '<div style="max-width:260px"><div class="lwtt-label" style="white-space:normal">'
+      + 'Closed accounts are always shown inside Account Groups (All Cash, All Credit, All Assets, All Liabilities), '
+      + 'so their history counts toward the group totals. This toggle only controls whether they also appear '
+      + 'in the account list for viewing individually.</div></div>';
   });
 
   // Account History account selector
