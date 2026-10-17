@@ -7857,7 +7857,19 @@ function renderNwOutlook(startNw, horizon) {
 
   nwOutlookChartState = { series: series, horizon: horizon, startYear: startYear, startMonth: startMonth,
                            startAge: startAge, canvasId: 'nw-outlook-canvas', axis: state.nwOutlookAxis,
-                           axisUnit: axisUnit };
+                           axisUnit: axisUnit, milestones: [], milestonesHidden: 0 };
+  // Milestones are ages, so they need a Birth Year and an age-labelled axis (not the 12m view).
+  // Only those inside the plotted window are drawn.
+  var allMilestones = getNwMilestones();
+  if (allMilestones.length && startAge !== null && horizon !== '12m') {
+    var lastIdx = series[0].vals.length - 1;
+    allMilestones.forEach(function(m) {
+      var mIdx = m.age - startAge;
+      if (mIdx >= 0 && mIdx <= lastIdx) nwOutlookChartState.milestones.push({ idx: mIdx, age: m.age, label: m.label });
+    });
+  }
+  nwOutlookChartState.milestoneNote = (allMilestones.length && horizon !== '12m' && startAge === null)
+    ? 'Add a "Birth Year" row to Config.csv to show milestones' : '';
   syncNwOutlookAxisUi();
   Array.prototype.forEach.call(wrap.querySelectorAll('#nw-axis-seg-wrap .nwo-seg-btn'), function(btn) {
     btn.addEventListener('click', function() {
@@ -7910,7 +7922,8 @@ function syncNwOutlookAxisUi() {
   var sub = document.getElementById('nw-outlook-sub');
   var s = nwOutlookChartState;
   if (sub && s) sub.innerHTML = 'Hover any point to see values at that ' + s.axisUnit + ' &middot; '
-    + (state.nwOutlookAxis === 'linear' ? 'linear' : 'log') + ' scale';
+    + (state.nwOutlookAxis === 'linear' ? 'linear' : 'log') + ' scale'
+    + (s.milestoneNote ? ' &middot; <span style="color:#b26a00">' + s.milestoneNote + '</span>' : '');
 }
 
 // "Nov-26" style month label, i months after (year, month).
@@ -8033,6 +8046,16 @@ function drawNwOutlookChart(s, hoveredIdx) {
     ctx.fillText(nwOutlookXLabel(s, nYears - 1), xPos(nYears - 1), H - B_PAD + 6);
   }
 
+  var MS_COLOR = '#7e57c2';
+  var msList = s.milestones || [];
+  for (var msi = 0; msi < msList.length; msi++) {
+    var msx = xPos(msList[msi].idx);
+    ctx.strokeStyle = MS_COLOR;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(msx, T_PAD); ctx.lineTo(msx, H - B_PAD); ctx.stroke();
+  }
+
   if (hoveredIdx >= 0 && hoveredIdx < nYears) {
     var hx = xPos(hoveredIdx);
     ctx.strokeStyle = '#ccc';
@@ -8065,6 +8088,30 @@ function drawNwOutlookChart(s, hoveredIdx) {
       }
     }
   }
+
+  // Milestone labels run down the line from the top of the plot, on the line's right, with a white
+  // halo so they stay readable over the series lines.
+  ctx.font = '600 12px "IBM Plex Sans", system-ui, -apple-system, sans-serif';
+  for (var mli = 0; mli < msList.length; mli++) {
+    var mlText = msList[mli].label || ('Age ' + msList[mli].age);
+    var mlAvail = chartH - 10;
+    if (ctx.measureText(mlText).width > mlAvail) {
+      while (mlText.length > 1 && ctx.measureText(mlText + '\u2026').width > mlAvail) mlText = mlText.slice(0, -1);
+      mlText += '\u2026';
+    }
+    ctx.save();
+    ctx.translate(xPos(msList[mli].idx) + 4, T_PAD + 5);
+    ctx.rotate(Math.PI / 2);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'bottom';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#fff';
+    ctx.strokeText(mlText, 0, 0);
+    ctx.fillStyle = MS_COLOR;
+    ctx.fillText(mlText, 0, 0);
+    ctx.restore();
+  }
 }
 
 function showNwOutlookTooltip(clientX, clientY, yearIdx, s) {
@@ -8080,7 +8127,11 @@ function showNwOutlookTooltip(clientX, clientY, yearIdx, s) {
       + '<div class="lwtt-val" style="color:' + ser.color + '">' + fmtNwOutlookY(ser.vals[yearIdx]) + '</div></div></div>';
   }).join('');
   var stepUnit = s.horizon === '12m' ? 'm' : 'y';
-  tt.innerHTML = '<div class="lwtt-month">' + headline + ' <span class="lwtt-asof">' + (yearIdx === 0 ? 'Now' : '+' + yearIdx + stepUnit) + '</span></div>' + rowsHtml;
+  var msHtml = (s.milestones || []).filter(function(m) { return m.idx === yearIdx; }).map(function(m) {
+    return '<div class="lwtt-row"><span class="lwtt-dot" style="background:#7e57c2"></span><div><div class="lwtt-label">Milestone</div>'
+      + '<div class="lwtt-val" style="color:#7e57c2">' + escAttr(m.label || ('Age ' + m.age)) + '</div></div></div>';
+  }).join('');
+  tt.innerHTML = '<div class="lwtt-month">' + headline + ' <span class="lwtt-asof">' + (yearIdx === 0 ? 'Now' : '+' + yearIdx + stepUnit) + '</span></div>' + msHtml + rowsHtml;
   tt.style.display = 'block';
   var ttRect = tt.getBoundingClientRect();
   var ttW = ttRect.width || 160, ttH = ttRect.height || 120;
@@ -12948,6 +12999,21 @@ function getNwDeltaTargetPct() {
 // Config row with Metric = "Birth Year" (Amount = the year, e.g. 1993): when present, the
 // 30y Outlook axis is labeled by age instead of calendar year. A plain year in the Amount
 // column (no "$" Unit) parses into dueDays rather than amount -- check both.
+// Config rows with Metric = "Milestone 1", "Milestone 2", ... : Amount = the age to mark, Text =
+// the label shown against that line on the Net Worth Preview chart. Sorted by age.
+function getNwMilestones() {
+  var out = [];
+  for (var i = 0; i < (state.catConfig || []).length; i++) {
+    var c = state.catConfig[i];
+    if (!/^milestone\b/i.test(c.usedFor || '')) continue;
+    var age = c.amount !== null ? c.amount : c.dueDays;
+    if (age === null || age === undefined || !(age >= 0)) continue;
+    out.push({ age: age, label: (c.id || '').trim() });
+  }
+  out.sort(function(a, b) { return a.age - b.age; });
+  return out;
+}
+
 function getNwBirthYear() {
   for (var i = 0; i < (state.catConfig || []).length; i++) {
     var c = state.catConfig[i];
