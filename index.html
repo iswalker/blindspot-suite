@@ -10414,8 +10414,10 @@ var AH_PSEUDO_GROUPS = [
   // (checking / savings / cash) are their own "All Cash Accounts" group, not assets.
   { id: '__ah_all_assets__',      name: 'All Assets',          isDebt: false,
     test: function(type) { return type === 'otherAsset'; } },
+  // Only YNAB's "Liability" account type (otherLiability, the off-budget Tracking section) --
+  // credit cards and lines of credit are their own "All Credit Accounts" group.
   { id: '__ah_all_liabilities__', name: 'All Liabilities',     isDebt: true,
-    test: isDebtAcctType }
+    test: function(type) { return type === 'otherLiability'; } }
 ];
 
 function ahPseudoGroup(acctId) {
