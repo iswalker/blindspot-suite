@@ -10487,8 +10487,18 @@ function ahPseudoGroup(acctId) {
 function ahPseudoGroupAcctIds(group) {
   var d = state.data, ids = [];
   if (!d || !d.allAccountsInfo) return ids;
+  // With "Include Exception Accounts" on, an exception account (one that is liquid only via the
+  // "Liquid Account Exceptions" Config row) is treated as Cash whatever its YNAB type says -- so it
+  // belongs to All Cash Accounts alone, not also to the type-based groups (All Assets, ...).
+  var exceptionIds = {};
+  if (state.ahIncludeExceptionAccts && d.lwAccounts) {
+    for (var xi = 0; xi < d.lwAccounts.length; xi++) {
+      if (d.lwAccounts[xi].isException) exceptionIds[d.lwAccounts[xi].id] = true;
+    }
+  }
   for (var id in d.allAccountsInfo) {
     var info = d.allAccountsInfo[id];
+    if (group.id !== '__ah_all_cash__' && exceptionIds[id]) continue;
     // Closed accounts count too: their history belongs in the group's past values
     if (info.name.indexOf('~') === -1 && group.test(info.type)) ids.push(id);
   }
