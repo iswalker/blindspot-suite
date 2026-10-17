@@ -1430,6 +1430,16 @@ td.hbt-num:last-child { width: 13%; }
 .nwo-seg-btn:hover { background: #f0f0f0; }
 .nwo-seg-btn.active { background: #1565c0; color: #fff; }
 .nwo-seg-btn.active:hover { background: #1565c0; }
+.nwo-custom { display: inline-flex; align-items: center; gap: 6px; }
+.nwo-custom input {
+  width: 76px; padding: 5px 8px; font-size: 13px; color: #333; background: #fff;
+  border: 1px solid #ccc; border-radius: 6px; outline: none;
+}
+.nwo-custom-lbl { font-size: 12px; color: #888; margin-left: -2px; margin-right: 4px; }
+.nwo-custom input:focus { border-color: #1565c0; }
+.nwo-custom.active input:not(:placeholder-shown) { border-color: #1565c0; }
+.nwo-custom input.invalid { border-color: #c62828; }
+.nwo-custom input:disabled { background: #f4f3ee; cursor: not-allowed; }
 
 /* ---- Net Worth Outlook (12m / 15y / 30y) ---- */
 #nw-outlook-hdr { margin: 0 16px 6px 16px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
@@ -2020,7 +2030,7 @@ td.hbt-num:last-child { width: 13%; }
   </div>
   <div id="nw-panel">
     <div class="panel-hdr">
-      <div id="nw-range-wrap" style="display:flex;align-items:center;gap:8px">
+      <div id="nw-range-wrap" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <div class="rp-wrap" id="nw-range-group">
           <button type="button" class="rp-btn" id="nw-range-btn"></button>
           <div class="rp-panel" id="nw-range-panel" style="display:none"></div>
@@ -2032,6 +2042,10 @@ td.hbt-num:last-child { width: 13%; }
             <button type="button" class="nwo-seg-btn" id="nw-outlook-15y-btn" data-horizon="15y">15y</button>
             <button type="button" class="nwo-seg-btn" id="nw-outlook-30y-btn" data-horizon="30y">30y</button>
           </div>
+          <span class="nwo-custom" id="nw-custom-wrap">
+            <input type="number" id="nw-custom-years" min="1" max="60" step="1" inputmode="numeric" placeholder="Custom" aria-label="Custom number of years"><span class="nwo-custom-lbl">yrs</span>
+            <input type="number" id="nw-custom-age" min="1" max="120" step="1" inputmode="numeric" placeholder="Age" aria-label="Age to project to"><span class="nwo-custom-lbl">age</span>
+          </span>
         </div>
         <div class="nwo-seg-wrap" id="nw-pipeline-seg-wrap" data-active="">
           <span class="nwo-seg-label">Pipeline</span>
@@ -2628,6 +2642,8 @@ var state = {
   nwMatchLwExclusions:      localStorage.getItem('nw-match-lw-exclusions') !== '0',
   // Net Worth's own Pipeline toggle ('' / 'include' / 'minus'), independent of Liquid Balances'.
   // Net Worth Preview chart's Y axis: 'log' (default) or 'linear'.
+  // Custom Preview horizon in whole years (null until the user enters one).
+  nwCustomYears:            (function() { var y = parseInt(localStorage.getItem('nw-custom-years'), 10); return y > 0 && y <= 60 ? y : null; })(),
   nwOutlookAxis:            localStorage.getItem('nw-outlook-axis') === 'linear' ? 'linear' : 'log',
   nwPipelineMode:           (function() {
     var m = localStorage.getItem('nw-pipeline-mode');
@@ -7727,10 +7743,11 @@ function renderNetWorthBody() {
     }
   }
 
+  syncNwCustomInputs();
   var outlookSegWrap = document.getElementById('nw-outlook-seg-wrap');
   var outlookHorizon = outlookSegWrap ? outlookSegWrap.getAttribute('data-active') : '';
   var outlookWrap     = document.getElementById('nw-outlook-wrap');
-  var showOutlook     = outlookHorizon === '12m' || outlookHorizon === '15y' || outlookHorizon === '30y';
+  var showOutlook     = outlookHorizon === '12m' || outlookHorizon === '15y' || outlookHorizon === '30y' || (outlookHorizon === 'custom' && state.nwCustomYears > 0);
   if (chartWrap)   chartWrap.style.display = showOutlook ? 'none' : '';
   var tableWrapEl = document.getElementById('nw-table-wrap');
   if (tableWrapEl) tableWrapEl.style.display = showOutlook ? 'none' : '';
@@ -7768,7 +7785,7 @@ function computeNwOutlookSeries(startNw, targetPct, horizon) {
     { pct: targetPct - 0.25, color: '#f9a825' },
     { pct: targetPct - 0.5,  color: '#e65100' }
   ];
-  var totalMonths = horizon === '12m' ? 12 : (horizon === '15y' ? 180 : 360);
+  var totalMonths = horizon === '12m' ? 12 : (horizon === '15y' ? 180 : (horizon === 'custom' ? state.nwCustomYears * 12 : 360));
   var stepMonths  = horizon === '12m' ? 1  : 12;
   return rateDefs.map(function(rd) {
     var vals = [startNw];
@@ -7852,6 +7869,29 @@ function renderNwOutlook(startNw, horizon) {
   var canvas = document.getElementById('nw-outlook-canvas');
   wireNwOutlookHover(canvas);
   requestAnimationFrame(function() { drawNwOutlookChart(nwOutlookChartState, -1); });
+}
+
+// Current age as the Preview axis counts it (this year minus the configured Birth Year), or null.
+function nwCurrentAge() {
+  var by = getNwBirthYear();
+  return by !== null ? new Date().getFullYear() - by : null;
+}
+
+// Keeps the custom Years / Age boxes in step with each other and with the active preview.
+// Age needs a Birth Year in Config.csv; without one it is disabled with a hint.
+function syncNwCustomInputs() {
+  var yEl = document.getElementById('nw-custom-years'), aEl = document.getElementById('nw-custom-age');
+  var wrapEl = document.getElementById('nw-custom-wrap'), seg = document.getElementById('nw-outlook-seg-wrap');
+  if (!yEl || !aEl || !wrapEl) return;
+  var curAge = nwCurrentAge();
+  aEl.disabled = curAge === null;
+  aEl.title = curAge === null ? 'Add a "Birth Year" row to Config.csv to project to an age' : 'Project to this age (you are ' + curAge + ' now)';
+  yEl.title = 'Project this many years out (1-60)';
+  var isCustom = !!seg && seg.getAttribute('data-active') === 'custom' && state.nwCustomYears > 0;
+  wrapEl.classList.toggle('active', isCustom);
+  // The boxes only hold a value while the custom preview is showing; a preset or "off" clears them.
+  if (document.activeElement !== yEl) { yEl.value = isCustom ? state.nwCustomYears : ''; yEl.classList.remove('invalid'); }
+  if (document.activeElement !== aEl) { aEl.value = (isCustom && curAge !== null) ? curAge + state.nwCustomYears : ''; aEl.classList.remove('invalid'); }
 }
 
 // Highlights the active Axis option and words the chart's subtitle to match.
@@ -13880,16 +13920,52 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   // Clicking the active horizon again deselects it, reverting to the plain Net Worth chart.
+  function setNwOutlookHorizon(next) {
+    var wrap = document.getElementById('nw-outlook-seg-wrap');
+    wrap.setAttribute('data-active', next);
+    document.getElementById('nw-outlook-12m-btn').classList.toggle('active', next === '12m');
+    document.getElementById('nw-outlook-15y-btn').classList.toggle('active', next === '15y');
+    document.getElementById('nw-outlook-30y-btn').classList.toggle('active', next === '30y');
+    renderNetWorth();
+  }
   ['12m', '15y', '30y'].forEach(function(h) {
     document.getElementById('nw-outlook-' + h + '-btn').addEventListener('click', function() {
       var wrap = document.getElementById('nw-outlook-seg-wrap');
-      var next = wrap.getAttribute('data-active') === h ? '' : h;
-      wrap.setAttribute('data-active', next);
-      document.getElementById('nw-outlook-12m-btn').classList.toggle('active', next === '12m');
-      document.getElementById('nw-outlook-15y-btn').classList.toggle('active', next === '15y');
-      document.getElementById('nw-outlook-30y-btn').classList.toggle('active', next === '30y');
-      renderNetWorth();
+      setNwOutlookHorizon(wrap.getAttribute('data-active') === h ? '' : h);
     });
+  });
+  // Custom horizon: type a number of years, or the age to project to (years = age - current age).
+  // Either box drives the same custom preview; an empty or invalid entry leaves the chart as is
+  // (empty also switches a custom preview off).
+  function applyCustomYears(years) {
+    state.nwCustomYears = years;
+    localStorage.setItem('nw-custom-years', String(years));
+    setNwOutlookHorizon('custom');
+  }
+  var cYears = document.getElementById('nw-custom-years'), cAge = document.getElementById('nw-custom-age');
+  cYears.addEventListener('input', function() {
+    var v = parseInt(this.value, 10);
+    var ok = v >= 1 && v <= 60;
+    this.classList.toggle('invalid', this.value !== '' && !ok);
+    cAge.classList.remove('invalid');
+    if (ok) applyCustomYears(v);
+    else if (this.value === '' && document.getElementById('nw-outlook-seg-wrap').getAttribute('data-active') === 'custom') {
+      cAge.value = '';
+      setNwOutlookHorizon('');
+    }
+  });
+  cAge.addEventListener('input', function() {
+    var curAge = nwCurrentAge();
+    var a = parseInt(this.value, 10);
+    var y = curAge !== null ? a - curAge : NaN;
+    var ok = y >= 1 && y <= 60;
+    this.classList.toggle('invalid', this.value !== '' && !ok);
+    cYears.classList.remove('invalid');
+    if (ok) { cYears.value = y; applyCustomYears(y); }
+    else if (this.value === '' && document.getElementById('nw-outlook-seg-wrap').getAttribute('data-active') === 'custom') {
+      cYears.value = '';
+      setNwOutlookHorizon('');
+    }
   });
 
   document.getElementById('leverage-exclude-tracking').checked = !!state.leverageExcludeTracking;
