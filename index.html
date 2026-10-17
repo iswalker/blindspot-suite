@@ -10434,7 +10434,8 @@ function ahPseudoGroupAcctIds(group) {
   if (!d || !d.allAccountsInfo) return ids;
   for (var id in d.allAccountsInfo) {
     var info = d.allAccountsInfo[id];
-    if (!info.closed && info.name.indexOf('~') === -1 && group.test(info.type)) ids.push(id);
+    // Closed accounts count too: their history belongs in the group's past values
+    if (info.name.indexOf('~') === -1 && group.test(info.type)) ids.push(id);
   }
   // "All Cash Accounts" can optionally also pull in accounts that qualify as liquid only via
   // the "Liquid Account Exceptions" Config row (see fetchYnabData's lwAccounts build) -- those
@@ -10444,7 +10445,7 @@ function ahPseudoGroupAcctIds(group) {
   if (group.id === '__ah_all_cash__' && state.ahIncludeExceptionAccts && d.lwAccounts) {
     for (var ei = 0; ei < d.lwAccounts.length; ei++) {
       var exAcct = d.lwAccounts[ei];
-      if (exAcct.isException && !exAcct.closed && ids.indexOf(exAcct.id) === -1) ids.push(exAcct.id);
+      if (exAcct.isException && ids.indexOf(exAcct.id) === -1) ids.push(exAcct.id);
     }
   }
   return ids;
@@ -11045,7 +11046,8 @@ function renderAccountHistoryBody(d, acctId) {
         if (state.lwExcludeDistribution) abShown -= ahReserveAt(abId, keys[abk].slice(0, 7));
         abVals.push(isDebtAcctAH ? -abShown : abShown);
       }
-      acctHistoryBreakdown.push({ id: abId, name: ((d.allAccountsInfo || {})[abId] || {}).name || abId, vals: abVals });
+      var abInfo = (d.allAccountsInfo || {})[abId] || {};
+      acctHistoryBreakdown.push({ id: abId, name: (abInfo.name || abId) + (abInfo.closed ? ' (closed)' : ''), vals: abVals });
     }
   }
 
