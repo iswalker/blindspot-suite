@@ -280,6 +280,7 @@ body {
   scrollbar-width: thin; scrollbar-color: #ccc transparent;
 }
 .csel-grp { font-size: 12px; font-weight: 700; color: #999; letter-spacing: .06em; text-transform: uppercase; padding: 8px 16px 4px; }
+.csel-sep { height: 1px; background: #e4e2da; margin: 6px 0; }
 .csel-item { padding: 8px 16px; font-size: 14px; color: #333; cursor: pointer; white-space: nowrap; }
 .csel-item:hover, .csel-item.hl { background: #f0efe9; }
 .csel-item.selected { background: #1a1a2e; color: #fff; }
@@ -10575,21 +10576,23 @@ function populateAcctHistoryFilter() {
   }
   allAccts.sort(function(a, b) { return a.name.localeCompare(b.name); });
   sel.innerHTML = '';
-  var pseudoGrp = document.createElement('optgroup');
-  pseudoGrp.label = 'Account Groups';
+  // Groups first, then a divider line (data-sep-before, drawn by the custom dropdown) before the
+  // individual accounts -- no "Account Groups" heading.
+  var pseudoCount = 0;
   for (var pgi = 0; pgi < AH_PSEUDO_GROUPS.length; pgi++) {
     var pg = AH_PSEUDO_GROUPS[pgi];
     if (!ahPseudoGroupAcctIds(pg).length) continue;
     var pOpt = document.createElement('option');
     pOpt.value       = pg.id;
     pOpt.textContent = pg.name;
-    pseudoGrp.appendChild(pOpt);
+    sel.appendChild(pOpt);
+    pseudoCount++;
   }
-  if (pseudoGrp.children.length) sel.appendChild(pseudoGrp);
   for (var i = 0; i < allAccts.length; i++) {
     var opt = document.createElement('option');
     opt.value       = allAccts[i].id;
     opt.textContent = allAccts[i].name;
+    if (i === 0 && pseudoCount) opt.setAttribute('data-sep-before', '1');
     sel.appendChild(opt);
   }
   if (state.acctHistoryId && sel.querySelector('option[value="' + state.acctHistoryId + '"]')) {
@@ -11315,6 +11318,7 @@ function enhanceSelect(sel) {
   function rebuild() {
     panel.innerHTML = ''; items = [];
     function addOpt(o) {
+      if (o.hasAttribute('data-sep-before')) { var sp = document.createElement('div'); sp.className = 'csel-sep'; panel.appendChild(sp); }
       var el = document.createElement('div'); el.className = 'csel-item' + (o.disabled ? ' disabled' : '');
       el.setAttribute('role', 'option'); el.textContent = o.textContent;
       el.addEventListener('mousedown', function(e) { e.preventDefault(); });
