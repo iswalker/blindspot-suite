@@ -10461,6 +10461,10 @@ function resolveCashBasisAcctId() {
 // a given type, instead of one account at a time. isDebt controls the same abs-value/orange
 // treatment real debt accounts get (see isDebtAcctType).
 var AH_PSEUDO_GROUPS = [
+  // Every account, whatever its type, open or closed, including "~" tracking accounts and
+  // exception accounts: assets and debts net into one signed total.
+  { id: '__ah_all_accounts__',    name: 'All Accounts',        isDebt: false, includeEverything: true,
+    test: function() { return true; } },
   { id: '__ah_all_cash__',        name: 'All Cash Accounts',   isDebt: false,
     test: function(type) { return type === 'checking' || type === 'savings' || type === 'cash'; } },
   { id: '__ah_all_credit__',      name: 'All Credit Accounts', isDebt: true,
@@ -10498,6 +10502,7 @@ function ahPseudoGroupAcctIds(group) {
   }
   for (var id in d.allAccountsInfo) {
     var info = d.allAccountsInfo[id];
+    if (group.includeEverything) { ids.push(id); continue; }
     if (group.id !== '__ah_all_cash__' && exceptionIds[id]) continue;
     // Closed accounts count too: their history belongs in the group's past values
     if (info.name.indexOf('~') === -1 && group.test(info.type)) ids.push(id);
