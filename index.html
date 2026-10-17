@@ -2031,6 +2031,14 @@ td.hbt-num:last-child { width: 13%; }
             <button type="button" class="nwo-seg-btn" id="nw-outlook-30y-btn" data-horizon="30y">30y</button>
           </div>
         </div>
+        <div class="nwo-seg-wrap" id="nw-pipeline-seg-wrap" data-active="">
+          <span class="nwo-seg-label">Pipeline</span>
+          <div class="nwo-seg-btns">
+            <button type="button" class="nwo-seg-btn" id="nw-pipeline-include-btn" data-mode="include">Include</button>
+            <button type="button" class="nwo-seg-btn" id="nw-pipeline-minus-btn" data-mode="minus">Minus Budgeted Available</button>
+          </div>
+        </div>
+        <span class="holding-warn" id="nw-pipeline-warn"></span>
       </div>
     </div>
     <div id="nw-summary-row">
@@ -2614,6 +2622,11 @@ var state = {
   ahIncludeExceptionAccts:  localStorage.getItem('ah-include-exception-accts') === '1',
   ahIncludeClosed:          localStorage.getItem('ah-include-closed') === '1',
   nwMatchLwExclusions:      localStorage.getItem('nw-match-lw-exclusions') !== '0',
+  // Net Worth's own Pipeline toggle ('' / 'include' / 'minus'), independent of Liquid Balances'.
+  nwPipelineMode:           (function() {
+    var m = localStorage.getItem('nw-pipeline-mode');
+    return (m === 'include' || m === 'minus') ? m : '';
+  })(),
   leverageExcludeTracking:   localStorage.getItem('leverage-exclude-tracking') === '1',
   leverageExcludeForecasted: localStorage.getItem('leverage-exclude-forecasted') === '1',
   leverageIncludeTbd:        localStorage.getItem('leverage-include-tbd') === '1',
@@ -7148,7 +7161,9 @@ function lwPipelineBudgetHolderId() {
   if (state.lwPipelineMode !== 'minus') return null;
   var accts = (state.data && state.data.lwAccounts) || [];
   for (var i = 0; i < accts.length; i++) {
-    if (accts[i].isPipeline && state.lwSelectedAccounts[accts[i].id]) return accts[i].id;
+    // Net Worth renders every Pipeline account (it has no per-account Pipeline selection), so it
+    // charges the first one regardless of the Liquid Balances selection.
+    if (accts[i].isPipeline && (state.nwRendering || state.lwSelectedAccounts[accts[i].id])) return accts[i].id;
   }
   return null;
 }
@@ -7275,6 +7290,18 @@ function syncExclusionToggles() {
     var pipeInc = document.getElementById('lw-pipeline-include-btn'), pipeMin = document.getElementById('lw-pipeline-minus-btn');
     if (pipeInc) pipeInc.classList.toggle('active', state.lwPipelineMode === 'include');
     if (pipeMin) pipeMin.classList.toggle('active', state.lwPipelineMode === 'minus');
+  }
+  var nwPipeSeg = document.getElementById('nw-pipeline-seg-wrap');
+  if (nwPipeSeg) {
+    nwPipeSeg.setAttribute('data-active', state.nwPipelineMode);
+    var nwPipeInc = document.getElementById('nw-pipeline-include-btn'), nwPipeMin = document.getElementById('nw-pipeline-minus-btn');
+    if (nwPipeInc) nwPipeInc.classList.toggle('active', state.nwPipelineMode === 'include');
+    if (nwPipeMin) nwPipeMin.classList.toggle('active', state.nwPipelineMode === 'minus');
+  }
+  var nwPipeWarnEl = document.getElementById('nw-pipeline-warn');
+  if (nwPipeWarnEl) {
+    var nwNeedsFlags = state.nwPipelineMode !== '' && state.data && state.data.lwAccounts && !state.data.acctTxnsRed;
+    nwPipeWarnEl.textContent = nwNeedsFlags ? '⚠ Refresh YNAB data to load transaction flags' : '';
   }
   // Cached data from before flags were loaded has no Red-flag sums; a refresh brings them in.
   var pipeWarnEl = document.getElementById('lw-pipeline-warn');
@@ -7498,11 +7525,14 @@ function renderNetWorth() {
     state.lwExcludeTracking     = false;
     state.lwExcludeDistribution = false;
     state.lwExcludeBudgeted     = false;
-    state.lwPipelineMode        = '';
   }
+  // Pipeline is Net Worth's own setting, not one of the Liquid Balances exclusions "Match" covers.
+  state.lwPipelineMode = state.nwPipelineMode;
+  state.nwRendering    = true;
   try {
     renderNetWorthBody();
   } finally {
+    state.nwRendering           = false;
     state.lwPipelineMode        = nwSavedPipelineMode;
     state.lwExcludeTracking     = nwSavedExclTracking;
     state.lwExcludeDistribution = nwSavedExclDistribution;
@@ -7525,6 +7555,15 @@ function renderNetWorthBody() {
   }
   if (chartWrap) chartWrap.style.display = '';
   var accts = state.data.nwAccounts.filter(function(a) { return state.nwSelectedAccounts[a.id]; });
+  // Pipeline accounts are "~"-named, so they're not in nwAccounts; with Pipeline on they join in
+  // (contributing only their Red-flagged transactions, via acctBalanceAt).
+  if (state.nwPipelineMode !== '') {
+    var nwHave = {};
+    for (var nhi = 0; nhi < accts.length; nhi++) nwHave[accts[nhi].id] = true;
+    (state.data.lwAccounts || []).forEach(function(la) {
+      if (la.isPipeline && !nwHave[la.id]) accts.push({ id: la.id, name: la.name, type: la.type, on_budget: false, closed: la.closed, balance: la.balance });
+    });
+  }
   var allK  = lwAllKeys();
   var keys  = allK.filter(function(k) { return k >= state.nwFromKey && k <= state.nwToKey; });
   if (keys.length === 0) {
@@ -13736,6 +13775,16 @@ document.addEventListener('DOMContentLoaded', function() {
       localStorage.setItem('sel-accts', JSON.stringify(state.selectedAccounts));
       renderLiquidWorth();
       refreshReconciliationData();
+    });
+  });
+
+  // Net Worth's own Pipeline toggle -- same options and click-again-to-clear as Liquid Balances'.
+  ['include', 'minus'].forEach(function(mode) {
+    document.getElementById('nw-pipeline-' + mode + '-btn').addEventListener('click', function() {
+      state.nwPipelineMode = state.nwPipelineMode === mode ? '' : mode;
+      localStorage.setItem('nw-pipeline-mode', state.nwPipelineMode || 'off');
+      syncExclusionToggles();
+      renderNetWorth();
     });
   });
 
