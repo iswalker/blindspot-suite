@@ -3419,6 +3419,7 @@ function ynabGet(path, apiKey) {
 function lwReconTxnIsLiquid(acctIdSet, acctId, txn) {
   if (!acctIdSet[acctId]) return false;
   if (state.lwPipelineMode !== '' && lwIsPipelineAcct(acctId)) return !!txn.isRed;
+  if (lwRothContribOnly(acctId)) return !!txn.isContrib;
   return true;
 }
 // A transfer between two liquid accounts nets to zero. The other leg only counts as liquid if
@@ -3426,6 +3427,7 @@ function lwReconTxnIsLiquid(acctIdSet, acctId, txn) {
 function lwReconXferIsInternal(acctIdSet, txn) {
   if (!txn.xferAcctId || !acctIdSet[txn.xferAcctId]) return false;
   if (state.lwPipelineMode !== '' && lwIsPipelineAcct(txn.xferAcctId)) return !!txn.xferRed;
+  if (lwRothContribOnly(txn.xferAcctId)) return !!txn.xferContrib;
   return true;
 }
 function computeLiqReconData(acctIdSet, reconTxnsByAcct) {
@@ -3719,6 +3721,10 @@ function fetchYnabData(apiKey, budgetId, opts) {
     // Red-flagged transactions only ({ acctId: { monthKey: amount } }): the Liquid Balances
     // Pipeline counts just these from a Pipeline account, not its whole balance.
     var acctTxnsRed = {};
+    // "#contribution" memo transactions only ({ acctId: { monthKey: amount } }): a "Roth" account that
+    // counts through Liquid Account Exceptions contributes just these, not growth/other activity.
+    var acctTxnsContrib = {};
+    var contribById = {};   // transaction / sub-transaction id -> memo has #contribution (for transfer legs)
     // Line-level detail behind acctTxnsTracking, so the driver modal can show exactly which
     // transactions Exclude Tracking removed: { acctId: { monthKey: [ {date,cat,payee,memo,amount} ] } }
     var acctTrkTxns = {};
@@ -3744,10 +3750,11 @@ function fetchYnabData(apiKey, budgetId, opts) {
     var flagById = {};
     for (var fli = 0; fli < txns.length; fli++) {
       var flt = txns[fli];
-      if (flt.id) flagById[flt.id] = flt.flag_color;
+      if (flt.id) { flagById[flt.id] = flt.flag_color; contribById[flt.id] = lwMemoIsContribution(flt.memo); }
       if (flt.subtransactions) {
         for (var flsi = 0; flsi < flt.subtransactions.length; flsi++) {
-          if (flt.subtransactions[flsi].id) flagById[flt.subtransactions[flsi].id] = flt.flag_color;
+          var fls = flt.subtransactions[flsi];
+          if (fls.id) { flagById[fls.id] = flt.flag_color; contribById[fls.id] = lwMemoIsContribution(fls.memo || flt.memo); }
         }
       }
     }
@@ -3798,6 +3805,21 @@ function fetchYnabData(apiKey, budgetId, opts) {
             coAmt = (t.amount || 0) / 1000;
           }
           if (coAmt !== 0) cancelOutByMonth[tKey2] = (cancelOutByMonth[tKey2] || 0) + coAmt;
+        }
+        if (!t.deleted) {
+          var cAmt = 0;
+          if (t.subtransactions && t.subtransactions.length) {
+            for (var csi = 0; csi < t.subtransactions.length; csi++) {
+              var cst = t.subtransactions[csi];
+              if (!cst.deleted && lwMemoIsContribution(cst.memo || t.memo)) cAmt += (cst.amount || 0) / 1000;
+            }
+          } else if (lwMemoIsContribution(t.memo)) {
+            cAmt = (t.amount || 0) / 1000;
+          }
+          if (cAmt !== 0) {
+            if (!acctTxnsContrib[t.account_id]) acctTxnsContrib[t.account_id] = {};
+            acctTxnsContrib[t.account_id][tKey2] = (acctTxnsContrib[t.account_id][tKey2] || 0) + cAmt;
+          }
         }
         if (!t.deleted && t.flag_color === 'red') {
           if (!acctTxnsRed[t.account_id]) acctTxnsRed[t.account_id] = {};
@@ -3874,6 +3896,8 @@ function fetchYnabData(apiKey, budgetId, opts) {
             xferAcctId: xferId, amt: amt,
             isRed: t.flag_color === 'red',
             xferRed: !!(s.transfer_transaction_id && flagById[s.transfer_transaction_id] === 'red'),
+            isContrib: lwMemoIsContribution(s.memo || t.memo),
+            xferContrib: !!(s.transfer_transaction_id && contribById[s.transfer_transaction_id]),
             isTrk: catNm ? catNm.slice(-1) === '~' : false
           });
         }
@@ -4169,7 +4193,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
                groupPivot: groupPivot, catPivot: catPivot, activeCats: activeCats,
                regTxns: regTxns, allAccounts: allAccounts,
                allAccountsInfo: allAccountsInfo, lwAccounts: lwAccounts,
-               nwAccounts: nwAccounts, acctTxns: acctTxns, acctTxnsTracking: acctTxnsTracking, acctTxnsRed: acctTxnsRed, acctTrkTxns: acctTrkTxns, acctTxnsList: acctTxnsList, catIdTxns: catIdTxns, catIdAllTxns: catIdAllTxns, catIdToName: catIdToName, catIdToGroup: catIdToGroup,
+               nwAccounts: nwAccounts, acctTxns: acctTxns, acctTxnsTracking: acctTxnsTracking, acctTxnsRed: acctTxnsRed, acctTxnsContrib: acctTxnsContrib, acctTrkTxns: acctTrkTxns, acctTxnsList: acctTxnsList, catIdTxns: catIdTxns, catIdAllTxns: catIdAllTxns, catIdToName: catIdToName, catIdToGroup: catIdToGroup,
                cancelOutByMonth: cancelOutByMonth,
                pendingTxns: pendingTxns,
                upcomingRenewals: upcomingRenewals,
@@ -6529,6 +6553,11 @@ function renderLwDriverDetail(d, monthKey, prevKey) {
       +  '<div class="lwdm-d-tot"><span>Counted from this account</span><span>'
       +    lwFmtSigned(lwRedFlaggedThrough(d.id, monthKey)) + '</span></div>';
   }
+  if (d.id && lwRothContribOnly(d.id)) {
+    h += '<div class="lwdm-d-sec">Roth — #contribution transactions only</div>'
+      +  '<div class="lwdm-d-tot"><span>Counted from this account</span><span>'
+      +    lwFmtSigned(lwContribThrough(d.id, monthKey)) + '</span></div>';
+  }
   // Pipeline "Minus Budgeted Available": shown on the one Pipeline account it is charged to
   if (d.id && d.id === lwPipelineBudgetHolderId()) {
     var pipeB = lwPipelineBudgetedAvailable(monthKey);
@@ -7255,6 +7284,24 @@ function lwCancelOutThrough(monthKey) {
 // Pipeline accounts (the "Pipeline" Config row) contribute only their Red-flagged transactions,
 // cumulative through monthKey, whenever the Liquid Balances Pipeline toggle is on -- not the
 // account's whole balance.
+// A "Roth" account that qualifies only through the Liquid Account Exceptions list counts, in the
+// liquid views, for its "#contribution" transactions alone -- not growth or other activity. Net Worth
+// and Account History show real balances, so they switch the rule off while they render.
+function lwMemoIsContribution(memo) { return /#contribution/i.test(memo || ''); }
+function lwRothContribOnly(acctId) {
+  if (state.nwRendering || state.ahRendering || !state.lwIncludeExceptionAccts) return false;
+  if (!state.data || !state.data.acctTxnsContrib) return false;   // cached data from before this rule: refresh first
+  var accts = (state.data && state.data.lwAccounts) || [];
+  for (var i = 0; i < accts.length; i++) {
+    if (accts[i].id === acctId) return !!accts[i].isException && /roth/i.test(accts[i].name || '');
+  }
+  return false;
+}
+function lwContribThrough(acctId, monthKey) {
+  var m = ((state.data || {}).acctTxnsContrib || {})[acctId] || {}, total = 0;
+  for (var k in m) { if (k <= monthKey) total += m[k]; }
+  return total;
+}
 function lwIsPipelineAcct(acctId) {
   var accts = (state.data && state.data.lwAccounts) || [];
   for (var i = 0; i < accts.length; i++) { if (accts[i].id === acctId) return !!accts[i].isPipeline; }
@@ -7272,6 +7319,8 @@ function acctBalanceAt(acctId, monthKey) {
   var bal;
   if (state.lwPipelineMode !== '' && lwIsPipelineAcct(acctId)) {
     bal = lwRedFlaggedThrough(acctId, monthKey);
+  } else if (lwRothContribOnly(acctId)) {
+    bal = lwContribThrough(acctId, monthKey);
   } else {
     bal = info.balance;
     var txns = (state.data.acctTxns || {})[acctId] || {};
@@ -11401,9 +11450,11 @@ function renderAccountHistory() {
     state.lwExcludeBudgeted     = false;
     state.lwPipelineMode        = '';
   }
+  state.ahRendering = true;
   try {
     renderAccountHistoryBody(d, acctId);
   } finally {
+    state.ahRendering           = false;
     state.lwPipelineMode        = ahSavedPipelineMode;
     state.lwExcludeTracking     = ahSavedExclTracking;
     state.lwExcludeDistribution = ahSavedExclDistribution;
