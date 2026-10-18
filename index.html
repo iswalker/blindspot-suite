@@ -2072,8 +2072,8 @@ td.hbt-num:last-child { width: 13%; }
             <button type="button" class="nwo-seg-btn" id="nw-outlook-30y-btn" data-horizon="30y">30y</button>
           </div>
           <span class="nwo-custom" id="nw-custom-wrap">
-            <input type="number" id="nw-custom-years" min="1" max="60" step="1" inputmode="numeric" placeholder="#" aria-label="Custom number of years"><span class="nwo-custom-lbl">yrs</span>
-            <input type="number" id="nw-custom-age" min="1" max="120" step="1" inputmode="numeric" placeholder="#" aria-label="Age to project to"><span class="nwo-custom-lbl">age</span>
+            <input type="number" id="nw-custom-years" min="1" max="150" step="1" inputmode="numeric" placeholder="#" aria-label="Custom number of years"><span class="nwo-custom-lbl">yrs</span>
+            <input type="number" id="nw-custom-age" min="1" max="250" step="1" inputmode="numeric" placeholder="#" aria-label="Age to project to"><span class="nwo-custom-lbl">age</span>
           </span>
         </div>
       </div>
@@ -2664,7 +2664,7 @@ var state = {
   // Net Worth's own Pipeline toggle ('' / 'include' / 'minus'), independent of Liquid Balances'.
   // Net Worth Preview chart's Y axis: 'log' (default) or 'linear'.
   // Custom Preview horizon in whole years (null until the user enters one).
-  nwCustomYears:            (function() { var y = parseInt(localStorage.getItem('nw-custom-years'), 10); return y > 0 && y <= 60 ? y : null; })(),
+  nwCustomYears:            (function() { var y = parseInt(localStorage.getItem('nw-custom-years'), 10); return y > 0 && y <= 150 ? y : null; })(),
   // User-entered extra monthly growth rate (%) plotted alongside the preset lines; null = none.
   nwCustomRate:             (function() { var r = parseFloat(localStorage.getItem('nw-custom-rate')); return isFinite(r) && r > -50 && r <= 50 ? r : null; })(),
   // Preview growth model: 'percent' (monthly compounding, default) or 'amount' (a monthly $ increase
@@ -8227,7 +8227,7 @@ function syncNwCustomInputs() {
   var curAge = nwCurrentAge();
   aEl.disabled = curAge === null;
   aEl.title = curAge === null ? 'Add a "Birth Year" row to Config.csv to project to an age' : 'Project to this age (you are ' + curAge + ' now)';
-  yEl.title = 'Project this many years out (1-60)';
+  yEl.title = 'Project this many years out (1-150)';
   var isCustom = !!seg && seg.getAttribute('data-active') === 'custom' && state.nwCustomYears > 0;
   wrapEl.classList.toggle('active', isCustom);
   // Years only holds a value for the custom preview; both clear when the preview is off.
@@ -14373,7 +14373,7 @@ document.addEventListener('DOMContentLoaded', function() {
   var cYears = document.getElementById('nw-custom-years'), cAge = document.getElementById('nw-custom-age');
   cYears.addEventListener('input', function() {
     var v = parseInt(this.value, 10);
-    var ok = v >= 1 && v <= 60;
+    var ok = v >= 1 && v <= 150;
     this.classList.toggle('invalid', this.value !== '' && !ok);
     cAge.classList.remove('invalid');
     if (ok) applyCustomYears(v);
@@ -14386,7 +14386,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var curAge = nwCurrentAge();
     var a = parseInt(this.value, 10);
     var y = curAge !== null ? a - curAge : NaN;
-    var ok = y >= 1 && y <= 60;
+    var ok = y >= 1 && y <= 150;
     this.classList.toggle('invalid', this.value !== '' && !ok);
     cYears.classList.remove('invalid');
     if (ok) { cYears.value = y; applyCustomYears(y); }
