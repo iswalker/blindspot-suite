@@ -1447,6 +1447,8 @@ td.hbt-num:last-child { width: 13%; }
 
 /* ---- Net Worth Outlook (12m / 15y / 30y) ---- */
 #nw-outlook-hdr { margin: 0 16px 6px 16px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+#nw-outlook-hdr .nwo-hdr-ctrls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 18px; }
+#nw-amt-start { width: 72px; }
 #nw-outlook-title { font-size: 15px; font-weight: 700; color: #222; }
 #nw-outlook-sub { font-size: 11px; color: #999; margin-top: 2px; }
 #nw-outlook-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 8px 16px 6px 16px; font-size: 12px; font-weight: 600; }
@@ -2661,6 +2663,11 @@ var state = {
   nwCustomYears:            (function() { var y = parseInt(localStorage.getItem('nw-custom-years'), 10); return y > 0 && y <= 60 ? y : null; })(),
   // User-entered extra monthly growth rate (%) plotted alongside the preset lines; null = none.
   nwCustomRate:             (function() { var r = parseFloat(localStorage.getItem('nw-custom-rate')); return isFinite(r) && r > -50 && r <= 50 ? r : null; })(),
+  // Preview growth model: 'percent' (monthly compounding, default) or 'amount' (a monthly $ increase
+  // that itself rises by a fixed amount each year). Amount mode: starting $/mo and a custom step.
+  nwGrowthModel:            localStorage.getItem('nw-growth-model') === 'amount' ? 'amount' : 'percent',
+  nwAmtStart:               (function() { var a = parseFloat(localStorage.getItem('nw-amt-start')); return isFinite(a) && a >= 0 && a <= 1e6 ? a : 1000; })(),
+  nwCustomStep:             (function() { var a = parseFloat(localStorage.getItem('nw-custom-step')); return isFinite(a) && a >= 0 && a <= 1e5 ? a : null; })(),
   nwOutlookAxis:            localStorage.getItem('nw-outlook-axis') === 'linear' ? 'linear' : 'log',
   nwPipelineMode:           (function() {
     var m = localStorage.getItem('nw-pipeline-mode');
@@ -7794,7 +7801,9 @@ function fmtNwOutlookY(v) {
 // rate and +/-0.25 and +/-0.5 either side (highest rate first), compounded monthly throughout
 // either way. Colors reuse the app's existing meet/miss-target convention (green above, orange
 // below, blue at the configured target) rather than the arbitrary palette of any one reference chart.
+var NW_AMT_STEP = 200;   // Amount model's centre: the monthly increase rises by this each year (+/- 50 / 100)
 function computeNwOutlookSeries(startNw, targetPct, horizon) {
+  if (state.nwGrowthModel === 'amount') return computeNwAmountSeries(startNw, horizon);
   var rateDefs = [
     { pct: targetPct + 0.5,  color: '#2e7d32' },
     { pct: targetPct + 0.25, color: '#66bb6a' },
@@ -7822,6 +7831,70 @@ function computeNwOutlookSeries(startNw, targetPct, horizon) {
   });
 }
 
+// Amount model: net worth rises by `start` $/mo through year one, then by start + step in year two,
+// start + 2*step in year three, and so on (one line per step: centre +/- 50 and 100, plus a custom one).
+function computeNwAmountSeries(startNw, horizon) {
+  var start = state.nwAmtStart;
+  var defs = [
+    { amt: NW_AMT_STEP + 100, color: '#2e7d32' },
+    { amt: NW_AMT_STEP + 50,  color: '#66bb6a' },
+    { amt: NW_AMT_STEP,       color: '#1565c0' },
+    { amt: NW_AMT_STEP - 50,  color: '#f9a825' },
+    { amt: NW_AMT_STEP - 100, color: '#e65100' }
+  ];
+  var cs = state.nwCustomStep;
+  if (cs !== null && !defs.some(function(d) { return Math.abs(d.amt - cs) < 1e-9; })) defs.push({ amt: cs, color: '#000', custom: true });
+  var totalMonths = horizon === '12m' ? 12 : (horizon === '15y' ? 180 : (horizon === 'custom' ? state.nwCustomYears * 12 : 360));
+  var stepMonths  = horizon === '12m' ? 1  : 12;
+  return defs.map(function(d) {
+    var vals = [startNw], v = startNw;
+    for (var m = 1; m <= totalMonths; m++) {
+      v += start + Math.floor((m - 1) / 12) * d.amt;
+      if (m % stepMonths === 0) vals.push(v);
+    }
+    var lbl = '+$' + (Math.round(d.amt * 100) / 100).toLocaleString('en-US') + ' / mo each year';
+    return { pct: d.amt, color: d.color, custom: !!d.custom, label: lbl, vals: vals };
+  });
+}
+
+function nwOutlookCtrlsHtml(isAmt, noChart) {
+  return '<div class="nwo-hdr-ctrls">'
+    +     (isAmt ? '<span class="nwo-custom" id="nw-amt-wrap"><span class="nwo-custom-lbl">Start $</span>'
+    +       '<input type="number" id="nw-amt-start" min="0" step="any" inputmode="decimal" placeholder="#" aria-label="Starting monthly increase in dollars" '
+    +       'title="Net worth increase per month in year one">'
+    +       '<span class="nwo-custom-lbl">/mo</span></span>' : '')
+    +     '<div class="nwo-seg-wrap" id="nw-gm-seg-wrap">'
+    +       '<span class="nwo-seg-label">Growth Model</span>'
+    +       '<div class="nwo-seg-btns">'
+    +         '<button type="button" class="nwo-seg-btn" data-gm="percent">Percent</button>'
+    +         '<button type="button" class="nwo-seg-btn" data-gm="amount">Amount</button>'
+    +       '</div>'
+    +     '</div>'
+    +     (noChart ? '' : '<div class="nwo-seg-wrap" id="nw-axis-seg-wrap">'
+    +       '<span class="nwo-seg-label">Axis</span>'
+    +       '<div class="nwo-seg-btns">'
+    +         '<button type="button" class="nwo-seg-btn" data-axis="linear">Linear</button>'
+    +         '<button type="button" class="nwo-seg-btn" data-axis="log">Logarithmic</button>'
+    +       '</div>'
+    +     '</div>')
+    +   '</div>';
+}
+
+// Highlights the active Growth Model option and switches model on click (shared by the chart and the
+// empty-state message, which still needs the toggle so Amount is reachable without a Net Worth Delta row).
+function wireNwGrowthToggle(wrap) {
+  Array.prototype.forEach.call(wrap.querySelectorAll('#nw-gm-seg-wrap .nwo-seg-btn'), function(btn) {
+    btn.classList.toggle('active', btn.getAttribute('data-gm') === state.nwGrowthModel);
+    btn.addEventListener('click', function() {
+      var gm = btn.getAttribute('data-gm');
+      if (gm === state.nwGrowthModel) return;     // one option is always selected
+      state.nwGrowthModel = gm;
+      localStorage.setItem('nw-growth-model', gm);
+      renderNetWorth();
+    });
+  });
+}
+
 // horizon: '12m' (12 months out, x-axis = calendar month), '15y' or '30y' (15 / 30 years out, x-axis = age
 // if a Birth Year is configured, else calendar year).
 function renderNwOutlook(startNw, horizon) {
@@ -7829,10 +7902,13 @@ function renderNwOutlook(startNw, horizon) {
   if (!wrap) return;
 
   var targetPct = getNwDeltaTargetPct();
-  if (targetPct === null || !(startNw > 0)) {
-    wrap.innerHTML = '<div id="nw-outlook-empty">' + (targetPct === null
+  var isAmt = state.nwGrowthModel === 'amount';
+  if ((!isAmt && targetPct === null) || !(startNw > 0)) {
+    wrap.innerHTML = '<div id="nw-outlook-hdr"><div></div>' + nwOutlookCtrlsHtml(false, true) + '</div>'
+      + '<div id="nw-outlook-empty">' + (!isAmt && targetPct === null
       ? 'Configure a Config.csv row with Metric = "Net Worth Delta" (Amount = target %/month) to see the outlook.'
       : 'Net worth must be positive to project an outlook.') + '</div>';
+    wireNwGrowthToggle(wrap);
     nwOutlookChartState = null;
     return;
   }
@@ -7850,13 +7926,7 @@ function renderNwOutlook(startNw, horizon) {
     +     '<div id="nw-outlook-title"></div>'
     +     '<div id="nw-outlook-sub"></div>'
     +   '</div>'
-    +   '<div class="nwo-seg-wrap" id="nw-axis-seg-wrap">'
-    +     '<span class="nwo-seg-label">Axis</span>'
-    +     '<div class="nwo-seg-btns">'
-    +       '<button type="button" class="nwo-seg-btn" data-axis="linear">Linear</button>'
-    +       '<button type="button" class="nwo-seg-btn" data-axis="log">Logarithmic</button>'
-    +     '</div>'
-    +   '</div>'
+    +   nwOutlookCtrlsHtml(isAmt)
     + '</div>'
     + '<div id="nw-outlook-legend"></div>'
     + '<canvas id="nw-outlook-canvas"></canvas>';
@@ -7870,8 +7940,11 @@ function renderNwOutlook(startNw, horizon) {
     + ' Starting ' + startLabel;
   document.getElementById('nw-outlook-legend').innerHTML = '<span class="nwo-leg-items" id="nw-outlook-leg-items"></span>'
     + '<span class="nwo-leg-custom" id="nw-outlook-leg-custom"><span class="nwo-leg-dot" id="nw-custom-rate-dot"></span>'
-    + '<input type="number" id="nw-custom-rate" step="any" inputmode="decimal" placeholder="#" aria-label="Custom monthly growth rate" '
-    + 'title="Add your own monthly growth rate (%) to compare"> % / month</span>';
+    + (isAmt
+      ? '+$<input type="number" id="nw-custom-rate" min="0" step="any" inputmode="decimal" placeholder="#" aria-label="Custom yearly step in dollars per month" '
+        + 'title="Add your own yearly rise in the monthly increase ($/mo) to compare"> / mo each year</span>'
+      : '<input type="number" id="nw-custom-rate" step="any" inputmode="decimal" placeholder="#" aria-label="Custom monthly growth rate" '
+        + 'title="Add your own monthly growth rate (%) to compare"> % / month</span>');
 
   nwOutlookChartState = { series: series, horizon: horizon, startYear: startYear, startMonth: startMonth,
                            startAge: startAge, canvasId: 'nw-outlook-canvas', axis: state.nwOutlookAxis,
@@ -7879,21 +7952,42 @@ function renderNwOutlook(startNw, horizon) {
                            startNw: startNw, targetPct: targetPct };
   renderNwOutlookLegend();
   var rateEl = document.getElementById('nw-custom-rate');
-  rateEl.value = state.nwCustomRate !== null ? state.nwCustomRate : '';
+  var curCustom = isAmt ? state.nwCustomStep : state.nwCustomRate;
+  rateEl.value = curCustom !== null ? curCustom : '';
   rateEl.addEventListener('input', function() {
     var v = parseFloat(this.value);
-    var ok = isFinite(v) && v > -50 && v <= 50;
+    var ok = isFinite(v) && (isAmt ? (v >= 0 && v <= 1e5) : (v > -50 && v <= 50));
     this.classList.toggle('invalid', this.value !== '' && !ok);
-    if (ok) state.nwCustomRate = v;
-    else if (this.value === '' && !this.validity.badInput) state.nwCustomRate = null;
+    var nv;
+    if (ok) nv = v;
+    else if (this.value === '' && !this.validity.badInput) nv = null;
     else return;                      // invalid or half-typed entry: leave the chart as it is
-    localStorage.setItem('nw-custom-rate', state.nwCustomRate === null ? '' : String(state.nwCustomRate));
+    if (isAmt) { state.nwCustomStep = nv; localStorage.setItem('nw-custom-step', nv === null ? '' : String(nv)); }
+    else       { state.nwCustomRate = nv; localStorage.setItem('nw-custom-rate', nv === null ? '' : String(nv)); }
     var cs = nwOutlookChartState;
     if (!cs) return;
     cs.series = computeNwOutlookSeries(cs.startNw, cs.targetPct, cs.horizon);
     renderNwOutlookLegend();
     drawNwOutlookChart(cs, -1);
   });
+  if (isAmt) {
+    var startEl = document.getElementById('nw-amt-start');
+    startEl.value = state.nwAmtStart;
+    startEl.addEventListener('input', function() {
+      var v = parseFloat(this.value);
+      var ok = isFinite(v) && v >= 0 && v <= 1e6;
+      this.classList.toggle('invalid', this.value !== '' && !ok);
+      if (!ok) return;
+      state.nwAmtStart = v;
+      localStorage.setItem('nw-amt-start', String(v));
+      var cs = nwOutlookChartState;
+      if (!cs) return;
+      cs.series = computeNwOutlookSeries(cs.startNw, cs.targetPct, cs.horizon);
+      syncNwOutlookAxisUi();
+      drawNwOutlookChart(cs, -1);
+    });
+  }
+  wireNwGrowthToggle(wrap);
   // Milestones are ages, so they need a Birth Year and an age-labelled axis (not the 12m view).
   // Only those inside the plotted window are drawn.
   var allMilestones = getNwMilestones();
@@ -7971,6 +8065,10 @@ function syncNwOutlookAxisUi() {
   var s = nwOutlookChartState;
   if (sub && s) sub.innerHTML = 'Hover any point to see values at that ' + s.axisUnit + ' &middot; '
     + (state.nwOutlookAxis === 'linear' ? 'linear' : 'log') + ' scale'
+    + (state.nwGrowthModel === 'amount'
+        ? ' &middot; +$' + Math.round(state.nwAmtStart).toLocaleString('en-US') + '/mo in year one'
+          + (s.horizon === '12m' ? ' (the yearly rise starts in year two, so the lines match here)' : '')
+        : '')
     + (s.milestoneNote ? ' &middot; <span style="color:#b26a00">' + s.milestoneNote + '</span>' : '');
 }
 
