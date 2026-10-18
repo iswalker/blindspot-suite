@@ -1451,6 +1451,7 @@ td.hbt-num:last-child { width: 13%; }
 #nw-amt-start { width: 72px; }
 #nw-pull-rate { width: 52px; }
 #nw-house-worth { width: 84px; }
+#nw-retire-age { width: 44px; }
 #nw-outlook-title { font-size: 15px; font-weight: 700; color: #222; }
 #nw-outlook-sub { font-size: 11px; color: #999; margin-top: 2px; }
 #nw-outlook-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 8px 16px 6px 16px; font-size: 12px; font-weight: 600; }
@@ -2672,6 +2673,8 @@ var state = {
   nwCustomStep:             (function() { var a = parseFloat(localStorage.getItem('nw-custom-step')); return isFinite(a) && a >= 0 && a <= 1e5 ? a : null; })(),
   // Assumed retirement withdrawal rate (% of the balance per year), shown in the Preview hover from age 60.
   // Home equity deducted from the balance before the pull rate is applied (the house isn't spent down).
+  // Age at which monthly contributions/growth stop and only the existing balance grows (7%/yr less the pull).
+  nwRetireAge:              (function() { var a = parseFloat(localStorage.getItem('nw-retire-age')); return isFinite(a) && a >= 1 && a <= 120 ? Math.round(a) : 60; })(),
   nwHouseWorth:             (function() { var h = parseFloat(localStorage.getItem('nw-house-worth')); return isFinite(h) && h >= 0 && h <= 1e9 ? h : 500000; })(),
   nwPullRate:               (function() { var r = parseFloat(localStorage.getItem('nw-pull-rate')); return isFinite(r) && r >= 0 && r <= 25 ? r : 3; })(),
   nwOutlookAxis:            localStorage.getItem('nw-outlook-axis') === 'linear' ? 'linear' : 'log',
@@ -7856,7 +7859,25 @@ function fmtNwOutlookY(v) {
 // rate and +/-0.25 and +/-0.5 either side (highest rate first), compounded monthly throughout
 // either way. Colors reuse the app's existing meet/miss-target convention (green above, orange
 // below, blue at the configured target) rather than the arbitrary palette of any one reference chart.
-var NW_PULL_AGE = 60;    // the hover shows the retirement pull from this age on
+var NW_RETIRE_RETURN = 7;   // % a year the investable balance earns once contributions stop
+// Retirement phase: from the retirement age, nothing more is added. Only the investable part of net
+// worth (net worth less the house, which isn't spent or grown) earns NW_RETIRE_RETURN% a year, less the
+// pull rate withdrawn -- so a pull rate above that return shrinks the base. Needs ages (a Birth Year)
+// and a yearly axis, so it leaves the 12m view alone. vals holds one entry per year.
+function nwApplyRetirement(vals, horizon) {
+  var age = nwCurrentAge();
+  if (horizon === '12m' || age === null) return vals;
+  var r = state.nwRetireAge - age;
+  if (r >= vals.length - 1) return vals;
+  r = Math.max(0, r);
+  var out = vals.slice(0, r + 1);
+  var net = (NW_RETIRE_RETURN - state.nwPullRate) / 100;
+  for (var i = r + 1; i < vals.length; i++) {
+    var v = out[i - 1];
+    out.push(v + Math.max(0, v - state.nwHouseWorth) * net);
+  }
+  return out;
+}
 var NW_AMT_STEP = 200;   // Amount model's centre: the monthly increase rises by this each year (+/- 50 / 100)
 function computeNwOutlookSeries(startNw, targetPct, horizon) {
   if (state.nwGrowthModel === 'amount') return computeNwAmountSeries(startNw, horizon);
@@ -7882,6 +7903,7 @@ function computeNwOutlookSeries(startNw, targetPct, horizon) {
       v *= mult;
       if (m % stepMonths === 0) vals.push(v);
     }
+    vals = nwApplyRetirement(vals, horizon);
     var pctLbl = Math.round(rd.pct * 100) / 100;
     return { pct: rd.pct, color: rd.color, custom: !!rd.custom, label: pctLbl + '% / month', vals: vals };
   });
@@ -7908,6 +7930,7 @@ function computeNwAmountSeries(startNw, horizon) {
       v += start + Math.floor((m - 1) / 12) * d.amt;
       if (m % stepMonths === 0) vals.push(v);
     }
+    vals = nwApplyRetirement(vals, horizon);
     var lbl = '+$' + (Math.round(d.amt * 100) / 100).toLocaleString('en-US') + ' / mo each year';
     return { pct: d.amt, color: d.color, custom: !!d.custom, label: lbl, vals: vals };
   });
@@ -7919,6 +7942,9 @@ function nwOutlookCtrlsHtml(isAmt, noChart) {
     +       '<input type="number" id="nw-amt-start" min="0" step="any" inputmode="decimal" placeholder="#" aria-label="Starting monthly increase in dollars" '
     +       'title="Net worth increase per month in year one">'
     +       '<span class="nwo-custom-lbl">/mo</span></span>' : '')
+    +     (noChart ? '' : '<span class="nwo-custom" id="nw-retire-wrap"><span class="nwo-custom-lbl">Retirement Age</span>'
+    +       '<input type="number" id="nw-retire-age" min="1" max="120" step="1" inputmode="numeric" placeholder="#" aria-label="Retirement age" '
+    +       'title="From this age, contributions stop and only the existing balance grows (7%/yr less the pull rate)"></span>')
     +     (noChart ? '' : '<span class="nwo-custom" id="nw-house-wrap"><span class="nwo-custom-lbl">House Worth $</span>'
     +       '<input type="number" id="nw-house-worth" min="0" step="any" inputmode="decimal" placeholder="#" aria-label="House worth in dollars, deducted before the pull rate" '
     +       'title="Deducted from net worth before the retirement pull rate is applied"></span>')
@@ -8061,6 +8087,20 @@ function renderNwOutlook(startNw, horizon) {
       if (!ok) return;
       state.nwHouseWorth = v;
       localStorage.setItem('nw-house-worth', String(v));
+      refreshNwOutlookSeries();
+    });
+  }
+  var retireEl = document.getElementById('nw-retire-age');
+  if (retireEl) {
+    retireEl.value = state.nwRetireAge;
+    retireEl.addEventListener('input', function() {
+      var v = parseFloat(this.value);
+      var ok = isFinite(v) && v >= 1 && v <= 120;
+      this.classList.toggle('invalid', this.value !== '' && !ok);
+      if (!ok) return;
+      state.nwRetireAge = Math.round(v);
+      localStorage.setItem('nw-retire-age', String(state.nwRetireAge));
+      refreshNwOutlookSeries();
     });
   }
   var pullEl = document.getElementById('nw-pull-rate');
@@ -8070,9 +8110,10 @@ function renderNwOutlook(startNw, horizon) {
       var v = parseFloat(this.value);
       var ok = isFinite(v) && v >= 0 && v <= 25;
       this.classList.toggle('invalid', this.value !== '' && !ok);
-      if (!ok) return;                // the hover reads the rate when it opens, so nothing to redraw
+      if (!ok) return;
       state.nwPullRate = v;
       localStorage.setItem('nw-pull-rate', String(v));
+      refreshNwOutlookSeries();
     });
   }
   // Milestones are ages, so they need a Birth Year and an age-labelled axis (not the 12m view).
@@ -8102,6 +8143,16 @@ function renderNwOutlook(startNw, horizon) {
   var canvas = document.getElementById('nw-outlook-canvas');
   wireNwOutlookHover(canvas);
   requestAnimationFrame(function() { drawNwOutlookChart(nwOutlookChartState, -1); });
+}
+
+// Recomputes the plotted series after an input that feeds them (retirement age, house, pull rate) changes.
+function refreshNwOutlookSeries() {
+  var cs = nwOutlookChartState;
+  if (!cs) return;
+  cs.series = computeNwOutlookSeries(cs.startNw, cs.targetPct, cs.horizon);
+  renderNwOutlookLegend();
+  syncNwOutlookAxisUi();
+  drawNwOutlookChart(cs, -1);
 }
 
 // Fills the legend's preset entries (and tints the custom-rate dot) from the chart's series.
@@ -8156,6 +8207,8 @@ function syncNwOutlookAxisUi() {
         ? ' &middot; +$' + Math.round(state.nwAmtStart).toLocaleString('en-US') + '/mo in year one'
           + (s.horizon === '12m' ? ' (the yearly rise starts in year two, so the lines match here)' : '')
         : '')
+    + (s.horizon !== '12m' && s.startAge !== null
+        ? ' &middot; from ' + state.nwRetireAge + ': no new contributions, ' + NW_RETIRE_RETURN + '%/yr on the balance less the house, minus the pull' : '')
     + (s.milestoneNote ? ' &middot; <span style="color:#b26a00">' + s.milestoneNote + '</span>' : '');
 }
 
@@ -8363,7 +8416,7 @@ function showNwOutlookTooltip(clientX, clientY, yearIdx, s) {
   // From the retirement age on (and when the axis is in ages), each value also shows what the
   // assumed pull rate would withdraw per year -- from the balance less the house, which isn't
   // spent down -- e.g. "$1.5M ($30k/y)" with a $500k house at 3%.
-  var pullOn = s.horizon !== '12m' && s.startAge !== null && (s.startAge + yearIdx) >= NW_PULL_AGE && state.nwPullRate > 0;
+  var pullOn = s.horizon !== '12m' && s.startAge !== null && (s.startAge + yearIdx) >= state.nwRetireAge && state.nwPullRate > 0;
   var rowsHtml = sortedForTt.map(function(ser) {
     var pullTxt = pullOn
       ? ' (' + fmtNwOutlookY(Math.max(0, ser.vals[yearIdx] - state.nwHouseWorth) * state.nwPullRate / 100).replace(/K$/, 'k') + '/y)' : '';
