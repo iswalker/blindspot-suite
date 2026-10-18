@@ -1452,6 +1452,7 @@ td.hbt-num:last-child { width: 13%; }
 #nw-pull-rate { width: 52px; }
 #nw-house-worth { width: 84px; }
 #nw-retire-age { width: 44px; }
+#nw-pull-amount { width: 76px; }
 #nw-outlook-title { font-size: 15px; font-weight: 700; color: #222; }
 #nw-outlook-sub { font-size: 11px; color: #999; margin-top: 2px; }
 #nw-outlook-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 8px 16px 6px 16px; font-size: 12px; font-weight: 600; }
@@ -2676,7 +2677,15 @@ var state = {
   // Age at which monthly contributions/growth stop and only the existing balance grows (7%/yr less the pull).
   nwRetireAge:              (function() { var a = parseFloat(localStorage.getItem('nw-retire-age')); return isFinite(a) && a >= 1 && a <= 120 ? Math.round(a) : 60; })(),
   nwHouseWorth:             (function() { var h = parseFloat(localStorage.getItem('nw-house-worth')); return isFinite(h) && h >= 0 && h <= 1e9 ? h : 500000; })(),
-  nwPullRate:               (function() { var r = parseFloat(localStorage.getItem('nw-pull-rate')); return isFinite(r) && r >= 0 && r <= 25 ? r : 3; })(),
+  // Pull is either a % of the investable balance or a fixed $/yr -- never both (setting one clears the
+  // other). Rate defaults to 3%; '' in storage means the user cleared it.
+  nwPullRate:               (function() {
+    var raw = localStorage.getItem('nw-pull-rate'), amt = parseFloat(localStorage.getItem('nw-pull-amount'));
+    if (isFinite(amt) && amt > 0) return null;
+    if (raw === null) return 3;
+    var r = parseFloat(raw); return isFinite(r) && r >= 0 && r <= 25 ? r : null;
+  })(),
+  nwPullAmount:             (function() { var a = parseFloat(localStorage.getItem('nw-pull-amount')); return isFinite(a) && a > 0 && a <= 1e9 ? a : null; })(),
   nwOutlookAxis:            localStorage.getItem('nw-outlook-axis') === 'linear' ? 'linear' : 'log',
   nwPipelineMode:           (function() {
     var m = localStorage.getItem('nw-pipeline-mode');
@@ -7870,11 +7879,19 @@ function nwApplyRetirement(vals, horizon) {
   var r = state.nwRetireAge - age;
   if (r >= vals.length - 1) return vals;
   r = Math.max(0, r);
-  var out = vals.slice(0, r + 1);
-  var net = (NW_RETIRE_RETURN - state.nwPullRate) / 100;
+  var out = vals.slice(0, r + 1), house = state.nwHouseWorth;
+  var ret = NW_RETIRE_RETURN / 100, rate = (state.nwPullRate || 0) / 100, amt = state.nwPullAmount;
+  // A fixed $/yr pull can run the investable balance to zero; remember the first year it does.
+  if (amt !== null && Math.max(0, out[r] - house) <= 0) out.deplIdx = r;
   for (var i = r + 1; i < vals.length; i++) {
-    var v = out[i - 1];
-    out.push(v + Math.max(0, v - state.nwHouseWorth) * net);
+    var v = out[i - 1], inv = Math.max(0, v - house);
+    if (amt !== null) {
+      var left = Math.max(0, inv * (1 + ret) - amt);          // grow a year, then withdraw the amount
+      out.push(Math.min(v, house) + left);
+      if (left <= 0 && out.deplIdx === undefined) out.deplIdx = i;
+    } else {
+      out.push(v + inv * (ret - rate));
+    }
   }
   return out;
 }
@@ -7905,7 +7922,7 @@ function computeNwOutlookSeries(startNw, targetPct, horizon) {
     }
     vals = nwApplyRetirement(vals, horizon);
     var pctLbl = Math.round(rd.pct * 100) / 100;
-    return { pct: rd.pct, color: rd.color, custom: !!rd.custom, label: pctLbl + '% / month', vals: vals };
+    return { pct: rd.pct, color: rd.color, custom: !!rd.custom, label: pctLbl + '% / month', vals: vals, deplIdx: vals.deplIdx };
   });
 }
 
@@ -7932,7 +7949,7 @@ function computeNwAmountSeries(startNw, horizon) {
     }
     vals = nwApplyRetirement(vals, horizon);
     var lbl = '+$' + (Math.round(d.amt * 100) / 100).toLocaleString('en-US') + ' / mo each year';
-    return { pct: d.amt, color: d.color, custom: !!d.custom, label: lbl, vals: vals };
+    return { pct: d.amt, color: d.color, custom: !!d.custom, label: lbl, vals: vals, deplIdx: vals.deplIdx };
   });
 }
 
@@ -7952,6 +7969,9 @@ function nwOutlookCtrlsHtml(isAmt, noChart) {
     +       '<input type="number" id="nw-pull-rate" min="0" max="25" step="any" inputmode="decimal" placeholder="#" aria-label="Assumed retirement pull rate, percent per year" '
     +       'title="Yearly withdrawal as a % of the balance (less the house), shown in the hover from age 60">'
     +       '<span class="nwo-custom-lbl">%</span></span>')
+    +     (noChart ? '' : '<span class="nwo-custom" id="nw-pullamt-wrap"><span class="nwo-custom-lbl">Assumed Retirement Pull Amount $</span>'
+    +       '<input type="text" id="nw-pull-amount" inputmode="decimal" placeholder="#" aria-label="Assumed retirement pull amount, dollars per year" '
+    +       'title="A fixed yearly withdrawal (e.g. 250k) instead of a % -- entering one clears the pull rate, and vice versa"><span class="nwo-custom-lbl">/yr</span></span>')
     +     '<div class="nwo-seg-wrap" id="nw-gm-seg-wrap">'
     +       '<span class="nwo-seg-label">Growth Model</span>'
     +       '<div class="nwo-seg-btns">'
@@ -8103,16 +8123,39 @@ function renderNwOutlook(startNw, horizon) {
       refreshNwOutlookSeries();
     });
   }
-  var pullEl = document.getElementById('nw-pull-rate');
-  if (pullEl) {
-    pullEl.value = state.nwPullRate;
+  var pullEl = document.getElementById('nw-pull-rate'), pullAmtEl = document.getElementById('nw-pull-amount');
+  if (pullEl && pullAmtEl) {
+    pullEl.value = state.nwPullRate !== null ? state.nwPullRate : '';
+    pullAmtEl.value = state.nwPullAmount !== null ? state.nwPullAmount : '';
+    // % and $ pulls conflict, so whichever is typed into clears the other.
     pullEl.addEventListener('input', function() {
       var v = parseFloat(this.value);
+      var empty = this.value === '' && !this.validity.badInput;
       var ok = isFinite(v) && v >= 0 && v <= 25;
-      this.classList.toggle('invalid', this.value !== '' && !ok);
-      if (!ok) return;
-      state.nwPullRate = v;
-      localStorage.setItem('nw-pull-rate', String(v));
+      this.classList.toggle('invalid', !empty && !ok);
+      if (!ok && !empty) return;
+      state.nwPullRate = ok ? v : null;
+      localStorage.setItem('nw-pull-rate', ok ? String(v) : '');
+      if (ok) {
+        state.nwPullAmount = null; localStorage.setItem('nw-pull-amount', '');
+        pullAmtEl.value = ''; pullAmtEl.classList.remove('invalid');
+      }
+      refreshNwOutlookSeries();
+    });
+    pullAmtEl.addEventListener('input', function() {
+      var txt = this.value.trim().toLowerCase().replace(/[$,\s]/g, '');
+      var m = txt.match(/^(\d+(?:\.\d+)?)(k|m)?$/);
+      var v = m ? parseFloat(m[1]) * (m[2] === 'k' ? 1e3 : m[2] === 'm' ? 1e6 : 1) : NaN;
+      var empty = txt === '';
+      var ok = isFinite(v) && v > 0 && v <= 1e9;
+      this.classList.toggle('invalid', !empty && !ok);
+      if (!ok && !empty) return;
+      state.nwPullAmount = ok ? v : null;
+      localStorage.setItem('nw-pull-amount', ok ? String(v) : '');
+      if (ok) {
+        state.nwPullRate = null; localStorage.setItem('nw-pull-rate', '');
+        pullEl.value = ''; pullEl.classList.remove('invalid');
+      }
       refreshNwOutlookSeries();
     });
   }
@@ -8160,8 +8203,10 @@ function renderNwOutlookLegend() {
   var cs = nwOutlookChartState, items = document.getElementById('nw-outlook-leg-items');
   if (!cs || !items) return;
   items.innerHTML = cs.series.filter(function(ser) { return !ser.custom; }).map(function(ser) {
+    var depl = (ser.deplIdx !== undefined && cs.startAge !== null)
+      ? ' <span style="font-weight:400;color:#888">&middot; out at ' + (cs.startAge + ser.deplIdx) + '</span>' : '';
     return '<span class="nwo-leg-item"><span class="nwo-leg-dot" style="background:' + ser.color + '"></span>'
-      + escAttr(ser.label) + '</span>';
+      + escAttr(ser.label) + depl + '</span>';
   }).join('');
   var dot = document.getElementById('nw-custom-rate-dot');
   if (dot) dot.style.background = cs.series.some(function(ser) { return ser.custom; }) ? '#000' : '#ccc';
@@ -8208,7 +8253,8 @@ function syncNwOutlookAxisUi() {
           + (s.horizon === '12m' ? ' (the yearly rise starts in year two, so the lines match here)' : '')
         : '')
     + (s.horizon !== '12m' && s.startAge !== null
-        ? ' &middot; from ' + state.nwRetireAge + ': no new contributions, ' + NW_RETIRE_RETURN + '%/yr on the balance less the house, minus the pull' : '')
+        ? ' &middot; from ' + state.nwRetireAge + ': no new contributions, ' + NW_RETIRE_RETURN + '%/yr on the balance less the house, minus the '
+          + (state.nwPullAmount !== null ? '$' + Math.round(state.nwPullAmount).toLocaleString('en-US') + '/yr pull' : 'pull') : '')
     + (s.milestoneNote ? ' &middot; <span style="color:#b26a00">' + s.milestoneNote + '</span>' : '');
 }
 
@@ -8256,7 +8302,7 @@ function drawNwOutlookChart(s, hoveredIdx) {
   for (var si = 0; si < series.length; si++) {
     for (var yi = 0; yi < series[si].vals.length; yi++) {
       var vv = series[si].vals[yi];
-      if (vv < minV) minV = vv;
+      if (vv > 0 && vv < minV) minV = vv;      // a depleted ($0) point must not stretch the log scale
       if (vv > maxV) maxV = vv;
     }
   }
@@ -8299,7 +8345,7 @@ function drawNwOutlookChart(s, hoveredIdx) {
 
   function yPos(v) {
     if (linear) return T_PAD + chartH * (1 - v / linHi);
-    return T_PAD + chartH * (1 - (Math.log(v) / Math.LN10 - logLo) / (logHi - logLo));
+    return T_PAD + chartH * (1 - (Math.log(Math.max(v, minV)) / Math.LN10 - logLo) / (logHi - logLo));
   }
   function xPos(yearIdx) { return L_PAD + chartW * (yearIdx / (nYears - 1)); }
 
@@ -8416,10 +8462,19 @@ function showNwOutlookTooltip(clientX, clientY, yearIdx, s) {
   // From the retirement age on (and when the axis is in ages), each value also shows what the
   // assumed pull rate would withdraw per year -- from the balance less the house, which isn't
   // spent down -- e.g. "$1.5M ($30k/y)" with a $500k house at 3%.
-  var pullOn = s.horizon !== '12m' && s.startAge !== null && (s.startAge + yearIdx) >= state.nwRetireAge && state.nwPullRate > 0;
+  var pullOn = s.horizon !== '12m' && s.startAge !== null && (s.startAge + yearIdx) >= state.nwRetireAge && (state.nwPullRate > 0 || state.nwPullAmount !== null);
   var rowsHtml = sortedForTt.map(function(ser) {
-    var pullTxt = pullOn
-      ? ' (' + fmtNwOutlookY(Math.max(0, ser.vals[yearIdx] - state.nwHouseWorth) * state.nwPullRate / 100).replace(/K$/, 'k') + '/y)' : '';
+    var pullTxt = '';
+    if (pullOn) {
+      if (state.nwPullAmount !== null) {
+        // fixed $/yr: show it while there's investable money, otherwise that it has run out
+        pullTxt = (ser.deplIdx !== undefined && yearIdx >= ser.deplIdx)
+          ? ' (depleted at ' + (s.startAge + ser.deplIdx) + ')'
+          : ' (' + fmtNwOutlookY(state.nwPullAmount).replace(/K$/, 'k') + '/y)';
+      } else {
+        pullTxt = ' (' + fmtNwOutlookY(Math.max(0, ser.vals[yearIdx] - state.nwHouseWorth) * state.nwPullRate / 100).replace(/K$/, 'k') + '/y)';
+      }
+    }
     return '<div class="lwtt-row"><span class="lwtt-dot" style="background:' + ser.color + '"></span>'
       + '<div><div class="lwtt-label">' + escAttr(ser.label) + '</div>'
       + '<div class="lwtt-val" style="color:' + ser.color + '">' + fmtNwOutlookY(ser.vals[yearIdx]) + pullTxt + '</div></div></div>';
