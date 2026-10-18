@@ -1449,6 +1449,7 @@ td.hbt-num:last-child { width: 13%; }
 #nw-outlook-hdr { margin: 0 16px 6px 16px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 #nw-outlook-hdr .nwo-hdr-ctrls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 18px; }
 #nw-amt-start { width: 72px; }
+#nw-pull-rate { width: 52px; }
 #nw-outlook-title { font-size: 15px; font-weight: 700; color: #222; }
 #nw-outlook-sub { font-size: 11px; color: #999; margin-top: 2px; }
 #nw-outlook-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 8px 16px 6px 16px; font-size: 12px; font-weight: 600; }
@@ -2052,6 +2053,14 @@ td.hbt-num:last-child { width: 13%; }
           <button type="button" class="rp-btn" id="nw-range-btn"></button>
           <div class="rp-panel" id="nw-range-panel" style="display:none"></div>
         </div>
+        <div class="nwo-seg-wrap" id="nw-pipeline-seg-wrap" data-active="">
+          <span class="nwo-seg-label">Pipeline</span>
+          <div class="nwo-seg-btns">
+            <button type="button" class="nwo-seg-btn" id="nw-pipeline-include-btn" data-mode="include">Include</button>
+            <button type="button" class="nwo-seg-btn" id="nw-pipeline-minus-btn" data-mode="minus">Minus Budgeted Available</button>
+          </div>
+        </div>
+        <span class="holding-warn" id="nw-pipeline-warn"></span>
         <div class="nwo-seg-wrap" id="nw-outlook-seg-wrap" data-active="">
           <span class="nwo-seg-label">Preview</span>
           <div class="nwo-seg-btns">
@@ -2064,14 +2073,6 @@ td.hbt-num:last-child { width: 13%; }
             <input type="number" id="nw-custom-age" min="1" max="120" step="1" inputmode="numeric" placeholder="#" aria-label="Age to project to"><span class="nwo-custom-lbl">age</span>
           </span>
         </div>
-        <div class="nwo-seg-wrap" id="nw-pipeline-seg-wrap" data-active="">
-          <span class="nwo-seg-label">Pipeline</span>
-          <div class="nwo-seg-btns">
-            <button type="button" class="nwo-seg-btn" id="nw-pipeline-include-btn" data-mode="include">Include</button>
-            <button type="button" class="nwo-seg-btn" id="nw-pipeline-minus-btn" data-mode="minus">Minus Budgeted Available</button>
-          </div>
-        </div>
-        <span class="holding-warn" id="nw-pipeline-warn"></span>
       </div>
     </div>
     <div id="nw-summary-row">
@@ -2668,6 +2669,8 @@ var state = {
   nwGrowthModel:            localStorage.getItem('nw-growth-model') === 'amount' ? 'amount' : 'percent',
   nwAmtStart:               (function() { var a = parseFloat(localStorage.getItem('nw-amt-start')); return isFinite(a) && a >= 0 && a <= 1e6 ? a : 1000; })(),
   nwCustomStep:             (function() { var a = parseFloat(localStorage.getItem('nw-custom-step')); return isFinite(a) && a >= 0 && a <= 1e5 ? a : null; })(),
+  // Assumed retirement withdrawal rate (% of the balance per year), shown in the Preview hover from age 60.
+  nwPullRate:               (function() { var r = parseFloat(localStorage.getItem('nw-pull-rate')); return isFinite(r) && r >= 0 && r <= 25 ? r : 3; })(),
   nwOutlookAxis:            localStorage.getItem('nw-outlook-axis') === 'linear' ? 'linear' : 'log',
   nwPipelineMode:           (function() {
     var m = localStorage.getItem('nw-pipeline-mode');
@@ -7801,6 +7804,7 @@ function fmtNwOutlookY(v) {
 // rate and +/-0.25 and +/-0.5 either side (highest rate first), compounded monthly throughout
 // either way. Colors reuse the app's existing meet/miss-target convention (green above, orange
 // below, blue at the configured target) rather than the arbitrary palette of any one reference chart.
+var NW_PULL_AGE = 60;    // the hover shows the retirement pull from this age on
 var NW_AMT_STEP = 200;   // Amount model's centre: the monthly increase rises by this each year (+/- 50 / 100)
 function computeNwOutlookSeries(startNw, targetPct, horizon) {
   if (state.nwGrowthModel === 'amount') return computeNwAmountSeries(startNw, horizon);
@@ -7863,6 +7867,10 @@ function nwOutlookCtrlsHtml(isAmt, noChart) {
     +       '<input type="number" id="nw-amt-start" min="0" step="any" inputmode="decimal" placeholder="#" aria-label="Starting monthly increase in dollars" '
     +       'title="Net worth increase per month in year one">'
     +       '<span class="nwo-custom-lbl">/mo</span></span>' : '')
+    +     (noChart ? '' : '<span class="nwo-custom" id="nw-pull-wrap"><span class="nwo-custom-lbl">Assumed Retirement Pull Rate</span>'
+    +       '<input type="number" id="nw-pull-rate" min="0" max="25" step="any" inputmode="decimal" placeholder="#" aria-label="Assumed retirement pull rate, percent per year" '
+    +       'title="Yearly withdrawal as a % of the balance, shown in the hover from age 60">'
+    +       '<span class="nwo-custom-lbl">%</span></span>')
     +     '<div class="nwo-seg-wrap" id="nw-gm-seg-wrap">'
     +       '<span class="nwo-seg-label">Growth Model</span>'
     +       '<div class="nwo-seg-btns">'
@@ -7988,6 +7996,18 @@ function renderNwOutlook(startNw, horizon) {
     });
   }
   wireNwGrowthToggle(wrap);
+  var pullEl = document.getElementById('nw-pull-rate');
+  if (pullEl) {
+    pullEl.value = state.nwPullRate;
+    pullEl.addEventListener('input', function() {
+      var v = parseFloat(this.value);
+      var ok = isFinite(v) && v >= 0 && v <= 25;
+      this.classList.toggle('invalid', this.value !== '' && !ok);
+      if (!ok) return;                // the hover reads the rate when it opens, so nothing to redraw
+      state.nwPullRate = v;
+      localStorage.setItem('nw-pull-rate', String(v));
+    });
+  }
   // Milestones are ages, so they need a Birth Year and an age-labelled axis (not the 12m view).
   // Only those inside the plotted window are drawn.
   var allMilestones = getNwMilestones();
@@ -8273,10 +8293,15 @@ function showNwOutlookTooltip(clientX, clientY, yearIdx, s) {
   // Sort by value at this point (descending) so the rows read top-to-bottom in the same order
   // the lines stack visually on the chart, rather than by their fixed rate order.
   var sortedForTt = s.series.slice().sort(function(a, b) { return b.vals[yearIdx] - a.vals[yearIdx]; });
+  // From the retirement age on (and when the axis is in ages), each value also shows what the
+  // assumed pull rate would withdraw per year, e.g. "$2.9M ($87k/y)".
+  var pullOn = s.horizon !== '12m' && s.startAge !== null && (s.startAge + yearIdx) >= NW_PULL_AGE && state.nwPullRate > 0;
   var rowsHtml = sortedForTt.map(function(ser) {
+    var pullTxt = pullOn
+      ? ' (' + fmtNwOutlookY(ser.vals[yearIdx] * state.nwPullRate / 100).replace(/K$/, 'k') + '/y)' : '';
     return '<div class="lwtt-row"><span class="lwtt-dot" style="background:' + ser.color + '"></span>'
       + '<div><div class="lwtt-label">' + escAttr(ser.label) + '</div>'
-      + '<div class="lwtt-val" style="color:' + ser.color + '">' + fmtNwOutlookY(ser.vals[yearIdx]) + '</div></div></div>';
+      + '<div class="lwtt-val" style="color:' + ser.color + '">' + fmtNwOutlookY(ser.vals[yearIdx]) + pullTxt + '</div></div></div>';
   }).join('');
   var stepUnit = s.horizon === '12m' ? 'm' : 'y';
   var msHtml = (s.milestones || []).filter(function(m) { return m.idx === yearIdx; }).map(function(m) {
