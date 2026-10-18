@@ -1452,7 +1452,7 @@ td.hbt-num:last-child { width: 13%; }
 #nw-pull-rate { width: 52px; }
 #nw-house-worth { width: 84px; }
 #nw-retire-age { width: 44px; }
-#nw-pull-amount { width: 76px; }
+#nw-pull-amount { width: 84px; }
 #nw-outlook-title { font-size: 15px; font-weight: 700; color: #222; }
 #nw-outlook-sub { font-size: 11px; color: #999; margin-top: 2px; }
 #nw-outlook-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 8px 16px 6px 16px; font-size: 12px; font-weight: 600; }
@@ -7963,7 +7963,7 @@ function nwOutlookCtrlsHtml(isAmt, noChart) {
     +       '<input type="number" id="nw-retire-age" min="1" max="120" step="1" inputmode="numeric" placeholder="#" aria-label="Retirement age" '
     +       'title="From this age, contributions stop and only the existing balance grows (7%/yr less the pull rate)"></span>')
     +     (noChart ? '' : '<span class="nwo-custom" id="nw-house-wrap"><span class="nwo-custom-lbl">House Worth $</span>'
-    +       '<input type="number" id="nw-house-worth" min="0" step="any" inputmode="decimal" placeholder="#" aria-label="House worth in dollars, deducted before the pull rate" '
+    +        '<input type="text" id="nw-house-worth" inputmode="decimal" placeholder="#" aria-label="House worth in dollars, deducted before the pull rate" '
     +       'title="Deducted from net worth before the retirement pull rate is applied"></span>')
     +     (noChart ? '' : '<span class="nwo-custom" id="nw-pull-wrap"><span class="nwo-custom-lbl">Assumed Retirement Pull Rate</span>'
     +       '<input type="number" id="nw-pull-rate" min="0" max="25" step="any" inputmode="decimal" placeholder="#" aria-label="Assumed retirement pull rate, percent per year" '
@@ -8099,9 +8099,10 @@ function renderNwOutlook(startNw, horizon) {
   wireNwGrowthToggle(wrap);
   var houseEl = document.getElementById('nw-house-worth');
   if (houseEl) {
-    houseEl.value = state.nwHouseWorth;
+    houseEl.value = nwFmtMoney(state.nwHouseWorth);
+    nwBindMoneyBox(houseEl);
     houseEl.addEventListener('input', function() {
-      var v = parseFloat(this.value);
+      var v = nwParseMoney(this.value);
       var ok = isFinite(v) && v >= 0 && v <= 1e9;
       this.classList.toggle('invalid', this.value !== '' && !ok);
       if (!ok) return;
@@ -8126,7 +8127,8 @@ function renderNwOutlook(startNw, horizon) {
   var pullEl = document.getElementById('nw-pull-rate'), pullAmtEl = document.getElementById('nw-pull-amount');
   if (pullEl && pullAmtEl) {
     pullEl.value = state.nwPullRate !== null ? state.nwPullRate : '';
-    pullAmtEl.value = state.nwPullAmount !== null ? state.nwPullAmount : '';
+    pullAmtEl.value = state.nwPullAmount !== null ? nwFmtMoney(state.nwPullAmount) : '';
+    nwBindMoneyBox(pullAmtEl);
     // % and $ pulls conflict, so whichever is typed into clears the other.
     pullEl.addEventListener('input', function() {
       var v = parseFloat(this.value);
@@ -8143,9 +8145,8 @@ function renderNwOutlook(startNw, horizon) {
       refreshNwOutlookSeries();
     });
     pullAmtEl.addEventListener('input', function() {
-      var txt = this.value.trim().toLowerCase().replace(/[$,\s]/g, '');
-      var m = txt.match(/^(\d+(?:\.\d+)?)(k|m)?$/);
-      var v = m ? parseFloat(m[1]) * (m[2] === 'k' ? 1e3 : m[2] === 'm' ? 1e6 : 1) : NaN;
+      var txt = this.value.trim().replace(/[$,\s]/g, '');
+      var v = nwParseMoney(txt);
       var empty = txt === '';
       var ok = isFinite(v) && v > 0 && v <= 1e9;
       this.classList.toggle('invalid', !empty && !ok);
@@ -8186,6 +8187,37 @@ function renderNwOutlook(startNw, horizon) {
   var canvas = document.getElementById('nw-outlook-canvas');
   wireNwOutlookHover(canvas);
   requestAnimationFrame(function() { drawNwOutlookChart(nwOutlookChartState, -1); });
+}
+
+// Dollar boxes show thousands separators ("200,000") as you type. Letters (a "250k" / "1.5m" shorthand)
+// are left alone until the box loses focus, when a parsable value is rewritten in full.
+function nwFmtMoney(n) { return n.toLocaleString('en-US', { maximumFractionDigits: 2 }); }
+function nwParseMoney(txt) {
+  var t = String(txt || '').trim().toLowerCase().replace(/[$,\s]/g, '');
+  var m = t.match(/^(\d+(?:\.\d+)?|\.\d+)(k|m)?$/);
+  return m ? parseFloat(m[1]) * (m[2] === 'k' ? 1e3 : m[2] === 'm' ? 1e6 : 1) : NaN;
+}
+function nwBindMoneyBox(el) {
+  el.addEventListener('input', function() {
+    var raw = el.value;
+    if (/[a-z]/i.test(raw)) return;                       // shorthand in progress
+    var caret = el.selectionStart, digitsLeft = 0;
+    for (var i = 0; i < caret; i++) { if (/[0-9.]/.test(raw.charAt(i))) digitsLeft++; }
+    var cleaned = raw.replace(/[^0-9.]/g, '');
+    var dot = cleaned.indexOf('.');
+    var intPart = dot === -1 ? cleaned : cleaned.slice(0, dot);
+    var decPart = dot === -1 ? null : cleaned.slice(dot + 1).replace(/\./g, '');
+    var out = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (decPart !== null ? '.' + decPart : '');
+    if (out === raw) return;
+    el.value = out;
+    var pos = 0, seen = 0;
+    while (pos < out.length && seen < digitsLeft) { if (/[0-9.]/.test(out.charAt(pos))) seen++; pos++; }
+    el.setSelectionRange(pos, pos);
+  });
+  el.addEventListener('blur', function() {
+    var v = nwParseMoney(el.value);
+    if (isFinite(v)) el.value = nwFmtMoney(v);
+  });
 }
 
 // Recomputes the plotted series after an input that feeds them (retirement age, house, pull rate) changes.
