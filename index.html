@@ -8494,9 +8494,19 @@ function showNwOutlookTooltip(clientX, clientY, yearIdx, s) {
   // From the retirement age on (and when the axis is in ages), each value also shows what the
   // assumed pull rate would withdraw per year -- from the balance less the house, which isn't
   // spent down -- e.g. "$1.5M ($30k/y)" with a $500k house at 3%.
-  var pullOn = s.horizon !== '12m' && s.startAge !== null && (s.startAge + yearIdx) >= state.nwRetireAge && (state.nwPullRate > 0 || state.nwPullAmount !== null);
+  var retired = s.horizon !== '12m' && s.startAge !== null && (s.startAge + yearIdx) >= state.nwRetireAge;
+  var pullOn = retired && (state.nwPullRate > 0 || state.nwPullAmount !== null);
+  // Before retirement the note is the expected monthly growth in effect from this point: the Amount model's
+  // monthly increase (start + a step per year elapsed), or the Percent model's rate on the balance.
+  var yearsElapsed = s.horizon === '12m' ? Math.floor(yearIdx / 12) : yearIdx;
   var rowsHtml = sortedForTt.map(function(ser) {
     var pullTxt = '';
+    if (!retired) {
+      var grow = state.nwGrowthModel === 'amount'
+        ? state.nwAmtStart + yearsElapsed * ser.pct
+        : ser.vals[yearIdx] * ser.pct / 100;
+      pullTxt = ' (+' + fmtNwOutlookY(grow).replace(/K$/, 'k') + '/mo)';
+    }
     if (pullOn) {
       if (state.nwPullAmount !== null) {
         // fixed $/yr: show it while there's investable money, otherwise that it has run out
