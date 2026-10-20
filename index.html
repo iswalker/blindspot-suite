@@ -6956,8 +6956,8 @@ function parseDateSort(s) {
   return parseInt(p[2],10)*10000 + parseInt(p[0],10)*100 + parseInt(p[1],10);
 }
 
-// Categories whose leftover Available is already deducted from a holding account on the
-// Liquid Balances side. Per the YNAB identity, spend - assigned equals -ΔAvailable, which
+// Categories whose leftover Available is already deducted on the Liquid Balances side: from a
+// holding account, or (Exclude Budgeted Expenses on) as the remaining budgeted Available. Per the YNAB identity, spend - assigned equals -ΔAvailable, which
 // cancels exactly against that reserve movement — so counting them here would double-report.
 // Categories with no Holding key are NOT neutralised and must stay in the reconciliation:
 // their overspend is a real discrepancy, not an artefact.
@@ -6969,6 +6969,17 @@ function rcMappedCatSet() {
       if (!lwHoldingScopeOn(e.scope)) continue;
       if (!out) out = {};
       out[e.grp + '||' + e.cat] = true;
+    }
+  }
+  // Exclude Budgeted Expenses also takes every other category's remaining Available off the balance
+  // (lwPipelineBudgetedAvailable), so the same identity neutralises their assigned-vs-spend here too.
+  if (lwBudgetedRemainderOn() && lwPipelineBudgetHolderId() !== null) {
+    var availPivot = ((state.data || {}).catAvailPivot) || {};
+    for (var ag in availPivot) {
+      for (var ac in availPivot[ag]) {
+        if (!out) out = {};
+        out[ag + '||' + ac] = true;
+      }
     }
   }
   return out;
