@@ -2265,7 +2265,6 @@ html.rw-tab-active #tab-row { z-index: 30; }
           <span class="nwo-seg-label">Pipeline</span>
           <div class="nwo-seg-btns">
             <button type="button" class="nwo-seg-btn" id="nw-pipeline-include-btn" data-mode="include">Include</button>
-            <button type="button" class="nwo-seg-btn" id="nw-pipeline-minus-btn" data-mode="minus">Minus Budgeted Available</button>
           </div>
         </div>
         <span class="holding-warn" id="nw-pipeline-warn"></span>
@@ -2863,7 +2862,7 @@ var state = {
   lwIncludeExceptionAccts:  localStorage.getItem('lw-include-exception-accts') !== '0',
   // Pipeline accounts on Liquid Balances: '' (left out) or 'include'. (A 'minus' option used to subtract the
   // remaining budgeted Available here; that now belongs to Exclude Budgeted Expenses, so a saved 'minus'
-  // reads as 'include'.) Net Worth's own Pipeline toggle still has both options, and borrows this field
+  // reads as 'include'.) Net Worth's own Pipeline toggle is the same on/off and borrows this field
   // while it renders. lwIncludePipeline is derived from it, kept for the account-filter code that reads it.
   lwPipelineMode:           (function() {
     var m = localStorage.getItem('lw-pipeline-mode');
@@ -2875,7 +2874,7 @@ var state = {
   ahIncludeExceptionAccts:  localStorage.getItem('ah-include-exception-accts') === '1',
   ahIncludeClosed:          localStorage.getItem('ah-include-closed') === '1',
   nwMatchLwExclusions:      localStorage.getItem('nw-match-lw-exclusions') !== '0',
-  // Net Worth's own Pipeline toggle ('' / 'include' / 'minus'), independent of Liquid Balances'.
+  // Net Worth's own Pipeline toggle ('' / 'include', a saved 'minus' reads as 'include'), independent of Liquid Balances'.
   // Net Worth Preview chart's Y axis: 'log' (default) or 'linear'.
   // Custom Preview horizon in whole years (null until the user enters one).
   nwCustomYears:            (function() { var y = parseInt(localStorage.getItem('nw-custom-years'), 10); return y > 0 && y <= 150 ? y : null; })(),
@@ -2905,7 +2904,7 @@ var state = {
   nwOutlookAxis:            localStorage.getItem('nw-outlook-axis') === 'linear' ? 'linear' : 'log',
   nwPipelineMode:           (function() {
     var m = localStorage.getItem('nw-pipeline-mode');
-    return (m === 'include' || m === 'minus') ? m : '';
+    return (m === 'include' || m === 'minus') ? 'include' : '';
   })(),
   leverageExcludeTracking:   localStorage.getItem('leverage-exclude-tracking') === '1',
   leverageExcludeForecasted: localStorage.getItem('leverage-exclude-forecasted') === '1',
@@ -6695,14 +6694,12 @@ function lwComputeExclusionsSummary(accounts, monthKey) {
     return { enabled: sec.enabled, total: sec.total, groups: sec.order.map(function(n) { return sec.groupMap[n]; }) };
   }
   // Remaining budgeted Available: charged to one account, so it is shown once -- inside Exclude Budgeted
-  // Expenses on Liquid Balances, or as Net Worth's own "Pipeline: Minus Budgeted Available" block.
+  // Expenses (Liquid Balances, and Net Worth when it matches those settings).
   var pipeline = { enabled: false, total: 0, groups: [] };
   var pipeHolder = lwPipelineBudgetHolderId();
   if (pipeHolder && (accounts || []).some(function(a) { return a.id === pipeHolder; })) {
     var pb = lwPipelineBudgetedAvailable(monthKey);
-    if (state.nwRendering) {
-      pipeline = { enabled: true, total: pb.total, groups: [{ name: 'Pipeline', total: pb.total, entries: pb.entries }] };
-    } else if (sections.budgeted.enabled) {
+    if (sections.budgeted.enabled) {
       var gRem = heldGroup(sections.budgeted, 'Remaining budgeted (not held in an account)');
       gRem.entries = gRem.entries.concat(pb.entries);
       gRem.total += pb.total;
@@ -6723,7 +6720,6 @@ function renderLwExclusionsDetail(summary) {
 
   h += renderLwExclusionSection('Exclude Distribution', summary.distribution, 'held');
   h += renderLwExclusionSection('Exclude Budgeted Expenses', summary.budgeted, 'held');
-  if (summary.pipeline.enabled) h += renderLwExclusionSection('Pipeline: Minus Budgeted Available', summary.pipeline, 'held');
   h += renderLwExclusionSection('Exclude Tracking (~)', summary.tracking, 'txn');
   el.innerHTML = h;
 }
@@ -6847,7 +6843,7 @@ function renderLwDriverDetail(d, monthKey, prevKey) {
   // Remaining budgeted Available: shown on the one account it is charged to
   if (d.id && d.id === lwPipelineBudgetHolderId()) {
     var pipeB = lwPipelineBudgetedAvailable(monthKey);
-    h += '<div class="lwdm-d-sec">' + (state.nwRendering ? 'Pipeline — minus budgeted available' : 'Excluded — remaining budgeted available') + '</div>';
+    h += '<div class="lwdm-d-sec">' + 'Excluded — remaining budgeted available' + '</div>';
     if (!pipeB.entries.length) {
       h += '<div class="lwdm-empty">No budgeted Available outside the excluded categories this month.</div>';
     } else {
@@ -7537,15 +7533,14 @@ function lwHoldingReserve(acctId, monthKey) {
   return Math.max(0, distSum) + Math.max(0, budgetSum);
 }
 
-// Remaining budgeted Available. On Liquid Balances this is part of Exclude Budgeted Expenses; Net
-// Worth, which has no such toggle, gets it from the "Minus Budgeted Available" option of its own
-// Pipeline toggle (it borrows lwPipelineMode while it renders). The month-end Available of every
+// Remaining budgeted Available. Part of Exclude Budgeted Expenses; Net Worth gets it too when it
+// matches the Liquid Balances exclusion settings (it borrows lwExcludeBudgeted while it renders). The month-end Available of every
 // category (from catAvailPivot) is subtracted -- except the categories an active Exclude
 // Distribution / Exclude Budgeted Expenses toggle already deducts from their holding accounts
 // (lwHoldingMap), so nothing is removed twice. Summed across all the remaining categories and
 // floored at $0, like the holding reserves above.
 function lwBudgetedRemainderOn() {
-  return state.nwRendering ? state.lwPipelineMode === 'minus' : !!state.lwExcludeBudgeted;
+  return !!state.lwExcludeBudgeted;
 }
 function lwPipelineBudgetedAvailable(monthKey) {
   var already = {}, map = lwHoldingMap();
@@ -7733,9 +7728,8 @@ function syncExclusionToggles() {
   var nwPipeSeg = document.getElementById('nw-pipeline-seg-wrap');
   if (nwPipeSeg) {
     nwPipeSeg.setAttribute('data-active', state.nwPipelineMode);
-    var nwPipeInc = document.getElementById('nw-pipeline-include-btn'), nwPipeMin = document.getElementById('nw-pipeline-minus-btn');
+    var nwPipeInc = document.getElementById('nw-pipeline-include-btn');
     if (nwPipeInc) nwPipeInc.classList.toggle('active', state.nwPipelineMode === 'include');
-    if (nwPipeMin) nwPipeMin.classList.toggle('active', state.nwPipelineMode === 'minus');
   }
   var nwPipeWarnEl = document.getElementById('nw-pipeline-warn');
   if (nwPipeWarnEl) {
@@ -15815,7 +15809,7 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   // Net Worth's own Pipeline toggle -- same options and click-again-to-clear as Liquid Balances'.
-  ['include', 'minus'].forEach(function(mode) {
+  ['include'].forEach(function(mode) {
     document.getElementById('nw-pipeline-' + mode + '-btn').addEventListener('click', function() {
       state.nwPipelineMode = state.nwPipelineMode === mode ? '' : mode;
       localStorage.setItem('nw-pipeline-mode', state.nwPipelineMode || 'off');
