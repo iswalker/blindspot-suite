@@ -1422,6 +1422,72 @@ td.hbt-num:last-child { width: 13%; }
 #leverage-breakdown-row .lw-chart-wrap { flex: 1; min-width: 0; margin-bottom: 0; }
 .lw-chart-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #333; margin: 0 0 2px 16px; }
 
+/* ---- Net Worth milestones panel ---- */
+#nw-milestones { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 14px 16px; margin: 0 0 24px; }
+.nwm-hdr { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.nwm-title { font-size: 15px; font-weight: 700; color: #222; }
+.nwm-sub { font-size: 13px; color: #999; }
+.nwm-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.nwm-row input { font: inherit; font-size: 14px; padding: 6px 8px; border: 1px solid #ccc; border-radius: 5px; background: #fff; min-width: 0; }
+.nwm-row input:focus { border-color: #1565c0; outline: none; }
+.nwm-row input:disabled { background: #f6f6f3; color: #777; }
+.nwm-age { width: 74px; flex: none; text-align: center; }
+.nwm-label { flex: 1; }
+.nwm-del, #nwm-add, #nwm-move {
+  font: inherit; font-size: 14px; padding: 6px 12px; background: #fff; border: 1px solid #ccc; border-radius: 6px; color: #444; cursor: pointer; white-space: nowrap; touch-action: manipulation;
+}
+.nwm-del { padding: 4px 10px; font-size: 18px; line-height: 1; }
+.nwm-del:hover { background: #fdecea; color: #c62828; border-color: #e5a5a0; }
+#nwm-add:hover, #nwm-move:hover { background: #f0f0f0; }
+.nwm-banner { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; padding: 8px 12px; background: #fff8e1; border: 1px solid #f1e0a3; border-radius: 8px; font-size: 14px; color: #6b5300; }
+.nwm-msg { font-size: 13px; color: #c62828; margin-top: 4px; }
+.nwm-new { margin-top: 12px; padding-top: 12px; border-top: 1px solid #eee; margin-bottom: 0; }
+
+/* ---- Manage Tags & Account Usage popover ---- */
+#usage-modal { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,.35); align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
+.um-box { background: #fff; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.25); width: 100%; max-width: 760px; max-height: 88vh; display: flex; flex-direction: column; }
+.um-hdr { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid #eee; font-size: 17px; font-weight: 700; color: #222; }
+#um-close { background: none; border: none; font-size: 26px; line-height: 1; color: #888; cursor: pointer; padding: 0 4px; }
+.um-body { padding: 14px 18px; overflow-y: auto; flex: 1; }
+.um-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px; border-top: 1px solid #eee; font-size: 14px; color: #666; }
+#um-foot-btns { display: inline-flex; gap: 8px; }
+.um-btn { font: inherit; font-size: 15px; padding: 7px 14px; background: #fff; border: 1px solid #ccc; border-radius: 6px; color: #444; cursor: pointer; touch-action: manipulation; }
+.um-btn:hover:not(:disabled) { background: #f0f0f0; }
+.um-btn:disabled { color: #bbb; background: #f6f6f3; cursor: not-allowed; }
+.um-primary:not(:disabled) { background: #1565c0; border-color: #1565c0; color: #fff; }
+.um-primary:hover:not(:disabled) { background: #0f5199; }
+.um-note { font-size: 15px; color: #444; line-height: 1.5; padding: 4px 0; }
+.um-note .um-btn { margin-top: 12px; }
+.um-sec { margin-bottom: 18px; }
+.um-sec-t { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #333; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #eee; }
+.um-row { display: flex; gap: 14px; align-items: flex-start; padding: 7px 0; }
+.um-lbl { flex: 0 0 190px; font-size: 15px; font-weight: 600; color: #333; padding-top: 6px; }
+.um-ctl { flex: 1; min-width: 0; }
+.um-in { font: inherit; font-size: 15px; padding: 6px 8px; border: 1px solid #ccc; border-radius: 5px; background: #fff; max-width: 100%; box-sizing: border-box; }
+select.um-in { width: 100%; }
+.um-in:focus { border-color: #1565c0; outline: none; }
+.um-amt { width: 110px; }
+.um-sub { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.um-sublbl { font-size: 13px; color: #888; flex: 0 0 auto; }
+.um-sub select { flex: 1; }
+.um-tags { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.um-tag { display: inline-flex; align-items: center; gap: 4px; }
+.um-tag .um-in { width: 150px; }
+.um-x { font-size: 20px; line-height: 1; background: none; border: none; color: #999; cursor: pointer; padding: 0 4px; }
+.um-x:hover { color: #c62828; }
+.um-acct { border: 1px solid #ccc; border-radius: 5px; background: #fff; }
+.um-acct summary { padding: 7px 10px; font-size: 15px; cursor: pointer; list-style-position: inside; }
+.um-none { color: #999; }
+.um-acct-list { max-height: 220px; overflow-y: auto; border-top: 1px solid #eee; padding: 6px 4px; }
+.um-acct-row { display: flex; align-items: center; gap: 8px; padding: 5px 8px; font-size: 15px; cursor: pointer; }
+.um-acct-row:hover { background: #f5f5f2; }
+.um-closed { color: #aaa; font-size: 13px; }
+@media (max-width: 600px) {
+  .um-row { flex-direction: column; gap: 4px; }
+  .um-lbl { flex: none; padding-top: 0; }
+  .nwm-age { width: 62px; }
+}
+
 /* ---- Runway ---- */
 #runway-factors-wrap { position: relative; margin-left: auto; }
 #runway-factors-btn {
@@ -2009,6 +2075,9 @@ html.rw-tab-active #tab-row { z-index: 30; }
               <span id="config-gsheet-label">Connect Google Sheet</span>
             </button>
           </div>
+          <div class="settings-row">
+            <button class="config-picker-btn" id="usage-open-btn" style="width:100%;justify-content:center">Manage Tags &amp; Account Usage</button>
+          </div>
           <div class="settings-divider"></div>
           <div id="plan-sel-wrap">
             <label for="plan-sel">Plan</label>
@@ -2234,6 +2303,7 @@ html.rw-tab-active #tab-row { z-index: 30; }
       <div id="nw-outlook-legend"></div>
       <canvas id="nw-outlook-canvas"></canvas>
     </div>
+    <div id="nw-milestones" style="display:none"></div>
   </div>
   <div id="lessons-panel" style="display:none">
     <div class="panel-hdr">
@@ -2610,6 +2680,15 @@ html.rw-tab-active #tab-row { z-index: 30; }
       </div>
     </div>
     </div>
+  </div>
+</div>
+
+<!-- Manage Tags & Account Usage -->
+<div id="usage-modal" style="display:none">
+  <div class="um-box" role="dialog" aria-modal="true" aria-label="Manage Tags and Account Usage">
+    <div class="um-hdr"><span>Manage Tags &amp; Account Usage</span><button type="button" id="um-close" title="Close">&times;</button></div>
+    <div class="um-body" id="um-body"></div>
+    <div class="um-foot"><span id="um-msg"></span><span id="um-foot-btns"><button type="button" class="um-btn" id="um-cancel">Close</button><button type="button" class="um-btn um-primary" id="um-save" disabled>Save</button></span></div>
   </div>
 </div>
 
@@ -3363,6 +3442,10 @@ function ensureMerchantsLoaded() {
 
 function ensureConfigLoaded() {
   ensureMerchantsLoaded();
+  dbCfgLoadCache();
+  return ensureSheetConfigLoaded().then(function() { applyConfigOverlays(); });
+}
+function ensureSheetConfigLoaded() {
   if (state.catConfig.length > 0) return Promise.resolve();
 
   // If a Google Sheet is linked, fetch fresh config from it (falling back to local cache on error)
@@ -4517,6 +4600,7 @@ function fetchConfigFromGoogleSheet(token) {
        localStorage.setItem('merchants-csv', mcsv);
      })
      .catch(function() { /* Merchants tab is optional */ });
+    applyConfigOverlays();
     return state.catConfig;
   });
 }
@@ -7999,6 +8083,8 @@ function renderNetWorthBody() {
   if (tableWrapEl) tableWrapEl.style.display = showOutlook ? 'none' : '';
   if (outlookWrap) outlookWrap.style.display = showOutlook ? '' : 'none';
 
+  if (!dbCfg.status.all) loadDbConfig();
+  renderNwMilestonesPanel();
   if (showOutlook) {
     renderNwOutlook(netVals[lastIdx], outlookHorizon);
   } else {
@@ -13775,6 +13861,14 @@ function getNwDeltaTargetPct() {
 // the label shown against that line on the Net Worth Preview chart. Sorted by age.
 function getNwMilestones() {
   var out = [];
+  if (milestonesMigrated()) {      // the database's list replaces the sheet's once moved
+    dbMilestoneRows().forEach(function(r) {
+      var a = nwMsAge(r);
+      if (a !== null && a >= 0) out.push({ age: a, label: (r.text || '').trim() });
+    });
+    out.sort(function(x, y) { return x.age - y.age; });
+    return out;
+  }
   for (var i = 0; i < (state.catConfig || []).length; i++) {
     var c = state.catConfig[i];
     if (!/^milestone\b/i.test(c.usedFor || '')) continue;
@@ -13804,7 +13898,7 @@ function getNwBirthYear() {
 // own columns. Once an area has rows there they win over the Google Sheet's; until then the sheet is
 // still used, and a banner offers to move it across. The last copy is cached in localStorage so the
 // tab paints instantly (and still works offline); the server is asked on first use each page load.
-var dbCfg = { rows: {}, status: {} };   // rows[section] = API rows; status[section] = loading | ready | unavailable | error
+var dbCfg = { rows: {}, all: [], status: {} };   // all = every API row; rows[section] = those of one area; status.all = loading | ready | unavailable | error
 
 function dbCfgBudget() { return localStorage.getItem('ynab-budget-id') || ''; }
 
@@ -13822,28 +13916,46 @@ function dbCfgRequest(method, query, body) {
   });
 }
 
-function dbCfgStore(section, rows) {
-  dbCfg.rows[section] = rows;
-  try { localStorage.setItem('dbcfg-' + section, JSON.stringify({ budgetId: dbCfgBudget(), rows: rows })); } catch (e) {}
+function dbCfgApplyAll(all) {
+  dbCfg.all = all;
+  dbCfg.rows = {};
+  all.forEach(function(r) { (dbCfg.rows[r.section] = dbCfg.rows[r.section] || []).push(r); });
 }
+function dbCfgStore(all) {
+  dbCfgApplyAll(all);
+  try { localStorage.setItem('dbcfg-all', JSON.stringify({ budgetId: dbCfgBudget(), rows: all })); } catch (e) {}
+}
+var dbCfgCacheRead = false;
+function dbCfgLoadCache() {      // last copy from this browser, so things paint right before the server answers
+  if (dbCfgCacheRead) return;
+  dbCfgCacheRead = true;
+  var cached = parseJsonLS('dbcfg-all');
+  if (cached && cached.budgetId === dbCfgBudget() && Array.isArray(cached.rows)) dbCfgApplyAll(cached.rows);
+}
+function dbCfgSig() { return JSON.stringify(dbCfg.all.map(function(r) { return [r.id, r.metric, r.type, r.text, r.section, r.amount, r.assoc_category_ids]; })); }
 
-// Loads one area (once per page load unless forced); re-renders Runway when it lands.
-function loadDbConfig(section, force) {
+// Loads every config area for this budget (once per page load unless forced), then re-renders what
+// depends on it: Runway, Net Worth's milestones, and the usage overlay on the sheet's config.
+function loadDbConfig(force) {
   var budget = dbCfgBudget();
   if (!budget || !localStorage.getItem('ynab-api-key')) return Promise.resolve();
-  if (!force && dbCfg.status[section]) return Promise.resolve();
-  dbCfg.status[section] = 'loading';
-  if (!dbCfg.rows[section]) {
-    var cached = parseJsonLS('dbcfg-' + section);
-    if (cached && cached.budgetId === budget && Array.isArray(cached.rows)) dbCfg.rows[section] = cached.rows;
-  }
-  return dbCfgRequest('GET', { budgetId: budget, section: section }).then(function(res) {
-    dbCfgStore(section, res.rows || []);
-    dbCfg.status[section] = 'ready';
+  if (!force && dbCfg.status.all) return Promise.resolve();
+  dbCfg.status.all = 'loading';
+  dbCfgLoadCache();
+  var before = dbCfgSig(), usageBefore = usageSig();
+  return dbCfgRequest('GET', { budgetId: budget }).then(function(res) {
+    dbCfgStore(res.rows || []);
+    dbCfg.status.all = 'ready';
   }).catch(function(e) {
-    dbCfg.status[section] = e && e.code === 'not_configured' ? 'unavailable' : 'error';
+    dbCfg.status.all = e && e.code === 'not_configured' ? 'unavailable' : 'error';
   }).then(function() {
-    if (section === 'Runway' && state.activeTab === 'runway') renderRunway();
+    if (dbCfg.status.all === 'ready' && usageSig() !== usageBefore) {
+      applyConfigOverlays();
+      if (state.data) refreshYnab();            // config the cached data was built from has changed
+    }
+    if (dbCfgSig() === before) return;
+    if (state.activeTab === 'runway') renderRunway();
+    if (state.activeTab === 'nw') renderNetWorth();
   });
 }
 
@@ -13862,6 +13974,380 @@ function dbCfgConfigRows(section, rowsOverride) {
     cfg.dbId = r._key || String(r.id);
     return cfg;
   });
+}
+
+// ---- Sheet rows -> database rows (used by each area's one-time "move to database" button) ----
+// filter(r) picks rows of the sheet's Config tab (r is keyed by the sheet's column headers);
+// forceSection overrides the Group column (e.g. every Runway row belongs to the "Runway" area).
+function sheetConfigRows(filter, forceSection) {
+  var text = state.configText || localStorage.getItem('cat-config-csv') || '';
+  if (!text) return [];
+  function num(v) { var m = String(v || '').replace(/[$,]/g, '').match(/-?\d+(?:\.\d+)?/); return m ? parseFloat(m[0]) : null; }
+  return parseCSV(text).filter(filter).map(function(r) {
+    var pv = num(r['Past Value']);
+    return {
+      metric: (r['Metric'] || r['Used For'] || '').trim(), type: r['Type'] || '', text: r['Text'] || r['ID'] || '',
+      section: forceSection || (r['Group'] || r['Section'] || '').trim(), amount: r['Amount'] || r['Due Date'] || '', unit: r['Unit'] || '',
+      multiplier: num(r['Transaction Multiplier']), track_against: r['Track Against'] || '', date_range: r['Date Range'] || '',
+      assoc_category_ids: r['Associated Category ID(s)'] || r['Associated Category ID'] || '', past_value: pv === null ? 0 : pv,
+      notes: r['Notes'] || '', old_account_ids: r["Old Account ID's"] || '', old_category_ids: r["Old Category ID's"] || ''
+    };
+  });
+}
+function dbRowTemplate(f) {
+  return Object.assign({ metric: '', type: '', text: '', section: '', amount: '', unit: '', multiplier: null, track_against: '',
+    date_range: '', assoc_category_ids: '', past_value: 0, notes: '', old_account_ids: '', old_category_ids: '' }, f);
+}
+function sheetMetric(r) { return (r['Metric'] || r['Used For'] || '').trim(); }
+function dbMarker(name) { return dbCfg.all.some(function(r) { return r.type === 'Marker' && r.metric === name; }); }
+function dbConfigWritable() { return dbCfg.status.all === 'ready'; }
+// One transaction of changes to config rows, then reload everything.
+function dbCfgCommit(changes) {
+  return dbCfgRequest('PATCH', null, Object.assign({ budgetId: dbCfgBudget() }, changes)).then(function() { return loadDbConfig(true); });
+}
+
+// ---- Net Worth milestones (Metric "Milestone N": Amount = age, Text = label) ----
+var MS_ROW = /^milestone\s+\d+$/i;
+function milestonesMigrated() { return dbMarker('Milestones Migrated'); }
+function sheetMilestoneRows() { return sheetConfigRows(function(r) { return MS_ROW.test(sheetMetric(r)); }, 'Net Worth'); }
+function dbMilestoneRows() { return dbCfg.all.filter(function(r) { return r.type !== 'Marker' && MS_ROW.test(r.metric || ''); }); }
+function nwMsAge(r) { var v = parseFloat(String(r.amount || '').replace(/[^0-9.\-]/g, '')); return isFinite(v) ? v : null; }
+
+function moveMilestonesToDb() {
+  var rows = sheetMilestoneRows().map(function(r) { return Object.assign(r, { type: 'Target' }); });
+  rows.push(dbRowTemplate({ metric: 'Milestones Migrated', type: 'Marker', section: 'Net Worth' }));
+  nwMsMsg = 'Moving…'; renderNwMilestonesPanel();
+  dbCfgCommit({ inserts: rows }).then(function() { nwMsMsg = ''; renderNetWorth(); })
+    .catch(function(e) { nwMsMsg = 'Could not move the milestones: ' + (e && e.message || 'failed'); renderNwMilestonesPanel(); });
+}
+var nwMsMsg = '';
+
+// Add / edit / delete from the Preview module. Each change is saved straight away.
+function nwMsSave(changes) {
+  var ins = (changes.inserts || []).slice();
+  if (!milestonesMigrated()) {              // the first write also marks the milestones as living in the database
+    sheetMilestoneRows().forEach(function(r) { ins.push(Object.assign(r, { type: 'Target' })); });
+    ins.push(dbRowTemplate({ metric: 'Milestones Migrated', type: 'Marker', section: 'Net Worth' }));
+  }
+  var payload = Object.assign({}, changes, { inserts: ins });
+  if (!payload.inserts.length) delete payload.inserts;
+  nwMsMsg = '';
+  return dbCfgCommit(payload).then(function() { renderNetWorth(); })
+    .catch(function(e) { nwMsMsg = 'Could not save: ' + (e && e.message || 'failed'); renderNwMilestonesPanel(); });
+}
+function nwMsNextMetric() {
+  var max = 0;
+  dbCfg.all.concat(sheetMilestoneRows()).forEach(function(r) { var m = String(r.metric || '').match(/^milestone\s+(\d+)$/i); if (m) max = Math.max(max, parseInt(m[1], 10)); });
+  return 'Milestone ' + (max + 1);
+}
+
+function renderNwMilestonesPanel() {
+  var el = document.getElementById('nw-milestones');
+  if (!el) return;
+  var seg = document.getElementById('nw-outlook-seg-wrap'), hz = seg ? seg.getAttribute('data-active') : '';
+  var show = !!hz && hz !== '12m' && dbConfigWritable() && !!state.data;
+  el.style.display = show ? '' : 'none';
+  if (!show) return;
+  var migrated = milestonesMigrated(), sheetRows = migrated ? [] : sheetMilestoneRows();
+  var h = '<div class="nwm-hdr"><span class="nwm-title">Milestones</span><span class="nwm-sub">ages marked on the chart</span></div>';
+  if (!migrated && sheetRows.length) {
+    h += '<div class="nwm-banner"><span>These ' + sheetRows.length + ' milestones are still read from your Google Sheet. Move them to the database to edit or delete them here.</span>'
+      + ' <button type="button" id="nwm-move">Move milestones to database</button></div>';
+  }
+  var rows = migrated ? dbMilestoneRows().map(function(r) { return { key: String(r.id), age: nwMsAge(r), label: r.text }; })
+    : sheetRows.map(function(r, i) { return { key: 's' + i, age: nwMsAge(r), label: r.text, readonly: true }; });
+  rows.sort(function(a, b) { return (a.age === null ? 1e9 : a.age) - (b.age === null ? 1e9 : b.age); });
+  rows.forEach(function(m) {
+    h += '<div class="nwm-row" data-key="' + escAttr(m.key) + '">'
+      + '<input type="number" class="nwm-age" min="0" max="150" step="any" inputmode="decimal" placeholder="Age" aria-label="Milestone age" value="' + (m.age === null ? '' : escAttr(String(m.age))) + '"' + (m.readonly ? ' disabled' : '') + '>'
+      + '<input type="text" class="nwm-label" maxlength="120" placeholder="Label" aria-label="Milestone label" value="' + escAttr(m.label || '') + '"' + (m.readonly ? ' disabled' : '') + '>'
+      + (m.readonly ? '' : '<button type="button" class="nwm-del" title="Delete this milestone" aria-label="Delete milestone">&times;</button>')
+      + '</div>';
+  });
+  if (migrated || !sheetRows.length) {
+    h += '<div class="nwm-row nwm-new"><input type="number" class="nwm-age" id="nwm-new-age" min="0" max="150" step="any" inputmode="decimal" placeholder="Age" aria-label="New milestone age">'
+      + '<input type="text" class="nwm-label" id="nwm-new-label" maxlength="120" placeholder="New milestone label" aria-label="New milestone label">'
+      + '<button type="button" id="nwm-add">Add</button></div>';
+  }
+  if (nwMsMsg) h += '<div class="nwm-msg">' + escHtml(nwMsMsg) + '</div>';
+  el.innerHTML = h;
+}
+
+function wireNwMilestones() {
+  var el = document.getElementById('nw-milestones');
+  if (!el) return;
+  el.addEventListener('click', function(e) {
+    if (e.target.closest('#nwm-move')) { moveMilestonesToDb(); return; }
+    if (e.target.closest('#nwm-add')) {
+      var age = parseFloat(document.getElementById('nwm-new-age').value), label = document.getElementById('nwm-new-label').value.trim();
+      if (!isFinite(age) || age < 0 || age > 150) { nwMsMsg = 'Enter an age between 0 and 150.'; renderNwMilestonesPanel(); return; }
+      nwMsSave({ inserts: [dbRowTemplate({ metric: nwMsNextMetric(), type: 'Target', section: 'Net Worth', text: label, amount: String(age), unit: 'years' })] });
+      return;
+    }
+    var del = e.target.closest('.nwm-del');
+    if (del) {
+      var key = del.closest('.nwm-row').getAttribute('data-key');
+      if (confirm('Delete this milestone?')) nwMsSave({ deletes: [parseInt(key, 10)] });
+    }
+  });
+  el.addEventListener('change', function(e) {
+    var inp = e.target.closest('.nwm-age, .nwm-label'), row = inp && inp.closest('.nwm-row');
+    if (!row || row.classList.contains('nwm-new')) return;
+    var age = parseFloat(row.querySelector('.nwm-age').value), label = row.querySelector('.nwm-label').value.trim();
+    if (!isFinite(age) || age < 0 || age > 150) { nwMsMsg = 'Enter an age between 0 and 150.'; renderNwMilestonesPanel(); return; }
+    nwMsSave({ updates: [{ id: parseInt(row.getAttribute('data-key'), 10), amount: String(age), text: label }] });
+  });
+  el.addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter' || !e.target.closest('.nwm-new')) return;
+    var b = document.getElementById('nwm-add'); if (b) b.click();
+  });
+}
+
+// ---- Tags & account usage: keys that point the app at YNAB things (Messup tag, category groups,
+// accounts, categories). Edited in the "Manage Tags & Account Usage" popover; stored as config rows with
+// their own Group as the section, plus a marker row once they have been moved to the database. ----
+var USAGE_TYPES = { 'Tag': 1, 'Account': 1, 'Category': 1, 'Category Group': 1 };
+var USAGE_SKIP = /^(leverage|expiration|card transactions|milestone)\b/i;   // belong to other areas / tabs
+function isUsageRow(r) { return !!USAGE_TYPES[r.type] && r.section !== 'Runway' && !USAGE_SKIP.test(r.metric || ''); }
+function usageMigrated() { return dbMarker('Usage Migrated'); }
+function usageDbRows() { return usageMigrated() ? dbCfg.all.filter(isUsageRow) : []; }
+function usageSig() { return JSON.stringify(usageDbRows().map(function(r) { return [r.id, r.metric, r.type, r.text, r.section, r.amount, r.assoc_category_ids]; })); }
+function sheetUsageRows() {
+  return sheetConfigRows(function(r) {
+    var m = sheetMetric(r), sec = (r['Group'] || r['Section'] || '').trim();
+    return !!USAGE_TYPES[(r['Type'] || '').trim()] && sec !== 'Runway' && !USAGE_SKIP.test(m) && m;
+  });
+}
+// The database's copy of these keys replaces the sheet's, key by key (and supplies them outright once
+// the sheet no longer has them), so everything that reads state.catConfig sees the same thing.
+function applyUsageOverlay() {
+  var rows = usageDbRows();
+  if (!rows.length) return;
+  var cfgs = dbCfgConfigRows(null, rows), keys = {};
+  function k(c) { return ((c.usedFor || '') + '|' + (c.type || '')).toLowerCase(); }
+  cfgs.forEach(function(c) { keys[k(c)] = true; });
+  state.catConfig = (state.catConfig || []).filter(function(c) { return !keys[k(c)]; }).concat(cfgs);
+}
+function applyConfigOverlays() { applyUsageOverlay(); }
+
+// ---- "Manage Tags & Account Usage" popover ----
+var usageWork = null;            // working copy of the usage rows while the popover is open
+var usageNewKey = 0;
+var usageMsg = '';
+var USAGE_ORDER = [['Tag', 'Tags'], ['Category Group', 'Category groups'], ['Category', 'Categories'], ['Account', 'Accounts']];
+
+function ynabChoices() {
+  var d = state.data || {}, accts = [], cats = [], groups = {};
+  var info = d.allAccountsInfo || {};
+  Object.keys(info).forEach(function(id) { accts.push({ id: id, name: info[id].name || id, closed: !!info[id].closed }); });
+  accts.sort(function(a, b) { return (a.closed - b.closed) || a.name.localeCompare(b.name); });
+  var names = d.catIdToName || {}, grp = d.catIdToGroup || {};
+  Object.keys(names).forEach(function(id) { cats.push({ id: id, name: names[id], group: grp[id] || '' }); groups[grp[id] || ''] = true; });
+  cats.sort(function(a, b) { return a.group.localeCompare(b.group) || a.name.localeCompare(b.name); });
+  return { accounts: accts, categories: cats, groups: Object.keys(groups).filter(Boolean).sort() };
+}
+
+function usageCloneRows() { return usageDbRows().map(function(r) { var c = Object.assign({}, r); c._key = String(r.id); return c; }); }
+function usageDiff() {
+  var base = {}, updates = [], inserts = [], deletes = [], seen = {};
+  usageDbRows().forEach(function(r) { base[r.id] = r; });
+  (usageWork || []).forEach(function(w) {
+    if (w.id === null || w.id === undefined) { inserts.push(w); return; }
+    seen[w.id] = true;
+    var b = base[w.id], ch = {}, any = false;
+    RW_COLS.forEach(function(c) { if (b && w[c] !== b[c]) { ch[c] = w[c]; any = true; } });
+    if (any) { ch.id = w.id; updates.push(ch); }
+  });
+  Object.keys(base).forEach(function(id) { if (!seen[id]) deletes.push(parseInt(id, 10)); });
+  return { updates: updates, inserts: inserts, deletes: deletes };
+}
+function usageHasChanges() { var d = usageDiff(); return !!(d.updates.length || d.inserts.length || d.deletes.length); }
+function usageRow(key) { for (var i = 0; i < usageWork.length; i++) if (usageWork[i]._key === key) return usageWork[i]; return null; }
+function usageIds(r) { return String(r.text || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean); }
+
+function openUsageModal() {
+  var m = document.getElementById('usage-modal');
+  if (!m) return;
+  usageMsg = '';
+  usageWork = usageMigrated() ? usageCloneRows() : null;
+  m.style.display = 'flex';
+  renderUsageModal();
+}
+function closeUsageModal() {
+  if (usageWork && usageHasChanges() && !confirm('Discard your unsaved changes?')) return;
+  usageWork = null;
+  document.getElementById('usage-modal').style.display = 'none';
+}
+
+function renderUsageModal() {
+  var body = document.getElementById('um-body'), foot = document.getElementById('um-foot-btns');
+  if (!body) return;
+  var h = '', ch = ynabChoices(), dirty = false;
+  if (dbCfg.status.all === 'unavailable') {
+    h = '<div class="um-note">The database isn’t connected on this deployment, so these can’t be managed here yet.</div>';
+  } else if (!state.data) {
+    h = '<div class="um-note">Load your YNAB data first, so accounts and categories can be offered.</div>';
+  } else if (!usageMigrated()) {
+    var n = sheetUsageRows().length;
+    h = n ? '<div class="um-note">These ' + n + ' keys (tags, category groups, categories and accounts) are still read from your Google Sheet. Move them to the database to manage them here; afterwards they can be deleted from the sheet.'
+      + '<div><button type="button" id="um-move" class="um-btn">Move to database</button></div></div>'
+      : '<div class="um-note">No tag or account keys were found in your Google Sheet to move. <div><button type="button" id="um-move" class="um-btn">Start with an empty set</button></div></div>';
+  } else {
+    dirty = usageHasChanges();
+    USAGE_ORDER.forEach(function(g) {
+      var rows = usageWork.filter(function(r) { return r.type === g[0]; });
+      if (!rows.length && g[0] !== 'Tag') return;
+      h += '<div class="um-sec"><div class="um-sec-t">' + g[1] + '</div>';
+      if (g[0] === 'Tag') {
+        // one label per metric; each tag is its own row so there can be several
+        var metrics = [];
+        rows.forEach(function(r) { if (metrics.indexOf(r.metric) === -1) metrics.push(r.metric); });
+        metrics.forEach(function(mt) {
+          h += '<div class="um-row"><div class="um-lbl">' + escHtml(mt) + '</div><div class="um-ctl um-tags">';
+          rows.filter(function(r) { return r.metric === mt; }).forEach(function(r) {
+            h += '<span class="um-tag"><input type="text" class="um-in" data-key="' + escAttr(r._key) + '" data-f="text" value="' + escAttr(r.text) + '" placeholder="#tag" aria-label="' + escAttr(mt) + ' tag">'
+              + '<button type="button" class="um-x" data-act="del" data-key="' + escAttr(r._key) + '" title="Remove this tag">&times;</button></span>';
+          });
+          h += '<button type="button" class="um-btn um-add" data-act="add-tag" data-metric="' + escAttr(mt) + '" data-sec="' + escAttr((rows.filter(function(r) { return r.metric === mt; })[0] || {}).section || '') + '">+ Add tag</button></div></div>';
+        });
+        return h += '</div>';
+      }
+      rows.forEach(function(r) {
+        h += '<div class="um-row"><div class="um-lbl">' + escHtml(r.metric) + '</div><div class="um-ctl">';
+        if (r.type === 'Category Group') {
+          h += '<select class="um-in" data-key="' + escAttr(r._key) + '" data-f="text">' + umGroupOptions(ch, r.text) + '</select>';
+        } else if (r.type === 'Category') {
+          h += '<select class="um-in" data-key="' + escAttr(r._key) + '" data-f="text">' + umCategoryOptions(ch, r.text) + '</select>';
+        } else {
+          h += umAccountPicker(ch, r);
+          if (String(r.assoc_category_ids || '').trim() !== '') {
+            h += '<div class="um-sub"><span class="um-sublbl">Linked category</span><select class="um-in" data-key="' + escAttr(r._key) + '" data-f="assoc_category_ids">' + umCategoryOptions(ch, String(r.assoc_category_ids).split(',')[0].trim()) + '</select></div>';
+          }
+        }
+        if (String(r.amount || '').trim() !== '') {
+          h += '<div class="um-sub"><span class="um-sublbl">' + (r.type === 'Category' ? 'Days' : 'Amount') + '</span><input type="text" class="um-in um-amt" data-key="' + escAttr(r._key) + '" data-f="amount" value="' + escAttr(r.amount) + '"></div>';
+        }
+        h += '</div></div>';
+      });
+      h += '</div>';
+    });
+  }
+  body.innerHTML = h;
+  var msg = document.getElementById('um-msg');
+  if (msg) msg.textContent = usageMsg;
+  var sv = document.getElementById('um-save'), cc = document.getElementById('um-cancel');
+  if (foot) foot.style.display = usageMigrated() ? '' : 'none';
+  if (sv) sv.disabled = !dirty;
+  if (cc) cc.textContent = dirty ? 'Discard' : 'Close';
+}
+function umGroupOptions(ch, cur) {
+  var h = '', seen = false;
+  ch.groups.forEach(function(g) { if (g === cur) seen = true; h += '<option value="' + escAttr(g) + '"' + (g === cur ? ' selected' : '') + '>' + escHtml(g) + '</option>'; });
+  if (!seen) h = '<option value="' + escAttr(cur) + '" selected>' + escHtml(cur ? cur + ' (not found in YNAB)' : 'Choose a group…') + '</option>' + h;
+  return h;
+}
+function umCategoryOptions(ch, cur) {
+  var h = '', seen = false, lastG = null;
+  ch.categories.forEach(function(c) {
+    if (c.group !== lastG) { if (lastG !== null) h += '</optgroup>'; h += '<optgroup label="' + escAttr(c.group) + '">'; lastG = c.group; }
+    if (c.id === cur) seen = true;
+    h += '<option value="' + escAttr(c.id) + '"' + (c.id === cur ? ' selected' : '') + '>' + escHtml(c.name) + '</option>';
+  });
+  if (lastG !== null) h += '</optgroup>';
+  if (!seen) h = '<option value="' + escAttr(cur) + '" selected>' + (cur ? 'Unknown category (removed from YNAB?)' : 'Choose a category…') + '</option>' + h;
+  return h;
+}
+function umAccountPicker(ch, r) {
+  var sel = usageIds(r), byId = {};
+  ch.accounts.forEach(function(a) { byId[a.id] = a; });
+  var names = sel.map(function(id) { return byId[id] ? byId[id].name : 'Unknown account'; });
+  var h = '<details class="um-acct"><summary>' + (names.length ? escHtml(names.join(', ')) : '<span class="um-none">None chosen</span>') + '</summary><div class="um-acct-list">';
+  ch.accounts.forEach(function(a) {
+    h += '<label class="um-acct-row"><input type="checkbox" data-key="' + escAttr(r._key) + '" data-acct="' + escAttr(a.id) + '"' + (sel.indexOf(a.id) !== -1 ? ' checked' : '') + '> '
+      + escHtml(a.name) + (a.closed ? ' <span class="um-closed">(closed)</span>' : '') + '</label>';
+  });
+  sel.forEach(function(id) { if (!byId[id]) h += '<label class="um-acct-row"><input type="checkbox" data-key="' + escAttr(r._key) + '" data-acct="' + escAttr(id) + '" checked> Unknown account (removed from YNAB?)</label>'; });
+  return h + '</div></details>';
+}
+
+function usageSaveEdits() {
+  var d = usageDiff();
+  var sv = document.getElementById('um-save');
+  if (sv) sv.disabled = true;
+  usageMsg = 'Saving…'; document.getElementById('um-msg').textContent = usageMsg;
+  var inserts = d.inserts.map(function(r) { var o = {}; RW_COLS.forEach(function(c) { o[c] = r[c]; }); return o; });
+  dbCfgCommit({ updates: d.updates, inserts: inserts, deletes: d.deletes }).then(function() {
+    applyConfigOverlays();
+    usageWork = usageCloneRows();
+    usageMsg = 'Saved. Refreshing your data…';
+    renderUsageModal();
+    var p = refreshYnab();            // keys like these shape how the data is built, so rebuild it
+    return p ? p.then(function() { usageMsg = 'Saved.'; renderUsageModal(); }, function() { usageMsg = 'Saved, but the data refresh failed.'; renderUsageModal(); }) : (usageMsg = 'Saved.', renderUsageModal());
+  }).catch(function(e) {
+    usageMsg = 'Could not save: ' + (e && e.message || 'failed') + ' — your changes are still here';
+    renderUsageModal();
+  });
+}
+
+function wireUsageModal() {
+  var m = document.getElementById('usage-modal');
+  if (!m) return;
+  var btn = document.getElementById('usage-open-btn');
+  if (btn) btn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    var sp = document.getElementById('settings-panel'); if (sp) sp.style.display = 'none';
+    var gb = document.getElementById('settings-gear-btn'); if (gb) gb.classList.remove('active');
+    openUsageModal();
+  });
+  document.getElementById('um-close').addEventListener('click', closeUsageModal);
+  document.getElementById('um-cancel').addEventListener('click', function() {
+    if (usageWork && usageHasChanges()) { usageWork = usageCloneRows(); renderUsageModal(); } else closeUsageModal();
+  });
+  document.getElementById('um-save').addEventListener('click', usageSaveEdits);
+  m.addEventListener('click', function(e) {
+    if (e.target === m) { closeUsageModal(); return; }
+    if (e.target.closest('#um-move')) {
+      var rows = sheetUsageRows();
+      rows.push(dbRowTemplate({ metric: 'Usage Migrated', type: 'Marker', section: 'Usage' }));
+      usageMsg = 'Moving…'; renderUsageModal();
+      dbCfgCommit({ inserts: rows }).then(function() { applyConfigOverlays(); usageWork = usageCloneRows(); usageMsg = 'Moved ' + (rows.length - 1) + ' keys to the database. You can now delete them from the sheet.'; renderUsageModal(); })
+        .catch(function(err) { usageMsg = 'Could not move them: ' + (err && err.message || 'failed'); renderUsageModal(); });
+      return;
+    }
+    var act = e.target.closest('[data-act]');
+    if (!act || !usageWork) return;
+    if (act.getAttribute('data-act') === 'del') {
+      var key = act.getAttribute('data-key');
+      usageWork = usageWork.filter(function(r) { return r._key !== key; });
+      renderUsageModal();
+    } else if (act.getAttribute('data-act') === 'add-tag') {
+      usageWork.push(dbRowTemplate({ id: null, _key: 'n' + (++usageNewKey), metric: act.getAttribute('data-metric'), type: 'Tag', section: act.getAttribute('data-sec') || 'Usage', position: 1e6 + usageNewKey }));
+      renderUsageModal();
+      var ins = m.querySelectorAll('.um-tags .um-in'); if (ins.length) ins[ins.length - 1].focus();
+    }
+  });
+  function onChange(e) {
+    var el = e.target.closest('[data-key]');
+    if (!el || !usageWork) return;
+    var row = usageRow(el.getAttribute('data-key'));
+    if (!row) return;
+    if (el.hasAttribute('data-acct')) {
+      var ids = usageIds(row), id = el.getAttribute('data-acct'), at = ids.indexOf(id);
+      if (el.checked && at === -1) ids.push(id); else if (!el.checked && at !== -1) ids.splice(at, 1);
+      row.text = ids.join(',');
+      var sum = el.closest('details').querySelector('summary'), by = {};
+      ynabChoices().accounts.forEach(function(a) { by[a.id] = a.name; });
+      sum.innerHTML = ids.length ? escHtml(ids.map(function(i) { return by[i] || 'Unknown account'; }).join(', ')) : '<span class="um-none">None chosen</span>';
+    } else {
+      var f = el.getAttribute('data-f');
+      row[f] = f === 'text' && row.type === 'Tag' ? el.value.trim() : el.value;
+    }
+    var dirty = usageHasChanges();
+    document.getElementById('um-save').disabled = !dirty;
+    document.getElementById('um-cancel').textContent = dirty ? 'Discard' : 'Close';
+  }
+  m.addEventListener('change', onChange);
+  m.addEventListener('input', function(e) { if (e.target.matches('input[type=text]')) onChange(e); });
 }
 
 // ---- Runway: where its rows come from, import, and editing ----
@@ -13886,7 +14372,7 @@ function runwayConfigRows() {
   if (runwayDbRows()) return dbCfgConfigRows('Runway');
   return (state.catConfig || []).filter(function(c) { return /^runway/i.test(c.usedFor || ''); });
 }
-function ensureRunwayDb() { if (!dbCfg.status.Runway) loadDbConfig('Runway'); }
+function ensureRunwayDb() { if (!dbCfg.status.all) loadDbConfig(); }
 function runwayCloneRows() {
   return (dbCfg.rows.Runway || []).map(function(r) { var c = Object.assign({}, r); c._key = String(r.id); return c; });
 }
@@ -13909,22 +14395,10 @@ function runwayHasChanges() { var d = runwayDiff(); return !!(d.updates.length |
 
 // Runway rows still in the Google Sheet's Config tab, as database rows (sheet order kept).
 function runwaySheetRows() {
-  var text = state.configText || localStorage.getItem('cat-config-csv') || '';
-  if (!text) return [];
-  function num(v) { var m = String(v || '').replace(/[$,]/g, '').match(/-?\d+(?:\.\d+)?/); return m ? parseFloat(m[0]) : null; }
-  return parseCSV(text).filter(function(r) {
-    var metric = (r['Metric'] || r['Used For'] || '').trim(), grp = (r['Group'] || r['Section'] || '').trim();
-    return /^runway/i.test(metric) || grp.toLowerCase() === 'runway';
-  }).map(function(r) {
-    var pv = num(r['Past Value']);
-    return {
-      metric: (r['Metric'] || r['Used For'] || '').trim(), type: r['Type'] || '', text: r['Text'] || r['ID'] || '',
-      section: 'Runway', amount: r['Amount'] || r['Due Date'] || '', unit: r['Unit'] || '',
-      multiplier: num(r['Transaction Multiplier']), track_against: r['Track Against'] || '', date_range: r['Date Range'] || '',
-      assoc_category_ids: r['Associated Category ID(s)'] || r['Associated Category ID'] || '', past_value: pv === null ? 0 : pv,
-      notes: r['Notes'] || '', old_account_ids: r["Old Account ID's"] || '', old_category_ids: r["Old Category ID's"] || ''
-    };
-  });
+  return sheetConfigRows(function(r) {
+    var grp = (r['Group'] || r['Section'] || '').trim();
+    return /^runway/i.test(sheetMetric(r)) || grp.toLowerCase() === 'runway';
+  }, 'Runway');
 }
 
 function importRunwayToDb() {
@@ -13933,9 +14407,9 @@ function importRunwayToDb() {
   runwayImportMsg = 'Moving ' + rows.length + ' rows…';
   renderRunwayBanner();
   dbCfgRequest('PUT', null, { budgetId: dbCfgBudget(), section: 'Runway', rows: rows })
-    .then(function() { return loadDbConfig('Runway', true); })
+    .then(function() { return loadDbConfig(true); })
     .then(function() {
-      runwayImportMsg = dbCfg.status.Runway === 'ready' && runwayDbRows()
+      runwayImportMsg = dbCfg.status.all === 'ready' && runwayDbRows()
         ? 'Moved ' + rows.length + ' rows to the database. You can now delete the Runway rows from the sheet.' : 'Saved, but could not reload the rows.';
       renderRunway();
     })
@@ -13949,7 +14423,7 @@ function renderRunwayBanner() {
   var el = document.getElementById('runway-import');
   var bar = document.getElementById('runway-edit-bar');
   if (!el || !bar) return;
-  var onSheetOnly = !runwayDbRows() && dbCfg.status.Runway !== 'unavailable' && dbCfg.status.Runway !== 'loading' && runwaySheetRows().length > 0;
+  var onSheetOnly = !runwayDbRows() && dbCfg.status.all !== 'unavailable' && dbCfg.status.all !== 'loading' && runwaySheetRows().length > 0;
   var html = '';
   if (onSheetOnly) {
     var moving = /^Moving/.test(runwayImportMsg);
@@ -14181,7 +14655,7 @@ function runwaySaveEdits() {
   if (cnt) cnt.textContent = 'Saving…';
   var inserts = d.inserts.map(function(r) { var o = {}; RW_COLS.forEach(function(c) { o[c] = r[c]; }); return o; });
   dbCfgRequest('PATCH', null, { budgetId: dbCfgBudget(), section: 'Runway', updates: d.updates, inserts: inserts, deletes: d.deletes })
-    .then(function() { return loadDbConfig('Runway', true); })
+    .then(function() { return loadDbConfig(true); })
     .then(function() {
       runwaySaving = false;
       runwayWork = runwayCloneRows();
@@ -14567,7 +15041,7 @@ function renderRunway() {
     taglineEl.style.display = (data.goal || (runwayEditing() && data.goalId)) ? '' : 'none';
   }
 
-  if (!data.steps.length && dbCfg.status.Runway === 'loading') {
+  if (!data.steps.length && dbCfg.status.all === 'loading') {
     body.innerHTML = '<div id="runway-empty">Loading\u2026</div>';
     return;
   }
@@ -14776,6 +15250,7 @@ function showReport() {
   if (planWrap) planWrap.style.display = hasYnab ? 'flex' : 'none';
   if (hasYnab) populatePlanSelector();
   updateGoogleSheetButton();
+  if (!dbCfg.status.all) loadDbConfig();
   if (pendingDrivePicker) { var dpTok = pendingDrivePicker; pendingDrivePicker = null; showDrivePicker(dpTok); }
   if (state.loadedAt) {
     var d = new Date(state.loadedAt);
@@ -15572,6 +16047,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
   document.getElementById('oauth-btn').addEventListener('click', startOAuthFlow);
   wireRunwayEditing();
+  wireNwMilestones();
+  wireUsageModal();
 
   // Table click delegation: detail pane OR expand/collapse
   document.getElementById('main-table').addEventListener('click', function(e) {
