@@ -1595,9 +1595,8 @@ td.hbt-num:last-child { width: 13%; }
   /* Panel headers: tighten and allow wrapping */
   .panel-hdr { gap: 8px 12px; }
 
-  /* Current Month metric row: 2-up grid on mobile, hide algebra operators */
-  .home-metric-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: stretch; }
-  .home-metric-row > div[style*="flex:1"] { display: none; }
+  /* Current Month: no summary cards on mobile, just the detail tables below them */
+  .home-metric-row { display: none; }
   .home-metric-op { display: none; }
   .home-metric-card { padding: 10px 12px; min-width: 0; }
   .home-metric-label { font-size: 10px; }
@@ -2390,10 +2389,10 @@ td.hbt-num:last-child { width: 13%; }
     </div>
     <div id="home-panel-body">
     <div class="home-metric-row">
-      <div class="home-metric-card" style="cursor:default">
-        <div class="home-metric-label">Liquid Balances</div>
-        <div class="home-metric-sub" id="home-liquid-balances-sub"></div>
-        <div class="home-metric-value na" id="home-liquid-balances-value">&#8212;</div>
+      <div class="home-metric-card" id="home-pending-card" style="cursor:default">
+        <div class="home-metric-label">Purchase Loops</div>
+        <div class="home-metric-sub">Close out float</div>
+        <div class="home-metric-value na" id="home-pending-metric-value">&#8212;</div>
       </div>
       <div class="home-metric-op" style="color:#ccc">|</div>
       <div class="home-metric-card" id="home-actionable-card">
@@ -2417,33 +2416,10 @@ td.hbt-num:last-child { width: 13%; }
         </div>
       </div>
       <div class="home-metric-op">+</div>
-      <div class="home-metric-card" id="home-pending-card" style="cursor:default">
-        <div class="home-metric-label">Purchase Loops</div>
-        <div class="home-metric-sub">Close out float</div>
-        <div class="home-metric-value na" id="home-pending-metric-value">&#8212;</div>
-      </div>
-      <div class="home-metric-op">+</div>
       <div class="home-metric-card" style="cursor:default">
         <div class="home-metric-label">Strategic Trades</div>
         <div class="home-metric-sub">Go to market</div>
         <div class="home-metric-value na" id="home-trades-metric-value">&#8212;</div>
-      </div>
-      <div style="flex:1"></div>
-      <div class="home-metric-card" style="cursor:default">
-        <div class="home-metric-label">Liquidity Delta</div>
-        <div class="home-metric-sub">Deviation from operating setpoint</div>
-        <div style="display:flex;align-items:baseline;justify-content:flex-end;gap:6px">
-          <div class="home-metric-value na" id="home-liq-gap-value">&#8212;</div>
-          <div id="home-liq-gap-range" style="display:none;font-size:12px;color:#bbb;font-weight:400;white-space:nowrap"></div>
-        </div>
-      </div>
-      <div class="home-metric-card" style="cursor:default">
-        <div class="home-metric-label">Breakfix Exposure</div>
-        <div class="home-metric-sub">Readiness for large medical bill or equipment failure</div>
-        <div style="display:flex;align-items:baseline;justify-content:flex-end;gap:6px">
-          <div class="home-metric-value na" id="home-breakfix-value">&#8212;</div>
-          <div id="home-breakfix-range" style="display:none;font-size:12px;color:#bbb;font-weight:400;white-space:nowrap"></div>
-        </div>
       </div>
     </div>
     <div class="home-body">
@@ -12766,11 +12742,12 @@ function renderHome() {
     for (var rcn2 in d.recovPlanPivot) recovCatSet[rcn2] = true;
   }
 
-  // Actionable Opportunity = Recoverable Costs (Trend) + Purchase Loops + Strategic Trades.
-  // pendingTotal must match the Purchase Loops card's own total exactly (same label, same
-  // number), so it uses the identical section filter as renderPendingList rather than
-  // "everything that isn't Opportunities" -- a third, differently-sectioned pending category
-  // would otherwise get silently folded into this card's total without appearing in its list.
+  // Actionable Opportunity = Planned Net Liquid + Recoverable Costs (Trend) + Strategic Trades.
+  // Purchase Loops stands apart as its own card and is no longer part of this sum. pendingTotal
+  // must still match the Purchase Loops card's own total exactly (same label, same number), so it
+  // uses the identical section filter as renderPendingList rather than "everything that isn't
+  // Opportunities" -- a third, differently-sectioned pending category would otherwise be folded
+  // into that card's total without appearing in its list.
   var pendingTxns  = d.pendingTxns || [];
   var pendingTotal = 0;
   var tradesTotal  = 0;
@@ -12863,7 +12840,7 @@ function renderHome() {
     }
   }
 
-  var actionableAmt = (plannedNetLiq || 0) + (hasTrendData && trendTotal > 0 ? trendTotal : 0) + pendingTotal + tradesTotal;
+  var actionableAmt = (plannedNetLiq || 0) + (hasTrendData && trendTotal > 0 ? trendTotal : 0) + tradesTotal;
   var actionableEl  = document.getElementById('home-actionable-value');
   if (actionableEl) {
     if (actionableAmt > 0) {
@@ -12872,79 +12849,6 @@ function renderHome() {
     } else {
       actionableEl.innerHTML = '&#8212;';
       actionableEl.className = 'home-metric-value na';
-    }
-  }
-
-  // Liquid Balances -- the exact figure the Liquid Balances tab itself currently shows (see
-  // lwCurrentNetLiquid), reused here so the Home tab's card and the Liquidity Delta numerator
-  // below both always match it exactly.
-  var liquidBalancesNow = lwCurrentNetLiquid();
-
-  // Net Liquid Target + Liquidity Gap (from Config.csv)
-  var liqGapCfg = null;
-  for (var lgci = 0; lgci < state.catConfig.length; lgci++) {
-    if (state.catConfig[lgci].usedFor === 'Net Liquid') { liqGapCfg = state.catConfig[lgci]; break; }
-  }
-  var liqGapEl = document.getElementById('home-liq-gap-value');
-  var liqGapRangeEl = document.getElementById('home-liq-gap-range');
-  if (liqGapEl) {
-    if (liquidBalancesNow !== null && liqGapCfg && liqGapCfg.amount !== null) {
-      var liqGap = liquidBalancesNow - liqGapCfg.amount;
-      liqGapEl.textContent = (liqGap < 0 ? '-' : '+') + '$' +
-        Math.abs(liqGap).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-      liqGapEl.className = 'home-metric-value' + (liqGap < 0 ? ' delta-neg' : '');
-      if (liqGapRangeEl) {
-        var fmtLiqBal = '$' + Math.abs(liquidBalancesNow).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        var fmtLiqTgt = '$' + liqGapCfg.amount.toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 0});
-        liqGapRangeEl.textContent = '(' + fmtLiqBal + ' / ' + fmtLiqTgt + ')';
-        liqGapRangeEl.style.display = '';
-      }
-    } else {
-      liqGapEl.innerHTML = '&#8212;'; liqGapEl.className = 'home-metric-value na';
-      if (liqGapRangeEl) liqGapRangeEl.style.display = 'none';
-    }
-  }
-
-  // Breakfix Exposure (account balance vs target from Config.csv "Breakfix Coverage" row)
-  var breakfixCfg = null;
-  for (var bfci = 0; bfci < state.catConfig.length; bfci++) {
-    if (state.catConfig[bfci].usedFor === 'Breakfix Coverage') { breakfixCfg = state.catConfig[bfci]; break; }
-  }
-  var bfEl = document.getElementById('home-breakfix-value');
-  var bfRangeEl = document.getElementById('home-breakfix-range');
-  if (bfEl) {
-    var bfAcctId = breakfixCfg ? breakfixCfg.id : null;
-    var bfAcctInfo = bfAcctId && d.allAccountsInfo ? d.allAccountsInfo[bfAcctId] : null;
-    if (bfAcctInfo && breakfixCfg && breakfixCfg.amount !== null) {
-      var bfBal = bfAcctInfo.balance;
-      var bfGap = bfBal - breakfixCfg.amount;
-      bfEl.textContent = (bfGap < 0 ? '-' : '+') + '$' +
-        Math.abs(bfGap).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-      bfEl.className = 'home-metric-value' + (bfGap < 0 ? ' delta-neg' : '');
-      if (bfRangeEl) {
-        var fmtBfBal = '$' + Math.abs(bfBal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        var fmtBfTgt = '$' + breakfixCfg.amount.toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 0});
-        bfRangeEl.textContent = '(' + fmtBfBal + ' / ' + fmtBfTgt + ')';
-        bfRangeEl.style.display = '';
-      }
-    } else {
-      bfEl.innerHTML = '&#8212;'; bfEl.className = 'home-metric-value na';
-      if (bfRangeEl) bfRangeEl.style.display = 'none';
-    }
-  }
-
-  // Render Liquid Balances -- same figure as liquidBalancesNow above, computed once and
-  // reused for both this card and the Liquidity Delta numerator.
-  var liquidBalancesValEl = document.getElementById('home-liquid-balances-value');
-  var liquidBalancesSubEl = document.getElementById('home-liquid-balances-sub');
-  if (liquidBalancesSubEl) liquidBalancesSubEl.textContent = 'From the Liquid Balances tab';
-  if (liquidBalancesValEl) {
-    if (liquidBalancesNow !== null) {
-      liquidBalancesValEl.textContent = (liquidBalancesNow < 0 ? '-' : '') + '$' +
-        Math.abs(liquidBalancesNow).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-      liquidBalancesValEl.className = 'home-metric-value' + (liquidBalancesNow < 0 ? ' delta-neg' : '');
-    } else {
-      liquidBalancesValEl.innerHTML = '&#8212;'; liquidBalancesValEl.className = 'home-metric-value na';
     }
   }
 
