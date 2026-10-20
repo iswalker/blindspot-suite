@@ -150,7 +150,11 @@ body {
 .ec-seg { display: inline-flex; flex: none; border: 1px solid #ccc; border-radius: 5px; overflow: hidden; background: #fff; }
 .ec-seg button { border: none; border-radius: 0; margin: 0; background: #fff; cursor: pointer; color: #555; white-space: nowrap; }
 .ec-seg button + button { border-left: 1px solid #ccc; }
-.ec-seg button:hover { background: #f0f0f0; }
+/* Hover only where there is a real pointer: on touch screens :hover sticks to the last-tapped button
+   and leaves it looking pressed. :active still gives feedback during the tap. */
+@media (hover: hover) { .ec-seg button:hover { background: #f0f0f0; } }
+.ec-seg button:active { background: #e6e6e6; }
+.ec-seg button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 #expand-all-btn, #collapse-all-btn { padding: 6px 14px; font-size: 14px; }
 #gdrive-picker-modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; }
 #gdrive-picker-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.35); }
@@ -689,10 +693,11 @@ html.as-tab-active #tab-row { z-index: 30; }
   padding: 6px 14px; background: #fff; border: 1px solid #ccc; border-radius: 6px;
   font-size: 13px; cursor: pointer; color: #555; font-weight: 500; white-space: nowrap;
 }
-.as-btn:hover { background: #f0f0ec; }
+@media (hover: hover) { .as-btn:hover { background: #f0f0ec; } }
 .ec-seg .as-btn { border: none; border-radius: 0; }
 .ec-seg .as-btn + .as-btn { border-left: 1px solid #ccc; }
-.ec-seg .as-btn:hover { background: #f0f0f0; }
+@media (hover: hover) { .ec-seg .as-btn:hover { background: #f0f0f0; } }
+.ec-seg .as-btn:active { background: #e6e6e6; }
 #as-body { max-width: 760px; display: flex; flex-direction: column; gap: 5px; }
 .as-group { background: #fff; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
 .as-ghdr {
@@ -14504,6 +14509,11 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   // Expand / Collapse All buttons
+  // Release focus after tapping Expand/Collapse All so the button doesn't stay highlighted
+  document.addEventListener('click', function(e) {
+    var segBtn = e.target.closest && e.target.closest('.ec-seg button');
+    if (segBtn) segBtn.blur();
+  });
   document.getElementById('expand-all-btn').addEventListener('click', function() { expandAllGroups(true); });
   document.getElementById('collapse-all-btn').addEventListener('click', function() { expandAllGroups(false); });
 
