@@ -7979,7 +7979,9 @@ function renderNetWorthBody() {
 // accounts, largest absolute balance first. AS_GROUPS are the groups an account can be assigned to
 // (Other is a real group, listed last). Accounts nobody has assigned sit in "Unassigned", a
 // pseudo-group listed first whenever it has anything in it so new accounts stand out.
-var AS_GROUPS = ['Cash', 'Credit', 'Savings', 'Investments', 'Loans', 'Kids', 'Vehicles', 'Real Estate', 'Mortgage', 'Other'];
+var AS_GROUPS = ['Cash', 'Credit', 'Savings', 'Investments', 'Loans', 'Kids', 'Vehicles', 'Real Estate', 'Other'];
+// Groups that were merged into another: saved assignments to the old name show under the new one.
+var AS_GROUP_ALIASES = { 'Mortgage': 'Real Estate' };
 var AS_UNASSIGNED = 'Unassigned';
 var AS_DISPLAY_ORDER = [AS_UNASSIGNED].concat(AS_GROUPS);
 
@@ -7989,6 +7991,7 @@ function asFmtMoney(v) {
 }
 function asGroupOf(id) {
   var g = state.acctGroupMap[id];
+  g = AS_GROUP_ALIASES[g] || g;
   return AS_GROUPS.indexOf(g) !== -1 ? g : AS_UNASSIGNED;
 }
 // Open accounts, minus the ones unticked in the Settings account picker (unless `all`).

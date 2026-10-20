@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS account_group_defs (
   sort_order INTEGER NOT NULL
 );
 
-INSERT INTO account_group_defs (group_name, sort_order) VALUES ('Cash', 1), ('Credit', 2), ('Savings', 3), ('Investments', 4), ('Loans', 5), ('Kids', 6), ('Vehicles', 7), ('Real Estate', 8), ('Mortgage', 9), ('Other', 10) ON CONFLICT(group_name) DO UPDATE SET sort_order = excluded.sort_order;
+INSERT INTO account_group_defs (group_name, sort_order) VALUES ('Cash', 1), ('Credit', 2), ('Savings', 3), ('Investments', 4), ('Loans', 5), ('Kids', 6), ('Vehicles', 7), ('Real Estate', 8), ('Other', 9) ON CONFLICT(group_name) DO UPDATE SET sort_order = excluded.sort_order;
 
 CREATE TABLE IF NOT EXISTS account_groups (
   user_id TEXT NOT NULL REFERENCES users(user_id),
@@ -28,6 +28,10 @@ CREATE TABLE IF NOT EXISTS account_groups (
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
   PRIMARY KEY (user_id, budget_id, account_id)
 );
+
+UPDATE account_groups SET group_name = 'Real Estate' WHERE group_name = 'Mortgage';
+
+DELETE FROM account_group_defs WHERE group_name = 'Mortgage';
 
 CREATE TABLE IF NOT EXISTS config_rows (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
