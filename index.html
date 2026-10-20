@@ -668,6 +668,19 @@ td.cell-active {
 
 /* ---- Account Summary tab ---- */
 #acct-summary-panel { display: none; }
+/* Headline cards (same look as the Current Month cards, but kept on mobile). */
+.as-cards { display: flex; gap: 10px; max-width: 760px; margin-bottom: 8px; }
+.as-cards:empty { display: none; }
+.as-cards .home-metric-card { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
+.as-cards .home-metric-value { margin-top: auto; }
+.as-cards .home-metric-value.neg { color: #c62828; }
+@media (max-width: 820px) {
+  .as-cards { gap: 6px; }
+  .as-cards .home-metric-card { padding: 8px 8px; }
+  .as-cards .home-metric-label { font-size: 10px; letter-spacing: .03em; }
+  .as-cards .home-metric-sub { font-size: 10px; }
+  .as-cards .home-metric-value { font-size: 15px; }
+}
 /* The button row stays pinned to the top of the viewport while the account list scrolls under it, so
    Assign Group is reachable from anywhere in a long list. Opaque, page-coloured, and above the rows. */
 #acct-summary-panel .panel-hdr {
@@ -2466,6 +2479,7 @@ td.hbt-num:last-child { width: 13%; }
     <div id="runway-body"></div>
   </div>
   <div id="acct-summary-panel">
+    <div class="as-cards" id="as-cards"></div>
     <div class="panel-hdr">
       <button type="button" class="as-btn" id="as-expand-btn">Expand All</button>
       <button type="button" class="as-btn" id="as-collapse-btn">Collapse All</button>
@@ -7966,6 +7980,32 @@ function asOpenAccounts() {
   out.sort(function(a, b) { return Math.abs(b.balance) - Math.abs(a.balance); });
   return out;
 }
+// Whole-dollar figure for the headline cards.
+function asFmtWhole(v) {
+  var r = Math.round(v);
+  return (r < 0 ? '-' : '') + '$' + Math.abs(r).toLocaleString('en-US');
+}
+var AS_INVEST_HAIRCUT = 0.65;   // share of Investments counted as accessible cash
+function renderAsCards(accts) {
+  var el = document.getElementById('as-cards');
+  if (!el) return;
+  if (!accts) { el.innerHTML = ''; return; }
+  var t = {}, net = 0;
+  accts.forEach(function(a) { t[a.group] = (t[a.group] || 0) + a.balance; net += a.balance; });
+  var liquid = (t.Cash || 0) + (t.Credit || 0) + (t.Savings || 0);
+  var accessible = liquid + (t.Investments || 0) * AS_INVEST_HAIRCUT;
+  var cards = [
+    { label: 'Fully Liquid', sub: 'Cash + Credit + Savings', v: liquid },
+    { label: 'Accessible Cash', sub: 'Fully Liquid + 65% of Investments', v: accessible },
+    { label: 'Net Worth', sub: 'All open accounts', v: net }
+  ];
+  el.innerHTML = cards.map(function(c) {
+    return '<div class="home-metric-card" style="cursor:default">'
+      + '<div class="home-metric-label">' + escHtml(c.label) + '</div>'
+      + '<div class="home-metric-sub">' + escHtml(c.sub) + '</div>'
+      + '<div class="home-metric-value' + (c.v < 0 ? ' neg' : '') + '">' + asFmtWhole(c.v) + '</div></div>';
+  }).join('');
+}
 function asSaveMap() { localStorage.setItem('acct-summary-groups', JSON.stringify(state.acctGroupMap)); }
 
 // ---- Account group persistence (Turso, via /api/account-groups) ----
@@ -8042,6 +8082,7 @@ function renderAcctSummary() {
   var body = document.getElementById('as-body');
   if (!body) return;
   if (!state.data || !state.data.allAccountsInfo) {
+    renderAsCards(null);
     body.innerHTML = '<div class="as-empty">Account Summary requires a YNAB API connection. Use <strong>Connect to YNAB</strong> on the start screen.</div>';
     return;
   }
@@ -8049,6 +8090,7 @@ function renderAcctSummary() {
   var sy = document.getElementById('as-sync-status');
   if (sy) { sy.textContent = asSync.status; sy.classList.toggle('err', !!asSync.err); }
   var accts = asOpenAccounts(), by = {};
+  renderAsCards(accts);
   accts.forEach(function(a) { (by[a.group] = by[a.group] || []).push(a); });
   var html = '';
   if (accts.length && !Object.keys(state.acctGroupMap).length) {
