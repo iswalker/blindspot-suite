@@ -42,7 +42,7 @@ body {
 
 /* ---- Upload panel ---- */
 #upload-panel {
-  display: block;
+  display: none;   /* shown by showUpload() only, so it never flashes before the app decides */
   background: #fff;
   border: 1px solid #ddd;
   border-radius: 10px;
@@ -52,8 +52,6 @@ body {
   text-align: center;
 }
 #upload-logo { display: block; height: 40px; margin: 0 auto 16px; }
-#upload-panel h2 { font-size: 18px; margin: 0 0 8px; color: #333; }
-#upload-panel p  { font-size: 13px; color: #777; margin: 0 0 24px; }
 .file-row {
   display: flex;
   align-items: center;
@@ -73,29 +71,11 @@ body {
 .file-status.ok { color: #2e7d32; }
 #error-msg { color: #c62828; font-size: 13px; margin-top: 12px; min-height: 18px; }
 
-/* ---- YNAB API section ---- */
-.or-divider {
-  display: flex; align-items: center; gap: 10px;
-  margin: 20px 0; font-size: 11px; color: #bbb;
-  text-transform: uppercase; letter-spacing: .06em;
-}
-.or-divider::before, .or-divider::after { content: ''; flex: 1; height: 1px; background: #e8e8e8; }
-#api-key-input {
-  flex: 1; font-size: 12px; border: 1px solid #ccc; border-radius: 4px;
-  padding: 4px 8px; background: #fafafa;
-}
-#budget-sel { flex: 1; font-size: 12px; border: 1px solid #ccc; border-radius: 4px; padding: 4px 8px; }
-#api-connect-btn {
-  display: inline-block; margin-top: 8px;
-  padding: 9px 24px; background: #1a6b3c; color: #fff;
-  border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;
-}
-#api-connect-btn:disabled { background: #bbb; cursor: not-allowed; }
-#api-connect-btn:hover:not([disabled]) { background: #155c32; }
+/* ---- YNAB sign-in ---- */
 #api-progress { font-size: 12px; color: #777; margin-top: 8px; min-height: 18px; }
 #oauth-btn {
   display: inline-block; margin-top: 8px;
-  padding: 9px 24px; background: #0f5fa8; color: #fff;
+  padding: 11px 32px; background: #0f5fa8; color: #fff;
   border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;
 }
 #oauth-btn:disabled { background: #bbb; cursor: not-allowed; }
@@ -293,8 +273,6 @@ body {
 .csel-item.disabled { color: #bbb; cursor: default; }
 .csel-item.disabled:hover { background: transparent; }
 /* Per-dropdown sizing, carried over from the native selects' own rules */
-.csel[data-for="budget-sel"] { display: block; flex: 1; min-width: 0; }
-.csel[data-for="budget-sel"] .csel-btn { font-size: 12px; padding: 4px 10px; }
 .csel[data-for="plan-sel"] { max-width: 200px; }
 .csel[data-for="plan-sel"] .csel-btn { font-size: 12px; padding: 4px 10px; }
 .csel[data-for="leverage-speedo-month-sel"] .csel-btn { font-size: 12px; padding: 4px 10px; }
@@ -1874,35 +1852,13 @@ td.hbt-num:last-child { width: 13%; }
 
 <!-- Loading -->
 <div id="loading" style="display:none">
-  <div class="spinner"></div> Loading files&hellip;
+  <div class="spinner"></div> <span id="loading-msg">Loading&hellip;</span>
 </div>
 
-<!-- Upload panel -->
+<!-- Upload panel (splash): logo + sign-in only -->
 <div id="upload-panel">
   <img src="logo.png" alt="" id="upload-logo">
-  <h2>Blindspot Suite</h2>
-  <p>Load your Config first, then choose how to import data.</p>
-  <button class="config-picker-btn" id="upload-gsheet-btn" style="display:inline-flex">
-    <svg width="18" height="18" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-      <path fill="#0F9D58" d="M29 3H9C7.3 3 6 4.3 6 6v36c0 1.7 1.3 3 3 3h30c1.7 0 3-1.3 3-3V15L29 3z"/>
-      <path fill="#87CEAC" d="M29 3v12h12z"/>
-      <path fill="#fff" d="M14 24h20v2H14zm0 4h20v2H14zm0 4h14v2H14z"/>
-    </svg>
-    Connect Google Sheet
-  </button>
-  <span class="file-status" id="config-status">not loaded</span>
-  <div class="or-divider">sign in with YNAB</div>
-  <button id="oauth-btn">Sign in with YNAB</button>
-  <div class="or-divider">or connect via API key</div>
-  <div class="file-row">
-    <label for="api-key-input">API Key</label>
-    <input type="text" id="api-key-input" placeholder="Personal Access Token&hellip;" autocomplete="off">
-  </div>
-  <div class="file-row" id="budget-row" style="display:none">
-    <label for="budget-sel">Budget</label>
-    <select id="budget-sel"></select>
-  </div>
-  <button id="api-connect-btn">Connect to YNAB</button>
+  <button id="oauth-btn">Login to YNAB</button>
   <div id="api-progress"></div>
   <div id="error-msg"></div>
 </div>
@@ -1993,13 +1949,13 @@ td.hbt-num:last-child { width: 13%; }
           <div class="settings-section-label">Settings</div>
           <span id="cache-label" style="display:none"></span>
           <div class="settings-row">
-            <button class="config-picker-btn" id="config-gsheet-btn" style="width:100%;justify-content:center;display:none">
+            <button class="config-picker-btn" id="config-gsheet-btn" style="width:100%;justify-content:center">
               <svg width="16" height="16" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
                 <path fill="#0F9D58" d="M29 3H9C7.3 3 6 4.3 6 6v36c0 1.7 1.3 3 3 3h30c1.7 0 3-1.3 3-3V15L29 3z"/>
                 <path fill="#87CEAC" d="M29 3v12h12z"/>
                 <path fill="#fff" d="M14 24h20v2H14zm0 4h20v2H14zm0 4h14v2H14z"/>
               </svg>
-              Reconnect Google Sheet
+              <span id="config-gsheet-label">Connect Google Sheet</span>
             </button>
           </div>
           <div class="settings-divider"></div>
@@ -3496,11 +3452,12 @@ function computePeriodProgress(dateRange, now) {
 // YNAB API
 // ============================================================
 var YNAB_BASE      = 'https://api.youneedabudget.com/v1';
-var ynabPendingKey = null;
 
 function setProgress(msg) {
   var el = document.getElementById('api-progress');
   if (el) el.textContent = msg || '';
+  var lm = document.getElementById('loading-msg');
+  if (lm && msg) lm.textContent = msg;
 }
 
 function ynabGet(path, apiKey) {
@@ -4342,6 +4299,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
   });
 }
 
+var pendingDrivePicker = null;   // Google token to open the sheet picker with once the report is showing
 var planSelectorPopulated = false;
 
 function populatePlanSelector() {
@@ -4376,32 +4334,31 @@ function populatePlanSelector() {
   }).catch(function() { /* silently ignore — plan selector is non-critical */ });
 }
 
-function connectYnab() {
-  var apiKey = (document.getElementById('api-key-input').value || '').trim();
-  if (!apiKey) { setProgress('Please enter your YNAB Personal Access Token.'); return; }
-  var btn = document.getElementById('api-connect-btn');
-  btn.disabled = true;
-  ynabPendingKey = null;
-  document.getElementById('budget-row').style.display = 'none';
-  setProgress('Connecting…');
+// After a fresh YNAB sign-in: go straight into the app with the budget YNAB handed us -- the default
+// budget if it names one, the only budget if there is one, otherwise the most recently changed.
+// (Switching later is the Plan selector in Settings.) Only a failure brings back the sign-in screen.
+function autoConnectYnab() {
+  var apiKey = localStorage.getItem('ynab-api-key');
+  if (!apiKey) { showUpload(); return; }
+  document.getElementById('upload-panel').style.display = 'none';
+  document.getElementById('loading').style.display = 'flex';
+  setProgress('Loading your budget\u2026');
   ynabGet('/budgets', apiKey)
   .then(function(data) {
     var budgets = (data.budgets || []).filter(function(b) { return !b.deleted; });
-    if (!budgets.length) { setProgress('No budgets found.'); btn.disabled = false; return; }
-    if (budgets.length === 1) { loadYnabBudget(apiKey, budgets[0].id); return; }
-    var sel = document.getElementById('budget-sel');
-    sel.innerHTML = budgets.map(function(b) {
-      return '<option value="' + escAttr(b.id) + '">' + escAttr(b.name) + '</option>';
-    }).join('');
-    document.getElementById('budget-row').style.display = 'flex';
-    ynabPendingKey = apiKey;
-    btn.disabled = false;
-    btn.textContent = 'Load Budget';
-    setProgress('Select a budget above, then click Load Budget.');
+    if (!budgets.length) throw new Error('No budgets found on this YNAB account.');
+    var pick = null;
+    if (data.default_budget && data.default_budget.id) {
+      pick = budgets.filter(function(b) { return b.id === data.default_budget.id; })[0] || null;
+    }
+    if (!pick) {
+      pick = budgets.slice().sort(function(a, b) { return (b.last_modified_on || '').localeCompare(a.last_modified_on || ''); })[0];
+    }
+    loadYnabBudget(apiKey, pick.id);
   })
   .catch(function(e) {
-    setProgress('Error: ' + (e && e.message || 'Connection failed. Check your API key.'));
-    btn.disabled = false;
+    showUpload();
+    setProgress('Could not load your budget: ' + (e && e.message || 'connection failed') + '. Try logging in again.');
   });
 }
 
@@ -4433,11 +4390,14 @@ function isGoogleSheetStale() {
   return (Date.now() - ts) > 3600000;
 }
 
-// Shows/hides the settings panel's Reconnect Google Sheet button and re-evaluates the gear's
+// Labels the settings panel's Google Sheet button (Connect / Change / Reconnect) and re-evaluates the gear's
 // enabled state (which depends on it). Called wherever the token can go stale or be removed.
 function updateGoogleSheetButton() {
-  var gsheetBtn = document.getElementById('config-gsheet-btn');
-  if (gsheetBtn) gsheetBtn.style.display = isGoogleSheetStale() ? '' : 'none';
+  // The sheet connection is managed here now (the sign-in screen no longer offers it), so the button
+  // is always available: "Connect" until a sheet is linked, "Reconnect" once its token has gone stale.
+  var lbl = document.getElementById('config-gsheet-label');
+  if (lbl) lbl.textContent = extractSheetId(localStorage.getItem('google-sheet-url') || '')
+    ? (isGoogleSheetStale() ? 'Reconnect Google Sheet' : 'Change Google Sheet') : 'Connect Google Sheet';
   updateSettingsGearAvailability(state.activeTab || 'home');
 }
 
@@ -4547,15 +4507,7 @@ function showDrivePicker(token) {
           .then(function(cfg) {
             var msg = '”' + f.name + '” loaded (' + cfg.length + ' rules)';
             if (statusEl) { statusEl.textContent = msg; statusEl.className = 'file-status ok'; }
-            if (state.data) {
-              renderHome();
-            } else {
-              showUpload();
-              // showUpload() resets config-status and clears state.configText — restore both
-              state.configText = localStorage.getItem('cat-config-csv') || '';
-              var cfgStatus = document.getElementById('config-status');
-              if (cfgStatus) { cfgStatus.textContent = f.name + ' (' + cfg.length + ' rules)'; cfgStatus.className = 'file-status ok'; }
-            }
+            if (state.data) renderHome();
           })
           .catch(function(e) {
             if (statusEl) { statusEl.textContent = 'Load failed: ' + (e && e.message || e); statusEl.className = 'file-status'; }
@@ -4689,9 +4641,9 @@ function refreshYnab() {
 }
 
 function loadYnabBudget(apiKey, budgetId) {
-  var btn = document.getElementById('api-connect-btn');
-  btn.disabled = true;
-  ynabPendingKey = null;
+  document.getElementById('upload-panel').style.display = 'none';
+  document.getElementById('loading').style.display = 'flex';
+  setProgress('Loading your budget\u2026');
   localStorage.setItem('ynab-api-key',   apiKey);
   localStorage.setItem('ynab-budget-id', budgetId);
   ensureConfigLoaded()
@@ -4708,8 +4660,8 @@ function loadYnabBudget(apiKey, budgetId) {
     showReport();
   })
   .catch(function(e) {
+    showUpload();
     setProgress('Error loading budget: ' + (e && e.message || 'Unknown error'));
-    btn.disabled = false;
   });
 }
 
@@ -7208,16 +7160,15 @@ function updateAcctFilterBtn() {
 // LIQUID WORTH TAB
 // ============================================================
 
-// Greys out and disables the Settings gear when the active tab has no tab-specific settings
-// block -- opening the panel there would show nothing but the global top section, which isn't
-// "settings for the current page". Also closes a panel left open from a previous tab.
-// Exception: while the Reconnect Google Sheet button is showing (isGoogleSheetStale), the gear
-// stays enabled on every tab, since that button lives in the panel's global top section and is
-// the only way to pull a fresh config.
+// Greys out and disables the Settings gear when a tab would have nothing to show in it. Today that
+// never happens: the global top section always holds the Google Sheet button. Closing a panel left
+// open from a previous tab is the other job here.
 function updateSettingsGearAvailability(tab) {
   var gear = document.getElementById('settings-gear-btn');
   if (!gear) return;
-  var hasSettings = !!document.querySelector('.settings-tab-block[data-tab="' + tab + '"]') || isGoogleSheetStale();
+  // Always true now that the Google Sheet button lives in the panel's global section; kept as a
+  // function so a tab with nothing to show could still grey the gear out.
+  var hasSettings = true;
   gear.disabled = !hasSettings;
   if (!hasSettings) {
     gear.classList.remove('active');
@@ -14255,6 +14206,7 @@ function showReport() {
   if (planWrap) planWrap.style.display = hasYnab ? 'flex' : 'none';
   if (hasYnab) populatePlanSelector();
   updateGoogleSheetButton();
+  if (pendingDrivePicker) { var dpTok = pendingDrivePicker; pendingDrivePicker = null; showDrivePicker(dpTok); }
   if (state.loadedAt) {
     var d = new Date(state.loadedAt);
     document.getElementById('cache-label').textContent =
@@ -14266,16 +14218,8 @@ function showUpload() {
   document.getElementById('report').style.display = 'none';
   document.getElementById('upload-panel').style.display = 'block';
   state.configText = null;
-  document.getElementById('config-status').textContent = 'not loaded';
-  document.getElementById('config-status').className   = 'file-status';
   document.getElementById('error-msg').textContent = '';
-  ynabPendingKey = null;
-  document.getElementById('api-connect-btn').textContent = 'Connect to YNAB';
-  document.getElementById('api-connect-btn').disabled = false;
-  document.getElementById('budget-row').style.display = 'none';
   setProgress('');
-  var savedKey = localStorage.getItem('ynab-api-key');
-  if (savedKey) document.getElementById('api-key-input').value = savedKey;
 }
 
 // ============================================================
@@ -14286,21 +14230,16 @@ function init() {
   document.getElementById('loading').style.display = 'flex';
   document.getElementById('upload-panel').style.display = 'none';
 
-  // Google OAuth just completed — fetch the sheet config then show upload so the user can sign into YNAB
-  if (oauthSource === 'google') {
-    var gToken = localStorage.getItem('google-access-token');
-    showUpload();
-    showDrivePicker(gToken);
-    return;
-  }
+  // Google OAuth just completed (started from Settings): carry on into the app as usual, then open
+  // the sheet picker once it is showing
+  if (oauthSource === 'google') pendingDrivePicker = localStorage.getItem('google-access-token');
 
   // 1. Try IndexedDB cache (stores processed data object, not raw CSV)
   dbGet('processed').then(function(cached) {
     // A fresh YNAB sign-in clears the saved budget. Showing stale cached data then would leave
     // refreshYnab() with nothing to refresh from, forever -- so go pick the budget first.
     if (cached && cached.data && localStorage.getItem('ynab-api-key') && !localStorage.getItem('ynab-budget-id')) {
-      showUpload();
-      connectYnab();
+      autoConnectYnab();
       return;
     }
     if (cached && cached.data) {
@@ -14329,10 +14268,9 @@ function init() {
       return;
     }
 
-    // 2.5. OAuth token received but budget not yet chosen — show upload and auto-trigger budget fetch
+    // 2.5. OAuth token received but no budget yet — pick one and load it
     if (savedKey && !savedBudget) {
-      showUpload();
-      connectYnab();
+      autoConnectYnab();
       return;
     }
 
@@ -14538,11 +14476,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Settings panel Config connect
   document.getElementById('config-gsheet-btn').addEventListener('click', function(e) {
-    e.stopPropagation();
-    openGoogleSheetsFlow();
-  });
-  // Upload panel Config connect
-  document.getElementById('upload-gsheet-btn').addEventListener('click', function(e) {
     e.stopPropagation();
     openGoogleSheetsFlow();
   });
@@ -15064,16 +14997,6 @@ document.addEventListener('DOMContentLoaded', function() {
       loadPlaidConnection(opt.dataset.accessToken, opt.dataset.accountId, opt.textContent);
     } else {
       runReconcile();
-    }
-  });
-
-  // YNAB connect / load-budget button
-  document.getElementById('api-connect-btn').addEventListener('click', function() {
-    if (ynabPendingKey) {
-      var sel = document.getElementById('budget-sel');
-      loadYnabBudget(ynabPendingKey, sel.value);
-    } else {
-      connectYnab();
     }
   });
 
