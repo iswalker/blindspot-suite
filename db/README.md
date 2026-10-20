@@ -5,7 +5,7 @@ group assignments** are wired up; the rest of the schema is in place so the "YNA
 be migrated later without reshaping tables.
 
 Everything is optional at runtime: with no database configured the Account Summary tab keeps working from
-the browser's localStorage and shows "Saved on this device only".
+the browser's localStorage and stays silent.
 
 ## Setup
 

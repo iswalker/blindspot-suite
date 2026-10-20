@@ -718,7 +718,8 @@ td.cell-active {
 .as-row:first-child { border-top: none; }
 .as-aname { font-size: 15px; color: #333; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .as-abal { font-size: 15px; font-weight: 600; color: #444; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.as-sync { font-size: 12px; color: #888; padding: 2px 14px 6px; min-height: 16px; }
+.as-sync { font-size: 12px; color: #888; padding: 2px 14px 6px; }
+.as-sync:empty { display: none; }
 .as-sync.err { color: #a04a00; }
 .as-hint { font-size: 13px; color: #8a6d00; background: #fff8e1; border: 1px solid #f1e0a3; border-radius: 8px; padding: 10px 14px; }
 .as-empty { font-size: 14px; color: #888; padding: 12px 4px; }
@@ -7984,8 +7985,8 @@ function asSyncRequest(method, budgetId, body) {
   });
 }
 function asSyncFail(e) {
-  if (e && e.code === 'not_configured') asSetSyncStatus('Saved on this device only (database not connected)');
-  else asSetSyncStatus('Saved on this device; database sync failed, will retry', true);
+  if (e && e.code === 'not_configured') asSetSyncStatus('');       // no database on this deployment: localStorage only, nothing to report
+  else asSetSyncStatus('Couldn\u2019t sync with the database; changes are kept on this device and will retry', true);
 }
 // Push a {accountId: group} map (use 'Other' to clear). Failures stay queued in localStorage.
 function asSyncPush(changes) {
@@ -7996,23 +7997,22 @@ function asSyncPush(changes) {
   if (!budgetId || !Object.keys(pending).length) return Promise.resolve();
   var list = Object.keys(pending).map(function(id) { return { accountId: id, group: pending[id] }; });
   return asSyncRequest('PUT', budgetId, { budgetId: budgetId, assignments: list })
-    .then(function() { asPendingSet({}); asSetSyncStatus('Saved to database'); })
+    .then(function() { asPendingSet({}); asSetSyncStatus(''); })
     .catch(asSyncFail);
 }
-// Once per budget per page load: adopt what the database has; if it has nothing yet, seed it from this
+// Silent unless something fails (see asSyncFail). Once per budget per page load: adopt what the database has; if it has nothing yet, seed it from this
 // browser's saved mapping so an existing setup is not lost.
 function asSyncLoad() {
   var budgetId = localStorage.getItem('ynab-budget-id');
   if (!budgetId || !localStorage.getItem('ynab-api-key') || asSync.loadedFor === budgetId) return;
   asSync.loadedFor = budgetId;
-  asSetSyncStatus('Syncing\u2026');
   asSyncRequest('GET', budgetId).then(function(res) {
     var remote = res.groups || {}, pending = asPendingGet();
     if (!Object.keys(remote).length && !Object.keys(pending).length) {
       var seed = {};
       Object.keys(state.acctGroupMap).forEach(function(id) { seed[id] = state.acctGroupMap[id]; });
       if (Object.keys(seed).length) return asSyncPush(seed);
-      asSetSyncStatus('Saved to database');
+      asSetSyncStatus('');
       return;
     }
     var merged = {};
@@ -8022,7 +8022,7 @@ function asSyncLoad() {
     asSaveMap();
     if (state.activeTab === 'acct-summary') renderAcctSummary();
     if (Object.keys(pending).length) return asSyncPush({});
-    asSetSyncStatus('Saved to database');
+    asSetSyncStatus('');
   }).catch(function(e) { asSync.loadedFor = null; asSyncFail(e); });
 }
 function asSaveOpen() { localStorage.setItem('acct-summary-open', JSON.stringify(state.acctSummaryOpen)); }
