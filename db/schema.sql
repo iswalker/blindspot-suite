@@ -1,6 +1,8 @@
 -- Generated from lib/schema.js by db/export-schema.js -- edit that file, not this one.
 -- Applying it by hand is optional (the API creates these tables on first use):
 --   turso db shell <your-db> < db/schema.sql
+-- (ALTER TABLE migrations for databases made by an older version are left out: the CREATE TABLEs below
+--  already include those columns.)
 
 CREATE TABLE IF NOT EXISTS schema_migrations (
   version INTEGER PRIMARY KEY,
@@ -46,12 +48,17 @@ CREATE TABLE IF NOT EXISTS config_rows (
   unit TEXT NOT NULL DEFAULT '',
   multiplier REAL,
   date_range TEXT NOT NULL DEFAULT '',
-  assoc_category_ids TEXT NOT NULL DEFAULT '[]',
+  assoc_category_ids TEXT NOT NULL DEFAULT '',
   track_against TEXT NOT NULL DEFAULT '',
   past_value REAL NOT NULL DEFAULT 0,
+  notes TEXT NOT NULL DEFAULT '',
+  old_account_ids TEXT NOT NULL DEFAULT '',
+  old_category_ids TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE INDEX IF NOT EXISTS idx_config_rows_section ON config_rows (user_id, budget_id, section, position);
 
 CREATE INDEX IF NOT EXISTS idx_config_rows_scope ON config_rows (user_id, budget_id, position);
 
