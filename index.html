@@ -1530,7 +1530,7 @@ html.rw-tab-active #tab-row { z-index: 30; }
 .rw-p + .rw-p { margin-top: .6em; }
 #runway-body.rw-editing .runway-step { position: relative; padding-right: 66px; }
 #runway-body.rw-editing .runway-phase { position: relative; }
-#runway-body.rw-editing .runway-circle { cursor: pointer; }
+#runway-body.rw-editing .runway-circle, #runway-body.rw-live .runway-circle[data-step] { cursor: pointer; }
 .rw-ctl { position: absolute; top: 0; right: 0; display: flex; gap: 4px; z-index: 1; }
 .rw-ctl button {
   width: 28px; height: 28px; padding: 0; line-height: 1; font-size: 16px; color: #555; background: #fff; border: 1px solid #ccc;
@@ -14637,6 +14637,33 @@ function rwSetCurrentPhase(titleKey) {
   renderRunway();
 }
 
+// Outside edit mode a step's circle still cycles empty -> in progress -> complete and saves at once
+// (only the "Runway Step" row changes). Shown straight away; a failed save puts the saved state back.
+var runwayQuickChain = Promise.resolve();
+function runwayQuickCycle(n) {
+  var saved = runwayWork;
+  runwayWork = runwayCloneRows();
+  rwCycleStep(n);
+  var d = runwayDiff();
+  runwayWork = saved;
+  if (!d.updates.length && !d.inserts.length) return;
+  d.updates.forEach(function(u) {                    // optimistic: show the new state before the server answers
+    var row = (dbCfg.rows.Runway || []).filter(function(r) { return r.id === u.id; })[0];
+    if (row) RW_COLS.forEach(function(c) { if (u[c] !== undefined) row[c] = u[c]; });
+  });
+  dbCfgStore(dbCfg.all);
+  renderRunway();
+  var inserts = d.inserts.map(function(r) { var o = {}; RW_COLS.forEach(function(c) { o[c] = r[c]; }); return o; });
+  runwayQuickChain = runwayQuickChain
+    .then(function() { return dbCfgRequest('PATCH', null, { budgetId: dbCfgBudget(), section: 'Runway', updates: d.updates, inserts: inserts }); })
+    .then(function() { return loadDbConfig(true); })
+    .catch(function(e) {
+      runwayImportMsg = 'Could not save the step status: ' + (e && e.message || 'failed');
+      return loadDbConfig(true);                     // back to what is actually saved
+    })
+    .then(function() { renderRunway(); });
+}
+
 function runwaySetEdit(on) {
   if (on && !runwayDbRows()) {
     runwayImportMsg = 'Move Runway to the database first (button above), then you can edit it.';
@@ -14724,7 +14751,11 @@ function wireRunwayEditing() {
     if (e.target.closest('#runway-edit-save')) { runwaySaveEdits(); return; }
     if (e.target.closest('#runway-edit-discard')) { runwayDiscardEdits(); return; }
     if (e.target.closest('#runway-edit-done')) { runwaySetEdit(false); return; }
-    if (!runwayEditing()) return;
+    if (!runwayEditing()) {
+      var live = e.target.closest('.runway-circle[data-step]');
+      if (live && runwayDbRows()) runwayQuickCycle(parseInt(live.getAttribute('data-step'), 10));
+      return;
+    }
     var act = e.target.closest('[data-act]');
     if (act) {
       var key = act.getAttribute('data-key'), a = act.getAttribute('data-act');
@@ -15041,6 +15072,7 @@ function renderRunway() {
   if (!body) return;
   var data = getRunwayData();
   body.classList.toggle('rw-editing', runwayEditing());
+  body.classList.toggle('rw-live', !runwayEditing() && !!runwayDbRows());
   populateRunwayFactorsFilter(data.allTags);
 
   ensureRunwayDb();
@@ -15077,7 +15109,7 @@ function renderRunway() {
         if (data.doneSteps[s.num]) stepState = 'done';
         else if (data.currentSteps[s.num]) stepState = 'current';
         var icon = stepState === 'done' ? '&#10003;' : stepState === 'current' ? '&#10132;' : '';
-        circleHtml = '<div class="runway-circle rw-' + stepState + '" data-step="' + s.num + '"' + (runwayEditing() ? ' title="Click to change status"' : '') + '>' + icon + '</div>';
+        circleHtml = '<div class="runway-circle rw-' + stepState + '" data-step="' + s.num + '"' + (runwayEditing() || runwayDbRows() ? ' title="Click to change status"' : '') + '>' + icon + '</div>';
       }
       var editing = runwayEditing() && s.titleId;
       var amtPill = editing ? ' <span class="runway-amt-pill">' + rwTxt(s.amount, s.titleId, 'amount', 'amount') + '</span>'
