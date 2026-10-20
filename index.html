@@ -1476,7 +1476,9 @@ select.um-in { width: 100%; }
 .um-x { font-size: 20px; line-height: 1; background: none; border: none; color: #999; cursor: pointer; padding: 0 4px; }
 .um-x:hover { color: #c62828; }
 .um-acct { border: 1px solid #ccc; border-radius: 5px; background: #fff; }
-.um-acct summary { padding: 7px 10px; font-size: 15px; cursor: pointer; list-style-position: inside; }
+.um-acct summary { padding: 7px 10px; font-size: 15px; cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.um-acct summary::-webkit-details-marker { margin-right: 2px; }
+.um-chip { background: #eef2fb; border: 1px solid #c9d6f2; color: #34495e; border-radius: 12px; padding: 2px 10px; font-size: 14px; }
 .um-none { color: #999; }
 .um-acct-list { max-height: 220px; overflow-y: auto; border-top: 1px solid #eee; padding: 6px 4px; }
 .um-acct-row { display: flex; align-items: center; gap: 8px; padding: 5px 8px; font-size: 15px; cursor: pointer; }
@@ -14108,14 +14110,16 @@ function wireNwMilestones() {
 // their own Group as the section, plus a marker row once they have been moved to the database. ----
 var USAGE_TYPES = { 'Tag': 1, 'Account': 1, 'Category': 1, 'Category Group': 1 };
 var USAGE_SKIP = /^(leverage|expiration|card transactions|milestone)\b/i;   // belong to other areas / tabs
-function isUsageRow(r) { return !!USAGE_TYPES[r.type] && r.section !== 'Runway' && !USAGE_SKIP.test(r.metric || ''); }
+var USAGE_TARGETS = /^birth year$/i;     // the one Target the popover manages so far
+function isUsageRow(r) { return (!!USAGE_TYPES[r.type] || (r.type === 'Target' && USAGE_TARGETS.test(r.metric || ''))) && r.section !== 'Runway' && !USAGE_SKIP.test(r.metric || ''); }
 function usageMigrated() { return dbMarker('Usage Migrated'); }
 function usageDbRows() { return usageMigrated() ? dbCfg.all.filter(isUsageRow) : []; }
 function usageSig() { return JSON.stringify(usageDbRows().map(function(r) { return [r.id, r.metric, r.type, r.text, r.section, r.amount, r.assoc_category_ids]; })); }
 function sheetUsageRows() {
   return sheetConfigRows(function(r) {
     var m = sheetMetric(r), sec = (r['Group'] || r['Section'] || '').trim();
-    return !!USAGE_TYPES[(r['Type'] || '').trim()] && sec !== 'Runway' && !USAGE_SKIP.test(m) && m;
+    var ty = (r['Type'] || '').trim();
+    return (!!USAGE_TYPES[ty] || (ty === 'Target' && USAGE_TARGETS.test(m))) && sec !== 'Runway' && !USAGE_SKIP.test(m) && m;
   });
 }
 // The database's copy of these keys replaces the sheet's, key by key (and supplies them outright once
@@ -14134,7 +14138,7 @@ function applyConfigOverlays() { applyUsageOverlay(); }
 var usageWork = null;            // working copy of the usage rows while the popover is open
 var usageNewKey = 0;
 var usageMsg = '';
-var USAGE_ORDER = [['Tag', 'Tags'], ['Category Group', 'Category groups'], ['Category', 'Categories'], ['Account', 'Accounts']];
+var USAGE_ORDER = [['Tag', 'Tags'], ['Category Group', 'Category groups'], ['Category', 'Categories'], ['Account', 'Accounts'], ['Target', 'Targets']];
 
 function ynabChoices() {
   var d = state.data || {}, accts = [], cats = [], groups = {};
@@ -14218,13 +14222,15 @@ function renderUsageModal() {
           h += '<select class="um-in" data-key="' + escAttr(r._key) + '" data-f="text">' + umGroupOptions(ch, r.text) + '</select>';
         } else if (r.type === 'Category') {
           h += '<select class="um-in" data-key="' + escAttr(r._key) + '" data-f="text">' + umCategoryOptions(ch, r.text) + '</select>';
+        } else if (r.type === 'Target') {
+          h += '<input type="text" class="um-in um-amt" inputmode="numeric" maxlength="4" data-key="' + escAttr(r._key) + '" data-f="amount" value="' + escAttr(r.amount) + '" placeholder="e.g. 1993" aria-label="Birth year">';
         } else {
           h += umAccountPicker(ch, r);
           if (String(r.assoc_category_ids || '').trim() !== '') {
             h += '<div class="um-sub"><span class="um-sublbl">Linked category</span><select class="um-in" data-key="' + escAttr(r._key) + '" data-f="assoc_category_ids">' + umCategoryOptions(ch, String(r.assoc_category_ids).split(',')[0].trim()) + '</select></div>';
           }
         }
-        if (String(r.amount || '').trim() !== '') {
+        if (r.type !== 'Target' && String(r.amount || '').trim() !== '') {
           h += '<div class="um-sub"><span class="um-sublbl">' + (r.type === 'Category' ? 'Days' : 'Amount') + '</span><input type="text" class="um-in um-amt" data-key="' + escAttr(r._key) + '" data-f="amount" value="' + escAttr(r.amount) + '"></div>';
         }
         h += '</div></div>';
@@ -14257,11 +14263,14 @@ function umCategoryOptions(ch, cur) {
   if (!seen) h = '<option value="' + escAttr(cur) + '" selected>' + (cur ? 'Unknown category (removed from YNAB?)' : 'Choose a category…') + '</option>' + h;
   return h;
 }
+function umAcctSummary(ids, byId) {   // one chip per chosen account (several are normal)
+  if (!ids.length) return '<span class="um-none">None chosen</span>';
+  return ids.map(function(id) { return '<span class="um-chip">' + escHtml(byId[id] ? byId[id].name : 'Unknown account') + '</span>'; }).join('');
+}
 function umAccountPicker(ch, r) {
   var sel = usageIds(r), byId = {};
   ch.accounts.forEach(function(a) { byId[a.id] = a; });
-  var names = sel.map(function(id) { return byId[id] ? byId[id].name : 'Unknown account'; });
-  var h = '<details class="um-acct"><summary>' + (names.length ? escHtml(names.join(', ')) : '<span class="um-none">None chosen</span>') + '</summary><div class="um-acct-list">';
+  var h = '<details class="um-acct"><summary>' + umAcctSummary(sel, byId) + '</summary><div class="um-acct-list">';
   ch.accounts.forEach(function(a) {
     h += '<label class="um-acct-row"><input type="checkbox" data-key="' + escAttr(r._key) + '" data-acct="' + escAttr(a.id) + '"' + (sel.indexOf(a.id) !== -1 ? ' checked' : '') + '> '
       + escHtml(a.name) + (a.closed ? ' <span class="um-closed">(closed)</span>' : '') + '</label>';
@@ -14272,6 +14281,8 @@ function umAccountPicker(ch, r) {
 
 function usageSaveEdits() {
   var d = usageDiff();
+  var badYear = usageWork.some(function(r) { return r.type === 'Target' && !(/^\d{4}$/.test(String(r.amount).trim()) && +r.amount >= 1900 && +r.amount <= new Date().getFullYear()); });
+  if (badYear) { usageMsg = 'Enter the birth year as four digits, e.g. 1993.'; document.getElementById('um-msg').textContent = usageMsg; return; }
   var sv = document.getElementById('um-save');
   if (sv) sv.disabled = true;
   usageMsg = 'Saving…'; document.getElementById('um-msg').textContent = usageMsg;
@@ -14335,9 +14346,9 @@ function wireUsageModal() {
       var ids = usageIds(row), id = el.getAttribute('data-acct'), at = ids.indexOf(id);
       if (el.checked && at === -1) ids.push(id); else if (!el.checked && at !== -1) ids.splice(at, 1);
       row.text = ids.join(',');
-      var sum = el.closest('details').querySelector('summary'), by = {};
-      ynabChoices().accounts.forEach(function(a) { by[a.id] = a.name; });
-      sum.innerHTML = ids.length ? escHtml(ids.map(function(i) { return by[i] || 'Unknown account'; }).join(', ')) : '<span class="um-none">None chosen</span>';
+      var sum = el.closest('details').querySelector('summary');
+      var byObj = {}; ynabChoices().accounts.forEach(function(a) { byObj[a.id] = a; });
+      sum.innerHTML = umAcctSummary(ids, byObj);
     } else {
       var f = el.getAttribute('data-f');
       row[f] = f === 'text' && row.type === 'Tag' ? el.value.trim() : el.value;
