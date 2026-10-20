@@ -683,8 +683,11 @@ td.cell-active {
 }
 /* The button row stays pinned to the top of the viewport while the account list scrolls under it, so
    Assign Group is reachable from anywhere in a long list. Opaque, page-coloured, and above the rows. */
+/* Keep the header row (Settings panel, tab dropdown) above the pinned button row: its controls bar is a
+   transformed element, so its dropdowns would otherwise be stacked beneath the later sticky row. */
+html.as-tab-active #tab-row { z-index: 30; }
 #acct-summary-panel .panel-hdr {
-  position: sticky; top: 0; z-index: 20; margin-bottom: 0; padding: 8px 0;
+  position: sticky; top: 0; z-index: 2; margin-bottom: 0; padding: 8px 0;
   background: #F6F4EE;
 }
 .as-btn {
@@ -796,14 +799,14 @@ select, input { font-family: inherit; }
 
 /* ---- LW / NW / Lessons controls (shared) ---- */
 #lw-range-wrap, #nw-range-wrap, #lessons-range-wrap, #leverage-range-wrap, #acct-history-range-wrap { display: flex; align-items: center; gap: 8px; }
-#lw-acct-filter-wrap, #nw-acct-filter-wrap { position: relative; }
-#lw-acct-filter-btn, #nw-acct-filter-btn {
+#lw-acct-filter-wrap, #nw-acct-filter-wrap, #as-acct-filter-wrap { position: relative; }
+#lw-acct-filter-btn, #nw-acct-filter-btn, #as-acct-filter-btn {
   padding: 6px 12px; background: #fff; border: 1px solid #ccc;
   border-radius: 5px; font-size: 15px; cursor: pointer; color: #555; white-space: nowrap;
 }
-#lw-acct-filter-btn:hover, #nw-acct-filter-btn:hover { background: #f0f0f0; }
-#lw-acct-filter-btn.active, #nw-acct-filter-btn.active { border-color: #333; background: #f0f0f0; }
-#lw-acct-filter-panel, #nw-acct-filter-panel {
+#lw-acct-filter-btn:hover, #nw-acct-filter-btn:hover, #as-acct-filter-btn:hover { background: #f0f0f0; }
+#lw-acct-filter-btn.active, #nw-acct-filter-btn.active, #as-acct-filter-btn.active { border-color: #333; background: #f0f0f0; }
+#lw-acct-filter-panel, #nw-acct-filter-panel, #as-acct-filter-panel {
   display: none; position: absolute; top: calc(100% + 4px); left: 0;
   background: #fff; border: 1px solid #ddd; border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0,0,0,.13); min-width: 220px; max-height: 300px;
@@ -1997,6 +2000,15 @@ td.hbt-num:last-child { width: 13%; }
             <label for="plan-sel">Plan</label>
             <select id="plan-sel"></select>
           </div>
+          <div class="settings-tab-block" data-tab="acct-summary">
+            <div class="settings-divider"></div>
+            <div class="settings-row">
+              <div id="as-acct-filter-wrap">
+                <button id="as-acct-filter-btn">Accounts &#9660;</button>
+                <div id="as-acct-filter-panel"></div>
+              </div>
+            </div>
+          </div>
           <div class="settings-tab-block" data-tab="home">
             <div class="settings-divider"></div>
             <div class="settings-row">
@@ -2789,6 +2801,7 @@ var state = {
   nwFromKey:           localStorage.getItem('sel-nw-from') || null,
   nwToKey:             localStorage.getItem('sel-nw-to')   || null,
   nwSelectedAccounts:  parseJsonLS('sel-nw-accts')    || {},
+  asSelectedAccounts:  parseJsonLS('sel-as-accts')    || {},
   lessonsFromKey:      localStorage.getItem('sel-lessons-from') || null,
   lessonsToKey:        localStorage.getItem('sel-lessons-to')   || null,
   leverageFromKey:     localStorage.getItem('sel-leverage-from') || null,
@@ -7971,10 +7984,12 @@ function asGroupOf(id) {
   var g = state.acctGroupMap[id];
   return AS_GROUPS.indexOf(g) !== -1 ? g : 'Other';
 }
-function asOpenAccounts() {
+// Open accounts, minus the ones unticked in the Settings account picker (unless `all`).
+function asOpenAccounts(all) {
   var info = (state.data && state.data.allAccountsInfo) || {}, out = [];
   for (var id in info) {
     if (info[id].closed) continue;
+    if (!all && state.asSelectedAccounts[id] === false) continue;
     out.push({ id: id, name: info[id].name || id, balance: info[id].balance || 0, group: asGroupOf(id) });
   }
   out.sort(function(a, b) { return Math.abs(b.balance) - Math.abs(a.balance); });
@@ -8006,6 +8021,39 @@ function renderAsCards(accts) {
       + '<div class="home-metric-value' + (c.v < 0 ? ' neg' : '') + '">' + asFmtWhole(c.v) + '</div></div>';
   }).join('');
 }
+// Settings > Accounts picker. A name ending in "~" (the convention for accounts kept out of the
+// numbers) starts unticked; after that the user's choice sticks.
+var asFilterSig = '';
+function asDefaultSelected(name) { return !/~\s*$/.test(name || ''); }
+function populateAsAccountFilter() {
+  var all = asOpenAccounts(true).sort(function(a, b) { return a.name.localeCompare(b.name); });
+  var changed = false;
+  all.forEach(function(a) {
+    if (!(a.id in state.asSelectedAccounts)) { state.asSelectedAccounts[a.id] = asDefaultSelected(a.name); changed = true; }
+  });
+  if (changed) { try { localStorage.setItem('sel-as-accts', JSON.stringify(state.asSelectedAccounts)); } catch (e) {} }
+  var sel = 0;
+  all.forEach(function(a) { if (state.asSelectedAccounts[a.id]) sel++; });
+  var btn = document.getElementById('as-acct-filter-btn');
+  if (btn) btn.textContent = 'Accounts (' + sel + '/' + all.length + ') \u25BE';
+  var sig = all.map(function(a) { return a.id + '|' + a.name; }).join(',');
+  if (sig === asFilterSig) return;          // list unchanged: keep the open panel (and its scroll) as is
+  asFilterSig = sig;
+  var panel = document.getElementById('as-acct-filter-panel');
+  if (!panel) return;
+  panel.innerHTML = all.map(function(a) {
+    return '<label class="acct-chk-row"><input type="checkbox" value="' + escAttr(a.id) + '"' + (state.asSelectedAccounts[a.id] ? ' checked' : '') + '>' + escHtml(a.name) + '</label>';
+  }).join('') || '<div style="padding:10px 14px;font-size:12px;color:#aaa">No accounts</div>';
+  var inputs = panel.querySelectorAll('input[type=checkbox]');
+  for (var k = 0; k < inputs.length; k++) {
+    inputs[k].addEventListener('change', function() {
+      state.asSelectedAccounts[this.value] = this.checked;
+      try { localStorage.setItem('sel-as-accts', JSON.stringify(state.asSelectedAccounts)); } catch (e) {}
+      renderAcctSummary();
+    });
+  }
+}
+
 function asSaveMap() { localStorage.setItem('acct-summary-groups', JSON.stringify(state.acctGroupMap)); }
 
 // ---- Account group persistence (Turso, via /api/account-groups) ----
@@ -8089,6 +8137,7 @@ function renderAcctSummary() {
   asSyncLoad();
   var sy = document.getElementById('as-sync-status');
   if (sy) { sy.textContent = asSync.status; sy.classList.toggle('err', !!asSync.err); }
+  populateAsAccountFilter();
   var accts = asOpenAccounts(), by = {};
   renderAsCards(accts);
   accts.forEach(function(a) { (by[a.group] = by[a.group] || []).push(a); });
@@ -8120,7 +8169,7 @@ function renderAcctSummary() {
         }).join('')
       + '</div></div>';
   });
-  if (!accts.length) html += '<div class="as-empty">No open accounts found.</div>';
+  if (!accts.length) html += '<div class="as-empty">' + (asOpenAccounts(true).length ? 'No accounts selected. Choose some under Settings \u2192 Accounts.' : 'No open accounts found.') + '</div>';
   body.innerHTML = html;
   // drop selections for accounts that are no longer listed (closed, or data refreshed)
   var live = {};
@@ -15128,6 +15177,13 @@ document.addEventListener('DOMContentLoaded', function() {
     panel.style.display = open ? 'none' : 'block';
     document.getElementById('nw-acct-filter-btn').classList.toggle('active', !open);
   });
+  document.getElementById('as-acct-filter-btn').addEventListener('click', function(e) {
+    e.stopPropagation();
+    var panel = document.getElementById('as-acct-filter-panel');
+    var open  = panel.style.display === 'block';
+    panel.style.display = open ? 'none' : 'block';
+    document.getElementById('as-acct-filter-btn').classList.toggle('active', !open);
+  });
   document.getElementById('home-acct-filter-btn').addEventListener('click', function(e) {
     e.stopPropagation();
     var panel = document.getElementById('home-acct-filter-panel');
@@ -15157,6 +15213,11 @@ document.addEventListener('DOMContentLoaded', function() {
     if (nwWrap && !nwWrap.contains(e.target)) {
       document.getElementById('nw-acct-filter-panel').style.display = 'none';
       document.getElementById('nw-acct-filter-btn').classList.remove('active');
+    }
+    var asWrap = document.getElementById('as-acct-filter-wrap');
+    if (asWrap && !asWrap.contains(e.target)) {
+      document.getElementById('as-acct-filter-panel').style.display = 'none';
+      document.getElementById('as-acct-filter-btn').classList.remove('active');
     }
     var homeWrap = document.getElementById('home-acct-filter-wrap');
     if (homeWrap && !homeWrap.contains(e.target)) {
