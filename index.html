@@ -737,6 +737,7 @@ html.as-tab-active #tab-row { z-index: 30; }
   font: inherit; font-size: 15px; color: #333; cursor: pointer; touch-action: manipulation;
 }
 .as-menu-item:hover { background: #f0efe9; }
+.as-menu-clear { border-top: 1px solid #eee; margin-top: 4px; padding-top: 11px; color: #777; }
 .as-row:first-child { border-top: none; }
 .as-aname { font-size: 15px; color: #333; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .as-abal { font-size: 15px; font-weight: 600; color: #444; white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -2820,7 +2821,7 @@ var state = {
   excludeUnknownIncome: localStorage.getItem('cf-exclude-unknown-income') !== '0',
   includeTitheCheck:    localStorage.getItem('cf-include-tithe-check') !== '0',
   homeSelectedAccounts: parseJsonLS('sel-home-accts') || {},
-  // Account Summary: { accountId: groupName } (unassigned = Other) and which groups are expanded
+  // Account Summary: { accountId: groupName } (no entry = Unassigned) and which groups are expanded
   acctGroupMap:         parseJsonLS('acct-summary-groups') || {},
   acctSummaryOpen:      parseJsonLS('acct-summary-open') || {},
   runwayFactors:        parseJsonLS('sel-runway-factors') || {}
@@ -7972,9 +7973,12 @@ function renderNetWorthBody() {
 
 // ---- Account Summary tab ----
 // Open YNAB accounts bucketed into fixed groups (empty groups hidden), each expandable to its
-// accounts, largest absolute balance first. Accounts nobody has assigned fall into Other; the
-// "Assign Groups" modal edits the mapping, which is kept per browser.
+// accounts, largest absolute balance first. AS_GROUPS are the groups an account can be assigned to
+// (Other is a real group, listed last). Accounts nobody has assigned sit in "Unassigned", a
+// pseudo-group listed first whenever it has anything in it so new accounts stand out.
 var AS_GROUPS = ['Cash', 'Credit', 'Savings', 'Investments', 'Loans', 'Kids', 'Vehicles', 'Real Estate', 'Mortgage', 'Other'];
+var AS_UNASSIGNED = 'Unassigned';
+var AS_DISPLAY_ORDER = [AS_UNASSIGNED].concat(AS_GROUPS);
 
 function asFmtMoney(v) {
   var r = Math.round(v * 100) / 100;
@@ -7982,7 +7986,7 @@ function asFmtMoney(v) {
 }
 function asGroupOf(id) {
   var g = state.acctGroupMap[id];
-  return AS_GROUPS.indexOf(g) !== -1 ? g : 'Other';
+  return AS_GROUPS.indexOf(g) !== -1 ? g : AS_UNASSIGNED;
 }
 // Open accounts, minus the ones unticked in the Settings account picker (unless `all`).
 function asOpenAccounts(all) {
@@ -8087,7 +8091,7 @@ function asSyncFail(e) {
   if (e && e.code === 'not_configured') asSetSyncStatus('');       // no database on this deployment: localStorage only, nothing to report
   else asSetSyncStatus('Couldn\u2019t sync with the database; changes are kept on this device and will retry', true);
 }
-// Push a {accountId: group} map (use 'Other' to clear). Failures stay queued in localStorage.
+// Push a {accountId: group} map (use 'Unassigned' to clear). Failures stay queued in localStorage.
 function asSyncPush(changes) {
   var budgetId = localStorage.getItem('ynab-budget-id');
   var pending = asPendingGet();
@@ -8116,7 +8120,7 @@ function asSyncLoad() {
     }
     var merged = {};
     Object.keys(remote).forEach(function(id) { merged[id] = remote[id]; });
-    Object.keys(pending).forEach(function(id) { if (pending[id] === 'Other') delete merged[id]; else merged[id] = pending[id]; });
+    Object.keys(pending).forEach(function(id) { if (pending[id] === AS_UNASSIGNED) delete merged[id]; else merged[id] = pending[id]; });
     state.acctGroupMap = merged;
     asSaveMap();
     if (state.activeTab === 'acct-summary') renderAcctSummary();
@@ -8143,16 +8147,16 @@ function renderAcctSummary() {
   accts.forEach(function(a) { (by[a.group] = by[a.group] || []).push(a); });
   var html = '';
   if (accts.length && !Object.keys(state.acctGroupMap).length) {
-    html += '<div class="as-hint">Everything is under Other until accounts are assigned. '
+    html += '<div class="as-hint">Everything is Unassigned until accounts are assigned. '
       + 'Tick the accounts below, then use <strong>Assign Group</strong> to sort them into Cash, Credit, Savings and the rest.</div>';
   }
-  AS_GROUPS.forEach(function(g) {
+  AS_DISPLAY_ORDER.forEach(function(g) {
     var list = by[g];
     if (!list || !list.length) return;
     var total = 0;
     list.forEach(function(a) { total += a.balance; });
-    // Other is where unassigned accounts wait, so it starts open until the user chooses otherwise
-    var open = state.acctSummaryOpen[g] === undefined ? g === 'Other' : !!state.acctSummaryOpen[g];
+    // Unassigned is where new accounts wait, so it starts open until the user chooses otherwise
+    var open = state.acctSummaryOpen[g] === undefined ? g === AS_UNASSIGNED : !!state.acctSummaryOpen[g];
     html += '<div class="as-group' + (open ? ' open' : '') + '" data-grp="' + escAttr(g) + '">'
       + '<button type="button" class="as-ghdr" aria-expanded="' + open + '">'
       +   '<span class="as-chev"></span>'
@@ -8193,7 +8197,7 @@ function asUpdateAssignControl() {
 function asAssignSelected(group) {
   var changes = {};
   Object.keys(asSelected).forEach(function(id) {
-    if (group === 'Other') delete state.acctGroupMap[id]; else state.acctGroupMap[id] = group;
+    if (group === AS_UNASSIGNED) delete state.acctGroupMap[id]; else state.acctGroupMap[id] = group;
     changes[id] = group;
   });
   asSaveMap();
@@ -15369,7 +15373,7 @@ document.addEventListener('DOMContentLoaded', function() {
       hdr.setAttribute('aria-expanded', nowOpen);
     });
     function setAll(open) {
-      AS_GROUPS.forEach(function(g) { state.acctSummaryOpen[g] = open; });
+      AS_DISPLAY_ORDER.forEach(function(g) { state.acctSummaryOpen[g] = open; });
       asSaveOpen();
       renderAcctSummary();
     }
@@ -15384,7 +15388,9 @@ document.addEventListener('DOMContentLoaded', function() {
       asUpdateAssignControl();
     });
     var wrap = document.getElementById('as-assign-wrap'), btn = document.getElementById('as-assign-btn'), menu = document.getElementById('as-assign-menu');
-    menu.innerHTML = AS_GROUPS.map(function(g) { return '<button type="button" role="menuitem" class="as-menu-item" data-grp="' + escAttr(g) + '">' + escHtml(g) + '</button>'; }).join('');
+    menu.innerHTML = AS_GROUPS.concat([AS_UNASSIGNED]).map(function(g) {
+      return '<button type="button" role="menuitem" class="as-menu-item' + (g === AS_UNASSIGNED ? ' as-menu-clear' : '') + '" data-grp="' + escAttr(g) + '">' + escHtml(g) + '</button>';
+    }).join('');
     // keep the menu on screen: right-align it when its left-aligned position would overflow
     function placeMenu() {
       wrap.classList.remove('align-right');

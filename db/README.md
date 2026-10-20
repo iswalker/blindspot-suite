@@ -37,7 +37,7 @@ the browser's localStorage and stays silent.
 | --- | --- | --- |
 | `users` | One row per YNAB user id | in use |
 | `account_group_defs` | The groups and their fixed display order | in use |
-| `account_groups` | `(user_id, budget_id, account_id) → group_name`; "Other" is stored as no row | in use |
+| `account_groups` | `(user_id, budget_id, account_id) → group_name`; accounts with no row show as "Unassigned"; "Other" is a real group | in use |
 | `config_rows` | The YNAB Config sheet, one row per sheet row | ready, not wired |
 | `merchants`, `merchant_flags` | The Merchants tab: payee × metric matrix of `yes` / `tbd` | ready, not wired |
 | `settings` | Free-form per-budget key/value (JSON) for future toggles | ready, not wired |
@@ -71,7 +71,7 @@ and write the same rows.
 thin wrappers over `lib/account-groups.js`).
 
 - `GET ?budgetId=<id>` → `{ groups: { accountId: groupName } }`
-- `PUT { budgetId, assignments: [{ accountId, group }] }` → `{ ok: true }`. `group: "Other"` clears the
+- `PUT { budgetId, assignments: [{ accountId, group }] }` → `{ ok: true }`. `group: "Unassigned"` clears the
   assignment. The write is a single transaction.
 - Errors: `401` bad/missing YNAB token, `400` invalid input, `503 not_configured` when the env vars are
   missing, `502` when YNAB can't be reached.
