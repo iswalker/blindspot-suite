@@ -4383,6 +4383,15 @@ function fetchYnabData(apiKey, budgetId, opts) {
                 if (!incomePayeePivot[occKey]) incomePayeePivot[occKey] = {};
                 if (!incomePayeePivot[occKey][spayee]) incomePayeePivot[occKey][spayee] = {};
                 incomePayeePivot[occKey][spayee][sacct] = (incomePayeePivot[occKey][spayee][sacct] || 0) + samt;
+                // A scheduled transaction carries its own flag; Pipeline accounts only count the Red ones
+                var sIsRed = parent.flag_color === 'red';
+                if (sIsRed) {
+                  if (!incomeAcctRedPivot[occKey]) incomeAcctRedPivot[occKey] = {};
+                  incomeAcctRedPivot[occKey][sacct] = (incomeAcctRedPivot[occKey][sacct] || 0) + samt;
+                  if (!incomePayeeRedPivot[occKey]) incomePayeeRedPivot[occKey] = {};
+                  if (!incomePayeeRedPivot[occKey][spayee]) incomePayeeRedPivot[occKey][spayee] = {};
+                  incomePayeeRedPivot[occKey][spayee][sacct] = (incomePayeeRedPivot[occKey][spayee][sacct] || 0) + samt;
+                }
                 if (!regTxns[occKey])                              regTxns[occKey]                              = {};
                 if (!regTxns[occKey]['Inflow'])                    regTxns[occKey]['Inflow']                    = {};
                 if (!regTxns[occKey]['Inflow']['Ready to Assign']) regTxns[occKey]['Inflow']['Ready to Assign'] = [];
@@ -4390,7 +4399,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
                   account: sacct,
                   date: (occDate.getMonth() + 1) + '/' + occDate.getDate() + '/' + occDate.getFullYear(),
                   payee: leaf.payee_name || '', memo: ((leaf.memo || '') + ' (scheduled)').trim(),
-                  outflow: 0, inflow: samt
+                  outflow: 0, inflow: samt, isRed: sIsRed
                 });
               }
               if (monthStep)      { occDate = new Date(occDate.getFullYear(), occDate.getMonth() + monthStep, occDate.getDate()); }
@@ -4449,7 +4458,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
 
       setProgress('');
       return { allKeys: allKeys, incomePivot: incomePivot, incomeAcctPivot: incomeAcctPivot, incomePayeePivot: incomePayeePivot,
-               incomeAcctRedPivot: incomeAcctRedPivot, incomePayeeRedPivot: incomePayeeRedPivot,
+               incomeAcctRedPivot: incomeAcctRedPivot, incomePayeeRedPivot: incomePayeeRedPivot, incomeRedSched: true,
                groupPivot: groupPivot, catPivot: catPivot, activeCats: activeCats,
                regTxns: regTxns, allAccounts: allAccounts,
                allAccountsInfo: allAccountsInfo, lwAccounts: lwAccounts,
@@ -4763,7 +4772,7 @@ function pipelineFlagsHint() {
   return '⚠ Transaction flags not loaded — ' + (state.refreshProblem || 'refresh YNAB data');
 }
 function ensurePipelineFlags() {
-  if (pipelineFlagsRefreshing || !state.data || (state.data.acctTxnsRed && state.data.acctTxnsContrib && state.data.incomeAcctRedPivot)) return;
+  if (pipelineFlagsRefreshing || !state.data || (state.data.acctTxnsRed && state.data.acctTxnsContrib && state.data.incomeRedSched)) return;
   var p = refreshYnab();
   if (!p) return;
   pipelineFlagsRefreshing = true;
@@ -4938,7 +4947,7 @@ function renderTable(opts) {
   var keys = opts.keys || d.allKeys.filter(function(k) { return k >= state.fromKey && k <= state.toKey; });
   cfSparklineKeys = keys;
   // Pipeline income counts only Red-flagged inflows, which older cached data can't tell apart.
-  if (state.lwIncludePipeline && !d.incomeAcctRedPivot && !cfRedIncomeRequested) { cfRedIncomeRequested = true; ensurePipelineFlags(); }
+  if (state.lwIncludePipeline && !d.incomeRedSched && !cfRedIncomeRequested) { cfRedIncomeRequested = true; ensurePipelineFlags(); }
 
   if (keys.length === 0) {
     document.getElementById(tableId).innerHTML =
