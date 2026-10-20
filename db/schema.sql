@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS account_group_defs (
   sort_order INTEGER NOT NULL
 );
 
-INSERT OR IGNORE INTO account_group_defs (group_name, sort_order) VALUES ('Cash', 1), ('Credit', 2), ('Savings', 3), ('Loans', 4), ('Investments', 5), ('Kids', 6), ('Assets', 7), ('Mortgage', 8), ('Other', 9);
+INSERT INTO account_group_defs (group_name, sort_order) VALUES ('Cash', 1), ('Credit', 2), ('Savings', 3), ('Investments', 4), ('Loans', 5), ('Kids', 6), ('Vehicles', 7), ('Real Estate', 8), ('Mortgage', 9), ('Other', 10) ON CONFLICT(group_name) DO UPDATE SET sort_order = excluded.sort_order;
 
 CREATE TABLE IF NOT EXISTS account_groups (
   user_id TEXT NOT NULL REFERENCES users(user_id),

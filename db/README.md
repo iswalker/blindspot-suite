@@ -36,7 +36,7 @@ the browser's localStorage and shows "Saved on this device only".
 | Table | Purpose | Status |
 | --- | --- | --- |
 | `users` | One row per YNAB user id | in use |
-| `account_group_defs` | The nine groups and their fixed display order | in use |
+| `account_group_defs` | The groups and their fixed display order | in use |
 | `account_groups` | `(user_id, budget_id, account_id) → group_name`; "Other" is stored as no row | in use |
 | `config_rows` | The YNAB Config sheet, one row per sheet row | ready, not wired |
 | `merchants`, `merchant_flags` | The Merchants tab: payee × metric matrix of `yes` / `tbd` | ready, not wired |
