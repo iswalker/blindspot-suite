@@ -1766,23 +1766,21 @@ html.rw-tab-active #tab-row { z-index: 30; }
   .lw-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   #lw-table th, #lw-table td { padding: 8px 10px; font-size: 12px; }
 
-  /* Cash Flow table: cap the (sticky) first column to a static width so expanding a category
-     with a long name doesn't reflow the whole table and squeeze the month columns illegibly --
-     it ellipsizes instead. The Average column is never horizontally sticky (neither its header
-     nor its data cells), so the freed width goes to the month columns; scroll right to see it.
-     The table also has to give up its normal width:100% here -- with a fixed first column,
-     100% forces the browser's auto-layout to stretch the remaining columns to fill the leftover
-     space, and it hands most of that stretch to whichever column has the widest content (the
-     Average column, thanks to its stddev note), ballooning it while squeezing the month columns.
-     width:auto lets every other column keep its natural size and the row overflow horizontally
-     for the wrapper to scroll, instead of being force-fit into the viewport. */
-  #lw-table { width: auto; }
-  #lw-table td:first-child, #lw-table th:first-child {
-    width: 130px; max-width: 130px; min-width: 130px;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
+  /* Liquid Balances / Net Worth tables fit the screen instead of scrolling sideways: tighter padding,
+     headers and the Month / Monthly Change cells wrap (the % drops under the amount), balances stay
+     on one line. */
+  #lw-table, #nw-table { width: 100%; }
+  #nw-table th, #nw-table td { padding: 8px 8px; font-size: 12px; }
+  #lw-table th, #nw-table th { white-space: normal; letter-spacing: .02em; }
+  #lw-table td:first-child, #lw-table th:first-child { width: auto; max-width: none; min-width: 0; white-space: normal; }
+  #lw-table td:last-child, #nw-table td:nth-child(3), #nw-table td:last-child { white-space: normal; }
   #lessons-txn-table th, #lessons-txn-table td,
-  #leverage-txn-table th, #leverage-txn-table td { padding: 8px 10px; font-size: 12px; }
+  #leverage-txn-table th, #leverage-txn-table td { padding: 8px 6px; font-size: 12px; }
+  /* these five-column tables fit too: headers wrap and long payees / memos / categories break onto more lines */
+  #lessons-txn-table th, #leverage-txn-table th { letter-spacing: .02em; }
+  #lessons-txn-table th:not(:first-child):not(:last-child), #leverage-txn-table th:not(:first-child):not(:last-child) { white-space: normal; }
+  #lessons-txn-table td, #leverage-txn-table td { white-space: normal; overflow-wrap: anywhere; }
+  #lessons-txn-table td:last-child, #leverage-txn-table td:last-child { overflow-wrap: normal; }
 
   /* Reconcile cards stack */
   #rec-cards-row { flex-direction: column; align-items: stretch; gap: 10px; }
@@ -1842,6 +1840,15 @@ html.rw-tab-active #tab-row { z-index: 30; }
 }
 
 @media (max-width: 480px) {
+  /* Net Worth Preview / Pipeline controls: let the pieces drop to a second line rather than run off the screen */
+  .nwo-seg-wrap { flex-wrap: wrap; row-gap: 6px; }
+}
+@media (max-width: 360px) {
+  #lw-table th, #lw-table td, #nw-table th, #nw-table td,
+  #lessons-txn-table th, #lessons-txn-table td, #leverage-txn-table th, #leverage-txn-table td { padding: 6px 4px; font-size: 11px; }
+}
+
+@media (max-width: 480px) {
   body { padding: 8px 8px; }
   .home-metric-row { grid-template-columns: 1fr; }
   .lessons-metric-card { flex: 1 1 100%; }
@@ -1857,12 +1864,16 @@ html.rw-tab-active #tab-row { z-index: 30; }
   .leverage-speedo-benefit .lev-sp-benefit-tag { display: block; margin-left: 0; }
   .leverage-speedo-foot { font-size: 9px; flex-wrap: wrap; gap: 2px; }
 
-  /* Shrink the driver-row value columns further so they fit a phone-width line */
-  .nw-driver-total { width: 85px; flex-basis: 85px; }
-  .nw-driver-total-pct { width: 50px; flex-basis: 50px; }
-  .nw-driver-amt { width: 90px; flex-basis: 90px; }
-  .nw-driver-pct { width: 50px; flex-basis: 50px; }
-  .nw-driver-avg { width: 75px; flex-basis: 75px; }
+  /* Driver rows on a phone: drop the fixed-width columns (they only exist to line rows up on desktop).
+     The figures flow right-aligned at their natural size, wrapping if they have to, and the per-month
+     average sits on its own line underneath. */
+  .nw-driver-vals { gap: 2px 10px; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
+  .nw-driver-total, .nw-driver-total-pct, .nw-driver-amt, .nw-driver-pct { width: auto; flex: 0 0 auto; }
+  .nw-driver-total { font-size: 13px; }
+  .nw-driver-total-pct, .nw-driver-pct { font-size: 12px; }
+  .nw-driver-amt { font-size: 14px; }
+  .nw-driver-avg { width: auto; flex: 1 1 100%; font-size: 11px; }
+  .nw-driver-sep { display: none; }
 }
 
 @media print {
