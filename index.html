@@ -668,6 +668,12 @@ td.cell-active {
 
 /* ---- Account Summary tab ---- */
 #acct-summary-panel { display: none; }
+/* The button row stays pinned to the top of the viewport while the account list scrolls under it, so
+   Assign Group is reachable from anywhere in a long list. Opaque, page-coloured, and above the rows. */
+#acct-summary-panel .panel-hdr {
+  position: sticky; top: 0; z-index: 20; margin-bottom: 0; padding: 8px 0;
+  background: #F6F4EE;
+}
 .as-btn {
   padding: 6px 14px; background: #fff; border: 1px solid #ccc; border-radius: 6px;
   font-size: 13px; cursor: pointer; color: #555; font-weight: 500; white-space: nowrap;
@@ -1602,6 +1608,10 @@ td.hbt-num:last-child { width: 13%; }
      viewport) -- so on that one tab only, let the page scroll sideways instead of clipping it.
      html.cf-tab-active is toggled in switchTab()/showReport(). */
   html.cf-tab-active, html.cf-tab-active body { overflow-x: visible; }
+  /* Account Summary pins its button row with position:sticky. overflow-x:hidden on html+body would make
+     body a scroll container that never scrolls, which stops sticky working; clip still prevents sideways
+     shifting without creating one (browsers without overflow:clip ignore this and keep hidden). */
+  html.as-tab-active, html.as-tab-active body { overflow-x: clip; }
 
   /* Date range picker: full-width panel, stacked columns, no overflow off-screen. The month
      grid (rp-main-col-wrap) is the primary control, so it's reordered above the quick-range
@@ -7197,6 +7207,7 @@ function switchTab(tab) {
     }
   }
   document.documentElement.classList.toggle('cf-tab-active', tab === 'margin');
+  document.documentElement.classList.toggle('as-tab-active', tab === 'acct-summary');
   document.getElementById('acct-summary-panel').style.display = tab === 'acct-summary' ? 'block' : 'none';
   document.getElementById('home-panel').style.display     = tab === 'home'     ? 'block' : 'none';
   document.getElementById('margin-panel').style.display   = tab === 'margin'   ? 'block' : 'none';
@@ -14062,6 +14073,7 @@ function showReport() {
   }
   updateSettingsGearAvailability(tab);
   document.documentElement.classList.toggle('cf-tab-active', tab === 'margin');
+  document.documentElement.classList.toggle('as-tab-active', tab === 'acct-summary');
 
   // Sync row-shading toggle state
   document.body.classList.toggle('shading-mode', state.rowShading);
