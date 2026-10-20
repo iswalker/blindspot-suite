@@ -51,7 +51,8 @@ body {
   margin: 0 auto;
   text-align: center;
 }
-#upload-logo { display: block; height: 40px; margin: 0 auto 16px; }
+#upload-logo { display: block; height: 40px; margin: 0 auto 10px; }
+#upload-title { font-size: 22px; font-weight: 700; color: #222; margin: 0 0 18px; letter-spacing: -.2px; }
 .file-row {
   display: flex;
   align-items: center;
@@ -1457,6 +1458,22 @@ td.hbt-num:last-child { width: 13%; }
 }
 #runway-edit-count { margin-right: auto; }
 html.rw-tab-active #tab-row { z-index: 30; }
+.rw-p { display: block; }
+.rw-p + .rw-p { margin-top: .6em; }
+#runway-body.rw-editing .runway-step { position: relative; padding-right: 66px; }
+#runway-body.rw-editing .runway-phase { position: relative; }
+#runway-body.rw-editing .runway-circle { cursor: pointer; }
+.rw-ctl { position: absolute; top: 0; right: 0; display: flex; gap: 4px; z-index: 1; }
+.rw-ctl button {
+  width: 28px; height: 28px; padding: 0; line-height: 1; font-size: 16px; color: #555; background: #fff; border: 1px solid #ccc;
+  border-radius: 6px; cursor: pointer; touch-action: manipulation;
+}
+.rw-ctl button:hover { background: #f0f0f0; }
+.rw-ctl button[data-act^="del"]:hover { background: #fdecea; color: #c62828; border-color: #e5a5a0; }
+.rw-ctl-phase { position: static; margin: 0 0 8px; justify-content: center; }
+.rw-edit { white-space: pre-wrap; min-width: 1.5em; display: inline-block; vertical-align: baseline; }
+.rw-edit.multi { display: block; }
+.runway-amt-pill .rw-edit, .runway-tag-pill .rw-edit { min-width: 3em; }
 .rw-edit { outline: 1px dashed #90a4ae; outline-offset: 2px; border-radius: 3px; cursor: text; }
 .rw-edit:focus { outline: 2px solid #1565c0; background: #f4f8ff; }
 .rw-edit.dirty { background: #fff8e1; }
@@ -1891,6 +1908,7 @@ html.rw-tab-active #tab-row { z-index: 30; }
 <!-- Upload panel (splash): logo + sign-in only -->
 <div id="upload-panel">
   <img src="logo.png" alt="" id="upload-logo">
+  <div id="upload-title">Blindspot Suite</div>
   <button id="oauth-btn">Login to YNAB</button>
   <div id="api-progress"></div>
   <div id="error-msg"></div>
@@ -13829,9 +13847,11 @@ function loadDbConfig(section, force) {
   });
 }
 
-// Database rows as the app's config rows (same parsing as a sheet row), each carrying its row id.
-function dbCfgConfigRows(section) {
-  var rows = dbCfg.rows[section] || [];
+// Database rows as the app's config rows (same parsing as a sheet row). Each carries `dbId`, a key
+// that identifies its row in the DOM and in the editor's working copy (the row id; rows added while
+// editing get a temporary key until they are saved).
+function dbCfgConfigRows(section, rowsOverride) {
+  var rows = rowsOverride || dbCfg.rows[section] || [];
   return rows.map(function(r) {
     var cfg = configRowFromObject({
       'Metric': r.metric, 'Type': r.type, 'Text': r.text, 'Group': r.section, 'Amount': r.amount, 'Unit': r.unit,
@@ -13839,23 +13859,53 @@ function dbCfgConfigRows(section) {
       'Track Against': r.track_against, 'Date Range': r.date_range, 'Associated Category ID(s)': r.assoc_category_ids,
       'Past Value': r.past_value ? String(r.past_value) : ''
     }, true);
-    cfg.dbId = r.id;
+    cfg.dbId = r._key || String(r.id);
     return cfg;
   });
 }
 
-// ---- Runway: where its rows come from, import, and text editing ----
+// ---- Runway: where its rows come from, import, and editing ----
+// Editing works on a copy of the rows (runwayWork). Every change -- text, amounts, tags, step states,
+// adding and removing steps or phases -- changes only the copy; Save sends the difference to the
+// database in one transaction, Discard throws the copy away.
+var RW_COLS = ['metric', 'type', 'text', 'section', 'amount', 'unit', 'multiplier', 'track_against', 'date_range',
+  'assoc_category_ids', 'past_value', 'notes', 'old_account_ids', 'old_category_ids'];
 var runwayEdit = false;          // Settings > Edit Text
-var runwayDirty = {};            // row id -> full new text, for edits not saved yet
+var runwayWork = null;           // working copy of the rows while editing
+var runwayNewKey = 0;
 var runwayImportMsg = '';        // result of the last import attempt, shown in the banner
+var RW_CE = (function() {        // plain-text editing where the browser supports it (keeps Enter as a plain newline)
+  try { var t = document.createElement('span'); t.contentEditable = 'plaintext-only'; return t.contentEditable === 'plaintext-only' ? 'plaintext-only' : 'true'; }
+  catch (e) { return 'true'; }
+})();
 
 function runwayDbRows() { var r = dbCfg.rows.Runway; return r && r.length ? r : null; }
+function runwayEditing() { return runwayEdit && !!runwayDbRows() && !!runwayWork; }
 function runwayConfigRows() {
+  if (runwayEditing()) return dbCfgConfigRows('Runway', runwayWork);
   if (runwayDbRows()) return dbCfgConfigRows('Runway');
   return (state.catConfig || []).filter(function(c) { return /^runway/i.test(c.usedFor || ''); });
 }
-function runwayEditing() { return runwayEdit && !!runwayDbRows(); }
 function ensureRunwayDb() { if (!dbCfg.status.Runway) loadDbConfig('Runway'); }
+function runwayCloneRows() {
+  return (dbCfg.rows.Runway || []).map(function(r) { var c = Object.assign({}, r); c._key = String(r.id); return c; });
+}
+
+// What differs between the working copy and the saved rows.
+function runwayDiff() {
+  var base = {}, updates = [], inserts = [], deletes = [], seen = {};
+  (dbCfg.rows.Runway || []).forEach(function(r) { base[r.id] = r; });
+  (runwayWork || []).forEach(function(w) {
+    if (w.id === null || w.id === undefined) { inserts.push(w); return; }
+    seen[w.id] = true;
+    var b = base[w.id], ch = {}, any = false;
+    RW_COLS.forEach(function(c) { if (b && w[c] !== b[c]) { ch[c] = w[c]; any = true; } });
+    if (any) { ch.id = w.id; updates.push(ch); }
+  });
+  Object.keys(base).forEach(function(id) { if (!seen[id]) deletes.push(parseInt(id, 10)); });
+  return { updates: updates, inserts: inserts, deletes: deletes };
+}
+function runwayHasChanges() { var d = runwayDiff(); return !!(d.updates.length || d.inserts.length || d.deletes.length); }
 
 // Runway rows still in the Google Sheet's Config tab, as database rows (sheet order kept).
 function runwaySheetRows() {
@@ -13911,24 +13961,195 @@ function renderRunwayBanner() {
   }
   el.innerHTML = html;
   el.style.display = html ? '' : 'none';
-  var n = Object.keys(runwayDirty).length;
   bar.style.display = runwayEditing() ? '' : 'none';
+  var dirty = runwayEditing() && runwayHasChanges();
   var cnt = document.getElementById('runway-edit-count');
-  if (cnt) cnt.textContent = n ? n + ' unsaved change' + (n === 1 ? '' : 's') : 'Click any text to edit it';
+  if (cnt && !runwaySaving) cnt.textContent = dirty ? 'Unsaved changes' : 'Click any text to edit it, the circles to change a step’s status, or + / × to add and remove';
   var sv = document.getElementById('runway-edit-save'), dc = document.getElementById('runway-edit-discard');
-  if (sv) sv.disabled = !n;
-  if (dc) dc.disabled = !n;
+  if (sv) sv.disabled = !dirty || runwaySaving;
+  if (dc) dc.disabled = !dirty || runwaySaving;
+}
+var runwaySaving = false;
+
+// Paragraphs for display: each non-empty line of the stored text becomes its own block.
+function rwPara(text) {
+  var t = String(text || '');
+  if (t.indexOf('\n') === -1) return escHtml(t);
+  return t.split(/\n+/).filter(function(p) { return p.trim() !== ''; }).map(function(p) { return '<span class="rw-p">' + escHtml(p) + '</span>'; }).join('');
 }
 
-// Editable text. `prefix` is the part of the stored text that is not shown for editing (a step's
-// "[Tag] "), put back on save. Outside edit mode (or for rows with no database id) it is plain text.
-function rwTxt(text, rowId, prefix, placeholder) {
-  if (!runwayEditing() || !rowId) return escHtml(text || '');
-  var full = (prefix || '') + (text || '');
-  var dirty = Object.prototype.hasOwnProperty.call(runwayDirty, rowId);
-  return '<span class="rw-edit' + (dirty ? ' dirty' : '') + '" contenteditable="true" spellcheck="true" data-rid="' + rowId + '"'
-    + ' data-prefix="' + escAttr(prefix || '') + '" data-orig="' + escAttr(full) + '" data-ph="' + escAttr(placeholder || '') + '">'
-    + escHtml(dirty ? runwayDirty[rowId].slice((prefix || '').length) : (text || '')) + '</span>';
+// Text of a row's field. In edit mode it is an editable span tied to the row's key; `field` says which
+// part it edits: text (multiline when `multi`), title / tag (the two halves of a step's text), amount,
+// or yearRange (a phase's chevron label).
+function rwTxt(text, key, field, placeholder, multi) {
+  if (!runwayEditing() || !key) return rwPara(text);
+  return '<span class="rw-edit' + (multi ? ' multi' : '') + '" contenteditable="' + RW_CE + '" spellcheck="true" data-rid="' + escAttr(key) + '"'
+    + ' data-field="' + field + '" data-ph="' + escAttr(placeholder || '') + '">' + escHtml(text || '') + '</span>';
+}
+
+function rwRow(key) { for (var i = 0; i < runwayWork.length; i++) if (runwayWork[i]._key === key) return runwayWork[i]; return null; }
+function rwFindRow(re) { for (var i = 0; i < runwayWork.length; i++) if (re.test(runwayWork[i].metric || '')) return runwayWork[i]; return null; }
+function rwNewRow(f) {
+  var r = { id: null, _key: 'n' + (++runwayNewKey), position: 1e6 + runwayNewKey, metric: '', type: 'Tag', text: '', section: 'Runway', amount: '', unit: '',
+    multiplier: null, track_against: '', date_range: '', assoc_category_ids: '', past_value: 0, notes: '', old_account_ids: '', old_category_ids: '' };
+  return Object.assign(r, f);
+}
+function rwInsertAfter(refKeys, rows) {   // put rows right after the last of the referenced rows
+  var at = -1;
+  runwayWork.forEach(function(r, i) { if (refKeys.indexOf(r._key) !== -1) at = i; });
+  if (at === -1) at = runwayWork.length - 1;
+  runwayWork.splice.apply(runwayWork, [at + 1, 0].concat(rows));
+}
+function rwNormText(v, multi) {
+  v = String(v || '').replace(/\r/g, '');
+  if (!multi) return v.replace(/\s+/g, ' ').trim();
+  return v.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+// ---- step status: the "Runway Step" row's Amount lists 0,[1],2 -- plain = done, [n] = in progress ----
+function rwStepSets() {
+  var row = rwFindRow(/^runway step$/i), done = {}, cur = {};
+  String((row && row.amount) || '').split(',').forEach(function(tok) {
+    tok = tok.trim();
+    var mb = tok.match(/^\[(\d+)\]$/);
+    if (mb) cur[parseInt(mb[1], 10)] = true; else if (/^\d+$/.test(tok)) done[parseInt(tok, 10)] = true;
+  });
+  return { row: row, done: done, cur: cur };
+}
+function rwWriteStepSets(st) {
+  var nums = {};
+  Object.keys(st.done).concat(Object.keys(st.cur)).forEach(function(n) { nums[n] = true; });
+  var str = Object.keys(nums).map(Number).sort(function(a, b) { return a - b; })
+    .map(function(n) { return st.cur[n] ? '[' + n + ']' : String(n); }).join(',');
+  if (!st.row) { st.row = rwNewRow({ metric: 'Runway Step', type: 'Target', unit: 'Step' }); runwayWork.push(st.row); }
+  st.row.amount = str;
+}
+function rwCycleStep(n) {   // empty -> in progress -> complete -> empty
+  var st = rwStepSets();
+  if (st.done[n]) { delete st.done[n]; }
+  else if (st.cur[n]) { delete st.cur[n]; st.done[n] = true; }
+  else { st.cur[n] = true; }
+  rwWriteStepSets(st);
+}
+function rwShiftStepTokens(from, delta, dropNum) {   // renumbering steps keeps their statuses attached
+  var st = rwStepSets();
+  if (!st.row) return;
+  var nd = {}, nc = {};
+  Object.keys(st.done).map(Number).forEach(function(n) { if (n === dropNum) return; nd[n >= from ? n + delta : n] = true; });
+  Object.keys(st.cur).map(Number).forEach(function(n) { if (n === dropNum) return; nc[n >= from ? n + delta : n] = true; });
+  st.done = nd; st.cur = nc;
+  rwWriteStepSets(st);
+}
+
+// ---- adding / removing steps and phases (renumbering what follows so the sequence stays gap-free) ----
+var RW_STEP_ROW = /^runway step\s+(\d+|[a-z])(\s+subtext)?$/i;
+var RW_PHASE_ROW = /^runway phase\s+(\d+)(\s+subtext)?$/i;
+function rwStepId(metric) { var m = String(metric || '').match(RW_STEP_ROW); return m ? m[1] : null; }
+function rwShiftSteps(kind, from, delta, to) {   // kind 'num' (from = number) or 'alpha' (from..to = char codes)
+  runwayWork.forEach(function(r) {
+    var m = String(r.metric || '').match(RW_STEP_ROW);
+    if (!m) return;
+    var isNum = /^\d+$/.test(m[1]);
+    if (kind === 'num' && isNum) {
+      var n = parseInt(m[1], 10);
+      if (n >= from) r.metric = 'Runway Step ' + (n + delta) + (m[2] ? ' Subtext' : '');
+    } else if (kind === 'alpha' && !isNum) {
+      var code = m[1].toUpperCase().charCodeAt(0);
+      if (code >= from && code <= to) r.metric = 'Runway Step ' + String.fromCharCode(code + delta) + (m[2] ? ' Subtext' : '');
+    }
+  });
+}
+function rwLettersInUse() {
+  var used = {};
+  runwayWork.forEach(function(r) { var m = String(r.metric || '').match(RW_STEP_ROW); if (m && !/^\d+$/.test(m[1])) used[m[1].toUpperCase().charCodeAt(0)] = true; });
+  return used;
+}
+function rwInt(v) { var m = String(v == null ? '' : v).match(/^\s*(\d+)(?:\.0+)?\s*$/); return m ? parseInt(m[1], 10) : null; }
+function rwShiftPhases(from, delta) {
+  runwayWork.forEach(function(r) {
+    var m = String(r.metric || '').match(RW_PHASE_ROW);
+    if (!m) return;
+    var n = parseInt(m[1], 10);
+    if (n >= from) r.metric = 'Runway Phase ' + (n + delta) + (m[2] ? ' Subtext' : '');
+  });
+}
+function rwStepKeys(titleKey) {   // [title row key, subtext row key] of the step whose title row is titleKey
+  var t = rwRow(titleKey); if (!t) return null;
+  var id = rwStepId(t.metric), keys = [t._key];
+  runwayWork.forEach(function(r) { var m = String(r.metric || '').match(RW_STEP_ROW); if (m && m[2] && m[1].toUpperCase() === id.toUpperCase() && r._key !== t._key) keys.push(r._key); });
+  return keys;
+}
+
+function rwAddStep(titleKey) {
+  var t = rwRow(titleKey); if (!t) return;
+  var id = rwStepId(t.metric), col = t.track_against, keys = rwStepKeys(titleKey);
+  var subKeys = keys.slice(1);
+  if (/^\d+$/.test(id)) {
+    var nn = parseInt(id, 10) + 1;
+    rwShiftSteps('num', nn, 1);
+    rwShiftStepTokens(nn, 1, -1);
+    rwInsertAfter(keys, [rwNewRow({ metric: 'Runway Step ' + nn, text: 'New step', track_against: col }), rwNewRow({ metric: 'Runway Step ' + nn + ' Subtext', track_against: col })]);
+  } else {
+    // Letters in use may run consecutively across columns; make room by shifting only the unbroken run
+    // that starts at the new letter, up to the first unused letter.
+    var code = id.toUpperCase().charCodeAt(0) + 1, used = rwLettersInUse(), free = code;
+    while (used[free]) free++;
+    if (free > 90) { alert('There are no free letters left to renumber into for another lettered step.'); return; }
+    rwShiftSteps('alpha', code, 1, free - 1);
+    var L = String.fromCharCode(code);
+    rwInsertAfter(keys, [rwNewRow({ metric: 'Runway Step ' + L, text: 'New step', track_against: col }), rwNewRow({ metric: 'Runway Step ' + L + ' Subtext', track_against: col })]);
+  }
+  renderRunway();
+}
+function rwRemoveStep(titleKey) {
+  var t = rwRow(titleKey); if (!t) return;
+  if (!confirm('Remove the step “' + (t.text || t.metric) + '”?')) return;
+  var id = rwStepId(t.metric), keys = rwStepKeys(titleKey);
+  runwayWork = runwayWork.filter(function(r) { return keys.indexOf(r._key) === -1; });
+  if (/^\d+$/.test(id)) { var n = parseInt(id, 10); rwShiftStepTokens(n + 1, -1, n); rwShiftSteps('num', n + 1, -1); }
+  else {
+    var lc = id.toUpperCase().charCodeAt(0), usedNow = rwLettersInUse(), gap = lc + 1;
+    while (usedNow[gap]) gap++;
+    rwShiftSteps('alpha', lc + 1, -1, gap - 1);
+  }
+  renderRunway();
+}
+function rwPhaseKeys(titleKey) {
+  var t = rwRow(titleKey); if (!t) return null;
+  var n = parseInt(String(t.metric).match(RW_PHASE_ROW)[1], 10), keys = [t._key];
+  runwayWork.forEach(function(r) { var m = String(r.metric || '').match(RW_PHASE_ROW); if (m && m[2] && parseInt(m[1], 10) === n) keys.push(r._key); });
+  return keys;
+}
+function rwAddPhase(titleKey) {
+  var t = rwRow(titleKey); if (!t) return;
+  var n = parseInt(String(t.metric).match(RW_PHASE_ROW)[1], 10), nn = n + 1, keys = rwPhaseKeys(titleKey);
+  rwShiftPhases(nn, 1);
+  var cur = rwFindRow(/^runway phase$/i);
+  if (cur && rwInt(cur.amount) !== null && rwInt(cur.amount) >= nn) cur.amount = String(rwInt(cur.amount) + 1);
+  rwInsertAfter(keys, [rwNewRow({ metric: 'Runway Phase ' + nn, text: 'New phase' }), rwNewRow({ metric: 'Runway Phase ' + nn + ' Subtext' })]);
+  renderRunway();
+}
+function rwRemovePhase(titleKey) {
+  var t = rwRow(titleKey); if (!t) return;
+  if (!confirm('Remove the life phase “' + (t.text || t.metric) + '”?')) return;
+  var n = parseInt(String(t.metric).match(RW_PHASE_ROW)[1], 10), keys = rwPhaseKeys(titleKey);
+  runwayWork = runwayWork.filter(function(r) { return keys.indexOf(r._key) === -1; });
+  rwShiftPhases(n + 1, -1);
+  var cur = rwFindRow(/^runway phase$/i);
+  if (cur && rwInt(cur.amount) !== null) {
+    var c = rwInt(cur.amount);
+    if (c > n) cur.amount = String(c - 1);
+    else if (c === n && !runwayWork.some(function(r) { var m = String(r.metric || '').match(RW_PHASE_ROW); return m && !m[2] && parseInt(m[1], 10) === n; })) cur.amount = String(Math.max(0, n - 1));
+  }
+  renderRunway();
+}
+function rwSetCurrentPhase(titleKey) {
+  var t = rwRow(titleKey); if (!t) return;
+  var n = String(t.metric).match(RW_PHASE_ROW)[1];
+  var cur = rwFindRow(/^runway phase$/i);
+  if (!cur) { cur = rwNewRow({ metric: 'Runway Phase', type: 'Target', unit: 'Phase' }); runwayWork.push(cur); }
+  cur.amount = n;
+  renderRunway();
 }
 
 function runwaySetEdit(on) {
@@ -13940,34 +14161,41 @@ function runwaySetEdit(on) {
     var imp = document.getElementById('runway-import'); if (imp) imp.style.display = '';
     return;
   }
-  if (!on && Object.keys(runwayDirty).length && !confirm('Discard your unsaved changes?')) {
+  if (!on && runwayEditing() && runwayHasChanges() && !confirm('Discard your unsaved changes?')) {
     var tg2 = document.getElementById('runway-edit-toggle'); if (tg2) tg2.checked = true;
     return;
   }
   runwayEdit = on;
-  if (!on) runwayDirty = {};
+  runwayWork = on ? runwayCloneRows() : null;
   var tg3 = document.getElementById('runway-edit-toggle'); if (tg3) tg3.checked = on;
   renderRunway();
 }
 
+function runwayDiscardEdits() { runwayWork = runwayCloneRows(); renderRunway(); }
+
 function runwaySaveEdits() {
-  var ids = Object.keys(runwayDirty);
-  if (!ids.length) return;
-  var sv = document.getElementById('runway-edit-save'), cnt = document.getElementById('runway-edit-count');
-  if (sv) sv.disabled = true;
+  var d = runwayDiff();
+  if (!d.updates.length && !d.inserts.length && !d.deletes.length) return;
+  var cnt = document.getElementById('runway-edit-count');
+  runwaySaving = true; renderRunwayBanner();
   if (cnt) cnt.textContent = 'Saving…';
-  var updates = ids.map(function(id) { return { id: parseInt(id, 10), text: runwayDirty[id] }; });
-  dbCfgRequest('PATCH', null, { budgetId: dbCfgBudget(), updates: updates }).then(function() {
-    var rows = (dbCfg.rows.Runway || []).map(function(r) {
-      return Object.prototype.hasOwnProperty.call(runwayDirty, r.id) ? Object.assign({}, r, { text: runwayDirty[r.id] }) : r;
+  var inserts = d.inserts.map(function(r) { var o = {}; RW_COLS.forEach(function(c) { o[c] = r[c]; }); return o; });
+  dbCfgRequest('PATCH', null, { budgetId: dbCfgBudget(), section: 'Runway', updates: d.updates, inserts: inserts, deletes: d.deletes })
+    .then(function() { return loadDbConfig('Runway', true); })
+    .then(function() {
+      runwaySaving = false;
+      runwayWork = runwayCloneRows();
+      renderRunway();
+    })
+    .catch(function(e) {
+      runwaySaving = false; renderRunwayBanner();
+      if (cnt) cnt.textContent = 'Could not save: ' + (e && e.message || 'failed') + ' — your edits are still here';
     });
-    dbCfgStore('Runway', rows);
-    runwayDirty = {};
-    renderRunway();
-  }).catch(function(e) {
-    if (cnt) cnt.textContent = 'Could not save: ' + (e && e.message || 'failed') + ' — your edits are still here';
-    if (sv) sv.disabled = false;
-  });
+}
+
+function rwReadEl(el, multi) {
+  var v = (el.innerText || '').replace(/\r/g, '');
+  return multi ? v : v.replace(/\s+/g, ' ');
 }
 
 function wireRunwayEditing() {
@@ -13975,27 +14203,55 @@ function wireRunwayEditing() {
   if (!panel) return;
   panel.addEventListener('input', function(e) {
     var el = e.target.closest && e.target.closest('.rw-edit');
-    if (!el) return;
-    var full = (el.getAttribute('data-prefix') || '') + el.textContent.replace(/\s+/g, ' ').trim();
-    var id = el.getAttribute('data-rid');
-    if (full === el.getAttribute('data-orig')) delete runwayDirty[id]; else runwayDirty[id] = full;
-    el.classList.toggle('dirty', Object.prototype.hasOwnProperty.call(runwayDirty, id));
+    if (!el || !runwayEditing()) return;
+    var row = rwRow(el.getAttribute('data-rid')), field = el.getAttribute('data-field'), multi = el.classList.contains('multi');
+    if (!row) return;
+    var val = rwNormText(rwReadEl(el, multi), multi);
+    if (field === 'text') row.text = val;
+    else if (field === 'amount') row.amount = val;
+    else if (field === 'title' || field === 'tag') {
+      var box = el.closest('.runway-title'), tEl = box && box.querySelector('[data-field="title"]'), gEl = box && box.querySelector('[data-field="tag"]');
+      var title = tEl ? rwNormText(rwReadEl(tEl, false), false) : '', tag = gEl ? rwNormText(rwReadEl(gEl, false), false).replace(/^\[|\]$/g, '').trim() : '';
+      row.text = (tag ? '[' + tag + '] ' : '') + title;
+    } else if (field === 'yearRange') {
+      row.track_against = val;
+      var sub = rwFindRow(new RegExp('^' + String(row.metric).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s+subtext$', 'i'));
+      if (sub) sub.track_against = val;
+    }
+    el.classList.add('dirty');
     renderRunwayBanner();
   });
   panel.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' && e.target.closest && e.target.closest('.rw-edit')) { e.preventDefault(); e.target.blur(); }
+    var el = e.target.closest && e.target.closest('.rw-edit');
+    if (!el || e.key !== 'Enter') return;
+    if (!el.classList.contains('multi')) { e.preventDefault(); el.blur(); return; }
+    if (RW_CE !== 'plaintext-only') { e.preventDefault(); document.execCommand('insertText', false, '\n'); }   // paragraph break
   });
   panel.addEventListener('paste', function(e) {
-    if (!(e.target.closest && e.target.closest('.rw-edit'))) return;
+    var el = e.target.closest && e.target.closest('.rw-edit');
+    if (!el) return;
     e.preventDefault();
     var t = (e.clipboardData || window.clipboardData).getData('text') || '';
-    document.execCommand('insertText', false, t.replace(/\s+/g, ' '));
+    document.execCommand('insertText', false, el.classList.contains('multi') ? t.replace(/\r/g, '') : t.replace(/\s+/g, ' '));
   });
   panel.addEventListener('click', function(e) {
-    if (e.target.closest('#runway-import-btn')) importRunwayToDb();
-    else if (e.target.closest('#runway-edit-save')) runwaySaveEdits();
-    else if (e.target.closest('#runway-edit-discard')) { runwayDirty = {}; renderRunway(); }
-    else if (e.target.closest('#runway-edit-done')) runwaySetEdit(false);
+    if (e.target.closest('#runway-import-btn')) { importRunwayToDb(); return; }
+    if (e.target.closest('#runway-edit-save')) { runwaySaveEdits(); return; }
+    if (e.target.closest('#runway-edit-discard')) { runwayDiscardEdits(); return; }
+    if (e.target.closest('#runway-edit-done')) { runwaySetEdit(false); return; }
+    if (!runwayEditing()) return;
+    var act = e.target.closest('[data-act]');
+    if (act) {
+      var key = act.getAttribute('data-key'), a = act.getAttribute('data-act');
+      if (a === 'add-step') rwAddStep(key);
+      else if (a === 'del-step') rwRemoveStep(key);
+      else if (a === 'add-phase') rwAddPhase(key);
+      else if (a === 'del-phase') rwRemovePhase(key);
+      else if (a === 'cur-phase') rwSetCurrentPhase(key);
+      return;
+    }
+    var circ = e.target.closest('.runway-circle[data-step]');
+    if (circ) { rwCycleStep(parseInt(circ.getAttribute('data-step'), 10)); renderRunway(); }
   });
   var tgl = document.getElementById('runway-edit-toggle');
   if (tgl) tgl.addEventListener('change', function() { runwaySetEdit(this.checked); });
@@ -14277,10 +14533,16 @@ function renderRunwayPhasesHtml(data) {
       if (p.num < data.currentPhase) pState = 'done';
       else if (p.num === data.currentPhase) pState = 'current';
     }
+    var pe = runwayEditing() && p.titleId;
+    var pctl = pe ? '<div class="rw-ctl rw-ctl-phase">'
+      + '<button type="button" data-act="cur-phase" data-key="' + escAttr(p.titleId) + '" title="Make this the current phase">\u25CE</button>'
+      + '<button type="button" data-act="add-phase" data-key="' + escAttr(p.titleId) + '" title="Add a phase after this one">+</button>'
+      + '<button type="button" data-act="del-phase" data-key="' + escAttr(p.titleId) + '" title="Remove this phase">\u00d7</button></div>' : '';
     return '<div class="runway-phase">'
-      +   '<div class="runway-phase-chevron rwp-' + pState + '">' + escAttr(p.yearRange) + '</div>'
-      +   '<div class="runway-phase-title">' + rwTxt(p.title, p.titleId, '', 'Phase title') + '</div>'
-      +   (p.subtext || (runwayEditing() && p.subtextId) ? '<div class="runway-phase-subtext">' + rwTxt(p.subtext, p.subtextId, '', 'Add subtext') + '</div>' : '')
+      +   pctl
+      +   '<div class="runway-phase-chevron rwp-' + pState + '">' + (pe ? rwTxt(p.yearRange, p.titleId, 'yearRange', 'years') : escAttr(p.yearRange)) + '</div>'
+      +   '<div class="runway-phase-title">' + rwTxt(p.title, p.titleId, 'text', 'Phase title') + '</div>'
+      +   (p.subtext || (runwayEditing() && p.subtextId) ? '<div class="runway-phase-subtext">' + rwTxt(p.subtext, p.subtextId, 'text', 'Add subtext', true) + '</div>' : '')
       + '</div>';
   }).join('');
   return '<div id="runway-phases">'
@@ -14293,14 +14555,15 @@ function renderRunway() {
   var body = document.getElementById('runway-body');
   if (!body) return;
   var data = getRunwayData();
+  body.classList.toggle('rw-editing', runwayEditing());
   populateRunwayFactorsFilter(data.allTags);
 
   ensureRunwayDb();
   renderRunwayBanner();
   var taglineEl = document.getElementById('runway-tagline');
   if (taglineEl) {
-    if (runwayEditing() && data.goalId) taglineEl.innerHTML = rwTxt(data.goal, data.goalId, '', 'Add a tagline');
-    else taglineEl.textContent = data.goal;
+    if (runwayEditing() && data.goalId) taglineEl.innerHTML = rwTxt(data.goal, data.goalId, 'text', 'Add a tagline', true);
+    else taglineEl.innerHTML = rwPara(data.goal);
     taglineEl.style.display = (data.goal || (runwayEditing() && data.goalId)) ? '' : 'none';
   }
 
@@ -14316,8 +14579,8 @@ function renderRunway() {
   }
 
   function renderSection(sec) {
-    var h = '<div class="runway-col-hdr">' + rwTxt(sec.header, sec.headerId, '', 'Section title') + '</div>'
-      + (sec.subtext || (runwayEditing() && sec.subtextId) ? '<div class="runway-col-subtext">' + rwTxt(sec.subtext, sec.subtextId, '', 'Add subtext') + '</div>' : '');
+    var h = '<div class="runway-col-hdr">' + rwTxt(sec.header, sec.headerId, 'text', 'Section title') + '</div>'
+      + (sec.subtext || (runwayEditing() && sec.subtextId) ? '<div class="runway-col-subtext">' + rwTxt(sec.subtext, sec.subtextId, 'text', 'Add subtext', true) + '</div>' : '');
     for (var i = 0; i < sec.steps.length; i++) {
       var s = sec.steps[i];
       var circleHtml;
@@ -14329,21 +14592,27 @@ function renderRunway() {
         if (data.doneSteps[s.num]) stepState = 'done';
         else if (data.currentSteps[s.num]) stepState = 'current';
         var icon = stepState === 'done' ? '&#10003;' : stepState === 'current' ? '&#10132;' : '';
-        circleHtml = '<div class="runway-circle rw-' + stepState + '">' + icon + '</div>';
+        circleHtml = '<div class="runway-circle rw-' + stepState + '" data-step="' + s.num + '"' + (runwayEditing() ? ' title="Click to change status"' : '') + '>' + icon + '</div>';
       }
-      var amtPill = s.amount ? ' <span class="runway-amt-pill">' + escAttr(s.amount) + '</span>' : '';
+      var editing = runwayEditing() && s.titleId;
+      var amtPill = editing ? ' <span class="runway-amt-pill">' + rwTxt(s.amount, s.titleId, 'amount', 'amount') + '</span>'
+        : (s.amount ? ' <span class="runway-amt-pill">' + escAttr(s.amount) + '</span>' : '');
       // A target date in the Unit column becomes an orange "X.Yy" pill (years from today),
       // shown after the amount pill and before the tag pill.
       var datePill = s.targetYears ? ' <span class="runway-date-pill">' + escAttr(s.targetYears) + '</span>' : '';
       // A "[Tag] Title" prefix in the Text column becomes a grey tag pill, shown last
       // (title, then amount, then date, then tag).
-      var tagPill = s.tag ? ' <span class="runway-tag-pill">' + escAttr(s.tag) + '</span>' : '';
+      var tagPill = editing ? ' <span class="runway-tag-pill">' + rwTxt(s.tag || '', s.titleId, 'tag', 'tag') + '</span>'
+        : (s.tag ? ' <span class="runway-tag-pill">' + escAttr(s.tag) + '</span>' : '');
+      var ctl = editing ? '<div class="rw-ctl"><button type="button" data-act="add-step" data-key="' + escAttr(s.titleId) + '" title="Add a step below">+</button>'
+        + '<button type="button" data-act="del-step" data-key="' + escAttr(s.titleId) + '" title="Remove this step">\u00d7</button></div>' : '';
       h += '<div class="runway-step">'
+        +   ctl
         +   circleHtml
         +   '<div class="runway-step-num">' + (s.kind === 'alpha' ? s.displayLetter : s.displayNum) + '</div>'
         +   '<div class="runway-step-text">'
-        +     '<div class="runway-title">' + rwTxt(s.title, s.titleId, s.tagPrefix, 'Step title') + amtPill + datePill + tagPill + '</div>'
-        +     (s.subtext || (runwayEditing() && s.subtextId) ? '<div class="runway-subtext">' + rwTxt(s.subtext, s.subtextId, '', 'Add subtext') + '</div>' : '')
+        +     '<div class="runway-title">' + rwTxt(s.title, s.titleId, 'title', 'Step title') + amtPill + datePill + tagPill + '</div>'
+        +     (s.subtext || (runwayEditing() && s.subtextId) ? '<div class="runway-subtext">' + rwTxt(s.subtext, s.subtextId, 'text', 'Add subtext', true) + '</div>' : '')
         +   '</div>'
         + '</div>';
     }

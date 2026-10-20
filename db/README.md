@@ -73,7 +73,7 @@ Formulas in the sheet come across as their computed values.
 
 - `GET ?budgetId=&section=Runway` → `{ rows: [...] }` in sheet order, every column.
 - `PUT { budgetId, section, rows }` replaces one area's rows (used once by the Runway tab's "Move Runway to database" button, which reads the rows from the loaded Google Sheet).
-- `PATCH { budgetId, updates: [{ id, text, ... }] }` edits individual rows (used by Runway's Edit Text mode).
+- `PATCH { budgetId, section?, updates?: [{ id, ...fields }], inserts?: [row], deletes?: [id] }` edits, adds and removes rows in one transaction (used by Runway's Edit mode; `section` is required with inserts).
 
 Once an area has rows in the database the app reads that area from there and ignores the sheet's rows for it, so they can be deleted from the sheet.
 
