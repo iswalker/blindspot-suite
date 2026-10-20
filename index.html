@@ -7568,23 +7568,28 @@ function lwPipelineBudgetedAvailable(monthKey) {
 }
 
 // The one account the subtraction is charged to, so the combined total drops by exactly the amount:
-// the first Pipeline account in the Liquid Balances selection; with no Pipeline account in play, the
-// first selected checking account (else the first selected account). null when the subtraction is off
-// or nothing is selected.
+// the first selected "Base Operations Holding" account (where that budgeted cash actually sits);
+// failing that, the first selected Pipeline account, then the first selected checking account (else
+// the first selected account). null when the subtraction is off or nothing is selected.
 function lwPipelineBudgetHolderId() {
   if (!lwBudgetedRemainderOn()) return null;
   var accts = (state.data && state.data.lwAccounts) || [];
   // Net Worth renders every Pipeline account (it has no per-account Pipeline selection), so it
-  // charges the first one regardless of the Liquid Balances selection.
+  // charges against all accounts regardless of the Liquid Balances selection.
   function inPlay(a) { return state.nwRendering || state.lwSelectedAccounts[a.id]; }
-  var i, firstChecking = null, firstAny = null;
+  var baseOpsIds = {}, cfgRows = state.catConfig || [], ci;
+  for (ci = 0; ci < cfgRows.length; ci++) {
+    if (cfgRows[ci].id && (cfgRows[ci].usedFor || '') === 'Base Operations Holding') baseOpsIds[cfgRows[ci].id] = true;
+  }
+  var i, firstPipe = null, firstChecking = null, firstAny = null;
   for (i = 0; i < accts.length; i++) {
     if (!inPlay(accts[i])) continue;
-    if (accts[i].isPipeline) return accts[i].id;
+    if (baseOpsIds[accts[i].id]) return accts[i].id;
+    if (firstPipe === null && accts[i].isPipeline) firstPipe = accts[i].id;
     if (firstAny === null) firstAny = accts[i].id;
     if (firstChecking === null && accts[i].type === 'checking') firstChecking = accts[i].id;
   }
-  return firstChecking !== null ? firstChecking : firstAny;
+  return firstPipe !== null ? firstPipe : (firstChecking !== null ? firstChecking : firstAny);
 }
 
 // Cumulative "Cancel Out" amount through monthKey (see fetchYnabData's cancelOutByMonth) --
