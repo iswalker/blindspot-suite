@@ -690,43 +690,40 @@ td.cell-active {
 .as-gname { font-size: 17px; font-weight: 700; color: #222; }
 .as-gcount { font-size: 12px; font-weight: 600; color: #999; background: #f0f0ec; border-radius: 10px; padding: 1px 8px; }
 .as-gtotal { margin-left: auto; font-size: 17px; font-weight: 700; color: #2e7d32; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.as-gtotal.neg, .as-abal.neg, .as-arow-bal.neg { color: #c62828; }
+.as-gtotal.neg, .as-abal.neg { color: #c62828; }
 .as-rows { display: none; }
 .as-group.open .as-rows { display: block; }
-.as-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 10px 16px 10px 32px; border-top: 1px solid #f0f0ec; }
+.as-row { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-top: 1px solid #f0f0ec; cursor: pointer; }
+.as-row:hover { background: #fafaf7; }
+.as-row.sel { background: #eef2fb; }
+.as-chk { flex: none; width: 17px; height: 17px; accent-color: #1a1a2e; cursor: pointer; margin: 0; }
+.as-aname { flex: 1; }
+.as-assign-wrap { position: relative; display: inline-block; }
+.as-assign-wrap .as-btn:disabled { color: #bbb; cursor: not-allowed; background: #f6f6f3; }
+.as-assign-menu {
+  display: none; position: absolute; top: 100%; left: 0; z-index: 60; min-width: 170px; padding: 8px 0 6px;
+  /* the top padding bridges the gap so the menu doesn't vanish while the pointer crosses to it */
+}
+.as-assign-menu::before {
+  content: ''; position: absolute; inset: 8px 0 0 0; background: #fff; border: 1px solid #ddd; border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.16); z-index: -1;
+}
+.as-assign-wrap.align-right .as-assign-menu { left: auto; right: 0; }
+.as-assign-wrap.enabled:hover .as-assign-menu, .as-assign-wrap.open .as-assign-menu { display: block; }
+.as-menu-item {
+  display: block; width: 100%; padding: 9px 18px; background: none; border: none; text-align: left;
+  font: inherit; font-size: 15px; color: #333; cursor: pointer; touch-action: manipulation;
+}
+.as-menu-item:hover { background: #f0efe9; }
 .as-row:first-child { border-top: none; }
 .as-aname { font-size: 15px; color: #333; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .as-abal { font-size: 15px; font-weight: 600; color: #444; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .as-hint { font-size: 13px; color: #8a6d00; background: #fff8e1; border: 1px solid #f1e0a3; border-radius: 8px; padding: 10px 14px; }
 .as-empty { font-size: 14px; color: #888; padding: 12px 4px; }
-#as-assign-modal {
-  position: fixed; inset: 0; display: none; z-index: 400; background: rgba(0,0,0,.32);
-  align-items: center; justify-content: center;
-}
-#as-assign-modal.open { display: flex; }
-.as-modal-box {
-  background: #fff; border-radius: 10px; width: min(620px, 94vw); max-height: 86vh; display: flex;
-  flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,.28); overflow: hidden;
-}
-.as-modal-hdr { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #eee; font-size: 17px; font-weight: 700; color: #333; }
-#as-modal-close { background: none; border: none; font-size: 24px; line-height: 1; color: #999; cursor: pointer; padding: 0 4px; }
-#as-modal-close:hover { color: #444; }
-.as-modal-note { font-size: 14px; color: #888; padding: 8px 16px; background: #fafaf7; border-bottom: 1px solid #eee; }
-.as-modal-list { overflow-y: auto; padding: 4px 0; flex: 1; min-height: 0; }
-.as-arow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 16px; border-bottom: 1px solid #f2f2ee; }
-.as-arow-l { min-width: 0; flex: 1; }
-.as-arow-name { font-size: 15px; color: #222; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.as-arow-bal { font-size: 13px; color: #888; font-variant-numeric: tabular-nums; }
-.as-arow .csel { flex: none; }
-.as-modal-ftr { padding: 10px 16px; border-top: 1px solid #eee; text-align: right; background: #fafaf7; }
-#as-modal-done { padding: 7px 22px; background: #1a1a2e; color: #fff; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; }
-#as-modal-done:hover { background: #2d2d50; }
 @media (max-width: 820px) {
   #as-body { max-width: none; }
   .as-ghdr { padding: 14px 14px; }
-  .as-row { padding: 11px 14px 11px 28px; }
-  .as-modal-box { width: 96vw; max-height: 90vh; }
-  .as-arow { padding: 9px 12px; }
+  .as-row { padding: 12px 14px; }
 }
 
 /* ---- Tab nav ---- */
@@ -2457,9 +2454,12 @@ td.hbt-num:last-child { width: 13%; }
   </div>
   <div id="acct-summary-panel">
     <div class="panel-hdr">
-      <button type="button" class="as-btn" id="as-assign-btn">Assign Groups</button>
       <button type="button" class="as-btn" id="as-expand-btn">Expand All</button>
       <button type="button" class="as-btn" id="as-collapse-btn">Collapse All</button>
+      <div class="as-assign-wrap" id="as-assign-wrap">
+        <button type="button" class="as-btn" id="as-assign-btn" disabled aria-haspopup="menu" aria-expanded="false">Assign Group &#9662;</button>
+        <div class="as-assign-menu" id="as-assign-menu" role="menu"></div>
+      </div>
     </div>
     <div id="as-body"></div>
   </div>
@@ -2542,18 +2542,6 @@ td.hbt-num:last-child { width: 13%; }
 <div id="lw-tooltip"></div>
 
 <!-- Change Drivers modal (click a chart point) -->
-<div id="as-assign-modal">
-  <div class="as-modal-box">
-    <div class="as-modal-hdr">
-      <span>Assign Account Groups</span>
-      <button type="button" id="as-modal-close" title="Close">&times;</button>
-    </div>
-    <div class="as-modal-note">Open accounts only. Anything you leave unassigned is listed under Other.</div>
-    <div class="as-modal-list" id="as-modal-list"></div>
-    <div class="as-modal-ftr"><button type="button" id="as-modal-done">Done</button></div>
-  </div>
-</div>
-
 <div id="lw-driver-modal">
   <div class="lwdm-box">
     <div class="lwdm-hdr">
@@ -7978,14 +7966,15 @@ function renderAcctSummary() {
   var html = '';
   if (accts.length && !Object.keys(state.acctGroupMap).length) {
     html += '<div class="as-hint">Everything is under Other until accounts are assigned. '
-      + 'Use <strong>Assign Groups</strong> to sort them into Cash, Credit, Savings and the rest.</div>';
+      + 'Tick the accounts below, then use <strong>Assign Group</strong> to sort them into Cash, Credit, Savings and the rest.</div>';
   }
   AS_GROUPS.forEach(function(g) {
     var list = by[g];
     if (!list || !list.length) return;
     var total = 0;
     list.forEach(function(a) { total += a.balance; });
-    var open = !!state.acctSummaryOpen[g];
+    // Other is where unassigned accounts wait, so it starts open until the user chooses otherwise
+    var open = state.acctSummaryOpen[g] === undefined ? g === 'Other' : !!state.acctSummaryOpen[g];
     html += '<div class="as-group' + (open ? ' open' : '') + '" data-grp="' + escAttr(g) + '">'
       + '<button type="button" class="as-ghdr" aria-expanded="' + open + '">'
       +   '<span class="as-chev"></span>'
@@ -7995,53 +7984,42 @@ function renderAcctSummary() {
       + '</button>'
       + '<div class="as-rows">'
       + list.map(function(a) {
-          return '<div class="as-row"><span class="as-aname" title="' + escAttr(a.name) + '">' + escHtml(a.name) + '</span>'
-            + '<span class="as-abal' + (a.balance < 0 ? ' neg' : '') + '">' + asFmtMoney(a.balance) + '</span></div>';
+          var sel = !!asSelected[a.id];
+          return '<label class="as-row' + (sel ? ' sel' : '') + '"><input type="checkbox" class="as-chk" data-id="' + escAttr(a.id) + '"' + (sel ? ' checked' : '') + '>'
+            + '<span class="as-aname" title="' + escAttr(a.name) + '">' + escHtml(a.name) + '</span>'
+            + '<span class="as-abal' + (a.balance < 0 ? ' neg' : '') + '">' + asFmtMoney(a.balance) + '</span></label>';
         }).join('')
       + '</div></div>';
   });
   if (!accts.length) html += '<div class="as-empty">No open accounts found.</div>';
   body.innerHTML = html;
+  // drop selections for accounts that are no longer listed (closed, or data refreshed)
+  var live = {};
+  accts.forEach(function(a) { live[a.id] = true; });
+  Object.keys(asSelected).forEach(function(id) { if (!live[id]) delete asSelected[id]; });
+  asUpdateAssignControl();
 }
 
-function openAcctAssignModal() {
-  var modal = document.getElementById('as-assign-modal'), list = document.getElementById('as-modal-list');
-  if (!modal || !list) return;
-  cselCloseOpen();
-  var accts = asOpenAccounts();
-  // same order as the summary: by group, then largest balance
-  accts.sort(function(a, b) {
-    var d = AS_GROUPS.indexOf(a.group) - AS_GROUPS.indexOf(b.group);
-    return d !== 0 ? d : Math.abs(b.balance) - Math.abs(a.balance);
-  });
-  list.innerHTML = '';
-  accts.forEach(function(a) {
-    var row = document.createElement('div');
-    row.className = 'as-arow';
-    row.innerHTML = '<div class="as-arow-l"><div class="as-arow-name" title="' + escAttr(a.name) + '">' + escHtml(a.name) + '</div>'
-      + '<div class="as-arow-bal' + (a.balance < 0 ? ' neg' : '') + '">' + asFmtMoney(a.balance) + '</div></div>';
-    var sel = document.createElement('select');
-    sel.setAttribute('aria-label', 'Group for ' + a.name);
-    AS_GROUPS.forEach(function(g) {
-      var o = document.createElement('option'); o.value = g; o.textContent = g; sel.appendChild(o);
-    });
-    sel.value = a.group;
-    sel.addEventListener('change', function() {
-      if (sel.value === 'Other') delete state.acctGroupMap[a.id]; else state.acctGroupMap[a.id] = sel.value;
-      asSaveMap();
-      renderAcctSummary();
-    });
-    row.appendChild(sel);
-    list.appendChild(row);
-    enhanceSelect(sel);
-  });
-  if (!accts.length) list.innerHTML = '<div class="as-empty">No open accounts found.</div>';
-  modal.classList.add('open');
+// Rows carry a checkbox; with one or more ticked, the "Assign Group" control (right of Collapse All)
+// is enabled and its menu moves them to the chosen group.
+var asSelected = {};
+function asUpdateAssignControl() {
+  var n = Object.keys(asSelected).length;
+  var btn = document.getElementById('as-assign-btn'), wrap = document.getElementById('as-assign-wrap');
+  if (!btn || !wrap) return;
+  btn.disabled = n === 0;
+  btn.innerHTML = 'Assign Group' + (n ? ' (' + n + ')' : '') + ' &#9662;';
+  wrap.classList.toggle('enabled', n > 0);
+  if (!n) { wrap.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); }
 }
-function closeAcctAssignModal() {
-  cselCloseOpen();
-  var modal = document.getElementById('as-assign-modal');
-  if (modal) modal.classList.remove('open');
+function asAssignSelected(group) {
+  Object.keys(asSelected).forEach(function(id) {
+    if (group === 'Other') delete state.acctGroupMap[id]; else state.acctGroupMap[id] = group;
+  });
+  asSaveMap();
+  asSelected = {};
+  document.getElementById('as-assign-wrap').classList.remove('open');
+  renderAcctSummary();
 }
 
 // ---- Net Worth "30y Outlook" projection ----
@@ -15183,17 +15161,18 @@ document.addEventListener('DOMContentLoaded', function() {
     hideLwTooltip();
   });
 
-  // Account Summary: expand/collapse, group assignment modal
+  // Account Summary: expand/collapse, checkbox selection, Assign Group menu
   (function() {
     var body = document.getElementById('as-body');
     if (body) body.addEventListener('click', function(e) {
       var hdr = e.target.closest('.as-ghdr');
       if (!hdr) return;
       var grp = hdr.parentNode.getAttribute('data-grp');
-      state.acctSummaryOpen[grp] = !state.acctSummaryOpen[grp];
+      var nowOpen = !hdr.parentNode.classList.contains('open');
+      state.acctSummaryOpen[grp] = nowOpen;
       asSaveOpen();
-      hdr.parentNode.classList.toggle('open', !!state.acctSummaryOpen[grp]);
-      hdr.setAttribute('aria-expanded', !!state.acctSummaryOpen[grp]);
+      hdr.parentNode.classList.toggle('open', nowOpen);
+      hdr.setAttribute('aria-expanded', nowOpen);
     });
     function setAll(open) {
       AS_GROUPS.forEach(function(g) { state.acctSummaryOpen[g] = open; });
@@ -15202,14 +15181,37 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     document.getElementById('as-expand-btn').addEventListener('click', function() { setAll(true); });
     document.getElementById('as-collapse-btn').addEventListener('click', function() { setAll(false); });
-    document.getElementById('as-assign-btn').addEventListener('click', openAcctAssignModal);
-    document.getElementById('as-modal-close').addEventListener('click', closeAcctAssignModal);
-    document.getElementById('as-modal-done').addEventListener('click', closeAcctAssignModal);
-    var asModal = document.getElementById('as-assign-modal');
-    asModal.addEventListener('click', function(e) { if (e.target === asModal) closeAcctAssignModal(); });
-    document.addEventListener('keydown', function(e) {
-      // an open group dropdown takes the first Escape; the modal takes the next
-      if (e.key === 'Escape' && asModal.classList.contains('open') && !cselOpen) closeAcctAssignModal();
+    if (body) body.addEventListener('change', function(e) {
+      var chk = e.target.closest('.as-chk');
+      if (!chk) return;
+      var id = chk.getAttribute('data-id');
+      if (chk.checked) asSelected[id] = true; else delete asSelected[id];
+      chk.parentNode.classList.toggle('sel', chk.checked);
+      asUpdateAssignControl();
+    });
+    var wrap = document.getElementById('as-assign-wrap'), btn = document.getElementById('as-assign-btn'), menu = document.getElementById('as-assign-menu');
+    menu.innerHTML = AS_GROUPS.map(function(g) { return '<button type="button" role="menuitem" class="as-menu-item" data-grp="' + escAttr(g) + '">' + escHtml(g) + '</button>'; }).join('');
+    // keep the menu on screen: right-align it when its left-aligned position would overflow
+    function placeMenu() {
+      wrap.classList.remove('align-right');
+      var r = menu.getBoundingClientRect();
+      if (r.right > window.innerWidth - 8) wrap.classList.add('align-right');
+    }
+    wrap.addEventListener('mouseenter', function() { if (!btn.disabled) placeMenu(); });
+    // hover reveals the menu on desktop (CSS); tapping the button opens it on touch screens
+    btn.addEventListener('click', function() {
+      if (btn.disabled) return;
+      var open = !wrap.classList.contains('open');
+      wrap.classList.toggle('open', open);
+      btn.setAttribute('aria-expanded', open);
+      if (open) placeMenu();
+    });
+    menu.addEventListener('click', function(e) {
+      var item = e.target.closest('.as-menu-item');
+      if (item) asAssignSelected(item.getAttribute('data-grp'));
+    });
+    document.addEventListener('click', function(e) {
+      if (!wrap.contains(e.target)) { wrap.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); }
     });
   })();
 
