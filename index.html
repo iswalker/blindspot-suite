@@ -117,6 +117,13 @@ body {
   flex-wrap: wrap;
 }
 #nav-left { display: flex; align-items: center; min-width: 0; }
+/* Desktop: when the tabs outgrow the row, the strip scrolls sideways (mobile uses the dropdown). */
+@media (min-width: 821px) {
+  #tab-row { flex-wrap: nowrap; }
+  #nav-left { flex: 1 1 auto; }
+  #tab-nav { flex: 1 1 auto; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+  #tab-nav-list { width: max-content; }
+}
 .brand { display: flex; align-items: center; gap: 8px; flex: none; }
 .brand img {
   width: 26px;
@@ -659,6 +666,69 @@ td.cell-active {
   flex-wrap: wrap;
 }
 
+/* ---- Account Summary tab ---- */
+#acct-summary-panel { display: none; }
+.as-btn {
+  padding: 6px 14px; background: #fff; border: 1px solid #ccc; border-radius: 6px;
+  font-size: 13px; cursor: pointer; color: #555; font-weight: 500; white-space: nowrap;
+}
+.as-btn:hover { background: #f0f0ec; }
+#as-body { max-width: 760px; display: flex; flex-direction: column; gap: 10px; }
+.as-group { background: #fff; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
+.as-ghdr {
+  width: 100%; display: flex; align-items: center; gap: 10px; padding: 13px 16px;
+  background: #fff; border: none; cursor: pointer; font: inherit; text-align: left; color: inherit;
+  touch-action: manipulation;
+}
+.as-ghdr:hover { background: #f8f8f5; }
+.as-group.open .as-ghdr { background: #f7f7f4; border-bottom: 1px solid #e8e8e4; }
+.as-chev {
+  flex: none; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent;
+  border-left: 6px solid #888; transition: transform .12s;
+}
+.as-group.open .as-chev { transform: rotate(90deg); }
+.as-gname { font-size: 17px; font-weight: 700; color: #222; }
+.as-gcount { font-size: 12px; font-weight: 600; color: #999; background: #f0f0ec; border-radius: 10px; padding: 1px 8px; }
+.as-gtotal { margin-left: auto; font-size: 17px; font-weight: 700; color: #2e7d32; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.as-gtotal.neg, .as-abal.neg, .as-arow-bal.neg { color: #c62828; }
+.as-rows { display: none; }
+.as-group.open .as-rows { display: block; }
+.as-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 10px 16px 10px 32px; border-top: 1px solid #f0f0ec; }
+.as-row:first-child { border-top: none; }
+.as-aname { font-size: 15px; color: #333; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.as-abal { font-size: 15px; font-weight: 600; color: #444; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.as-hint { font-size: 13px; color: #8a6d00; background: #fff8e1; border: 1px solid #f1e0a3; border-radius: 8px; padding: 10px 14px; }
+.as-empty { font-size: 14px; color: #888; padding: 12px 4px; }
+#as-assign-modal {
+  position: fixed; inset: 0; display: none; z-index: 400; background: rgba(0,0,0,.32);
+  align-items: center; justify-content: center;
+}
+#as-assign-modal.open { display: flex; }
+.as-modal-box {
+  background: #fff; border-radius: 10px; width: min(620px, 94vw); max-height: 86vh; display: flex;
+  flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,.28); overflow: hidden;
+}
+.as-modal-hdr { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #eee; font-size: 17px; font-weight: 700; color: #333; }
+#as-modal-close { background: none; border: none; font-size: 24px; line-height: 1; color: #999; cursor: pointer; padding: 0 4px; }
+#as-modal-close:hover { color: #444; }
+.as-modal-note { font-size: 14px; color: #888; padding: 8px 16px; background: #fafaf7; border-bottom: 1px solid #eee; }
+.as-modal-list { overflow-y: auto; padding: 4px 0; flex: 1; min-height: 0; }
+.as-arow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 16px; border-bottom: 1px solid #f2f2ee; }
+.as-arow-l { min-width: 0; flex: 1; }
+.as-arow-name { font-size: 15px; color: #222; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.as-arow-bal { font-size: 13px; color: #888; font-variant-numeric: tabular-nums; }
+.as-arow .csel { flex: none; }
+.as-modal-ftr { padding: 10px 16px; border-top: 1px solid #eee; text-align: right; background: #fafaf7; }
+#as-modal-done { padding: 7px 22px; background: #1a1a2e; color: #fff; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; }
+#as-modal-done:hover { background: #2d2d50; }
+@media (max-width: 820px) {
+  #as-body { max-width: none; }
+  .as-ghdr { padding: 14px 14px; }
+  .as-row { padding: 11px 14px 11px 28px; }
+  .as-modal-box { width: 96vw; max-height: 90vh; }
+  .as-arow { padding: 9px 12px; }
+}
+
 /* ---- Tab nav ---- */
 #tab-nav-list {
   display: flex;
@@ -692,6 +762,7 @@ td.cell-active {
    viewBox) so each can be tuned independently; color/fill stays shared above. Height is
    intentionally omitted so each icon scales from width alone, preserving its aspect ratio. */
 .tab-icon-home         { width: 47px; margin: 0 -10px -3px -11px; }
+.tab-icon-acct-summary { width: 40px; margin: 0 -4px -3px -8px; }
 .tab-icon-margin       { width: 32px; margin: 0 3px -1px 0px; }
 .tab-icon-lw           { width: 42px; margin: 0 -3px -1px -10px; }
 .tab-icon-nw           { width: 38px; margin: 0px 2px -1px 0; }
@@ -1833,6 +1904,10 @@ td.hbt-num:last-child { width: 13%; }
       </div>
       <div id="tab-nav">
        <div id="tab-nav-list">
+        <button class="tab-btn" data-tab="acct-summary">
+          <svg class="tab-icon tab-icon-acct-summary" viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg"><path d="m226.87 1012.5v-712.5c0-40.312 32.812-73.125 73.125-73.125h56.25c9.3281 0 16.875 7.5469 16.875 16.875s-7.5469 16.875-16.875 16.875h-56.25c-21.703 0-39.375 17.672-39.375 39.375v712.5c0 21.703 17.672 39.375 39.375 39.375h600c21.703 0 39.375-17.672 39.375-39.375v-712.5c0-21.703-17.672-39.375-39.375-39.375h-56.25c-9.3281 0-16.875-7.5469-16.875-16.875s7.5469-16.875 16.875-16.875h56.25c40.312 0 73.125 32.812 73.125 73.125v712.5c0 40.312-32.812 73.125-73.125 73.125h-600c-40.312 0-73.125-32.812-73.125-73.125zm598.13-560.63h-300c-9.3281 0-16.875 7.5469-16.875 16.875s7.5469 16.875 16.875 16.875h300c9.3281 0 16.875-7.5469 16.875-16.875s-7.5469-16.875-16.875-16.875zm-429.37-151.87v-93.75c0-30 24.375-54.375 54.375-54.375h75.984c17.109-23.344 44.672-37.5 74.016-37.5s56.859 14.156 74.016 37.5h75.984c30 0 54.375 24.375 54.375 54.375v93.75c0 9.3281-7.5469 16.875-16.875 16.875h-375c-9.3281 0-16.875-7.5469-16.875-16.875zm33.75-16.875h341.26v-76.875c0-11.391-9.2344-20.625-20.625-20.625h-85.125c-6.0469 0-11.625-3.2344-14.625-8.4375-10.312-17.906-29.531-29.062-50.25-29.062s-39.938 11.109-50.25 29.062c-3 5.25-8.5781 8.4375-14.625 8.4375h-85.125c-11.391 0-20.625 9.2344-20.625 20.625zm-54.375 121.87h56.25c19.641 0 35.625 15.984 35.625 35.625v56.25c0 19.641-15.984 35.625-35.625 35.625h-56.25c-19.641 0-35.625-15.984-35.625-35.625v-56.25c0-19.641 15.984-35.625 35.625-35.625zm-1.875 91.875c0 1.0312 0.84375 1.875 1.875 1.875h56.25c1.0312 0 1.875-0.84375 1.875-1.875v-56.25c0-1.0312-0.84375-1.875-1.875-1.875h-56.25c-1.0312 0-1.875 0.84375-1.875 1.875zm151.87 195h300c9.3281 0 16.875-7.5469 16.875-16.875s-7.5469-16.875-16.875-16.875h-300c-9.3281 0-16.875 7.5469-16.875 16.875s7.5469 16.875 16.875 16.875zm-58.125 11.25c0 19.641-15.984 35.625-35.625 35.625h-56.25c-19.641 0-35.625-15.984-35.625-35.625v-56.25c0-19.641 15.984-35.625 35.625-35.625h56.25c19.641 0 35.625 15.984 35.625 35.625zm-33.75-56.25c0-1.0312-0.84375-1.875-1.875-1.875h-56.25c-1.0312 0-1.875 0.84375-1.875 1.875v56.25c0 1.0312 0.84375 1.875 1.875 1.875h56.25c1.0312 0 1.875-0.84375 1.875-1.875zm91.875 251.26h318.74c9.3281 0 16.875-7.5469 16.875-16.875s-7.5469-16.875-16.875-16.875h-318.74c-9.3281 0-16.875 7.5469-16.875 16.875s7.5469 16.875 16.875 16.875zm-58.125-45v56.25c0 19.641-15.984 35.625-35.625 35.625h-56.25c-19.641 0-35.625-15.984-35.625-35.625v-56.25c0-19.641 15.984-35.625 35.625-35.625h56.25c19.641 0 35.625 15.984 35.625 35.625zm-33.75 0c0-1.0312-0.84375-1.875-1.875-1.875h-56.25c-1.0312 0-1.875 0.84375-1.875 1.875v56.25c0 1.0312 0.84375 1.875 1.875 1.875h56.25c1.0312 0 1.875-0.84375 1.875-1.875z"/></svg>
+          Account Summary
+        </button>
         <button class="tab-btn tab-active" data-tab="home">
           <svg class="tab-icon tab-icon-home" viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg"><path d="m584.89 297.71v76.281c-112.96 7.5039-203.62 97.934-211.13 210.89h-76.043v30.23h76.043c7.4219 113.04 98.113 203.62 211.13 211.13v76.043h30.23v-76.043c113.01-7.5039 203.7-98.094 211.13-211.13h76.043v-30.23h-76.043c-7.5039-112.96-98.176-203.39-211.13-210.89v-76.281zm0 106.51v74.863h30.23v-74.863c96.555 7.3203 173.28 84.125 180.66 180.66h-74.863v30.23h75.098c-7.2695 96.656-84.258 173.57-180.9 180.9v-75.098h-30.23v75.098c-96.641-7.3242-173.63-84.242-180.9-180.9h75.098v-30.23h-74.863c7.3828-96.535 84.109-173.34 180.66-180.66z"/></svg>
           Current Month
@@ -2380,6 +2455,14 @@ td.hbt-num:last-child { width: 13%; }
     </div>
     <div id="runway-body"></div>
   </div>
+  <div id="acct-summary-panel">
+    <div class="panel-hdr">
+      <button type="button" class="as-btn" id="as-assign-btn">Assign Groups</button>
+      <button type="button" class="as-btn" id="as-expand-btn">Expand All</button>
+      <button type="button" class="as-btn" id="as-collapse-btn">Collapse All</button>
+    </div>
+    <div id="as-body"></div>
+  </div>
   <div id="home-panel">
     <div class="panel-hdr">
       <div id="home-acct-filter-wrap" style="display:none">
@@ -2459,6 +2542,18 @@ td.hbt-num:last-child { width: 13%; }
 <div id="lw-tooltip"></div>
 
 <!-- Change Drivers modal (click a chart point) -->
+<div id="as-assign-modal">
+  <div class="as-modal-box">
+    <div class="as-modal-hdr">
+      <span>Assign Account Groups</span>
+      <button type="button" id="as-modal-close" title="Close">&times;</button>
+    </div>
+    <div class="as-modal-note">Open accounts only. Anything you leave unassigned is listed under Other.</div>
+    <div class="as-modal-list" id="as-modal-list"></div>
+    <div class="as-modal-ftr"><button type="button" id="as-modal-done">Done</button></div>
+  </div>
+</div>
+
 <div id="lw-driver-modal">
   <div class="lwdm-box">
     <div class="lwdm-hdr">
@@ -2696,6 +2791,9 @@ var state = {
   excludeUnknownIncome: localStorage.getItem('cf-exclude-unknown-income') !== '0',
   includeTitheCheck:    localStorage.getItem('cf-include-tithe-check') !== '0',
   homeSelectedAccounts: parseJsonLS('sel-home-accts') || {},
+  // Account Summary: { accountId: groupName } (unassigned = Other) and which groups are expanded
+  acctGroupMap:         parseJsonLS('acct-summary-groups') || {},
+  acctSummaryOpen:      parseJsonLS('acct-summary-open') || {},
   runwayFactors:        parseJsonLS('sel-runway-factors') || {}
 };
 state.lwIncludePipeline = state.lwPipelineMode !== '';
@@ -4534,6 +4632,7 @@ function refreshYnab() {
     if (state.activeTab === 'home') renderHome();
     if (state.activeTab === 'lw')   renderLiquidWorth();
     if (state.activeTab === 'nw')   renderNetWorth();
+    if (state.activeTab === 'acct-summary') renderAcctSummary();
     document.getElementById('cache-label').textContent =
       'Refreshed ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
   })
@@ -7099,7 +7198,14 @@ function switchTab(tab) {
     tabBlocks[sti].style.display = tabBlocks[sti].getAttribute('data-tab') === tab ? '' : 'none';
   }
   updateGoogleSheetButton();
+  // The tab strip scrolls sideways on desktop when it runs out of room; keep the active tab in view.
+  for (var sci = 0; sci < btns.length; sci++) {
+    if (btns[sci].classList.contains('tab-active') && btns[sci].closest('#tab-nav-list') && btns[sci].scrollIntoView) {
+      btns[sci].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+  }
   document.documentElement.classList.toggle('cf-tab-active', tab === 'margin');
+  document.getElementById('acct-summary-panel').style.display = tab === 'acct-summary' ? 'block' : 'none';
   document.getElementById('home-panel').style.display     = tab === 'home'     ? 'block' : 'none';
   document.getElementById('margin-panel').style.display   = tab === 'margin'   ? 'block' : 'none';
   document.getElementById('lw-panel').style.display       = tab === 'lw'       ? 'block' : 'none';
@@ -7110,6 +7216,7 @@ function switchTab(tab) {
   document.getElementById('runway-panel').style.display       = tab === 'runway'       ? 'block' : 'none';
   document.getElementById('reconcile-panel').style.display    = tab === 'reconcile'     ? 'block' : 'none';
   if (tab === 'margin')       layoutCashFlowColumns();
+  if (tab === 'acct-summary') renderAcctSummary();
   if (tab === 'home')         renderHome();
   if (tab === 'lw')           renderLiquidWorth();
   if (tab === 'nw')           renderNetWorth();
@@ -7831,6 +7938,110 @@ function renderNetWorthBody() {
       requestAnimationFrame(function() { drawLwChart(k, a, d, n, -1, 'nw-canvas', ac); });
     })(keys, assetVals, debtVals, netVals, accts);
   }
+}
+
+// ---- Account Summary tab ----
+// Open YNAB accounts bucketed into fixed groups (empty groups hidden), each expandable to its
+// accounts, largest absolute balance first. Accounts nobody has assigned fall into Other; the
+// "Assign Groups" modal edits the mapping, which is kept per browser.
+var AS_GROUPS = ['Cash', 'Credit', 'Savings', 'Loans', 'Investments', 'Kids', 'Assets', 'Mortgage', 'Other'];
+
+function asFmtMoney(v) {
+  var r = Math.round(v * 100) / 100;
+  return (r < 0 ? '-' : '') + '$' + Math.abs(r).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function asGroupOf(id) {
+  var g = state.acctGroupMap[id];
+  return AS_GROUPS.indexOf(g) !== -1 ? g : 'Other';
+}
+function asOpenAccounts() {
+  var info = (state.data && state.data.allAccountsInfo) || {}, out = [];
+  for (var id in info) {
+    if (info[id].closed) continue;
+    out.push({ id: id, name: info[id].name || id, balance: info[id].balance || 0, group: asGroupOf(id) });
+  }
+  out.sort(function(a, b) { return Math.abs(b.balance) - Math.abs(a.balance); });
+  return out;
+}
+function asSaveMap() { localStorage.setItem('acct-summary-groups', JSON.stringify(state.acctGroupMap)); }
+function asSaveOpen() { localStorage.setItem('acct-summary-open', JSON.stringify(state.acctSummaryOpen)); }
+
+function renderAcctSummary() {
+  var body = document.getElementById('as-body');
+  if (!body) return;
+  if (!state.data || !state.data.allAccountsInfo) {
+    body.innerHTML = '<div class="as-empty">Account Summary requires a YNAB API connection. Use <strong>Connect to YNAB</strong> on the start screen.</div>';
+    return;
+  }
+  var accts = asOpenAccounts(), by = {};
+  accts.forEach(function(a) { (by[a.group] = by[a.group] || []).push(a); });
+  var html = '';
+  if (accts.length && !Object.keys(state.acctGroupMap).length) {
+    html += '<div class="as-hint">Everything is under Other until accounts are assigned. '
+      + 'Use <strong>Assign Groups</strong> to sort them into Cash, Credit, Savings and the rest.</div>';
+  }
+  AS_GROUPS.forEach(function(g) {
+    var list = by[g];
+    if (!list || !list.length) return;
+    var total = 0;
+    list.forEach(function(a) { total += a.balance; });
+    var open = !!state.acctSummaryOpen[g];
+    html += '<div class="as-group' + (open ? ' open' : '') + '" data-grp="' + escAttr(g) + '">'
+      + '<button type="button" class="as-ghdr" aria-expanded="' + open + '">'
+      +   '<span class="as-chev"></span>'
+      +   '<span class="as-gname">' + escHtml(g) + '</span>'
+      +   '<span class="as-gcount">' + list.length + '</span>'
+      +   '<span class="as-gtotal' + (total < 0 ? ' neg' : '') + '">' + asFmtMoney(total) + '</span>'
+      + '</button>'
+      + '<div class="as-rows">'
+      + list.map(function(a) {
+          return '<div class="as-row"><span class="as-aname" title="' + escAttr(a.name) + '">' + escHtml(a.name) + '</span>'
+            + '<span class="as-abal' + (a.balance < 0 ? ' neg' : '') + '">' + asFmtMoney(a.balance) + '</span></div>';
+        }).join('')
+      + '</div></div>';
+  });
+  if (!accts.length) html += '<div class="as-empty">No open accounts found.</div>';
+  body.innerHTML = html;
+}
+
+function openAcctAssignModal() {
+  var modal = document.getElementById('as-assign-modal'), list = document.getElementById('as-modal-list');
+  if (!modal || !list) return;
+  cselCloseOpen();
+  var accts = asOpenAccounts();
+  // same order as the summary: by group, then largest balance
+  accts.sort(function(a, b) {
+    var d = AS_GROUPS.indexOf(a.group) - AS_GROUPS.indexOf(b.group);
+    return d !== 0 ? d : Math.abs(b.balance) - Math.abs(a.balance);
+  });
+  list.innerHTML = '';
+  accts.forEach(function(a) {
+    var row = document.createElement('div');
+    row.className = 'as-arow';
+    row.innerHTML = '<div class="as-arow-l"><div class="as-arow-name" title="' + escAttr(a.name) + '">' + escHtml(a.name) + '</div>'
+      + '<div class="as-arow-bal' + (a.balance < 0 ? ' neg' : '') + '">' + asFmtMoney(a.balance) + '</div></div>';
+    var sel = document.createElement('select');
+    sel.setAttribute('aria-label', 'Group for ' + a.name);
+    AS_GROUPS.forEach(function(g) {
+      var o = document.createElement('option'); o.value = g; o.textContent = g; sel.appendChild(o);
+    });
+    sel.value = a.group;
+    sel.addEventListener('change', function() {
+      if (sel.value === 'Other') delete state.acctGroupMap[a.id]; else state.acctGroupMap[a.id] = sel.value;
+      asSaveMap();
+      renderAcctSummary();
+    });
+    row.appendChild(sel);
+    list.appendChild(row);
+    enhanceSelect(sel);
+  });
+  if (!accts.length) list.innerHTML = '<div class="as-empty">No open accounts found.</div>';
+  modal.classList.add('open');
+}
+function closeAcctAssignModal() {
+  cselCloseOpen();
+  var modal = document.getElementById('as-assign-modal');
+  if (modal) modal.classList.remove('open');
 }
 
 // ---- Net Worth "30y Outlook" projection ----
@@ -13778,6 +13989,7 @@ function showReport() {
   for (var ti3 = 0; ti3 < btns.length; ti3++) {
     btns[ti3].classList.toggle('tab-active', btns[ti3].getAttribute('data-tab') === tab);
   }
+  document.getElementById('acct-summary-panel').style.display = tab === 'acct-summary' ? 'block' : 'none';
   document.getElementById('home-panel').style.display     = tab === 'home'     ? 'block' : 'none';
   document.getElementById('margin-panel').style.display   = tab === 'margin'   ? 'block' : 'none';
   document.getElementById('lw-panel').style.display       = tab === 'lw'       ? 'block' : 'none';
@@ -13813,6 +14025,7 @@ function showReport() {
   populateHomeAccountFilter();
   // After the Liquid Balances selection exists: Cash Flow's reconciliation follows it
   refreshReconciliationData();
+  if (tab === 'acct-summary') renderAcctSummary();
   if (tab === 'home')     renderHome();
   if (tab === 'lw')       renderLiquidWorth();
   if (tab === 'nw')       renderNetWorth();
@@ -14969,6 +15182,36 @@ document.addEventListener('DOMContentLoaded', function() {
     if (tt && tt.contains(e.target)) return;
     hideLwTooltip();
   });
+
+  // Account Summary: expand/collapse, group assignment modal
+  (function() {
+    var body = document.getElementById('as-body');
+    if (body) body.addEventListener('click', function(e) {
+      var hdr = e.target.closest('.as-ghdr');
+      if (!hdr) return;
+      var grp = hdr.parentNode.getAttribute('data-grp');
+      state.acctSummaryOpen[grp] = !state.acctSummaryOpen[grp];
+      asSaveOpen();
+      hdr.parentNode.classList.toggle('open', !!state.acctSummaryOpen[grp]);
+      hdr.setAttribute('aria-expanded', !!state.acctSummaryOpen[grp]);
+    });
+    function setAll(open) {
+      AS_GROUPS.forEach(function(g) { state.acctSummaryOpen[g] = open; });
+      asSaveOpen();
+      renderAcctSummary();
+    }
+    document.getElementById('as-expand-btn').addEventListener('click', function() { setAll(true); });
+    document.getElementById('as-collapse-btn').addEventListener('click', function() { setAll(false); });
+    document.getElementById('as-assign-btn').addEventListener('click', openAcctAssignModal);
+    document.getElementById('as-modal-close').addEventListener('click', closeAcctAssignModal);
+    document.getElementById('as-modal-done').addEventListener('click', closeAcctAssignModal);
+    var asModal = document.getElementById('as-assign-modal');
+    asModal.addEventListener('click', function(e) { if (e.target === asModal) closeAcctAssignModal(); });
+    document.addEventListener('keydown', function(e) {
+      // an open group dropdown takes the first Escape; the modal takes the next
+      if (e.key === 'Escape' && asModal.classList.contains('open') && !cselOpen) closeAcctAssignModal();
+    });
+  })();
 
   // Change Drivers modal dismissal
   (function() {
