@@ -3784,6 +3784,9 @@ function fetchYnabData(apiKey, budgetId, opts) {
   var incomePivot      = {};
   var incomeAcctPivot  = {};
   var incomePayeePivot = {};
+  // Red-flagged slice of the two pivots above, for Pipeline accounts (see cfIncomeAmt)
+  var incomeAcctRedPivot  = {};
+  var incomePayeeRedPivot = {};
   var regTxns        = {};
   var allAccountsSet = {};
   var pendingTxns      = [];
@@ -4182,13 +4185,21 @@ function fetchYnabData(apiKey, budgetId, opts) {
           var ipayee = s.payee_name || '(Unknown)';
           if (!incomePayeePivot[key][ipayee]) incomePayeePivot[key][ipayee] = {};
           incomePayeePivot[key][ipayee][acct] = (incomePayeePivot[key][ipayee][acct] || 0) + amt;
+          var incIsRed = t.flag_color === 'red';
+          if (incIsRed) {
+            if (!incomeAcctRedPivot[key]) incomeAcctRedPivot[key] = {};
+            incomeAcctRedPivot[key][acct] = (incomeAcctRedPivot[key][acct] || 0) + amt;
+            if (!incomePayeeRedPivot[key]) incomePayeeRedPivot[key] = {};
+            if (!incomePayeeRedPivot[key][ipayee]) incomePayeeRedPivot[key][ipayee] = {};
+            incomePayeeRedPivot[key][ipayee][acct] = (incomePayeeRedPivot[key][ipayee][acct] || 0) + amt;
+          }
           if (!regTxns[key])                              regTxns[key]                              = {};
           if (!regTxns[key]['Inflow'])                    regTxns[key]['Inflow']                    = {};
           if (!regTxns[key]['Inflow']['Ready to Assign']) regTxns[key]['Inflow']['Ready to Assign'] = [];
           regTxns[key]['Inflow']['Ready to Assign'].push({
             account: acct, date: dispDate,
             payee: s.payee_name || '', memo: s.memo || '',
-            outflow: 0, inflow: amt
+            outflow: 0, inflow: amt, isRed: incIsRed
           });
         } else {
           var isExpGrp2 = false;
@@ -4438,6 +4449,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
 
       setProgress('');
       return { allKeys: allKeys, incomePivot: incomePivot, incomeAcctPivot: incomeAcctPivot, incomePayeePivot: incomePayeePivot,
+               incomeAcctRedPivot: incomeAcctRedPivot, incomePayeeRedPivot: incomePayeeRedPivot,
                groupPivot: groupPivot, catPivot: catPivot, activeCats: activeCats,
                regTxns: regTxns, allAccounts: allAccounts,
                allAccountsInfo: allAccountsInfo, lwAccounts: lwAccounts,
@@ -4734,6 +4746,15 @@ function handleOAuthCallback() {
   return 'ynab';
 }
 
+// Cash Flow income for one account. Pipeline accounts only count Red-flagged inflows (same rule as
+// Liquid Balances), and only when Include Pipeline is on -- otherwise they are filtered out upstream.
+function cfIncomeAmt(d, month, payee, acct, plain) {
+  if (!state.lwIncludePipeline || !d.incomeAcctRedPivot || !homeAcctIsPipeline(acct)) return plain;
+  var m = payee == null ? (d.incomeAcctRedPivot[month] || {})[acct]
+                        : ((d.incomePayeeRedPivot[month] || {})[payee] || {})[acct];
+  return m || 0;
+}
+
 // Pipeline needs each transaction's flag, which data cached before flags were loaded lacks.
 // Rather than leaving the user to find the refresh button, turning Pipeline on fetches it.
 var pipelineFlagsRefreshing = false;
@@ -4742,7 +4763,7 @@ function pipelineFlagsHint() {
   return '⚠ Transaction flags not loaded — ' + (state.refreshProblem || 'refresh YNAB data');
 }
 function ensurePipelineFlags() {
-  if (pipelineFlagsRefreshing || !state.data || (state.data.acctTxnsRed && state.data.acctTxnsContrib)) return;
+  if (pipelineFlagsRefreshing || !state.data || (state.data.acctTxnsRed && state.data.acctTxnsContrib && state.data.incomeAcctRedPivot)) return;
   var p = refreshYnab();
   if (!p) return;
   pipelineFlagsRefreshing = true;
@@ -4907,6 +4928,7 @@ function remeasureCashFlowColumns() {
   layoutCashFlowColumns();
 }
 
+var cfRedIncomeRequested = false;
 function renderTable(opts) {
   opts = opts || {};
   var acctSel = opts.acctMap || state.selectedAccounts;
@@ -4915,6 +4937,8 @@ function renderTable(opts) {
   var d = state.data;
   var keys = opts.keys || d.allKeys.filter(function(k) { return k >= state.fromKey && k <= state.toKey; });
   cfSparklineKeys = keys;
+  // Pipeline income counts only Red-flagged inflows, which older cached data can't tell apart.
+  if (state.lwIncludePipeline && !d.incomeAcctRedPivot && !cfRedIncomeRequested) { cfRedIncomeRequested = true; ensurePipelineFlags(); }
 
   if (keys.length === 0) {
     document.getElementById(tableId).innerHTML =
@@ -4935,14 +4959,14 @@ function renderTable(opts) {
       for (var pn in pmap) {
         if (pn === '(Unknown)') continue;
         var pAccts = pmap[pn];
-        for (var pa in pAccts) { if (acctSel[pa]) sump += pAccts[pa]; }
+        for (var pa in pAccts) { if (acctSel[pa]) sump += cfIncomeAmt(d, k, pn, pa, pAccts[pa]); }
       }
       return sump;
     }
     var acctMap = (d.incomeAcctPivot || {})[k] || {};
     var sum = 0;
     for (var acn in acctMap) {
-      if (acctSel[acn]) sum += acctMap[acn];
+      if (acctSel[acn]) sum += cfIncomeAmt(d, k, null, acn, acctMap[acn]);
     }
     return sum;
   });
@@ -5181,7 +5205,7 @@ function renderTable(opts) {
         if (excludeUnknown && pkn === '(Unknown)') continue;
         var pkAccts = pkm[pkn];
         for (var pka in pkAccts) {
-          if (acctSel[pka]) payeeTotals[pkn] = (payeeTotals[pkn] || 0) + pkAccts[pka];
+          if (acctSel[pka]) payeeTotals[pkn] = (payeeTotals[pkn] || 0) + cfIncomeAmt(d, keys[pki], pkn, pka, pkAccts[pka]);
         }
       }
     }
@@ -5195,7 +5219,7 @@ function renderTable(opts) {
       var pyname = payeeList[pyi];
       var pyvals = keys.map(function(k) {
         var acctMap = (d.incomePayeePivot[k] || {})[pyname] || {};
-        var s = 0; for (var an in acctMap) { if (acctSel[an]) s += acctMap[an]; } return s;
+        var s = 0; for (var an in acctMap) { if (acctSel[an]) s += cfIncomeAmt(d, k, pyname, an, acctMap[an]); } return s;
       });
       // Small payees roll up into Other, so that row resolves to the whole set behind it
       if (Math.max.apply(null, pyvals) < 100) {
@@ -7045,7 +7069,8 @@ function getTxns(type, gi, ci, monthKey) {
     for (var pi = 0; pi < pref.payees.length; pi++) want[pref.payees[pi]] = true;
     var inflows = ((((state.data.regTxns || {})[monthKey] || {})['Inflow'] || {})['Ready to Assign']) || [];
     var pAcct = state.activeTab === 'home' ? state.homeSelectedAccounts : state.selectedAccounts;
-    return inflows.filter(function(t) { return want[t.payee || '(Unknown)'] && pAcct[t.account]; })
+    return inflows.filter(function(t) { if (!want[t.payee || '(Unknown)'] || !pAcct[t.account]) return false;
+                      return !(state.lwIncludePipeline && homeAcctIsPipeline(t.account) && state.data.incomeAcctRedPivot && !t.isRed); })
                   .sort(function(a, b) { return parseDateSort(b.date) - parseDateSort(a.date); });
   }
   if (type === 'recon-cat') {
@@ -13352,12 +13377,12 @@ function renderHome() {
       for (var ppn in pPayeeMap) {
         if (ppn === '(Unknown)') continue;
         var ppAccts = pPayeeMap[ppn];
-        for (var ppa in ppAccts) { if (state.selectedAccounts[ppa]) pIncome += ppAccts[ppa]; }
+        for (var ppa in ppAccts) { if (state.selectedAccounts[ppa]) pIncome += cfIncomeAmt(d, curKey, ppn, ppa, ppAccts[ppa]); }
       }
     } else {
       var pIncomeAcctMap = (d.incomeAcctPivot || {})[curKey] || {};
       for (var pian in pIncomeAcctMap) {
-        if (state.selectedAccounts[pian]) pIncome += pIncomeAcctMap[pian];
+        if (state.selectedAccounts[pian]) pIncome += cfIncomeAmt(d, curKey, null, pian, pIncomeAcctMap[pian]);
       }
     }
     var pMarginGrpName = applyMarginGroupOverride();
