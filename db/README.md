@@ -71,11 +71,24 @@ Formulas in the sheet come across as their computed values.
 
 `/api/config` (Vercel `api/config.js`, Cloudflare `functions/api/config.js`, wrappers over `lib/config-rows.js`).
 
-- `GET ?budgetId=&section=Runway` → `{ rows: [...] }` in sheet order, every column.
+- `GET ?budgetId=[&section=Runway]` → `{ rows: [...] }` in sheet order, every column (all areas when no `section`).
 - `PUT { budgetId, section, rows }` replaces one area's rows (used once by the Runway tab's "Move Runway to database" button, which reads the rows from the loaded Google Sheet).
 - `PATCH { budgetId, section?, updates?: [{ id, ...fields }], inserts?: [row], deletes?: [id] }` edits, adds and removes rows in one transaction (used by Runway's Edit mode; `section` is required with inserts).
 
 Once an area has rows in the database the app reads that area from there and ignores the sheet's rows for it, so they can be deleted from the sheet.
+
+Areas moved so far, each with its own one-click "move" button and a marker row (`type = Marker`) recording that it
+lives in the database:
+
+| Area | Rows | Where |
+| --- | --- | --- |
+| Runway | every `Runway …` row (section `Runway`) | Runway tab, Edit Text mode |
+| Net Worth milestones | `Milestone N` rows (Amount = age, Text = label) + marker `Milestones Migrated` | Net Worth tab, Preview > Milestones |
+| Tags & account usage | rows of Type Tag / Account / Category / Category Group (their own Group as section) + marker `Usage Migrated` | Settings > Manage Tags & Account Usage |
+
+`GET /api/config?budgetId=` with no `section` returns every area; the app loads them all once per page load and
+caches the last copy in the browser. Usage rows replace the sheet's row for the same Metric + Type (and supply them
+outright once deleted from the sheet); account and category pickers store YNAB ids, never shown to the user.
 
 ## Account groups API
 
