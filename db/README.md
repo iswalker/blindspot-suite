@@ -38,34 +38,46 @@ the browser's localStorage and stays silent.
 | `users` | One row per YNAB user id | in use |
 | `account_group_defs` | The groups and their fixed display order | in use |
 | `account_groups` | `(user_id, budget_id, account_id) → group_name`; accounts with no row show as "Unassigned"; "Other" is a real group | in use |
-| `config_rows` | The YNAB Config sheet, one row per sheet row | ready, not wired |
+| `config_rows` | The YNAB Config sheet, one row per sheet row, same columns (plus Notes and the two Old ID columns). `section` is the area (Runway, Net Worth, …) | **Runway** in use; other areas move over one at a time |
 | `merchants`, `merchant_flags` | The Merchants tab: payee × metric matrix of `yes` / `tbd` | ready, not wired |
 | `settings` | Free-form per-budget key/value (JSON) for future toggles | ready, not wired |
 | `schema_migrations` | Applied schema versions | in use |
 
 ## YNAB Config sheet → `config_rows`
 
-Columns come from `parseConfigCsv` in `index.html`.
+The sheet's own columns, kept as typed (the app derives dollars vs days, id lists, etc. when it reads, using
+the same parsing for sheet rows and database rows).
 
 | Sheet column | `config_rows` column | Notes |
 | --- | --- | --- |
-| ID / Text | `text` | Free text or an id |
+| Metric | `metric` | e.g. `Runway Step 3`, `Milestone 1` |
 | Type | `type` | |
-| Used For / Metric | `metric` | Includes the `Milestone #` keys |
-| Section / Group | `section` | |
-| Amount / Due Date | `amount` | Kept as text (it holds both money and dates, and milestone ages) |
+| Text | `text` | Free text or an id (lists of ids stay comma-separated) |
+| Group | `section` | The area: Runway, Net Worth, Liquid Accounts, … |
+| Amount | `amount` | Text: numbers, ranges, `0,[1],2,[3]`, milestone ages |
 | Unit | `unit` | |
 | Transaction Multiplier | `multiplier` | REAL, nullable |
-| Date Range | `date_range` | |
-| Associated Category ID(s) | `assoc_category_ids` | JSON array of category ids |
 | Track Against | `track_against` | |
+| Date Range | `date_range` | |
+| Associated Category ID(s) | `assoc_category_ids` | As typed |
 | Past Value | `past_value` | REAL, default 0 |
+| Notes | `notes` | |
+| Old Account ID's / Old Category ID's | `old_account_ids` / `old_category_ids` | Kept for reference |
 | (row order) | `position` | Preserves sheet order |
 
-Importing is a straight insert of the parsed rows for `(user_id, budget_id)`; the editor UI can then read
-and write the same rows.
+Formulas in the sheet come across as their computed values.
 
-## API
+## Config rows API
+
+`/api/config` (Vercel `api/config.js`, Cloudflare `functions/api/config.js`, wrappers over `lib/config-rows.js`).
+
+- `GET ?budgetId=&section=Runway` → `{ rows: [...] }` in sheet order, every column.
+- `PUT { budgetId, section, rows }` replaces one area's rows (used once by the Runway tab's "Move Runway to database" button, which reads the rows from the loaded Google Sheet).
+- `PATCH { budgetId, updates: [{ id, text, ... }] }` edits individual rows (used by Runway's Edit Text mode).
+
+Once an area has rows in the database the app reads that area from there and ignores the sheet's rows for it, so they can be deleted from the sheet.
+
+## Account groups API
 
 `/api/account-groups` (Vercel: `api/account-groups.js`, Cloudflare: `functions/api/account-groups.js`, both
 thin wrappers over `lib/account-groups.js`).

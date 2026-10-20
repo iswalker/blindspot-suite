@@ -1439,6 +1439,28 @@ td.hbt-num:last-child { width: 13%; }
 #runway-panel .panel-hdr { margin-bottom: 26px; }
 #runway-body { display: flex; gap: 48px; flex-wrap: wrap; padding-bottom: 50px; }
 #runway-empty { font-size: 12px; color: #999; padding: 12px 0; }
+#runway-import {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; padding: 10px 14px;
+  background: #fff8e1; border: 1px solid #f1e0a3; border-radius: 8px; font-size: 14px; color: #6b5300;
+}
+#runway-import button, #runway-edit-bar button {
+  padding: 6px 14px; background: #fff; border: 1px solid #ccc; border-radius: 6px; font-size: 14px;
+  color: #444; cursor: pointer; white-space: nowrap; touch-action: manipulation;
+}
+#runway-import button:hover, #runway-edit-bar button:hover:not(:disabled) { background: #f0f0f0; }
+#runway-edit-bar button:disabled { color: #bbb; cursor: not-allowed; background: #f6f6f3; }
+#runway-edit-bar button#runway-edit-save:not(:disabled) { background: #1565c0; border-color: #1565c0; color: #fff; }
+#runway-edit-bar {
+  position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 14px; padding: 8px 12px; background: #eef2fb; border: 1px solid #c9d6f2; border-radius: 8px;
+  font-size: 14px; color: #34495e;
+}
+#runway-edit-count { margin-right: auto; }
+html.rw-tab-active #tab-row { z-index: 30; }
+.rw-edit { outline: 1px dashed #90a4ae; outline-offset: 2px; border-radius: 3px; cursor: text; }
+.rw-edit:focus { outline: 2px solid #1565c0; background: #f4f8ff; }
+.rw-edit.dirty { background: #fff8e1; }
+.rw-edit:empty::before { content: attr(data-ph); color: #b0b0b0; }
 .runway-col { flex: 0 1 568px; min-width: 240px; }
 .runway-col-hdr {
   font-size: 26px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
@@ -1972,6 +1994,16 @@ td.hbt-num:last-child { width: 13%; }
               </div>
             </div>
           </div>
+          <div class="settings-tab-block" data-tab="runway">
+            <div class="settings-divider"></div>
+            <div class="settings-row">
+              <label class="ios-toggle-wrap">
+                <input type="checkbox" id="runway-edit-toggle">
+                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+                Edit Text
+              </label>
+            </div>
+          </div>
           <div class="settings-tab-block" data-tab="home">
             <div class="settings-divider"></div>
             <div class="settings-row">
@@ -2446,6 +2478,13 @@ td.hbt-num:last-child { width: 13%; }
     </div>
   </div>
   <div id="runway-panel" style="display:none">
+    <div id="runway-import" style="display:none"></div>
+    <div id="runway-edit-bar" style="display:none">
+      <span id="runway-edit-count">Click any text to edit it</span>
+      <button type="button" id="runway-edit-save" disabled>Save</button>
+      <button type="button" id="runway-edit-discard" disabled>Discard</button>
+      <button type="button" id="runway-edit-done">Done</button>
+    </div>
     <div class="panel-hdr">
       <div id="runway-tagline"></div>
       <div id="runway-factors-wrap" style="display:none">
@@ -3338,46 +3377,54 @@ function parseConfigCsv(text) {
   var rows = parseCSV(text);
   var result = [];
   for (var i = 0; i < rows.length; i++) {
-    var r       = rows[i];
-    var id      = (r['ID']       || r['Text']   || '').trim();
-    var type    = (r['Type']     || '').trim();
-    var usedFor = (r['Used For'] || r['Metric'] || '').trim();
-    var section = (r['Section']  || r['Group']  || '').trim();
-    var unit    = (r['Unit']     || '').trim();
-    // Target-type and Leverage-type rows may omit ID; all others require one
-    var isLeverageRow = /^leverage\s+\d+$/i.test(usedFor);
-    var isRunwayCurrentRow = /^runway (step|phase)$/i.test(usedFor);
-    if (!id && !isLeverageRow && !isRunwayCurrentRow && (type !== 'Target' || !usedFor)) continue;
-    // Support both "Amount" (new) and "Due Date" (legacy) column names
-    var amountRaw = (r['Amount'] || r['Due Date'] || '').trim();
-    var rawAmt  = amountRaw.toLowerCase();
-    var dueDays = null;
-    var amount  = null;
-    if (rawAmt !== 'n/a' && rawAmt !== '') {
-      var m = rawAmt.match(/(\d+(?:\.\d+)?)/);
-      if (m) {
-        var parsed = parseFloat(m[1]);
-        var isLev  = /^leverage/i.test(usedFor) || /^card transactions/i.test(usedFor) || /^net worth delta$/i.test(usedFor);
-        if (unit === '$' || isLev) { amount = parsed; } else { dueDays = Math.round(parsed); }
-      }
-    }
-    var multRaw = (r['Transaction Multiplier'] || '').trim();
-    var multiplier = null;
-    if (multRaw !== '') {
-      var mm = multRaw.match(/-?\d+(?:\.\d+)?/);
-      if (mm) multiplier = parseFloat(mm[0]);
-    }
-    var dateRange  = (r['Date Range'] || '').trim();
-    var assocCatRaw = (r['Associated Category ID(s)'] || r['Associated Category ID'] || '').trim();
-    var assocCatIds = assocCatRaw ? assocCatRaw.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : [];
-    var trackAgainstRaw = (r['Track Against'] || '').trim();
-    var trackAgainst = (r['Track Against'] || 'all').trim().toLowerCase();
-    var pastValueRaw = (r['Past Value'] || '').trim().replace(/[$,]/g, '');
-    var pastValue = pastValueRaw !== '' ? parseFloat(pastValueRaw) : 0;
-    if (isNaN(pastValue)) pastValue = 0;
-    result.push({ id: id, type: type, usedFor: usedFor, section: section, dueDays: dueDays, amount: amount, amountRaw: amountRaw, unit: unit, multiplier: multiplier, dateRange: dateRange, assocCatIds: assocCatIds, trackAgainst: trackAgainst, trackAgainstRaw: trackAgainstRaw, pastValue: pastValue });
+    var cfg = configRowFromObject(rows[i], false);
+    if (cfg) result.push(cfg);
   }
   return result;
+}
+
+// One Config row, as an object keyed by the sheet's column headers, into the shape the app uses.
+// Shared by the Google Sheet path (parseConfigCsv) and rows loaded from the database, so both mean
+// exactly the same thing. keepEmpty: keep a row whose Text is blank (database rows, so the editor can
+// fill them in) instead of skipping it as the sheet path does.
+function configRowFromObject(r, keepEmpty) {
+  var id      = (r['ID']       || r['Text']   || '').trim();
+  var type    = (r['Type']     || '').trim();
+  var usedFor = (r['Used For'] || r['Metric'] || '').trim();
+  var section = (r['Section']  || r['Group']  || '').trim();
+  var unit    = (r['Unit']     || '').trim();
+  // Target-type and Leverage-type rows may omit ID; all others require one
+  var isLeverageRow = /^leverage\s+\d+$/i.test(usedFor);
+  var isRunwayCurrentRow = /^runway (step|phase)$/i.test(usedFor);
+  if (!keepEmpty && !id && !isLeverageRow && !isRunwayCurrentRow && (type !== 'Target' || !usedFor)) return null;
+  // Support both "Amount" (new) and "Due Date" (legacy) column names
+  var amountRaw = (r['Amount'] || r['Due Date'] || '').trim();
+  var rawAmt  = amountRaw.toLowerCase();
+  var dueDays = null;
+  var amount  = null;
+  if (rawAmt !== 'n/a' && rawAmt !== '') {
+    var m = rawAmt.match(/(\d+(?:\.\d+)?)/);
+    if (m) {
+      var parsed = parseFloat(m[1]);
+      var isLev  = /^leverage/i.test(usedFor) || /^card transactions/i.test(usedFor) || /^net worth delta$/i.test(usedFor);
+      if (unit === '$' || isLev) { amount = parsed; } else { dueDays = Math.round(parsed); }
+    }
+  }
+  var multRaw = (r['Transaction Multiplier'] || '').trim();
+  var multiplier = null;
+  if (multRaw !== '') {
+    var mm = multRaw.match(/-?\d+(?:\.\d+)?/);
+    if (mm) multiplier = parseFloat(mm[0]);
+  }
+  var dateRange  = (r['Date Range'] || '').trim();
+  var assocCatRaw = (r['Associated Category ID(s)'] || r['Associated Category ID'] || '').trim();
+  var assocCatIds = assocCatRaw ? assocCatRaw.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : [];
+  var trackAgainstRaw = (r['Track Against'] || '').trim();
+  var trackAgainst = (r['Track Against'] || 'all').trim().toLowerCase();
+  var pastValueRaw = (r['Past Value'] || '').trim().replace(/[$,]/g, '');
+  var pastValue = pastValueRaw !== '' ? parseFloat(pastValueRaw) : 0;
+  if (isNaN(pastValue)) pastValue = 0;
+  return { id: id, type: type, usedFor: usedFor, section: section, dueDays: dueDays, amount: amount, amountRaw: amountRaw, unit: unit, multiplier: multiplier, dateRange: dateRange, assocCatIds: assocCatIds, trackAgainst: trackAgainst, trackAgainstRaw: trackAgainstRaw, pastValue: pastValue };
 }
 
 // Merchants CSV: first column is the Payee name; remaining columns each represent
@@ -7197,6 +7244,7 @@ function switchTab(tab) {
   }
   document.documentElement.classList.toggle('cf-tab-active', tab === 'margin');
   document.documentElement.classList.toggle('as-tab-active', tab === 'acct-summary');
+  document.documentElement.classList.toggle('rw-tab-active', tab === 'runway');
   document.getElementById('acct-summary-panel').style.display = tab === 'acct-summary' ? 'block' : 'none';
   document.getElementById('home-panel').style.display     = tab === 'home'     ? 'block' : 'none';
   document.getElementById('margin-panel').style.display   = tab === 'margin'   ? 'block' : 'none';
@@ -13720,7 +13768,229 @@ function getNwBirthYear() {
   return null;
 }
 
-// Runway tab: driven entirely by Config.csv rows.
+// ============================================================
+// CONFIG IN THE DATABASE (moving over area by area; Runway first)
+// ============================================================
+// Rows live in Turso (/api/config), keyed by the signed-in YNAB user and budget, and keep the sheet's
+// own columns. Once an area has rows there they win over the Google Sheet's; until then the sheet is
+// still used, and a banner offers to move it across. The last copy is cached in localStorage so the
+// tab paints instantly (and still works offline); the server is asked on first use each page load.
+var dbCfg = { rows: {}, status: {} };   // rows[section] = API rows; status[section] = loading | ready | unavailable | error
+
+function dbCfgBudget() { return localStorage.getItem('ynab-budget-id') || ''; }
+
+function dbCfgRequest(method, query, body) {
+  var key = localStorage.getItem('ynab-api-key');
+  if (!key) return Promise.reject(new Error('not connected'));
+  var qs = query ? '?' + Object.keys(query).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(query[k]); }).join('&') : '';
+  var opts = { method: method, headers: { 'Authorization': 'Bearer ' + key } };
+  if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+  return fetch('/api/config' + qs, opts).then(function(r) {
+    return r.json().catch(function() { return {}; }).then(function(j) {
+      if (!r.ok) { var e = new Error(j.message || ('HTTP ' + r.status)); e.code = j.error || r.status; throw e; }
+      return j;
+    });
+  });
+}
+
+function dbCfgStore(section, rows) {
+  dbCfg.rows[section] = rows;
+  try { localStorage.setItem('dbcfg-' + section, JSON.stringify({ budgetId: dbCfgBudget(), rows: rows })); } catch (e) {}
+}
+
+// Loads one area (once per page load unless forced); re-renders Runway when it lands.
+function loadDbConfig(section, force) {
+  var budget = dbCfgBudget();
+  if (!budget || !localStorage.getItem('ynab-api-key')) return Promise.resolve();
+  if (!force && dbCfg.status[section]) return Promise.resolve();
+  dbCfg.status[section] = 'loading';
+  if (!dbCfg.rows[section]) {
+    var cached = parseJsonLS('dbcfg-' + section);
+    if (cached && cached.budgetId === budget && Array.isArray(cached.rows)) dbCfg.rows[section] = cached.rows;
+  }
+  return dbCfgRequest('GET', { budgetId: budget, section: section }).then(function(res) {
+    dbCfgStore(section, res.rows || []);
+    dbCfg.status[section] = 'ready';
+  }).catch(function(e) {
+    dbCfg.status[section] = e && e.code === 'not_configured' ? 'unavailable' : 'error';
+  }).then(function() {
+    if (section === 'Runway' && state.activeTab === 'runway') renderRunway();
+  });
+}
+
+// Database rows as the app's config rows (same parsing as a sheet row), each carrying its row id.
+function dbCfgConfigRows(section) {
+  var rows = dbCfg.rows[section] || [];
+  return rows.map(function(r) {
+    var cfg = configRowFromObject({
+      'Metric': r.metric, 'Type': r.type, 'Text': r.text, 'Group': r.section, 'Amount': r.amount, 'Unit': r.unit,
+      'Transaction Multiplier': r.multiplier === null || r.multiplier === undefined ? '' : String(r.multiplier),
+      'Track Against': r.track_against, 'Date Range': r.date_range, 'Associated Category ID(s)': r.assoc_category_ids,
+      'Past Value': r.past_value ? String(r.past_value) : ''
+    }, true);
+    cfg.dbId = r.id;
+    return cfg;
+  });
+}
+
+// ---- Runway: where its rows come from, import, and text editing ----
+var runwayEdit = false;          // Settings > Edit Text
+var runwayDirty = {};            // row id -> full new text, for edits not saved yet
+var runwayImportMsg = '';        // result of the last import attempt, shown in the banner
+
+function runwayDbRows() { var r = dbCfg.rows.Runway; return r && r.length ? r : null; }
+function runwayConfigRows() {
+  if (runwayDbRows()) return dbCfgConfigRows('Runway');
+  return (state.catConfig || []).filter(function(c) { return /^runway/i.test(c.usedFor || ''); });
+}
+function runwayEditing() { return runwayEdit && !!runwayDbRows(); }
+function ensureRunwayDb() { if (!dbCfg.status.Runway) loadDbConfig('Runway'); }
+
+// Runway rows still in the Google Sheet's Config tab, as database rows (sheet order kept).
+function runwaySheetRows() {
+  var text = state.configText || localStorage.getItem('cat-config-csv') || '';
+  if (!text) return [];
+  function num(v) { var m = String(v || '').replace(/[$,]/g, '').match(/-?\d+(?:\.\d+)?/); return m ? parseFloat(m[0]) : null; }
+  return parseCSV(text).filter(function(r) {
+    var metric = (r['Metric'] || r['Used For'] || '').trim(), grp = (r['Group'] || r['Section'] || '').trim();
+    return /^runway/i.test(metric) || grp.toLowerCase() === 'runway';
+  }).map(function(r) {
+    var pv = num(r['Past Value']);
+    return {
+      metric: (r['Metric'] || r['Used For'] || '').trim(), type: r['Type'] || '', text: r['Text'] || r['ID'] || '',
+      section: 'Runway', amount: r['Amount'] || r['Due Date'] || '', unit: r['Unit'] || '',
+      multiplier: num(r['Transaction Multiplier']), track_against: r['Track Against'] || '', date_range: r['Date Range'] || '',
+      assoc_category_ids: r['Associated Category ID(s)'] || r['Associated Category ID'] || '', past_value: pv === null ? 0 : pv,
+      notes: r['Notes'] || '', old_account_ids: r["Old Account ID's"] || '', old_category_ids: r["Old Category ID's"] || ''
+    };
+  });
+}
+
+function importRunwayToDb() {
+  var rows = runwaySheetRows();
+  if (!rows.length) return;
+  runwayImportMsg = 'Moving ' + rows.length + ' rows…';
+  renderRunwayBanner();
+  dbCfgRequest('PUT', null, { budgetId: dbCfgBudget(), section: 'Runway', rows: rows })
+    .then(function() { return loadDbConfig('Runway', true); })
+    .then(function() {
+      runwayImportMsg = dbCfg.status.Runway === 'ready' && runwayDbRows()
+        ? 'Moved ' + rows.length + ' rows to the database. You can now delete the Runway rows from the sheet.' : 'Saved, but could not reload the rows.';
+      renderRunway();
+    })
+    .catch(function(e) {
+      runwayImportMsg = (e && e.code === 'not_configured') ? 'The database is not connected on this deployment.' : 'Could not move the rows: ' + (e && e.message || 'failed');
+      renderRunwayBanner();
+    });
+}
+
+function renderRunwayBanner() {
+  var el = document.getElementById('runway-import');
+  var bar = document.getElementById('runway-edit-bar');
+  if (!el || !bar) return;
+  var onSheetOnly = !runwayDbRows() && dbCfg.status.Runway !== 'unavailable' && dbCfg.status.Runway !== 'loading' && runwaySheetRows().length > 0;
+  var html = '';
+  if (onSheetOnly) {
+    var moving = /^Moving/.test(runwayImportMsg);
+    html = (runwayImportMsg ? '<strong>' + escHtml(runwayImportMsg) + '</strong>' : '')
+      + (moving ? '' : '<span>Runway text is still read from your Google Sheet. Move it into the database to edit it here; afterwards the sheet’s Runway rows can be deleted.</span>'
+      + ' <button type="button" id="runway-import-btn">Move Runway to database</button>');
+  } else if (runwayImportMsg) {
+    html = '<span>' + escHtml(runwayImportMsg) + '</span>';
+  }
+  el.innerHTML = html;
+  el.style.display = html ? '' : 'none';
+  var n = Object.keys(runwayDirty).length;
+  bar.style.display = runwayEditing() ? '' : 'none';
+  var cnt = document.getElementById('runway-edit-count');
+  if (cnt) cnt.textContent = n ? n + ' unsaved change' + (n === 1 ? '' : 's') : 'Click any text to edit it';
+  var sv = document.getElementById('runway-edit-save'), dc = document.getElementById('runway-edit-discard');
+  if (sv) sv.disabled = !n;
+  if (dc) dc.disabled = !n;
+}
+
+// Editable text. `prefix` is the part of the stored text that is not shown for editing (a step's
+// "[Tag] "), put back on save. Outside edit mode (or for rows with no database id) it is plain text.
+function rwTxt(text, rowId, prefix, placeholder) {
+  if (!runwayEditing() || !rowId) return escHtml(text || '');
+  var full = (prefix || '') + (text || '');
+  var dirty = Object.prototype.hasOwnProperty.call(runwayDirty, rowId);
+  return '<span class="rw-edit' + (dirty ? ' dirty' : '') + '" contenteditable="true" spellcheck="true" data-rid="' + rowId + '"'
+    + ' data-prefix="' + escAttr(prefix || '') + '" data-orig="' + escAttr(full) + '" data-ph="' + escAttr(placeholder || '') + '">'
+    + escHtml(dirty ? runwayDirty[rowId].slice((prefix || '').length) : (text || '')) + '</span>';
+}
+
+function runwaySetEdit(on) {
+  if (on && !runwayDbRows()) {
+    runwayImportMsg = 'Move Runway to the database first (button above), then you can edit it.';
+    runwayEdit = false;
+    var tg = document.getElementById('runway-edit-toggle'); if (tg) tg.checked = false;
+    renderRunwayBanner();
+    var imp = document.getElementById('runway-import'); if (imp) imp.style.display = '';
+    return;
+  }
+  if (!on && Object.keys(runwayDirty).length && !confirm('Discard your unsaved changes?')) {
+    var tg2 = document.getElementById('runway-edit-toggle'); if (tg2) tg2.checked = true;
+    return;
+  }
+  runwayEdit = on;
+  if (!on) runwayDirty = {};
+  var tg3 = document.getElementById('runway-edit-toggle'); if (tg3) tg3.checked = on;
+  renderRunway();
+}
+
+function runwaySaveEdits() {
+  var ids = Object.keys(runwayDirty);
+  if (!ids.length) return;
+  var sv = document.getElementById('runway-edit-save'), cnt = document.getElementById('runway-edit-count');
+  if (sv) sv.disabled = true;
+  if (cnt) cnt.textContent = 'Saving…';
+  var updates = ids.map(function(id) { return { id: parseInt(id, 10), text: runwayDirty[id] }; });
+  dbCfgRequest('PATCH', null, { budgetId: dbCfgBudget(), updates: updates }).then(function() {
+    var rows = (dbCfg.rows.Runway || []).map(function(r) {
+      return Object.prototype.hasOwnProperty.call(runwayDirty, r.id) ? Object.assign({}, r, { text: runwayDirty[r.id] }) : r;
+    });
+    dbCfgStore('Runway', rows);
+    runwayDirty = {};
+    renderRunway();
+  }).catch(function(e) {
+    if (cnt) cnt.textContent = 'Could not save: ' + (e && e.message || 'failed') + ' — your edits are still here';
+    if (sv) sv.disabled = false;
+  });
+}
+
+function wireRunwayEditing() {
+  var panel = document.getElementById('runway-panel');
+  if (!panel) return;
+  panel.addEventListener('input', function(e) {
+    var el = e.target.closest && e.target.closest('.rw-edit');
+    if (!el) return;
+    var full = (el.getAttribute('data-prefix') || '') + el.textContent.replace(/\s+/g, ' ').trim();
+    var id = el.getAttribute('data-rid');
+    if (full === el.getAttribute('data-orig')) delete runwayDirty[id]; else runwayDirty[id] = full;
+    el.classList.toggle('dirty', Object.prototype.hasOwnProperty.call(runwayDirty, id));
+    renderRunwayBanner();
+  });
+  panel.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && e.target.closest && e.target.closest('.rw-edit')) { e.preventDefault(); e.target.blur(); }
+  });
+  panel.addEventListener('paste', function(e) {
+    if (!(e.target.closest && e.target.closest('.rw-edit'))) return;
+    e.preventDefault();
+    var t = (e.clipboardData || window.clipboardData).getData('text') || '';
+    document.execCommand('insertText', false, t.replace(/\s+/g, ' '));
+  });
+  panel.addEventListener('click', function(e) {
+    if (e.target.closest('#runway-import-btn')) importRunwayToDb();
+    else if (e.target.closest('#runway-edit-save')) runwaySaveEdits();
+    else if (e.target.closest('#runway-edit-discard')) { runwayDirty = {}; renderRunway(); }
+    else if (e.target.closest('#runway-edit-done')) runwaySetEdit(false);
+  });
+  var tgl = document.getElementById('runway-edit-toggle');
+  if (tgl) tgl.addEventListener('change', function() { runwaySetEdit(this.checked); });
+}
+
+// Runway tab: driven entirely by Config rows (from the database once moved there, else the sheet).
 //   "Runway Goal"                Text  = tagline shown above all columns
 //   "Runway Column <n>"          Text  = header shown for column <n> (1, 2, 3... left to right)
 //   "Runway Column <n> Subtext"  Text  = tagline shown under that header
@@ -13790,8 +14060,8 @@ function runwayColKey(raw, legacyOrder) {
 
 function getRunwayData() {
   var goal = '', doneSteps = {}, currentSteps = {}, byNum = {}, byAlpha = {}, colDefs = {}, legacyOrder = [];
-  var byPhase = {}, currentPhase = null;
-  var cfgRows = state.catConfig || [];
+  var byPhase = {}, currentPhase = null, goalId = null;
+  var cfgRows = runwayConfigRows();
   for (var i = 0; i < cfgRows.length; i++) {
     var c = cfgRows[i];
     var usedFor = (c.usedFor || '').trim();
@@ -13799,6 +14069,7 @@ function getRunwayData() {
     var mSub, mTitle, mAlphaSub, mAlphaTitle, mColSub, mColHdr, mPhase, mPhaseSub;
     if (RUNWAY_GOAL_RE.test(usedFor)) {
       goal = c.id || '';
+      goalId = c.dbId || null;
     } else if (RUNWAY_PHASE_CURRENT_RE.test(usedFor)) {
       var vp = c.amount !== null ? c.amount : c.dueDays;
       if (vp !== null) currentPhase = Math.round(vp);
@@ -13806,10 +14077,12 @@ function getRunwayData() {
       var pn2 = parseInt(mPhaseSub[1], 10);
       if (!byPhase[pn2]) byPhase[pn2] = { num: pn2, title: '', subtext: '', yearRange: '' };
       byPhase[pn2].subtext = c.id || '';
+      byPhase[pn2].subtextId = c.dbId || null;
     } else if ((mPhase = usedFor.match(RUNWAY_PHASE_RE))) {
       var pn1 = parseInt(mPhase[1], 10);
       if (!byPhase[pn1]) byPhase[pn1] = { num: pn1, title: '', subtext: '', yearRange: '' };
       byPhase[pn1].title = c.id || '';
+      byPhase[pn1].titleId = c.dbId || null;
       byPhase[pn1].yearRange = (c.trackAgainstRaw || '').trim();
     } else if (RUNWAY_CURRENT_RE.test(usedFor)) {
       var tokens = (c.amountRaw || c.id || '').split(',');
@@ -13827,23 +14100,29 @@ function getRunwayData() {
       var subKey = 'n' + mColSub[1] + mColSub[2].toLowerCase();
       if (!colDefs[subKey]) colDefs[subKey] = { header: '', subtext: '' };
       colDefs[subKey].subtext = c.id || '';
+      colDefs[subKey].subtextId = c.dbId || null;
     } else if ((mColHdr = usedFor.match(RUNWAY_COL_HDR_RE))) {
       var hdrKey = 'n' + mColHdr[1] + mColHdr[2].toLowerCase();
       if (!colDefs[hdrKey]) colDefs[hdrKey] = { header: '', subtext: '' };
       colDefs[hdrKey].header = c.id || '';
+      colDefs[hdrKey].headerId = c.dbId || null;
     } else if ((mSub = usedFor.match(RUNWAY_SUBTEXT_RE))) {
       var sn = parseInt(mSub[1], 10);
       if (!byNum[sn]) byNum[sn] = { kind: 'num', num: sn, title: '', tag: null, subtext: '', col: null, amount: '', targetYears: null };
       byNum[sn].subtext = c.id || '';
+      byNum[sn].subtextId = c.dbId || null;
     } else if ((mAlphaSub = usedFor.match(RUNWAY_ALPHA_SUBTEXT_RE))) {
       var sa = mAlphaSub[1].toUpperCase();
       if (!byAlpha[sa]) byAlpha[sa] = { kind: 'alpha', letter: sa, title: '', tag: null, subtext: '', col: null, amount: '', targetYears: null };
       byAlpha[sa].subtext = c.id || '';
+      byAlpha[sa].subtextId = c.dbId || null;
     } else if ((mTitle = usedFor.match(RUNWAY_TITLE_RE))) {
       var tn = parseInt(mTitle[1], 10);
       if (!byNum[tn]) byNum[tn] = { kind: 'num', num: tn, title: '', tag: null, subtext: '', col: null, amount: '', targetYears: null };
       var tagM1 = (c.id || '').match(RUNWAY_TAG_RE);
       byNum[tn].tag = tagM1 ? tagM1[1] : null;
+      byNum[tn].tagPrefix = tagM1 ? tagM1[0] : '';
+      byNum[tn].titleId = c.dbId || null;
       byNum[tn].title = tagM1 ? (c.id || '').slice(tagM1[0].length) : (c.id || '');
       byNum[tn].col = runwayColKey(c.trackAgainstRaw, legacyOrder);
       // Shown as-is (plain text), not reformatted -- the Amount column isn't always a dollar figure.
@@ -13854,6 +14133,8 @@ function getRunwayData() {
       if (!byAlpha[ta]) byAlpha[ta] = { kind: 'alpha', letter: ta, title: '', tag: null, subtext: '', col: null, amount: '', targetYears: null };
       var tagM2 = (c.id || '').match(RUNWAY_TAG_RE);
       byAlpha[ta].tag = tagM2 ? tagM2[1] : null;
+      byAlpha[ta].tagPrefix = tagM2 ? tagM2[0] : '';
+      byAlpha[ta].titleId = c.dbId || null;
       byAlpha[ta].title = tagM2 ? (c.id || '').slice(tagM2[0].length) : (c.id || '');
       byAlpha[ta].col = runwayColKey(c.trackAgainstRaw, legacyOrder);
       byAlpha[ta].amount = c.amountRaw || '';
@@ -13918,7 +14199,8 @@ function getRunwayData() {
   for (var oi = 0; oi < sectionOrder.length; oi++) {
     var sec = sectionsByKey[sectionOrder[oi]];
     var def = colDefs[sec.key];
-    var section = { header: (def && def.header) ? def.header : sec.raw, subtext: def ? def.subtext : '', steps: sec.steps };
+    var section = { header: (def && def.header) ? def.header : sec.raw, subtext: def ? def.subtext : '', steps: sec.steps,
+                    headerId: def ? def.headerId || null : null, subtextId: def ? def.subtextId || null : null };
     if (sec.num !== null) {
       if (!columnsByNum[sec.num]) { columnsByNum[sec.num] = []; columnNums.push(sec.num); }
       columnsByNum[sec.num].push({ letter: sec.letter, section: section });
@@ -13937,7 +14219,7 @@ function getRunwayData() {
   var phases = Object.keys(byPhase).map(function(k) { return byPhase[k]; })
     .sort(function(a, b) { return a.num - b.num; });
 
-  return { goal: goal, doneSteps: doneSteps, currentSteps: currentSteps, steps: steps, columns: columns, allTags: allTags,
+  return { goal: goal, goalId: goalId, doneSteps: doneSteps, currentSteps: currentSteps, steps: steps, columns: columns, allTags: allTags,
            phases: phases, currentPhase: currentPhase };
 }
 
@@ -13986,8 +14268,8 @@ function renderRunwayPhasesHtml(data) {
     }
     return '<div class="runway-phase">'
       +   '<div class="runway-phase-chevron rwp-' + pState + '">' + escAttr(p.yearRange) + '</div>'
-      +   '<div class="runway-phase-title">' + escAttr(p.title) + '</div>'
-      +   (p.subtext ? '<div class="runway-phase-subtext">' + escAttr(p.subtext) + '</div>' : '')
+      +   '<div class="runway-phase-title">' + rwTxt(p.title, p.titleId, '', 'Phase title') + '</div>'
+      +   (p.subtext || (runwayEditing() && p.subtextId) ? '<div class="runway-phase-subtext">' + rwTxt(p.subtext, p.subtextId, '', 'Add subtext') + '</div>' : '')
       + '</div>';
   }).join('');
   return '<div id="runway-phases">'
@@ -14002,12 +14284,19 @@ function renderRunway() {
   var data = getRunwayData();
   populateRunwayFactorsFilter(data.allTags);
 
+  ensureRunwayDb();
+  renderRunwayBanner();
   var taglineEl = document.getElementById('runway-tagline');
   if (taglineEl) {
-    taglineEl.textContent = data.goal;
-    taglineEl.style.display = data.goal ? '' : 'none';
+    if (runwayEditing() && data.goalId) taglineEl.innerHTML = rwTxt(data.goal, data.goalId, '', 'Add a tagline');
+    else taglineEl.textContent = data.goal;
+    taglineEl.style.display = (data.goal || (runwayEditing() && data.goalId)) ? '' : 'none';
   }
 
+  if (!data.steps.length && dbCfg.status.Runway === 'loading') {
+    body.innerHTML = '<div id="runway-empty">Loading\u2026</div>';
+    return;
+  }
   if (!data.steps.length) {
     body.innerHTML = '<div id="runway-empty">Configure Config.csv rows with Metric = "Runway Step &lt;n&gt;" '
       + '(Text = title), "Runway Step &lt;n&gt; Subtext" (Text = subtext), and "Runway Step" '
@@ -14016,8 +14305,8 @@ function renderRunway() {
   }
 
   function renderSection(sec) {
-    var h = '<div class="runway-col-hdr">' + escAttr(sec.header) + '</div>'
-      + (sec.subtext ? '<div class="runway-col-subtext">' + escAttr(sec.subtext) + '</div>' : '');
+    var h = '<div class="runway-col-hdr">' + rwTxt(sec.header, sec.headerId, '', 'Section title') + '</div>'
+      + (sec.subtext || (runwayEditing() && sec.subtextId) ? '<div class="runway-col-subtext">' + rwTxt(sec.subtext, sec.subtextId, '', 'Add subtext') + '</div>' : '');
     for (var i = 0; i < sec.steps.length; i++) {
       var s = sec.steps[i];
       var circleHtml;
@@ -14042,8 +14331,8 @@ function renderRunway() {
         +   circleHtml
         +   '<div class="runway-step-num">' + (s.kind === 'alpha' ? s.displayLetter : s.displayNum) + '</div>'
         +   '<div class="runway-step-text">'
-        +     '<div class="runway-title">' + escAttr(s.title) + amtPill + datePill + tagPill + '</div>'
-        +     (s.subtext ? '<div class="runway-subtext">' + escAttr(s.subtext) + '</div>' : '')
+        +     '<div class="runway-title">' + rwTxt(s.title, s.titleId, s.tagPrefix, 'Step title') + amtPill + datePill + tagPill + '</div>'
+        +     (s.subtext || (runwayEditing() && s.subtextId) ? '<div class="runway-subtext">' + rwTxt(s.subtext, s.subtextId, '', 'Add subtext') + '</div>' : '')
         +   '</div>'
         + '</div>';
     }
@@ -14171,6 +14460,7 @@ function showReport() {
   updateSettingsGearAvailability(tab);
   document.documentElement.classList.toggle('cf-tab-active', tab === 'margin');
   document.documentElement.classList.toggle('as-tab-active', tab === 'acct-summary');
+  document.documentElement.classList.toggle('rw-tab-active', tab === 'runway');
 
   // Sync row-shading toggle state
   document.body.classList.toggle('shading-mode', state.rowShading);
@@ -15001,6 +15291,7 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   document.getElementById('oauth-btn').addEventListener('click', startOAuthFlow);
+  wireRunwayEditing();
 
   // Table click delegation: detail pane OR expand/collapse
   document.getElementById('main-table').addEventListener('click', function(e) {

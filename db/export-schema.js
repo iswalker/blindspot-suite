@@ -21,6 +21,8 @@ function pretty(sql) {
 
 const header = '-- Generated from lib/schema.js by db/export-schema.js -- edit that file, not this one.\n' +
   '-- Applying it by hand is optional (the API creates these tables on first use):\n' +
-  '--   turso db shell <your-db> < db/schema.sql\n\n';
-fs.writeFileSync(path.join(__dirname, 'schema.sql'), header + STATEMENTS.map(function(s) { return pretty(s) + ';\n'; }).join('\n'));
+  '--   turso db shell <your-db> < db/schema.sql\n' +
+  '-- (ALTER TABLE migrations for databases made by an older version are left out: the CREATE TABLEs below\n' +
+  '--  already include those columns.)\n\n';
+fs.writeFileSync(path.join(__dirname, 'schema.sql'), header + STATEMENTS.filter(function(s) { return !/^ALTER TABLE/i.test(s); }).map(function(s) { return pretty(s) + ';\n'; }).join('\n'));
 console.log('wrote db/schema.sql');
