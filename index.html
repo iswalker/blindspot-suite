@@ -718,6 +718,9 @@ html.as-tab-active #tab-row { z-index: 30; }
 .as-row { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-top: 1px solid #f0f0ec; cursor: pointer; }
 .as-row:hover { background: #fafaf7; }
 .as-row.sel { background: #eef2fb; }
+.as-chk-spacer { flex: none; width: 17px; }
+.as-note { color: #999; font-size: 13px; }
+.as-row.derived { cursor: default; }
 .as-chk { flex: none; width: 17px; height: 17px; accent-color: #1a1a2e; cursor: pointer; margin: 0; }
 .as-aname { flex: 1; }
 .as-assign-wrap { position: relative; display: inline-block; }
@@ -4620,7 +4623,7 @@ function pipelineFlagsHint() {
   return '⚠ Transaction flags not loaded — ' + (state.refreshProblem || 'refresh YNAB data');
 }
 function ensurePipelineFlags() {
-  if (pipelineFlagsRefreshing || !state.data || state.data.acctTxnsRed) return;
+  if (pipelineFlagsRefreshing || !state.data || (state.data.acctTxnsRed && state.data.acctTxnsContrib)) return;
   var p = refreshYnab();
   if (!p) return;
   pipelineFlagsRefreshing = true;
@@ -8058,6 +8061,37 @@ function populateAsAccountFilter() {
   }
 }
 
+// A "Roth" account assigned to a group other than Investments counts there for its "#contribution"
+// transactions only (the same rule Liquid Balances applies to Roth exception accounts); whatever is
+// left of its balance -- growth and other activity -- is listed under Investments instead. The total
+// across groups is unchanged. Needs acctTxnsContrib, which data cached before that rule lacks.
+function asIsRoth(a) { return /roth/i.test(a.name || ''); }
+function asContribTotal(id) {
+  var m = ((state.data || {}).acctTxnsContrib || {})[id] || {}, t = 0;
+  for (var k in m) t += m[k];
+  return t;
+}
+function asNeedsContribData() {
+  if (!state.data || state.data.acctTxnsContrib) return false;
+  return asOpenAccounts(true).some(function(a) { return asIsRoth(a) && a.group !== AS_UNASSIGNED && a.group !== 'Investments'; });
+}
+function asSplitRows(accts) {
+  var out = [];
+  var haveData = !!(state.data && state.data.acctTxnsContrib);
+  accts.forEach(function(a) {
+    if (haveData && asIsRoth(a) && a.group !== AS_UNASSIGNED && a.group !== 'Investments') {
+      var c = asContribTotal(a.id);
+      out.push({ id: a.id, name: a.name, balance: c, group: a.group, note: 'contributions' });
+      out.push({ id: a.id, name: a.name, balance: a.balance - c, group: 'Investments', note: 'other than contributions', derived: true });
+    } else {
+      out.push(a);
+    }
+  });
+  out.sort(function(x, y) { return Math.abs(y.balance) - Math.abs(x.balance); });
+  return out;
+}
+var asContribRequested = false;
+
 function asSaveMap() { localStorage.setItem('acct-summary-groups', JSON.stringify(state.acctGroupMap)); }
 
 // ---- Account group persistence (Turso, via /api/account-groups) ----
@@ -8143,6 +8177,10 @@ function renderAcctSummary() {
   if (sy) { sy.textContent = asSync.status; sy.classList.toggle('err', !!asSync.err); }
   populateAsAccountFilter();
   var accts = asOpenAccounts(), by = {};
+  // cached data from before #contribution sums existed: fetch them once so Roth accounts can be split
+  if (!asContribRequested && asNeedsContribData()) { asContribRequested = true; ensurePipelineFlags(); }
+  var allAccts = accts;
+  accts = asSplitRows(accts);
   renderAsCards(accts);
   accts.forEach(function(a) { (by[a.group] = by[a.group] || []).push(a); });
   var html = '';
@@ -8167,8 +8205,11 @@ function renderAcctSummary() {
       + '<div class="as-rows">'
       + list.map(function(a) {
           var sel = !!asSelected[a.id];
-          return '<label class="as-row' + (sel ? ' sel' : '') + '"><input type="checkbox" class="as-chk" data-id="' + escAttr(a.id) + '"' + (sel ? ' checked' : '') + '>'
-            + '<span class="as-aname" title="' + escAttr(a.name) + '">' + escHtml(a.name) + '</span>'
+          var label = a.note ? a.name + ' \u00B7 ' + a.note : a.name;
+          // the Investments remainder of a split Roth follows its account's group, so it has no checkbox of its own
+          return '<label class="as-row' + (sel && !a.derived ? ' sel' : '') + (a.derived ? ' derived' : '') + '">'
+            + (a.derived ? '<span class="as-chk-spacer"></span>' : '<input type="checkbox" class="as-chk" data-id="' + escAttr(a.id) + '"' + (sel ? ' checked' : '') + '>')
+            + '<span class="as-aname" title="' + escAttr(label) + '">' + escHtml(a.name) + (a.note ? '<span class="as-note"> \u00B7 ' + escHtml(a.note) + '</span>' : '') + '</span>'
             + '<span class="as-abal' + (a.balance < 0 ? ' neg' : '') + '">' + asFmtMoney(a.balance) + '</span></label>';
         }).join('')
       + '</div></div>';
@@ -8177,7 +8218,7 @@ function renderAcctSummary() {
   body.innerHTML = html;
   // drop selections for accounts that are no longer listed (closed, or data refreshed)
   var live = {};
-  accts.forEach(function(a) { live[a.id] = true; });
+  allAccts.forEach(function(a) { live[a.id] = true; });
   Object.keys(asSelected).forEach(function(id) { if (!live[id]) delete asSelected[id]; });
   asUpdateAssignControl();
 }
