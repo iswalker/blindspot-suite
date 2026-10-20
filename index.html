@@ -7935,7 +7935,7 @@ function renderNetWorthBody() {
 // Open YNAB accounts bucketed into fixed groups (empty groups hidden), each expandable to its
 // accounts, largest absolute balance first. Accounts nobody has assigned fall into Other; the
 // "Assign Groups" modal edits the mapping, which is kept per browser.
-var AS_GROUPS = ['Cash', 'Credit', 'Savings', 'Loans', 'Investments', 'Kids', 'Assets', 'Mortgage', 'Other'];
+var AS_GROUPS = ['Cash', 'Credit', 'Savings', 'Investments', 'Loans', 'Kids', 'Vehicles', 'Real Estate', 'Mortgage', 'Other'];
 
 function asFmtMoney(v) {
   var r = Math.round(v * 100) / 100;
