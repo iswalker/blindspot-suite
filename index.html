@@ -102,8 +102,29 @@ body {
 @media (min-width: 821px) {
   #tab-row { flex-wrap: nowrap; }
   #nav-left { flex: 1 1 auto; }
-  #tab-nav { flex: 1 1 auto; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+  #tab-nav { flex: 1 1 auto; min-width: 0; overflow-x: auto; overflow-y: hidden; }
   #tab-nav-list { width: max-content; }
+  /* Scrollbar: a 1-2px bar (no arrows) that only shows while the pointer is over the strip. Chrome and
+     Safari take the ::-webkit-scrollbar rules (setting scrollbar-width would override them there), so
+     the standard properties are limited to Firefox, which can only go "thin". */
+  #tab-nav::-webkit-scrollbar { height: 2px; }
+  #tab-nav::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+  #tab-nav::-webkit-scrollbar-track { background: transparent; }
+  #tab-nav::-webkit-scrollbar-thumb { background: transparent; border-radius: 1px; }
+  #tab-nav:hover::-webkit-scrollbar-thumb { background: rgba(0,0,0,.35); }
+  @supports (-moz-appearance: none) {
+    #tab-nav { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+    #tab-nav:hover { scrollbar-color: rgba(0,0,0,.35) transparent; }
+  }
+  /* Each tab's icon sticks to the left edge while the strip scrolls past its tab, the label sliding
+     under it and getting clipped, until the tab's own right edge pushes the icon out and the next
+     tab's icon takes over. Once stuck (.icon-stuck, set on scroll) the icon gets a solid fill to hide the
+     label, matching whatever the tab behind it is showing (page, hover, or the active tab's white). */
+  .tab-btn { --tab-icon-bg: #F6F4EE; }
+  .tab-btn:hover:not(.tab-active) { --tab-icon-bg: #ECEAE4; }
+  .tab-btn.tab-active { --tab-icon-bg: #fff; }
+  #tab-nav-list .tab-icon { position: sticky; left: 0; z-index: 1; }
+  #tab-nav-list .tab-btn.icon-stuck .tab-icon { background: var(--tab-icon-bg); }
 }
 .brand { display: flex; align-items: center; gap: 8px; flex: none; }
 .brand img {
@@ -15640,6 +15661,20 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('gdrive-picker-backdrop').addEventListener('click', function() {
     document.getElementById('gdrive-picker-modal').style.display = 'none';
   });
+
+  // Desktop tab strip: a tab whose left edge has scrolled out of view keeps its icon pinned (CSS sticky)
+  // and gets .icon-stuck, which gives the icon a solid fill so the label slides under it and clips.
+  (function() {
+    var nav = document.getElementById('tab-nav');
+    if (!nav) return;
+    function markStuckIcons() {
+      var left = nav.getBoundingClientRect().left, btns = nav.querySelectorAll('#tab-nav-list .tab-btn');
+      for (var i = 0; i < btns.length; i++) btns[i].classList.toggle('icon-stuck', btns[i].getBoundingClientRect().left < left - 0.5);
+    }
+    nav.addEventListener('scroll', markStuckIcons, { passive: true });
+    window.addEventListener('resize', markStuckIcons);
+    markStuckIcons();
+  })();
 
   // Tab nav. On mobile the nav collapses to just the active tab (#tab-nav-list); tapping it
   // opens a dropdown (#tab-nav-dropdown) listing every tab to switch from. On desktop all
