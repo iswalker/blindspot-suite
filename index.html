@@ -104,17 +104,18 @@ body {
   #nav-left { flex: 1 1 auto; }
   #tab-nav { flex: 1 1 auto; min-width: 0; overflow-x: auto; overflow-y: hidden; }
   #tab-nav-list { width: max-content; }
-  /* Scrollbar: a 1-2px bar (no arrows) that only shows while the pointer is over the strip. Chrome and
+  /* Scrollbar: a 1-2px bar (no arrows) that only shows while the pointer is over the strip
+     (.nav-hot, set from JS rather than :hover, which sticks after dragging the bar and leaving). Chrome and
      Safari take the ::-webkit-scrollbar rules (setting scrollbar-width would override them there), so
      the standard properties are limited to Firefox, which can only go "thin". */
   #tab-nav::-webkit-scrollbar { height: 2px; }
   #tab-nav::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
   #tab-nav::-webkit-scrollbar-track { background: transparent; }
   #tab-nav::-webkit-scrollbar-thumb { background: transparent; border-radius: 1px; }
-  #tab-nav:hover::-webkit-scrollbar-thumb { background: rgba(0,0,0,.35); }
+  #tab-nav.nav-hot::-webkit-scrollbar-thumb { background: rgba(0,0,0,.35); }
   @supports (-moz-appearance: none) {
     #tab-nav { scrollbar-width: thin; scrollbar-color: transparent transparent; }
-    #tab-nav:hover { scrollbar-color: rgba(0,0,0,.35) transparent; }
+    #tab-nav.nav-hot { scrollbar-color: rgba(0,0,0,.35) transparent; }
   }
   /* Each tab's icon sticks to the left edge while the strip scrolls past its tab, the label sliding
      under it and getting clipped, until the tab's own right edge pushes the icon out and the next
@@ -15671,6 +15672,17 @@ document.addEventListener('DOMContentLoaded', function() {
       var left = nav.getBoundingClientRect().left, btns = nav.querySelectorAll('#tab-nav-list .tab-btn');
       for (var i = 0; i < btns.length; i++) btns[i].classList.toggle('icon-stuck', btns[i].getBoundingClientRect().left < left - 0.5);
     }
+    // :hover stays latched after dragging the scrollbar thumb off the strip, so track it by hand: any
+    // pointer move or release re-checks what is actually under the cursor.
+    function syncHot(e) {
+      var over = (e.buttons && nav.classList.contains('nav-hot')) || (document.elementFromPoint(e.clientX, e.clientY) && nav.contains(document.elementFromPoint(e.clientX, e.clientY)));
+      nav.classList.toggle('nav-hot', !!over);
+    }
+    nav.addEventListener('mouseenter', syncHot);
+    document.addEventListener('mousemove', syncHot, { passive: true });
+    document.addEventListener('mouseup', syncHot, { passive: true });
+    document.addEventListener('mouseleave', function() { nav.classList.remove('nav-hot'); });
+    window.addEventListener('blur', function() { nav.classList.remove('nav-hot'); });
     nav.addEventListener('scroll', markStuckIcons, { passive: true });
     window.addEventListener('resize', markStuckIcons);
     markStuckIcons();
