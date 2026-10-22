@@ -1578,7 +1578,8 @@ html.rw-tab-active #tab-row { z-index: 30; }
    they appear while the step or phase is hovered or being edited, on touch screens they stay put. */
 @media (hover: hover) {
   .rw-ctl { opacity: 0; pointer-events: none; transition: opacity .1s; }
-  .runway-step:hover > .rw-ctl, .runway-step:focus-within > .rw-ctl, .runway-phase:hover > .rw-ctl, .runway-phase:focus-within > .rw-ctl { opacity: 1; pointer-events: auto; }
+  .runway-step:hover > .rw-ctl, .runway-step:focus-within > .rw-ctl, .runway-phase:hover > .rw-ctl, .runway-phase:focus-within > .rw-ctl,
+  .runway-col-hdr:hover > .rw-ctl, .runway-col-hdr:focus-within > .rw-ctl { opacity: 1; pointer-events: auto; }
 }
 .rw-ctl button {
   width: 28px; height: 28px; padding: 0; line-height: 1; font-size: 16px; color: #555; background: #fff; border: 1px solid #ccc;
@@ -1587,6 +1588,9 @@ html.rw-tab-active #tab-row { z-index: 30; }
 .rw-ctl button:hover { background: #f0f0f0; }
 .rw-ctl button[data-act^="del"]:hover { background: #fdecea; color: #c62828; border-color: #e5a5a0; }
 .rw-ctl-phase { top: 4px; right: 4px; }
+.rw-ctl-col { top: 2px; right: 0; }
+.rw-ctl-col button { width: auto; padding: 0 9px; font-size: 13px; white-space: nowrap; }
+#runway-body.rw-editing .runway-col-hdr { position: relative; }
 .rw-grip {
   width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
   font-size: 16px; line-height: 1; letter-spacing: -2px; color: #777; background: #fff; border: 1px solid #ccc; border-radius: 6px;
@@ -14944,6 +14948,55 @@ function rwStepKeys(titleKey) {   // [title row key, subtext row key] of the ste
   return keys;
 }
 
+// ---- columns: add / remove (the layout's columns are "Runway Column <n>" rows; steps name theirs in Track Against) ----
+var RW_COL_ROW = /^runway column\s+(\d+)([a-z]?)(\s+subtext)?$/i;
+var RW_COL_REF = /^runway column\s+(\d+)([a-z]?)$/i;
+function rwShiftColumns(from, delta) {   // renumber columns >= from, and the steps that point at them
+  runwayWork.forEach(function(r) {
+    var m = String(r.metric || '').match(RW_COL_ROW);
+    if (m && parseInt(m[1], 10) >= from) r.metric = 'Runway Column ' + (parseInt(m[1], 10) + delta) + m[2].toLowerCase() + (m[3] ? ' Subtext' : '');
+    var t = String(r.track_against || '').match(RW_COL_REF);
+    if (t && RW_STEP_ROW.test(String(r.metric || '')) && parseInt(t[1], 10) >= from) r.track_against = 'Runway Column ' + (parseInt(t[1], 10) + delta) + t[2].toLowerCase();
+  });
+}
+function rwColumnNumbers() {
+  var nums = {};
+  runwayWork.forEach(function(r) { var m = String(r.metric || '').match(RW_COL_ROW); if (m) nums[parseInt(m[1], 10)] = true; });
+  return Object.keys(nums).map(Number).sort(function(a, b) { return a - b; });
+}
+function rwAddColumn(n) {
+  var keys = [];
+  runwayWork.forEach(function(r) { var m = String(r.metric || '').match(RW_COL_ROW); if (m && parseInt(m[1], 10) === n) keys.push(r._key); });
+  rwShiftColumns(n + 1, 1);
+  var nn = n + 1;
+  rwInsertAfter(keys, [rwNewRow({ metric: 'Runway Column ' + nn, text: 'New column' }), rwNewRow({ metric: 'Runway Column ' + nn + ' Subtext' })]);
+  renderRunway();
+}
+function rwRemoveColumn(n) {
+  var nums = rwColumnNumbers();
+  if (nums.length < 2) { alert('A Runway needs at least one column.'); return; }
+  var steps = runwayWork.filter(function(r) { var t = String(r.track_against || '').match(RW_COL_REF); return t && parseInt(t[1], 10) === n && /^runway step\s+(\d+|[a-z])$/i.test(String(r.metric || '')); }).length;
+  var others = nums.filter(function(x) { return x !== n; });
+  var m = others.filter(function(x) { return x < n; }).pop();
+  if (m === undefined) m = others[0];
+  var msg = 'Remove this column?' + (steps ? ' Its ' + steps + ' step' + (steps === 1 ? '' : 's') + ' will move to column ' + (m < n ? m : m - 1) + '.' : '');
+  if (!confirm(msg)) return;
+  // the neighbour's first section is the base column, else whichever of its sections exists
+  var target = null;
+  runwayWork.forEach(function(r) {
+    var x = String(r.metric || '').match(RW_COL_ROW);
+    if (x && !x[3] && parseInt(x[1], 10) === m && (target === null || x[2] === '')) target = 'Runway Column ' + m + x[2].toLowerCase();
+  });
+  target = target || 'Runway Column ' + m;
+  runwayWork.forEach(function(r) {
+    var t = String(r.track_against || '').match(RW_COL_REF);
+    if (t && parseInt(t[1], 10) === n && RW_STEP_ROW.test(String(r.metric || ''))) r.track_against = target;
+  });
+  runwayWork = runwayWork.filter(function(r) { var x = String(r.metric || '').match(RW_COL_ROW); return !(x && parseInt(x[1], 10) === n); });
+  rwShiftColumns(n + 1, -1);
+  renderRunway();
+}
+
 // ---- moving a step (drag and drop): reorder it and/or put it in another column ----
 // Steps are numbered (or lettered) in one sequence across the whole tab, and a column lists its steps in that
 // order. So a move keeps the same set of numbers (gaps and all) and just deals them out again in the new
@@ -15217,6 +15270,8 @@ function wireRunwayEditing() {
         var pe = document.querySelector('.rw-edit[data-rid="' + key + '"][data-field="' + act.getAttribute('data-field') + '"]');
         if (pe) pe.focus();
       }
+      else if (a === 'add-col') rwAddColumn(parseInt(act.getAttribute('data-col'), 10));
+      else if (a === 'del-col') rwRemoveColumn(parseInt(act.getAttribute('data-col'), 10));
       else if (a === 'add-phase') rwAddPhase(key);
       else if (a === 'del-phase') rwRemovePhase(key);
       else if (a === 'cur-phase') rwSetCurrentPhase(key);
@@ -15497,6 +15552,15 @@ function getRunwayData() {
     }
     sectionsByKey[colKey.key].steps.push(steps[si]);
   }
+  // A column that is defined (it has a header row) but has no steps at all -- one just added -- still shows, so it can be filled.
+  var colHasSteps = {};
+  allSteps.forEach(function(st) { if (st.col) colHasSteps[st.col.key] = true; });
+  Object.keys(colDefs).forEach(function(k) {
+    var m = k.match(/^n(\d+)([a-z]?)$/);
+    if (!m || colHasSteps[k] || sectionsByKey[k] || !(colDefs[k].header || colDefs[k].headerId)) return;
+    sectionsByKey[k] = { key: k, num: parseInt(m[1], 10), letter: m[2], raw: 'Runway Column ' + m[1] + m[2], steps: [] };
+    sectionOrder.push(k);
+  });
 
   // Numbered sections group into one column per <n>, ordered by <n> then by <a> (no letter
   // first). Legacy (unmatched Track Against text) sections each form their own column, appended
@@ -15506,7 +15570,7 @@ function getRunwayData() {
     var sec = sectionsByKey[sectionOrder[oi]];
     var def = colDefs[sec.key];
     var section = { header: (def && def.header) ? def.header : sec.raw, subtext: def ? def.subtext : '', steps: sec.steps,
-                    headerId: def ? def.headerId || null : null, subtextId: def ? def.subtextId || null : null, raw: sec.raw };
+                    headerId: def ? def.headerId || null : null, subtextId: def ? def.subtextId || null : null, raw: sec.raw, num: sec.num, letter: sec.letter };
     if (sec.num !== null) {
       if (!columnsByNum[sec.num]) { columnsByNum[sec.num] = []; columnNums.push(sec.num); }
       columnsByNum[sec.num].push({ letter: sec.letter, section: section });
@@ -15621,7 +15685,10 @@ function renderRunway() {
   }
 
   function renderSection(sec) {
-    var h = '<div class="runway-col-hdr">' + rwTxt(sec.header, sec.headerId, 'text', 'Section title') + '</div>'
+    var colCtl = (runwayEditing() && sec.first && sec.num !== null && sec.num !== undefined)
+      ? '<div class="rw-ctl rw-ctl-col"><button type="button" data-act="add-col" data-col="' + sec.num + '" title="Add a column after this one">+ column</button>'
+        + '<button type="button" data-act="del-col" data-col="' + sec.num + '" title="Remove this column (its steps move to the neighbouring column)">\u00d7 column</button></div>' : '';
+    var h = '<div class="runway-col-hdr">' + colCtl + rwTxt(sec.header, sec.headerId, 'text', 'Section title') + '</div>'
       + (sec.subtext || (runwayEditing() && sec.subtextId) ? '<div class="runway-col-subtext">' + rwTxt(sec.subtext, sec.subtextId, 'text', 'Add subtext', true) + '</div>' : '');
     for (var i = 0; i < sec.steps.length; i++) {
       var s = sec.steps[i];
@@ -15679,6 +15746,7 @@ function renderRunway() {
     var sections = data.columns[ci];
     var colHtml = '';
     for (var se = 0; se < sections.length; se++) {
+      sections[se].first = se === 0;
       colHtml += '<div class="runway-section" data-col="' + escAttr(sections[se].raw || '') + '">' + renderSection(sections[se]) + '</div>';
     }
     html += '<div class="runway-col">' + colHtml + '</div>';
