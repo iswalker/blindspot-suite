@@ -229,7 +229,7 @@ body {
 .rp-panel {
   position: absolute; top: calc(100% + 6px); left: 0; z-index: 500;
   display: flex; background: #fff; border: 1px solid #ddd; border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(0,0,0,.16); overflow: hidden; width: 600px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.16); overflow: hidden; width: 700px;
 }
 .rp-quick-col { width: 170px; flex-shrink: 0; background: #faf9f6; border-right: 1px solid #eee; padding: 10px 0; }
 .rp-quick-hdr { font-size: 11px; font-weight: 700; color: #999; letter-spacing: .06em; text-transform: uppercase; padding: 4px 16px 8px; }
@@ -246,11 +246,11 @@ body {
 .rp-main-hdr { font-size: 15px; font-weight: 700; color: #222; margin-bottom: 2px; }
 .rp-main-hdr-n { font-weight: 400; color: #999; font-size: 13px; margin-left: 6px; }
 .rp-main-hint { font-size: 11px; color: #999; margin-bottom: 12px; }
-.rp-year-row { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
-.rp-year-label { width: 34px; flex-shrink: 0; font-size: 11px; color: #bbb; }
+.rp-year-row { display: flex; align-items: center; gap: 4px; margin-bottom: 5px; }
+.rp-year-label { width: 40px; flex-shrink: 0; font-size: 13px; color: #aaa; }
 .rp-month {
-  flex: 1; text-align: center; font-size: 12px; color: #555; padding: 5px 0;
-  border-radius: 5px; cursor: pointer; white-space: nowrap;
+  flex: 1; text-align: center; font-size: 14px; color: #555; padding: 9px 0;
+  border-radius: 6px; cursor: pointer; white-space: nowrap;
   /* Without this, a touch drag across months is interpreted as a page scroll before our own
      touchmove handler ever sees it (see the touchstart/touchmove/touchend wiring below). */
   touch-action: none;
@@ -1768,8 +1768,11 @@ html.rw-tab-active #tab-row { z-index: 30; }
   .rp-panel { position: fixed; left: 10px; right: 10px; width: auto; top: auto; flex-direction: column; max-height: 80vh; overflow-y: auto; }
   .rp-main-col-wrap { order: -1; }
   .rp-quick-col { width: auto; border-right: none; border-bottom: 1px solid #eee; }
-  .rp-year-label { width: 28px; font-size: 10px; }
-  .rp-month { font-size: 11px; padding: 4px 0; }
+  /* Twelve months in one row is far too small to hit on a phone: lay each year out as a 6 x 2 grid of big
+     cells under its own year heading. */
+  .rp-year-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 14px; }
+  .rp-year-label { grid-column: 1 / -1; width: auto; font-size: 14px; font-weight: 700; color: #888; }
+  .rp-month { font-size: 16px; padding: 13px 0; border-radius: 8px; }
 
   /* Tab nav collapses to the active tab only; tapping it opens a dropdown listing every
      tab one per row to switch from. Brand stays pinned; gear pinned top-right.
@@ -2878,20 +2881,21 @@ var RECOVERABLE_MARKER = '='; // categories whose name contains this substring c
 // STATE
 // ============================================================
 function parseJsonLS(key) { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch(e) { return null; } }
+rpMigrateStoredRanges();
 var state = {
   configText:          null,
   catConfig:           [],
   merchantsText:       null,
   merchants:           { headers: [], byPayee: {} },
   data:                null,
-  fromKey:             localStorage.getItem('sel-from') || null,
-  toKey:               localStorage.getItem('sel-to')   || null,
+  fromKey:             rpLoadKey('sel-from') || null,
+  toKey:               rpLoadKey('sel-to')   || null,
   expanded:            parseJsonLS('ynab-expanded-groups') || {},
   selectedAccounts:    parseJsonLS('sel-accts')       || {},
   loadedAt:            null,
   activeTab:           localStorage.getItem('sel-tab') || 'home',
-  lwFromKey:           localStorage.getItem('sel-lw-from') || null,
-  lwToKey:             localStorage.getItem('sel-lw-to')   || null,
+  lwFromKey:           rpLoadKey('sel-lw-from') || null,
+  lwToKey:             rpLoadKey('sel-lw-to')   || null,
   lwExcludeTracking:        localStorage.getItem('lw-exclude-tracking') !== '0',
   lwExcludeDistribution:    localStorage.getItem('lw-exclude-distribution') !== '0',
   lwExcludeBudgeted:        localStorage.getItem('lw-exclude-budgeted') !== '0',
@@ -2947,20 +2951,20 @@ var state = {
   leverageIncludeTbd:        localStorage.getItem('leverage-include-tbd') === '1',
   leverageSpeedoMonth:      null,
   lwSelectedAccounts:  parseJsonLS('sel-lw-accts')    || {},
-  nwFromKey:           localStorage.getItem('sel-nw-from') || null,
-  nwToKey:             localStorage.getItem('sel-nw-to')   || null,
+  nwFromKey:           rpLoadKey('sel-nw-from') || null,
+  nwToKey:             rpLoadKey('sel-nw-to')   || null,
   nwSelectedAccounts:  parseJsonLS('sel-nw-accts')    || {},
   asSelectedAccounts:  parseJsonLS('sel-as-accts')    || {},
-  lessonsFromKey:      localStorage.getItem('sel-lessons-from') || null,
-  lessonsToKey:        localStorage.getItem('sel-lessons-to')   || null,
-  leverageFromKey:     localStorage.getItem('sel-leverage-from') || null,
-  leverageToKey:       localStorage.getItem('sel-leverage-to')   || null,
+  lessonsFromKey:      rpLoadKey('sel-lessons-from') || null,
+  lessonsToKey:        rpLoadKey('sel-lessons-to')   || null,
+  leverageFromKey:     rpLoadKey('sel-leverage-from') || null,
+  leverageToKey:       rpLoadKey('sel-leverage-to')   || null,
   acctHistoryId:       localStorage.getItem('sel-acct-history-id')   || null,
-  acctHistoryFromKey:  localStorage.getItem('sel-acct-history-from') || null,
-  acctHistoryToKey:    localStorage.getItem('sel-acct-history-to')   || null,
+  acctHistoryFromKey:  rpLoadKey('sel-acct-history-from') || null,
+  acctHistoryToKey:    rpLoadKey('sel-acct-history-to')   || null,
   reconcileAcctId:     localStorage.getItem('sel-reconcile-acct')    || null,
-  reconcileFromKey:    localStorage.getItem('sel-reconcile-from')    || null,
-  reconcileToKey:      localStorage.getItem('sel-reconcile-to')      || null,
+  reconcileFromKey:    rpLoadKey('sel-reconcile-from')    || null,
+  reconcileToKey:      rpLoadKey('sel-reconcile-to')      || null,
   leveragePosConnId:   localStorage.getItem('sel-leverage-pos-conn')  || null,
   rowShading:          localStorage.getItem('row-shading') !== '0',
   catSortMode:         localStorage.getItem('cat-sort') || 'avg',
@@ -3108,6 +3112,53 @@ var RP_CONFIGS = {
   'acct-history': { btnId: 'acct-history-range-btn', panelId: 'acct-history-range-panel', fromField: 'acctHistoryFromKey', toField: 'acctHistoryToKey', fromLS: 'sel-acct-history-from', toLS: 'sel-acct-history-to', render: function() { renderAccountHistory(); } },
   reconcile:      { btnId: 'reconcile-range-btn',  panelId: 'reconcile-range-panel',  fromField: 'reconcileFromKey',   toField: 'reconcileToKey',   fromLS: 'sel-reconcile-from',  toLS: 'sel-reconcile-to',  render: function() {} }
 };
+// A saved range that ends at the current month is stored as a rolling one -- 'cur' for its end, 'cur-N' (N months
+// back) or 'ytd' for its start -- so next month it still ends at the then-current month instead of going stale.
+// Anything else is stored as plain 'YYYY-MM' keys.
+function rpLoadKey(ls) {
+  var raw = null;
+  try { raw = localStorage.getItem(ls); } catch (e) { return null; }
+  if (!raw) return null;
+  var today = dtKey(new Date()), m;
+  if (raw === 'cur') return today;
+  if (raw === 'ytd') return today.slice(0, 4) + '-01';
+  if ((m = /^cur-(\d+)$/.exec(raw))) return rpShiftKey(today, -parseInt(m[1], 10));
+  return raw;
+}
+function rpEncodeRange(from, to, quick) {
+  var today = dtKey(new Date());
+  if (!from || !to || to !== today) return { from: from, to: to };
+  if (quick === 'ytd' && from === today.slice(0, 4) + '-01') return { from: 'ytd', to: 'cur' };
+  return { from: 'cur-' + (rpMonthCount(from, to) - 1), to: 'cur' };
+}
+function rpPersistRange(fromLS, toLS, from, to, quick) {
+  var e = rpEncodeRange(from, to, quick);
+  try { localStorage.setItem(fromLS, e.from); localStorage.setItem(toLS, e.to); } catch (x) {}
+}
+// Ranges saved by earlier versions are absolute. One that ended at the previous month (what the old defaults
+// picked) or at the current one is carried forward as a rolling range of the same length.
+function rpMigrateStoredRanges() {   // runs before the state object exists, so it keeps its own list
+  var pairs = [['sel-from', 'sel-to'], ['sel-lw-from', 'sel-lw-to'], ['sel-nw-from', 'sel-nw-to'], ['sel-lessons-from', 'sel-lessons-to'],
+    ['sel-leverage-from', 'sel-leverage-to'], ['sel-acct-history-from', 'sel-acct-history-to'], ['sel-reconcile-from', 'sel-reconcile-to']];
+  var today = dtKey(new Date()), prev = rpShiftKey(today, -1), re = /^\d{4}-\d{2}$/;
+  pairs.forEach(function(pr) {
+    try {
+      var f = localStorage.getItem(pr[0]), t = localStorage.getItem(pr[1]);
+      if (!f || !t || !re.test(f) || !re.test(t) || f > t) return;
+      if (t !== prev && t !== today) return;
+      var n = rpMonthCount(f, t);
+      localStorage.setItem(pr[0], 'cur-' + (n - 1));
+      localStorage.setItem(pr[1], 'cur');
+    } catch (e) {}
+  });
+}
+// Default end of a range: the current month when the data has it, else the latest month before it.
+function rpDefaultToKey(keys) {
+  var today = dtKey(new Date());
+  if (keys.indexOf(today) !== -1) return today;
+  for (var i = keys.length - 1; i >= 0; i--) if (keys[i] < today) return keys[i];
+  return keys[0];
+}
 var rpKeysCache = {};
 var rpPending   = {};
 var rpOpenId    = null;
@@ -3156,7 +3207,7 @@ function rpQuickRanges(keys, todayKey) {
     { label: 'This month',     from: endKey, to: endKey },
     { label: 'Last 3 months',  from: clampStart(rpShiftKey(endKey, -2)),  to: endKey },
     { label: 'Last 6 months',  from: clampStart(rpShiftKey(endKey, -5)),  to: endKey },
-    { label: 'Year to date',   from: clampStart(yearStart),               to: endKey },
+    { label: 'Year to date',   from: clampStart(yearStart),               to: endKey, quick: 'ytd' },
     { label: 'Last 12 months', from: clampStart(rpShiftKey(endKey, -11)), to: endKey }
   ];
 }
@@ -3302,7 +3353,7 @@ function rpRenderPanel(id) {
       var idx = this.getAttribute('data-qidx');
       if (idx === 'custom') return;
       var q2 = quicks[parseInt(idx, 10)];
-      rpApply(id, q2.from, q2.to);
+      rpApply(id, q2.from, q2.to, q2.quick);
     });
   }
   // Press on a month to start a drag (see the document-level mousemove/mouseup and
@@ -3339,12 +3390,11 @@ function rpRenderPanel(id) {
   });
 }
 
-function rpApply(id, from, to) {
+function rpApply(id, from, to, quick) {
   var cfg = RP_CONFIGS[id];
   state[cfg.fromField] = from;
   state[cfg.toField]   = to;
-  localStorage.setItem(cfg.fromLS, from);
-  localStorage.setItem(cfg.toLS, to);
+  rpPersistRange(cfg.fromLS, cfg.toLS, from, to, quick);
   rpClose();
   rpSetButtonLabel(id);
   cfg.render();
@@ -7424,13 +7474,8 @@ function toggleOtherGroup(grpName) {
 function populateRangeFilter() {
   var keys = state.data.allKeys;
 
-  var todayKey  = dtKey(new Date());
-  var defaultTo = keys[0];
-  // Default: last 4 months, not including present month -- the To picker still lists it, so
-  // it's one click away if wanted.
-  for (var ti2 = keys.length - 1; ti2 >= 0; ti2--) {
-    if (keys[ti2] < todayKey) { defaultTo = keys[ti2]; break; }
-  }
+  // Default: the last 4 months, ending with the current one.
+  var defaultTo = rpDefaultToKey(keys);
   var toIdx2    = keys.indexOf(defaultTo);
   var defaultFrom = keys[Math.max(0, toIdx2 - 3)];
   state.fromKey = state.fromKey && keys.indexOf(state.fromKey) !== -1 ? state.fromKey : defaultFrom;
@@ -7819,13 +7864,8 @@ function lwCurrentNetLiquid() {
 function populateLwRangeFilter() {
   if (!state.data || !state.data.acctTxns) return;
   var keys = lwAllKeys();
-  var todayKey  = dtKey(new Date());
-  var defaultTo = keys[0];
-  // Default: last 12 months, not including present month -- the To picker still lists it, so
-  // it's one click away if wanted.
-  for (var ti2 = keys.length - 1; ti2 >= 0; ti2--) {
-    if (keys[ti2] < todayKey) { defaultTo = keys[ti2]; break; }
-  }
+  // Default: the last 12 months, ending with the current one.
+  var defaultTo = rpDefaultToKey(keys);
   var lwToIdx     = keys.indexOf(defaultTo);
   var defaultFrom = keys[Math.max(0, lwToIdx - 11)];
   state.lwFromKey = state.lwFromKey && keys.indexOf(state.lwFromKey) !== -1 ? state.lwFromKey : defaultFrom;
@@ -7992,13 +8032,8 @@ function renderLiquidWorth() {
 function populateNwRangeFilter() {
   if (!state.data || !state.data.acctTxns) return;
   var keys = lwAllKeys();
-  var todayKey  = dtKey(new Date());
-  var defaultTo = keys[0];
-  // Default: last 48 months, not including present month -- the To picker still lists it, so
-  // it's one click away if wanted.
-  for (var ti2 = keys.length - 1; ti2 >= 0; ti2--) {
-    if (keys[ti2] < todayKey) { defaultTo = keys[ti2]; break; }
-  }
+  // Default: the last 48 months, ending with the current one.
+  var defaultTo = rpDefaultToKey(keys);
   var nwToIdx      = keys.indexOf(defaultTo);
   var defaultFrom  = keys[Math.max(0, nwToIdx - 47)];
   state.nwFromKey  = state.nwFromKey && keys.indexOf(state.nwFromKey) !== -1 ? state.nwFromKey : defaultFrom;
@@ -11767,8 +11802,7 @@ function populateAcctHistoryRangeFilter(availKeys, defaultFrom) {
     ? state.acctHistoryFromKey : defaultFrom;
   state.acctHistoryToKey   = state.acctHistoryToKey   && availKeys.indexOf(state.acctHistoryToKey)   !== -1
     ? state.acctHistoryToKey   : defaultTo;
-  localStorage.setItem('sel-acct-history-from', state.acctHistoryFromKey);
-  localStorage.setItem('sel-acct-history-to',   state.acctHistoryToKey);
+  rpPersistRange('sel-acct-history-from', 'sel-acct-history-to', state.acctHistoryFromKey, state.acctHistoryToKey);
   rpKeysCache['acct-history'] = availKeys;
   rpSetButtonLabel('acct-history');
 }
