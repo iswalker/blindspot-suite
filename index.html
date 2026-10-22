@@ -1536,12 +1536,13 @@ select.um-in { width: 100%; }
 #runway-edit-msg.rw-fail { color: #c62828; font-weight: 600; max-width: 46ch; text-align: right; }
 #runway-factors-btn {
   padding: 6px 12px; background: #fff; border: 1px solid #ccc;
-  border-radius: 5px; font-size: 12px; cursor: pointer; color: #555; white-space: nowrap;
+  border-radius: 5px; font-size: 15px; cursor: pointer; color: #555; white-space: nowrap;
 }
+.settings-hint { font-size: 14px; color: #999; }
 #runway-factors-btn:hover { background: #f0f0f0; }
 #runway-factors-btn.active { border-color: #333; background: #f0f0f0; }
 #runway-factors-panel {
-  display: none; position: absolute; top: calc(100% + 4px); right: 0;
+  display: none; position: absolute; top: calc(100% + 4px); left: 0;
   background: #fff; border: 1px solid #ddd; border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0,0,0,.13); min-width: 180px; max-height: 300px;
   overflow-y: auto; z-index: 300; padding: 6px 0;
@@ -2138,6 +2139,16 @@ html.rw-tab-active #tab-row { z-index: 30; }
             <label for="plan-sel">Plan</label>
             <select id="plan-sel"></select>
           </div>
+          <div class="settings-tab-block" data-tab="runway">
+            <div class="settings-divider"></div>
+            <div class="settings-row">
+              <div id="runway-factors-wrap" style="display:none">
+                <button id="runway-factors-btn">Factors &#9660;</button>
+                <div id="runway-factors-panel"></div>
+              </div>
+              <span id="runway-factors-none" class="settings-hint">No Factors yet &mdash; add a [Tag] prefix to a step title.</span>
+            </div>
+          </div>
           <div class="settings-tab-block" data-tab="leverage">
             <div class="settings-divider"></div>
             <div class="settings-row">
@@ -2629,10 +2640,6 @@ html.rw-tab-active #tab-row { z-index: 30; }
     <div class="panel-hdr">
       <div id="runway-tagline"></div>
       <div id="runway-hdr-right">
-        <div id="runway-factors-wrap" style="display:none">
-          <button id="runway-factors-btn">Factors &#9660;</button>
-          <div id="runway-factors-panel"></div>
-        </div>
         <span id="runway-edit-msg" role="status"></span>
         <button type="button" id="runway-edit-cancel" title="Discard changes and exit" aria-label="Discard changes and exit" style="display:none">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
@@ -15508,6 +15515,8 @@ function populateRunwayFactorsFilter(tags) {
   var wrap = document.getElementById('runway-factors-wrap');
   var panel = document.getElementById('runway-factors-panel');
   if (!wrap || !panel) return;
+  var none = document.getElementById('runway-factors-none');
+  if (none) none.style.display = tags.length ? 'none' : '';
   if (!tags.length) { wrap.style.display = 'none'; return; }
   wrap.style.display = '';
   var h = '';
