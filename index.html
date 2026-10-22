@@ -1523,12 +1523,17 @@ select.um-in { width: 100%; }
 /* ---- Runway ---- */
 #runway-hdr-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 #runway-factors-wrap { position: relative; }
-#runway-edit-btn {
-  width: 34px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+#runway-edit-btn, #runway-edit-cancel {
+  position: relative; width: 34px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
   background: #fff; border: 1px solid #ccc; border-radius: 5px; color: #555; cursor: pointer; touch-action: manipulation;
 }
-#runway-edit-btn:hover { background: #f0f0f0; }
+#runway-edit-btn:hover, #runway-edit-cancel:hover { background: #f0f0f0; }
+#runway-edit-cancel:hover { background: #fdecea; color: #c62828; border-color: #e5a5a0; }
 #runway-edit-btn.active { background: #1565c0; border-color: #1565c0; color: #fff; }
+#runway-edit-btn.active:hover { background: #0f5199; }
+#runway-edit-btn.dirty::after { content: ''; position: absolute; top: -4px; right: -4px; width: 9px; height: 9px; border-radius: 50%; background: #f59e0b; border: 2px solid #fff; box-sizing: content-box; }
+#runway-edit-msg { font-size: 14px; color: #555; }
+#runway-edit-msg.rw-fail { color: #c62828; font-weight: 600; max-width: 46ch; text-align: right; }
 #runway-factors-btn {
   padding: 6px 12px; background: #fff; border: 1px solid #ccc;
   border-radius: 5px; font-size: 12px; cursor: pointer; color: #555; white-space: nowrap;
@@ -1549,20 +1554,11 @@ select.um-in { width: 100%; }
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; padding: 10px 14px;
   background: #fff8e1; border: 1px solid #f1e0a3; border-radius: 8px; font-size: 14px; color: #6b5300;
 }
-#runway-import button, #runway-edit-bar button {
+#runway-import button {
   padding: 6px 14px; background: #fff; border: 1px solid #ccc; border-radius: 6px; font-size: 14px;
   color: #444; cursor: pointer; white-space: nowrap; touch-action: manipulation;
 }
-#runway-import button:hover, #runway-edit-bar button:hover:not(:disabled) { background: #f0f0f0; }
-#runway-edit-bar button:disabled { color: #bbb; cursor: not-allowed; background: #f6f6f3; }
-#runway-edit-bar button#runway-edit-save:not(:disabled) { background: #1565c0; border-color: #1565c0; color: #fff; }
-#runway-edit-bar {
-  position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  margin-bottom: 14px; padding: 8px 12px; background: #eef2fb; border: 1px solid #c9d6f2; border-radius: 8px;
-  font-size: 14px; color: #34495e;
-}
-#runway-edit-count { margin-right: auto; }
-#runway-edit-count.rw-fail { color: #c62828; font-weight: 600; }
+#runway-import button:hover { background: #f0f0f0; }
 html.rw-tab-active #tab-row { z-index: 30; }
 .rw-p { display: block; }
 .rw-p + .rw-p { margin-top: .6em; }
@@ -1637,7 +1633,7 @@ html.rw-tab-active #tab-row { z-index: 30; }
 }
 /* A flex item of #runway-body (see renderRunway) -- full-width so it forces a line break
    between the columns before and after it. */
-#runway-phases { flex-basis: 100%; width: 100%; margin: 4px 0 28px; }
+#runway-phases { flex-basis: 100%; width: 100%; margin: 16px 0 0; }
 .runway-phases-row { display: flex; }
 .runway-phase { flex: 1; display: flex; flex-direction: column; align-items: center; min-width: 0; }
 .runway-phase-chevron {
@@ -2625,12 +2621,6 @@ html.rw-tab-active #tab-row { z-index: 30; }
   </div>
   <div id="runway-panel" style="display:none">
     <div id="runway-import" style="display:none"></div>
-    <div id="runway-edit-bar" style="display:none">
-      <span id="runway-edit-count">Click any text to edit it</span>
-      <button type="button" id="runway-edit-save" disabled>Save</button>
-      <button type="button" id="runway-edit-discard" disabled>Discard</button>
-      <button type="button" id="runway-edit-done">Done</button>
-    </div>
     <div class="panel-hdr">
       <div id="runway-tagline"></div>
       <div id="runway-hdr-right">
@@ -2638,7 +2628,11 @@ html.rw-tab-active #tab-row { z-index: 30; }
           <button id="runway-factors-btn">Factors &#9660;</button>
           <div id="runway-factors-panel"></div>
         </div>
-        <button type="button" id="runway-edit-btn" title="Edit Runway (Ctrl+S saves and exits)" aria-label="Edit Runway" aria-pressed="false">
+        <span id="runway-edit-msg" role="status"></span>
+        <button type="button" id="runway-edit-cancel" title="Discard changes and exit" aria-label="Discard changes and exit" style="display:none">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+        <button type="button" id="runway-edit-btn" title="Edit Runway" aria-label="Edit Runway" aria-pressed="false">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
         </button>
       </div>
@@ -14788,8 +14782,7 @@ function importRunwayToDb() {
 
 function renderRunwayBanner() {
   var el = document.getElementById('runway-import');
-  var bar = document.getElementById('runway-edit-bar');
-  if (!el || !bar) return;
+  if (!el) return;
   var onSheetOnly = !runwayDbRows() && dbCfg.status.all !== 'unavailable' && dbCfg.status.all !== 'loading' && runwaySheetRows().length > 0;
   var html = '';
   if (onSheetOnly) {
@@ -14802,16 +14795,17 @@ function renderRunwayBanner() {
   }
   el.innerHTML = html;
   el.style.display = html ? '' : 'none';
-  bar.style.display = runwayEditing() ? '' : 'none';
-  var pencil = document.getElementById('runway-edit-btn');
-  if (pencil) { pencil.classList.toggle('active', runwayEditing()); pencil.setAttribute('aria-pressed', runwayEditing() ? 'true' : 'false'); }
-  var dirty = runwayEditing() && runwayHasChanges();
-  var cnt = document.getElementById('runway-edit-count');
-  if (cnt && !runwaySaving) cnt.classList.remove('rw-fail');
-  if (cnt && !runwaySaving) cnt.textContent = dirty ? 'Unsaved changes' : 'Click any text to edit it, the circles to change a step’s status, or + / × to add and remove';
-  var sv = document.getElementById('runway-edit-save'), dc = document.getElementById('runway-edit-discard');
-  if (sv) sv.disabled = !dirty || runwaySaving;
-  if (dc) dc.disabled = !dirty || runwaySaving;
+  var editing = runwayEditing(), dirty = editing && runwayHasChanges();
+  var pencil = document.getElementById('runway-edit-btn'), cancel = document.getElementById('runway-edit-cancel');
+  if (pencil) {
+    pencil.classList.toggle('active', editing);
+    pencil.classList.toggle('dirty', dirty);
+    pencil.setAttribute('aria-pressed', editing ? 'true' : 'false');
+    pencil.title = editing ? (dirty ? 'Save changes and exit (Ctrl+S)' : 'Exit edit mode (Ctrl+S)') : 'Edit Runway';
+  }
+  if (cancel) cancel.style.display = editing ? '' : 'none';
+  var msg = document.getElementById('runway-edit-msg');
+  if (msg && !editing) { msg.textContent = ''; msg.classList.remove('rw-fail'); }
 }
 var runwaySaving = false;
 
@@ -15092,15 +15086,35 @@ function runwaySetEdit(on) {
   renderRunway();
 }
 
-function runwayDiscardEdits() { runwayWork = runwayCloneRows(); renderRunway(); }
+function runwaySetEditMsg(text, fail) {
+  var m = document.getElementById('runway-edit-msg');
+  if (!m) return;
+  m.textContent = text || '';
+  m.classList.toggle('rw-fail', !!fail);
+}
+
+// X: throw the edits away and go back to the last saved version.
+function runwayCancelEdit() {
+  if (runwaySaving) return;
+  if (runwayEditing() && runwayHasChanges() && !confirm('Discard your unsaved changes?')) return;
+  runwayEdit = false; runwayWork = null;
+  runwaySetEditMsg('', false);
+  renderRunway();
+}
+
+// Pencil (while editing) and Ctrl/Cmd+S: save what changed and leave edit mode. If the save fails, editing
+// carries on and the error is shown beside the pencil.
+function runwayFinishEdit() {
+  if (runwaySaving || !runwayEditing()) return;
+  if (document.activeElement && document.activeElement.classList && document.activeElement.classList.contains('rw-edit')) document.activeElement.blur();
+  if (!runwayHasChanges()) { runwaySetEdit(false); return; }
+  runwaySaveEdits(true);
+}
 
 function runwaySaveEdits(thenExit) {
   var d = runwayDiff();
   if (!d.updates.length && !d.inserts.length && !d.deletes.length) return;
-  var cnt = document.getElementById('runway-edit-count');
-  if (cnt) cnt.classList.remove('rw-fail');
-  runwaySaving = true; renderRunwayBanner();
-  if (cnt) cnt.textContent = 'Saving…';
+  runwaySaving = true; runwaySetEditMsg('Saving…', false); renderRunwayBanner();
   var inserts = d.inserts.map(function(r) { var o = {}; RW_COLS.forEach(function(c) { o[c] = r[c]; }); return o; });
   dbCfgRequest('PATCH', null, { budgetId: dbCfgBudget(), section: 'Runway', updates: d.updates, inserts: inserts, deletes: d.deletes })
     .then(function() { return loadDbConfig(true); })
@@ -15108,11 +15122,12 @@ function runwaySaveEdits(thenExit) {
       runwaySaving = false;
       runwayWork = runwayCloneRows();
       if (thenExit) { runwayEdit = false; runwayWork = null; }
+      runwaySetEditMsg('', false);
       renderRunway();
     })
     .catch(function(e) {
       runwaySaving = false; renderRunwayBanner();
-      if (cnt) { cnt.textContent = 'Could not save: ' + (e && e.message || 'failed') + ' — your edits are still here'; cnt.classList.add('rw-fail'); }
+      runwaySetEditMsg('Could not save: ' + (e && e.message || 'failed') + ' \u2014 your edits are still here', true);
     });
 }
 
@@ -15159,9 +15174,6 @@ function wireRunwayEditing() {
   });
   panel.addEventListener('click', function(e) {
     if (e.target.closest('#runway-import-btn')) { importRunwayToDb(); return; }
-    if (e.target.closest('#runway-edit-save')) { runwaySaveEdits(); return; }
-    if (e.target.closest('#runway-edit-discard')) { runwayDiscardEdits(); return; }
-    if (e.target.closest('#runway-edit-done')) { runwaySetEdit(false); return; }
     if (!runwayEditing()) {
       var live = e.target.closest('.runway-circle[data-step]');
       if (live && runwayDbRows()) runwayQuickCycle(parseInt(live.getAttribute('data-step'), 10));
@@ -15181,17 +15193,16 @@ function wireRunwayEditing() {
     if (circ) { rwCycleStep(parseInt(circ.getAttribute('data-step'), 10)); renderRunway(); }
   });
   var pen = document.getElementById('runway-edit-btn');
-  if (pen) pen.addEventListener('click', function() { runwaySetEdit(!runwayEdit); });
+  if (pen) pen.addEventListener('click', function() { if (runwayEditing()) runwayFinishEdit(); else runwaySetEdit(!runwayEdit); });
+  var xBtn = document.getElementById('runway-edit-cancel');
+  if (xBtn) xBtn.addEventListener('click', runwayCancelEdit);
   // Ctrl/Cmd+S on the Runway tab while editing: save what changed, then leave edit mode (if the save fails
   // the error shows and editing carries on). The browser's own "save page" is suppressed.
   document.addEventListener('keydown', function(e) {
     if (!(e.ctrlKey || e.metaKey) || e.altKey || String(e.key).toLowerCase() !== 's') return;
     if (state.activeTab !== 'runway' || !runwayEditing()) return;
     e.preventDefault();
-    if (runwaySaving) return;
-    if (document.activeElement && document.activeElement.blur && document.activeElement.classList && document.activeElement.classList.contains('rw-edit')) document.activeElement.blur();
-    if (!runwayHasChanges()) { runwaySetEdit(false); return; }
-    runwaySaveEdits(true);
+    runwayFinishEdit();
   });
 
   // Drag a step by its grip onto another step (drops above or below it, by which half the pointer is over)
@@ -15616,11 +15627,6 @@ function renderRunway() {
   var phasesHtml = renderRunwayPhasesHtml(data);
   var html = '';
   for (var ci = 0; ci < data.columns.length; ci++) {
-    // The chevron banner sits between the 3rd and 4th columns (i.e. between the two rows of
-    // columns once they wrap) -- a full-width flex item forces the columns after it onto a new
-    // line. If there are fewer than 4 columns, it falls back to running after the last one so
-    // it's never silently dropped.
-    if (phasesHtml && ci === 3) html += phasesHtml;
     var sections = data.columns[ci];
     var colHtml = '';
     for (var se = 0; se < sections.length; se++) {
@@ -15628,7 +15634,8 @@ function renderRunway() {
     }
     html += '<div class="runway-col">' + colHtml + '</div>';
   }
-  if (phasesHtml && data.columns.length < 4) html += phasesHtml;
+  // Life Phases close out the tab: a full-width flex item after every column, so it lands on its own line at the bottom.
+  if (phasesHtml) html += phasesHtml;
   body.innerHTML = html;
 }
 
