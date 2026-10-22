@@ -1513,7 +1513,14 @@ select.um-in { width: 100%; }
 }
 
 /* ---- Runway ---- */
-#runway-factors-wrap { position: relative; margin-left: auto; }
+#runway-hdr-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+#runway-factors-wrap { position: relative; }
+#runway-edit-btn {
+  width: 34px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  background: #fff; border: 1px solid #ccc; border-radius: 5px; color: #555; cursor: pointer; touch-action: manipulation;
+}
+#runway-edit-btn:hover { background: #f0f0f0; }
+#runway-edit-btn.active { background: #1565c0; border-color: #1565c0; color: #fff; }
 #runway-factors-btn {
   padding: 6px 12px; background: #fff; border: 1px solid #ccc;
   border-radius: 5px; font-size: 12px; cursor: pointer; color: #555; white-space: nowrap;
@@ -1547,10 +1554,11 @@ select.um-in { width: 100%; }
   font-size: 14px; color: #34495e;
 }
 #runway-edit-count { margin-right: auto; }
+#runway-edit-count.rw-fail { color: #c62828; font-weight: 600; }
 html.rw-tab-active #tab-row { z-index: 30; }
 .rw-p { display: block; }
 .rw-p + .rw-p { margin-top: .6em; }
-#runway-body.rw-editing .runway-step { position: relative; padding-right: 66px; }
+#runway-body.rw-editing .runway-step { position: relative; padding-right: 98px; }
 #runway-body.rw-editing .runway-phase { position: relative; }
 #runway-body.rw-editing .runway-circle, #runway-body.rw-live .runway-circle[data-step] { cursor: pointer; }
 .rw-ctl { position: absolute; top: 0; right: 0; display: flex; gap: 4px; z-index: 1; }
@@ -1561,6 +1569,17 @@ html.rw-tab-active #tab-row { z-index: 30; }
 .rw-ctl button:hover { background: #f0f0f0; }
 .rw-ctl button[data-act^="del"]:hover { background: #fdecea; color: #c62828; border-color: #e5a5a0; }
 .rw-ctl-phase { position: static; margin: 0 0 8px; justify-content: center; }
+.rw-grip {
+  width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
+  font-size: 16px; line-height: 1; letter-spacing: -2px; color: #777; background: #fff; border: 1px solid #ccc; border-radius: 6px;
+  cursor: grab; user-select: none; -webkit-user-select: none;
+}
+.rw-grip:hover { background: #eef2fb; border-color: #90a4ae; }
+.rw-grip:active { cursor: grabbing; }
+#runway-body.rw-editing .runway-step.rw-dragging { opacity: .35; }
+#runway-body.rw-editing .runway-section.rw-drop-sec { outline: 2px dashed #90caf9; outline-offset: 6px; border-radius: 6px; }
+#runway-body.rw-editing .runway-step.rw-drop-before { box-shadow: 0 -3px 0 #1565c0; }
+#runway-body.rw-editing .runway-step.rw-drop-after { box-shadow: 0 3px 0 #1565c0; }
 .rw-edit { white-space: pre-wrap; min-width: 1.5em; display: inline-block; vertical-align: baseline; }
 .rw-edit.multi { display: block; }
 .runway-amt-pill .rw-edit, .runway-tag-pill .rw-edit { min-width: 3em; }
@@ -2116,16 +2135,6 @@ html.rw-tab-active #tab-row { z-index: 30; }
               </div>
             </div>
           </div>
-          <div class="settings-tab-block" data-tab="runway">
-            <div class="settings-divider"></div>
-            <div class="settings-row">
-              <label class="ios-toggle-wrap">
-                <input type="checkbox" id="runway-edit-toggle">
-                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
-                Edit Text
-              </label>
-            </div>
-          </div>
           <div class="settings-tab-block" data-tab="home">
             <div class="settings-divider"></div>
             <div class="settings-row">
@@ -2607,9 +2616,14 @@ html.rw-tab-active #tab-row { z-index: 30; }
     </div>
     <div class="panel-hdr">
       <div id="runway-tagline"></div>
-      <div id="runway-factors-wrap" style="display:none">
-        <button id="runway-factors-btn">Factors &#9660;</button>
-        <div id="runway-factors-panel"></div>
+      <div id="runway-hdr-right">
+        <div id="runway-factors-wrap" style="display:none">
+          <button id="runway-factors-btn">Factors &#9660;</button>
+          <div id="runway-factors-panel"></div>
+        </div>
+        <button type="button" id="runway-edit-btn" title="Edit Runway (Ctrl+S saves and exits)" aria-label="Edit Runway" aria-pressed="false">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        </button>
       </div>
     </div>
     <div id="runway-body"></div>
@@ -4788,6 +4802,22 @@ function ynabRefreshIfDue(marginMs) {
 }
 setInterval(function() { ynabRefreshIfDue(10 * 60 * 1000); }, 60 * 1000);
 document.addEventListener('visibilitychange', function() { if (!document.hidden) ynabRefreshIfDue(10 * 60 * 1000); });
+
+var YNAB_EXPIRED_MSG = 'Your YNAB sign-in has expired \u2014 reload the page and log in again';
+// fetch() to one of this site's /api endpoints, with the current YNAB access token. On a 401 it swaps in a
+// fresh token (when there's a server-side session to renew from) and tries once more.
+function ynabAuthedFetch(url, opts) {
+  function go(token) {
+    return fetch(url, Object.assign({}, opts, { headers: Object.assign({}, opts.headers, { 'Authorization': 'Bearer ' + token }) }));
+  }
+  var key = localStorage.getItem('ynab-api-key');
+  return go(key).then(function(r) {
+    if (r.status !== 401 || !ynabSession()) return r;
+    var saved = localStorage.getItem('ynab-api-key');
+    var fresh = (saved && saved !== key) ? Promise.resolve(saved) : ynabRefreshToken();
+    return fresh.then(go, function() { return r; });   // renewal failed: report the original 401
+  });
+}
 
 function startOAuthFlow() {
   // Reuse the existing token if available — avoids re-prompting YNAB for authorization.
@@ -8393,11 +8423,11 @@ function asSyncRequest(method, budgetId, body) {
   var key = localStorage.getItem('ynab-api-key');
   if (!key) return Promise.reject(new Error('not connected'));
   var url = '/api/account-groups' + (method === 'GET' ? '?budgetId=' + encodeURIComponent(budgetId) : '');
-  var opts = { method: method, headers: { 'Authorization': 'Bearer ' + key } };
+  var opts = { method: method, headers: {} };
   if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
-  return fetch(url, opts).then(function(r) {
+  return ynabAuthedFetch(url, opts).then(function(r) {
     return r.json().catch(function() { return {}; }).then(function(j) {
-      if (!r.ok) { var e = new Error(j.message || ('HTTP ' + r.status)); e.code = j.error || r.status; throw e; }
+      if (!r.ok) { var e = new Error(r.status === 401 ? YNAB_EXPIRED_MSG : (j.message || ('HTTP ' + r.status))); e.code = j.error || r.status; throw e; }
       return j;
     });
   });
@@ -14063,11 +14093,11 @@ function dbCfgRequest(method, query, body) {
   var key = localStorage.getItem('ynab-api-key');
   if (!key) return Promise.reject(new Error('not connected'));
   var qs = query ? '?' + Object.keys(query).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(query[k]); }).join('&') : '';
-  var opts = { method: method, headers: { 'Authorization': 'Bearer ' + key } };
+  var opts = { method: method, headers: {} };
   if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
-  return fetch('/api/config' + qs, opts).then(function(r) {
+  return ynabAuthedFetch('/api/config' + qs, opts).then(function(r) {
     return r.json().catch(function() { return {}; }).then(function(j) {
-      if (!r.ok) { var e = new Error(j.message || ('HTTP ' + r.status)); e.code = j.error || r.status; throw e; }
+      if (!r.ok) { var e = new Error(r.status === 401 ? YNAB_EXPIRED_MSG : (j.message || ('HTTP ' + r.status))); e.code = j.error || r.status; throw e; }
       return j;
     });
   });
@@ -14602,8 +14632,11 @@ function renderRunwayBanner() {
   el.innerHTML = html;
   el.style.display = html ? '' : 'none';
   bar.style.display = runwayEditing() ? '' : 'none';
+  var pencil = document.getElementById('runway-edit-btn');
+  if (pencil) { pencil.classList.toggle('active', runwayEditing()); pencil.setAttribute('aria-pressed', runwayEditing() ? 'true' : 'false'); }
   var dirty = runwayEditing() && runwayHasChanges();
   var cnt = document.getElementById('runway-edit-count');
+  if (cnt && !runwaySaving) cnt.classList.remove('rw-fail');
   if (cnt && !runwaySaving) cnt.textContent = dirty ? 'Unsaved changes' : 'Click any text to edit it, the circles to change a step’s status, or + / × to add and remove';
   var sv = document.getElementById('runway-edit-save'), dc = document.getElementById('runway-edit-discard');
   if (sv) sv.disabled = !dirty || runwaySaving;
@@ -14661,6 +14694,7 @@ function rwWriteStepSets(st) {
   Object.keys(st.done).concat(Object.keys(st.cur)).forEach(function(n) { nums[n] = true; });
   var str = Object.keys(nums).map(Number).sort(function(a, b) { return a - b; })
     .map(function(n) { return st.cur[n] ? '[' + n + ']' : String(n); }).join(',');
+  if (!st.row && !str) return;
   if (!st.row) { st.row = rwNewRow({ metric: 'Runway Step', type: 'Target', unit: 'Step' }); runwayWork.push(st.row); }
   st.row.amount = str;
 }
@@ -14718,6 +14752,60 @@ function rwStepKeys(titleKey) {   // [title row key, subtext row key] of the ste
   var id = rwStepId(t.metric), keys = [t._key];
   runwayWork.forEach(function(r) { var m = String(r.metric || '').match(RW_STEP_ROW); if (m && m[2] && m[1].toUpperCase() === id.toUpperCase() && r._key !== t._key) keys.push(r._key); });
   return keys;
+}
+
+// ---- moving a step (drag and drop): reorder it and/or put it in another column ----
+// Steps are numbered (or lettered) in one sequence across the whole tab, and a column lists its steps in that
+// order. So a move keeps the same set of numbers (gaps and all) and just deals them out again in the new
+// order -- every step between the old and new position shifts by one place, statuses travel with their
+// step -- and the moved step's Track Against names its new column.
+function rwStepEntries() {
+  var byId = {};
+  runwayWork.forEach(function(r) {
+    var m = String(r.metric || '').match(RW_STEP_ROW);
+    if (!m) return;
+    var kind = /^\d+$/.test(m[1]) ? 'num' : 'alpha', id = kind === 'num' ? String(parseInt(m[1], 10)) : m[1].toUpperCase(), k = kind + id;
+    var e = byId[k] || (byId[k] = { kind: kind, id: id, title: null, subs: [] });
+    if (m[2]) e.subs.push(r); else e.title = r;
+  });
+  return Object.keys(byId).map(function(k) { return byId[k]; }).filter(function(e) { return e.title; });
+}
+function rwStepCmp(a, b) { return a.kind === 'num' ? Number(a.id) - Number(b.id) : (a.id < b.id ? -1 : a.id > b.id ? 1 : 0); }
+function rwMoveStep(srcKey, anchorKey, before, colRaw) {
+  var entries = rwStepEntries(), src = null, anchor = null;
+  entries.forEach(function(e) { if (e.title._key === srcKey) src = e; if (anchorKey && e.title._key === anchorKey) anchor = e; });
+  if (!src || anchor === src) return;
+  if (anchor && anchor.kind !== src.kind) {
+    // Lettered steps sort ahead of numbered ones in a column: a numbered step dropped on a lettered one goes first among the
+    // numbered; a lettered step dropped on a numbered one goes last among the lettered.
+    var inCol = entries.filter(function(e) { return e !== src && e.kind === src.kind && e.title.track_against === colRaw; }).sort(rwStepCmp);
+    anchor = src.kind === 'num' ? (inCol[0] || null) : (inCol[inCol.length - 1] || null);
+    before = src.kind === 'num';
+  }
+  if (anchor) {
+    var list = entries.filter(function(e) { return e.kind === src.kind; }).sort(rwStepCmp);
+    var ids = list.map(function(e) { return e.id; });
+    list = list.filter(function(e) { return e !== src; });
+    list.splice(list.indexOf(anchor) + (before ? 0 : 1), 0, src);
+    var st = src.kind === 'num' ? rwStepSets() : null, newDone = {}, newCur = {};
+    if (st) {
+      var idSet = {}; ids.forEach(function(i) { idSet[i] = true; });
+      Object.keys(st.done).forEach(function(n) { if (!idSet[n]) newDone[n] = true; });   // statuses of numbers with no step stay put
+      Object.keys(st.cur).forEach(function(n) { if (!idSet[n]) newCur[n] = true; });
+    }
+    list.forEach(function(e, i) {
+      if (st) { if (st.done[e.id]) newDone[ids[i]] = true; if (st.cur[e.id]) newCur[ids[i]] = true; }
+      e.newId = ids[i];
+    });
+    list.forEach(function(e) {
+      e.title.metric = 'Runway Step ' + e.newId;
+      e.subs.forEach(function(r) { r.metric = 'Runway Step ' + e.newId + ' Subtext'; });
+    });
+    if (st) { st.done = newDone; st.cur = newCur; rwWriteStepSets(st); }
+  }
+  src.title.track_against = colRaw;
+  src.subs.forEach(function(r) { r.track_against = colRaw; });
+  renderRunway();
 }
 
 function rwAddStep(titleKey) {
@@ -14823,27 +14911,23 @@ function runwaySetEdit(on) {
   if (on && !runwayDbRows()) {
     runwayImportMsg = 'Move Runway to the database first (button above), then you can edit it.';
     runwayEdit = false;
-    var tg = document.getElementById('runway-edit-toggle'); if (tg) tg.checked = false;
     renderRunwayBanner();
     var imp = document.getElementById('runway-import'); if (imp) imp.style.display = '';
     return;
   }
-  if (!on && runwayEditing() && runwayHasChanges() && !confirm('Discard your unsaved changes?')) {
-    var tg2 = document.getElementById('runway-edit-toggle'); if (tg2) tg2.checked = true;
-    return;
-  }
+  if (!on && runwayEditing() && runwayHasChanges() && !confirm('Discard your unsaved changes?')) return;
   runwayEdit = on;
   runwayWork = on ? runwayCloneRows() : null;
-  var tg3 = document.getElementById('runway-edit-toggle'); if (tg3) tg3.checked = on;
   renderRunway();
 }
 
 function runwayDiscardEdits() { runwayWork = runwayCloneRows(); renderRunway(); }
 
-function runwaySaveEdits() {
+function runwaySaveEdits(thenExit) {
   var d = runwayDiff();
   if (!d.updates.length && !d.inserts.length && !d.deletes.length) return;
   var cnt = document.getElementById('runway-edit-count');
+  if (cnt) cnt.classList.remove('rw-fail');
   runwaySaving = true; renderRunwayBanner();
   if (cnt) cnt.textContent = 'Saving…';
   var inserts = d.inserts.map(function(r) { var o = {}; RW_COLS.forEach(function(c) { o[c] = r[c]; }); return o; });
@@ -14852,11 +14936,12 @@ function runwaySaveEdits() {
     .then(function() {
       runwaySaving = false;
       runwayWork = runwayCloneRows();
+      if (thenExit) { runwayEdit = false; runwayWork = null; }
       renderRunway();
     })
     .catch(function(e) {
       runwaySaving = false; renderRunwayBanner();
-      if (cnt) cnt.textContent = 'Could not save: ' + (e && e.message || 'failed') + ' — your edits are still here';
+      if (cnt) { cnt.textContent = 'Could not save: ' + (e && e.message || 'failed') + ' — your edits are still here'; cnt.classList.add('rw-fail'); }
     });
 }
 
@@ -14924,8 +15009,74 @@ function wireRunwayEditing() {
     var circ = e.target.closest('.runway-circle[data-step]');
     if (circ) { rwCycleStep(parseInt(circ.getAttribute('data-step'), 10)); renderRunway(); }
   });
-  var tgl = document.getElementById('runway-edit-toggle');
-  if (tgl) tgl.addEventListener('change', function() { runwaySetEdit(this.checked); });
+  var pen = document.getElementById('runway-edit-btn');
+  if (pen) pen.addEventListener('click', function() { runwaySetEdit(!runwayEdit); });
+  // Ctrl/Cmd+S on the Runway tab while editing: save what changed, then leave edit mode (if the save fails
+  // the error shows and editing carries on). The browser's own "save page" is suppressed.
+  document.addEventListener('keydown', function(e) {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey || String(e.key).toLowerCase() !== 's') return;
+    if (state.activeTab !== 'runway' || !runwayEditing()) return;
+    e.preventDefault();
+    if (runwaySaving) return;
+    if (document.activeElement && document.activeElement.blur && document.activeElement.classList && document.activeElement.classList.contains('rw-edit')) document.activeElement.blur();
+    if (!runwayHasChanges()) { runwaySetEdit(false); return; }
+    runwaySaveEdits(true);
+  });
+
+  // Drag a step by its grip onto another step (drops above or below it, by which half the pointer is over)
+  // or onto a column's header / empty space (first / last place in that column).
+  var dragKey = null;
+  function clearDrop() {
+    var marked = panel.querySelectorAll('.rw-drop-before, .rw-drop-after, .rw-drop-sec');
+    for (var i = 0; i < marked.length; i++) marked[i].classList.remove('rw-drop-before', 'rw-drop-after', 'rw-drop-sec');
+  }
+  function dropTarget(e) {
+    var sec = e.target.closest && e.target.closest('.runway-section');
+    if (!sec) return null;
+    var stepEl = e.target.closest('.runway-step[data-key]');
+    if (stepEl && sec.contains(stepEl)) {
+      var r = stepEl.getBoundingClientRect();
+      return { sec: sec, el: stepEl, key: stepEl.getAttribute('data-key'), before: e.clientY < r.top + r.height / 2 };
+    }
+    var steps = sec.querySelectorAll('.runway-step[data-key]');
+    if (!steps.length) return { sec: sec, el: null, key: null, before: true };
+    if (e.clientY < steps[0].getBoundingClientRect().top) return { sec: sec, el: steps[0], key: steps[0].getAttribute('data-key'), before: true };
+    var last = steps[steps.length - 1];
+    return { sec: sec, el: last, key: last.getAttribute('data-key'), before: false };
+  }
+  panel.addEventListener('dragstart', function(e) {
+    var g = e.target.closest && e.target.closest('.rw-grip');
+    if (!g || !runwayEditing()) return;
+    var stepEl = g.closest('.runway-step');
+    dragKey = stepEl && stepEl.getAttribute('data-key');
+    if (!dragKey) { e.preventDefault(); return; }
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', 'runway-step');
+    if (e.dataTransfer.setDragImage) e.dataTransfer.setDragImage(stepEl, 24, 16);
+    setTimeout(function() { stepEl.classList.add('rw-dragging'); }, 0);
+  });
+  panel.addEventListener('dragover', function(e) {
+    if (!dragKey) return;
+    var t = dropTarget(e);
+    clearDrop();
+    if (!t) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    t.sec.classList.add('rw-drop-sec');
+    if (t.el) t.el.classList.add(t.before ? 'rw-drop-before' : 'rw-drop-after');
+  });
+  panel.addEventListener('drop', function(e) {
+    if (!dragKey) return;
+    var t = dropTarget(e), key = dragKey;
+    e.preventDefault();
+    clearDrop(); dragKey = null;
+    if (t) rwMoveStep(key, t.key, t.before, t.sec.getAttribute('data-col') || '');
+  });
+  panel.addEventListener('dragend', function() {
+    dragKey = null; clearDrop();
+    var d = panel.querySelectorAll('.rw-dragging');
+    for (var i = 0; i < d.length; i++) d[i].classList.remove('rw-dragging');
+  });
 }
 
 // Runway tab: driven entirely by Config rows (from the database once moved there, else the sheet).
@@ -15138,7 +15289,7 @@ function getRunwayData() {
     var sec = sectionsByKey[sectionOrder[oi]];
     var def = colDefs[sec.key];
     var section = { header: (def && def.header) ? def.header : sec.raw, subtext: def ? def.subtext : '', steps: sec.steps,
-                    headerId: def ? def.headerId || null : null, subtextId: def ? def.subtextId || null : null };
+                    headerId: def ? def.headerId || null : null, subtextId: def ? def.subtextId || null : null, raw: sec.raw };
     if (sec.num !== null) {
       if (!columnsByNum[sec.num]) { columnsByNum[sec.num] = []; columnNums.push(sec.num); }
       columnsByNum[sec.num].push({ letter: sec.letter, section: section });
@@ -15276,9 +15427,9 @@ function renderRunway() {
       // (title, then amount, then date, then tag).
       var tagPill = editing ? ' <span class="runway-tag-pill">' + rwTxt(s.tag || '', s.titleId, 'tag', 'tag') + '</span>'
         : (s.tag ? ' <span class="runway-tag-pill">' + escAttr(s.tag) + '</span>' : '');
-      var ctl = editing ? '<div class="rw-ctl"><button type="button" data-act="add-step" data-key="' + escAttr(s.titleId) + '" title="Add a step below">+</button>'
+      var ctl = editing ? '<div class="rw-ctl"><span class="rw-grip" draggable="true" title="Drag to reorder, or drop in another column">\u2807\u2807</span><button type="button" data-act="add-step" data-key="' + escAttr(s.titleId) + '" title="Add a step below">+</button>'
         + '<button type="button" data-act="del-step" data-key="' + escAttr(s.titleId) + '" title="Remove this step">\u00d7</button></div>' : '';
-      h += '<div class="runway-step">'
+      h += '<div class="runway-step"' + (editing ? ' data-key="' + escAttr(s.titleId) + '"' : '') + '>'
         +   ctl
         +   circleHtml
         +   '<div class="runway-step-num">' + (s.kind === 'alpha' ? s.displayLetter : s.displayNum) + '</div>'
@@ -15302,7 +15453,7 @@ function renderRunway() {
     var sections = data.columns[ci];
     var colHtml = '';
     for (var se = 0; se < sections.length; se++) {
-      colHtml += '<div class="runway-section">' + renderSection(sections[se]) + '</div>';
+      colHtml += '<div class="runway-section" data-col="' + escAttr(sections[se].raw || '') + '">' + renderSection(sections[se]) + '</div>';
     }
     html += '<div class="runway-col">' + colHtml + '</div>';
   }
