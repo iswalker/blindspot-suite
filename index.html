@@ -3640,7 +3640,7 @@ function setProgress(msg) {
   if (lm && msg) lm.textContent = msg;
 }
 
-function ynabGet(path, apiKey) {
+function ynabGet(path, apiKey, retried) {
   var url = YNAB_BASE + path;
   // Google Apps Script context: proxy through server-side UrlFetchApp
   if (typeof google !== 'undefined' && google.script && google.script.run) {
@@ -3666,6 +3666,13 @@ function ynabGet(path, apiKey) {
   return fetch(url, {
     headers: { 'Authorization': 'Bearer ' + apiKey }
   }).then(function(r) {
+    // Expired access token (they last 2 hours): swap in a fresh one and retry once. A newer token may
+    // already be saved (another request refreshed it first), so prefer that over refreshing again.
+    if (r.status === 401 && !retried && ynabSession()) {
+      var saved = localStorage.getItem('ynab-api-key');
+      var fresh = (saved && saved !== apiKey) ? Promise.resolve(saved) : ynabRefreshToken();
+      return fresh.then(function(t) { return ynabGet(path, t, true); });
+    }
     return r.json().then(function(json) {
       if (!r.ok) {
         var det = json && json.error && (json.error.detail || json.error.name);
@@ -4739,6 +4746,49 @@ function refreshGoogleSheetConfig() {
   });
 }
 
+// ---- YNAB sign-in --------------------------------------------------------------------------------
+// YNAB access tokens last 2 hours. When the server has YNAB_CLIENT_SECRET (/api/ynab-auth), sign-in uses
+// the authorization-code flow: the server keeps the refresh token and the browser holds only the access
+// token (ynab-api-key), when it expires (ynab-token-exp) and an opaque session id (ynab-session) used
+// to ask the server for a new access token. Without it, the old implicit flow still works (and still
+// expires after 2 hours).
+function ynabSession() { return localStorage.getItem('ynab-session') || ''; }
+function ynabAuthPost(body) {
+  return fetch('/api/ynab-auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    .then(function(r) { return r.json().catch(function() { return {}; }).then(function(j) { return { status: r.status, json: j }; }); });
+}
+function ynabStoreTokens(j) {
+  localStorage.setItem('ynab-api-key', j.access_token);
+  localStorage.setItem('ynab-token-exp', String(Date.now() + (Number(j.expires_in) || 7200) * 1000));
+}
+function ynabClearLogin() {
+  ['ynab-api-key', 'ynab-session', 'ynab-token-exp'].forEach(function(k) { localStorage.removeItem(k); });
+}
+var ynabRefreshing = null;
+// One refresh at a time. Resolves with the new access token. A server "unauthorized" means the sign-in is
+// really gone (revoked, or the stored token unreadable), so the saved login is cleared; a network or server
+// hiccup rejects without clearing so a later attempt can still succeed.
+function ynabRefreshToken() {
+  if (ynabRefreshing) return ynabRefreshing;
+  var session = ynabSession();
+  if (!session) return Promise.reject(new Error('Unauthorized'));
+  ynabRefreshing = ynabAuthPost({ action: 'refresh', session: session }).then(function(r) {
+    if (r.status === 200 && r.json.access_token) { ynabStoreTokens(r.json); return r.json.access_token; }
+    if (r.status === 401) { ynabClearLogin(); throw new Error('Unauthorized'); }
+    throw new Error((r.json && r.json.message) || ('Sign-in refresh failed (HTTP ' + r.status + ')'));
+  }).then(function(t) { ynabRefreshing = null; return t; }, function(e) { ynabRefreshing = null; throw e; });
+  return ynabRefreshing;
+}
+// Refresh ahead of expiry (default: within 5 minutes of it) so requests rarely meet a dead token.
+function ynabRefreshIfDue(marginMs) {
+  if (!ynabSession()) return Promise.resolve();
+  var exp = Number(localStorage.getItem('ynab-token-exp')) || 0;
+  if (exp - Date.now() > (marginMs || 5 * 60 * 1000)) return Promise.resolve();
+  return ynabRefreshToken().then(function() {}, function() {});
+}
+setInterval(function() { ynabRefreshIfDue(10 * 60 * 1000); }, 60 * 1000);
+document.addEventListener('visibilitychange', function() { if (!document.hidden) ynabRefreshIfDue(10 * 60 * 1000); });
+
 function startOAuthFlow() {
   // Reuse the existing token if available — avoids re-prompting YNAB for authorization.
   var existingKey    = localStorage.getItem('ynab-api-key');
@@ -4748,13 +4798,39 @@ function startOAuthFlow() {
     return;
   }
   var redirectUri = window.location.origin + window.location.pathname;
-  window.location.href = 'https://app.youneedabudget.com/oauth/authorize'
-    + '?client_id=' + encodeURIComponent(YNAB_OAUTH_CLIENT_ID)
-    + '&redirect_uri=' + encodeURIComponent(redirectUri)
-    + '&response_type=token';
+  var go = function(responseType) {
+    window.location.href = 'https://app.youneedabudget.com/oauth/authorize'
+      + '?client_id=' + encodeURIComponent(YNAB_OAUTH_CLIENT_ID)
+      + '&redirect_uri=' + encodeURIComponent(redirectUri)
+      + '&response_type=' + responseType;
+  };
+  // Code flow when this deployment can exchange codes; otherwise (no server, no secret) the implicit flow.
+  fetch('/api/ynab-auth').then(function(r) { return r.ok ? r.json() : {}; }).catch(function() { return {}; })
+    .then(function(j) { go(j && j.configured ? 'code' : 'token'); });
+}
+
+// Returns a promise for the sign-in redirect's outcome; used by init().
+var pendingYnabCode = null;
+function exchangeYnabCode(code) {
+  return ynabAuthPost({ action: 'exchange', code: code, redirectUri: window.location.origin + window.location.pathname }).then(function(r) {
+    if (r.status !== 200 || !r.json.access_token || !r.json.session) {
+      throw new Error((r.json && r.json.message) || ('HTTP ' + r.status));
+    }
+    ynabStoreTokens(r.json);
+    localStorage.setItem('ynab-session', r.json.session);
+    localStorage.removeItem('ynab-budget-id'); // force budget re-selection after fresh OAuth
+  });
 }
 
 function handleOAuthCallback() {
+  // Authorization-code flow: YNAB redirects back with ?code=... (init() exchanges it on the server).
+  var qs = window.location.search;
+  var cm = /[?&]code=([^&]+)/.exec(qs || '');
+  if (cm && !window.location.hash) {
+    pendingYnabCode = decodeURIComponent(cm[1]);
+    history.replaceState(null, '', window.location.pathname);
+    return 'ynab-code';
+  }
   var hash = window.location.hash;
   if (!hash || hash.indexOf('access_token') === -1) return null;
   var params = {};
@@ -4772,6 +4848,7 @@ function handleOAuthCallback() {
     return 'google';
   }
   localStorage.setItem('ynab-api-key', params.access_token);
+  localStorage.removeItem('ynab-session'); localStorage.removeItem('ynab-token-exp'); // implicit tokens can't be renewed
   localStorage.removeItem('ynab-budget-id'); // force budget re-selection after fresh OAuth
   return 'ynab';
 }
@@ -4843,7 +4920,7 @@ function refreshYnab() {
     var msg = (e && e.message) || 'Unknown error';
     state.refreshProblem = 'YNAB refresh failed: ' + msg;
     if (msg.toLowerCase().indexOf('unauthorized') !== -1 || msg.indexOf('401') !== -1) {
-      localStorage.removeItem('ynab-api-key');
+      ynabClearLogin();
       showUpload();
     } else {
       document.getElementById('cache-label').textContent = 'Refresh failed: ' + msg;
@@ -15395,6 +15472,17 @@ function init() {
   var oauthSource = handleOAuthCallback(); // must run before localStorage reads below
   document.getElementById('loading').style.display = 'flex';
   document.getElementById('upload-panel').style.display = 'none';
+  // Settle the YNAB token first -- trade a fresh sign-in code for tokens, or renew an expired token --
+  // so everything below (which reads it from localStorage) starts with a valid one.
+  var tokenReady = oauthSource === 'ynab-code'
+    ? exchangeYnabCode(pendingYnabCode).then(function() { oauthSource = 'ynab'; })
+    : ynabRefreshIfDue();
+  tokenReady.then(function() { initApp(oauthSource); }, function(e) {
+    showUpload();
+    setProgress('Login to YNAB failed: ' + (e && e.message || 'connection failed') + '. Try again.');
+  });
+}
+function initApp(oauthSource) {
 
   // Google OAuth just completed (started from Settings): carry on into the app as usual, then open
   // the sheet picker once it is showing
