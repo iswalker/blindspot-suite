@@ -1533,6 +1533,8 @@ select.um-in { width: 100%; }
 #runway-edit-btn.active:hover { background: #0f5199; }
 #runway-edit-btn.dirty::after { content: ''; position: absolute; top: -4px; right: -4px; width: 9px; height: 9px; border-radius: 50%; background: #f59e0b; border: 2px solid #fff; box-sizing: content-box; }
 #runway-edit-msg { font-size: 14px; color: #555; }
+.rw-add-pill { height: 28px; padding: 0 9px; font-size: 13px; color: #555; background: #fff; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+.rw-add-pill:hover { background: #eef2fb; border-color: #90a4ae; }
 #runway-edit-msg.rw-fail { color: #c62828; font-weight: 600; max-width: 46ch; text-align: right; }
 #runway-factors-btn {
   padding: 6px 12px; background: #fff; border: 1px solid #ccc;
@@ -1562,18 +1564,29 @@ select.um-in { width: 100%; }
 #runway-import button:hover { background: #f0f0f0; }
 html.rw-tab-active #tab-row { z-index: 30; }
 .rw-p { display: block; }
-.rw-p + .rw-p { margin-top: .6em; }
-#runway-body.rw-editing .runway-step { position: relative; padding-right: 98px; }
+/* A paragraph break is one blank line, the same height as in edit mode (where it is a blank line of text), so
+   nothing moves when edit mode starts. */
+.rw-p + .rw-p { margin-top: 1.4em; margin-top: 1lh; }
+#runway-body.rw-editing .runway-step { position: relative; }
 #runway-body.rw-editing .runway-phase { position: relative; }
 #runway-body.rw-editing .runway-circle, #runway-body.rw-live .runway-circle[data-step] { cursor: pointer; }
-.rw-ctl { position: absolute; top: 0; right: 0; display: flex; gap: 4px; z-index: 1; }
+.rw-ctl {
+  position: absolute; top: 0; right: 0; display: flex; gap: 4px; z-index: 3; padding: 3px;
+  background: rgba(255,255,255,.94); border-radius: 9px; box-shadow: 0 1px 5px rgba(0,0,0,.18);
+}
+/* Edit controls float over the content (never take space, so nothing reflows when edit mode starts); with a mouse
+   they appear while the step or phase is hovered or being edited, on touch screens they stay put. */
+@media (hover: hover) {
+  .rw-ctl { opacity: 0; pointer-events: none; transition: opacity .1s; }
+  .runway-step:hover > .rw-ctl, .runway-step:focus-within > .rw-ctl, .runway-phase:hover > .rw-ctl, .runway-phase:focus-within > .rw-ctl { opacity: 1; pointer-events: auto; }
+}
 .rw-ctl button {
   width: 28px; height: 28px; padding: 0; line-height: 1; font-size: 16px; color: #555; background: #fff; border: 1px solid #ccc;
   border-radius: 6px; cursor: pointer; touch-action: manipulation;
 }
 .rw-ctl button:hover { background: #f0f0f0; }
 .rw-ctl button[data-act^="del"]:hover { background: #fdecea; color: #c62828; border-color: #e5a5a0; }
-.rw-ctl-phase { position: static; margin: 0 0 8px; justify-content: center; }
+.rw-ctl-phase { top: 4px; right: 4px; }
 .rw-grip {
   width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
   font-size: 16px; line-height: 1; letter-spacing: -2px; color: #777; background: #fff; border: 1px solid #ccc; border-radius: 6px;
@@ -1585,9 +1598,9 @@ html.rw-tab-active #tab-row { z-index: 30; }
 #runway-body.rw-editing .runway-section.rw-drop-sec { outline: 2px dashed #90caf9; outline-offset: 6px; border-radius: 6px; }
 #runway-body.rw-editing .runway-step.rw-drop-before { box-shadow: 0 -3px 0 #1565c0; }
 #runway-body.rw-editing .runway-step.rw-drop-after { box-shadow: 0 3px 0 #1565c0; }
-.rw-edit { white-space: pre-wrap; min-width: 1.5em; display: inline-block; vertical-align: baseline; }
+.rw-edit { white-space: pre-line; display: inline; }   /* pre-line: wraps exactly like the read-only text (runs of spaces collapse) while keeping line breaks */
+.rw-edit:empty { min-width: 3em; display: inline-block; }
 .rw-edit.multi { display: block; }
-.runway-amt-pill .rw-edit, .runway-tag-pill .rw-edit, .runway-blue-pill .rw-edit { min-width: 3em; }
 .rw-edit { outline: 1px dashed #90a4ae; outline-offset: 2px; border-radius: 3px; cursor: text; }
 .rw-edit:focus { outline: 2px solid #1565c0; background: #f4f8ff; }
 .rw-edit.dirty { background: #fff8e1; }
@@ -14729,14 +14742,14 @@ function wireUsageModal() {
 // database in one transaction, Discard throws the copy away.
 var RW_COLS = ['metric', 'type', 'text', 'section', 'amount', 'unit', 'multiplier', 'track_against', 'date_range',
   'assoc_category_ids', 'past_value', 'notes', 'old_account_ids', 'old_category_ids'];
-var runwayEdit = false;          // Settings > Edit Text
+var runwayEdit = false;          // edit mode (pencil)
+var rwOpenPills = {};            // "<row key>|<field>" of empty pills opened with the "+ target / amount / tag" buttons
 var runwayWork = null;           // working copy of the rows while editing
 var runwayNewKey = 0;
 var runwayImportMsg = '';        // result of the last import attempt, shown in the banner
-var RW_CE = (function() {        // plain-text editing where the browser supports it (keeps Enter as a plain newline)
-  try { var t = document.createElement('span'); t.contentEditable = 'plaintext-only'; return t.contentEditable === 'plaintext-only' ? 'plaintext-only' : 'true'; }
-  catch (e) { return 'true'; }
-})();
+var RW_CE = 'true';              // not 'plaintext-only': Chrome forces white-space:pre-wrap on those, which wraps differently from the
+                                 // read-only text (extra spaces count), so everything would shift on entering edit mode. Enter, paste and
+                                 // line breaks are handled by hand (see wireRunwayEditing), so the text stays plain.
 
 function runwayDbRows() { var r = dbCfg.rows.Runway; return r && r.length ? r : null; }
 function runwayEditing() { return runwayEdit && !!runwayDbRows() && !!runwayWork; }
@@ -14834,7 +14847,7 @@ function rwPara(text) {
 function rwTxt(text, key, field, placeholder, multi) {
   if (!runwayEditing() || !key) return rwPara(text);
   return '<span class="rw-edit' + (multi ? ' multi' : '') + '" contenteditable="' + RW_CE + '" spellcheck="true" data-rid="' + escAttr(key) + '"'
-    + ' data-field="' + field + '" data-ph="' + escAttr(placeholder || '') + '">' + escHtml(text || '') + '</span>';
+    + ' data-field="' + field + '" data-ph="' + escAttr(placeholder || '') + '">' + escHtml(multi ? String(text || '').replace(/\n+/g, '\n\n') : (text || '')) + '</span>';
 }
 
 function rwRow(key) { for (var i = 0; i < runwayWork.length; i++) if (runwayWork[i]._key === key) return runwayWork[i]; return null; }
@@ -15095,6 +15108,7 @@ function runwaySetEdit(on) {
   if (!on && runwayEditing() && runwayHasChanges() && !confirm('Discard your unsaved changes?')) return;
   runwayEdit = on;
   runwayWork = on ? runwayCloneRows() : null;
+  rwOpenPills = {};
   renderRunway();
 }
 
@@ -15197,6 +15211,12 @@ function wireRunwayEditing() {
       var key = act.getAttribute('data-key'), a = act.getAttribute('data-act');
       if (a === 'add-step') rwAddStep(key);
       else if (a === 'del-step') rwRemoveStep(key);
+      else if (a === 'add-pill') {
+        rwOpenPills[key + '|' + act.getAttribute('data-field')] = true;
+        renderRunway();
+        var pe = document.querySelector('.rw-edit[data-rid="' + key + '"][data-field="' + act.getAttribute('data-field') + '"]');
+        if (pe) pe.focus();
+      }
       else if (a === 'add-phase') rwAddPhase(key);
       else if (a === 'del-phase') rwRemovePhase(key);
       else if (a === 'cur-phase') rwSetCurrentPhase(key);
@@ -15618,18 +15638,27 @@ function renderRunway() {
       }
       var editing = runwayEditing() && s.titleId;
       // Target (blue pill, Date Range column), listed first, then the green amount, then the grey tag (Factors).
-      var bluePill = editing ? ' <span class="runway-blue-pill">' + rwTxt(s.blue || '', s.titleId, 'blue', 'target') + '</span>'
+      // In edit mode an empty pill takes no room (so nothing reflows); the hover toolbar's "+ target / + amount / + tag"
+      // buttons open one to type into.
+      function pillOpen(field) { return editing && rwOpenPills[s.titleId + '|' + field]; }
+      var bluePill = editing ? ((s.blue || pillOpen('blue')) ? ' <span class="runway-blue-pill">' + rwTxt(s.blue || '', s.titleId, 'blue', 'target') + '</span>' : '')
         : (s.blue ? ' <span class="runway-blue-pill">' + escAttr(s.blue) + '</span>' : '');
-      var amtPill = editing ? ' <span class="runway-amt-pill">' + rwTxt(s.amount, s.titleId, 'amount', 'amount') + '</span>'
+      var amtPill = editing ? ((s.amount || pillOpen('amount')) ? ' <span class="runway-amt-pill">' + rwTxt(s.amount, s.titleId, 'amount', 'amount') + '</span>' : '')
         : (s.amount ? ' <span class="runway-amt-pill">' + escAttr(s.amount) + '</span>' : '');
       // A target date in the Unit column becomes an orange "X.Yy" pill (years from today),
       // shown after the amount pill and before the tag pill.
       var datePill = s.targetYears ? ' <span class="runway-date-pill">' + escAttr(s.targetYears) + '</span>' : '';
       // A "[Tag] Title" prefix in the Text column becomes a grey tag pill, shown last
       // (title, then amount, then date, then tag).
-      var tagPill = editing ? ' <span class="runway-tag-pill">' + rwTxt(s.tag || '', s.titleId, 'tag', 'tag') + '</span>'
+      var tagPill = editing ? ((s.tag || pillOpen('tag')) ? ' <span class="runway-tag-pill">' + rwTxt(s.tag || '', s.titleId, 'tag', 'tag') + '</span>' : '')
         : (s.tag ? ' <span class="runway-tag-pill">' + escAttr(s.tag) + '</span>' : '');
-      var ctl = editing ? '<div class="rw-ctl"><span class="rw-grip" draggable="true" title="Drag to reorder, or drop in another column">\u2807\u2807</span><button type="button" data-act="add-step" data-key="' + escAttr(s.titleId) + '" title="Add a step below">+</button>'
+      var addPills = '';
+      if (editing) {
+        if (!s.blue && !pillOpen('blue')) addPills += '<button type="button" class="rw-add-pill" data-act="add-pill" data-field="blue" data-key="' + escAttr(s.titleId) + '" title="Add a target (blue pill)">+ target</button>';
+        if (!s.amount && !pillOpen('amount')) addPills += '<button type="button" class="rw-add-pill" data-act="add-pill" data-field="amount" data-key="' + escAttr(s.titleId) + '" title="Add an amount (green pill)">+ amount</button>';
+        if (!s.tag && !pillOpen('tag')) addPills += '<button type="button" class="rw-add-pill" data-act="add-pill" data-field="tag" data-key="' + escAttr(s.titleId) + '" title="Add a Factor tag (grey pill)">+ tag</button>';
+      }
+      var ctl = editing ? '<div class="rw-ctl">' + addPills + '<span class="rw-grip" draggable="true" title="Drag to reorder, or drop in another column">\u2807\u2807</span><button type="button" data-act="add-step" data-key="' + escAttr(s.titleId) + '" title="Add a step below">+</button>'
         + '<button type="button" data-act="del-step" data-key="' + escAttr(s.titleId) + '" title="Remove this step">\u00d7</button></div>' : '';
       h += '<div class="runway-step"' + (editing ? ' data-key="' + escAttr(s.titleId) + '"' : '') + '>'
         +   ctl
