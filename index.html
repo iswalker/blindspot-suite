@@ -15005,6 +15005,7 @@ function rwRemoveColumn(n) {
   });
   runwayWork = runwayWork.filter(function(r) { var x = String(r.metric || '').match(RW_COL_ROW); return !(x && parseInt(x[1], 10) === n); });
   rwShiftColumns(n + 1, -1);
+  rwResequenceSteps();
   renderRunway();
 }
 
@@ -15058,6 +15059,7 @@ function rwMoveColumn(src, mode, t) {
     var tt = String(r.track_against || '').match(RW_COL_REF);
     if (tt && RW_STEP_ROW.test(String(r.metric || '')) && map[parseInt(tt[1], 10)] !== undefined) r.track_against = 'Runway Column ' + map[parseInt(tt[1], 10)] + tt[2].toLowerCase();
   });
+  rwResequenceSteps();
   renderRunway();
 }
 
@@ -15078,6 +15080,37 @@ function rwStepEntries() {
   return Object.keys(byId).map(function(k) { return byId[k]; }).filter(function(e) { return e.title; });
 }
 function rwStepCmp(a, b) { return a.kind === 'num' ? Number(a.id) - Number(b.id) : (a.id < b.id ? -1 : a.id > b.id ? 1 : 0); }
+// Steps are numbered (and lettered) in the order the layout shows them: column by column, section by section, and within a
+// section by their current order. Deals the same set of numbers out again in that order; statuses stay with their step.
+function rwResequenceSteps() {
+  var entries = rwStepEntries(), st = rwStepSets(), newDone = {}, newCur = {}, numIds = {}, changed = false;
+  function colPos(e) { var m = String(e.title.track_against || '').match(RW_COL_REF); return m ? [parseInt(m[1], 10), m[2].toLowerCase()] : [1e9, String(e.title.track_against || '')]; }
+  ['num', 'alpha'].forEach(function(kind) {
+    var list = entries.filter(function(e) { return e.kind === kind; });
+    if (!list.length) return;
+    var ids = list.slice().sort(rwStepCmp).map(function(e) { return e.id; });
+    var ordered = list.slice().sort(function(a, b) {
+      var ka = colPos(a), kb = colPos(b);
+      if (ka[0] !== kb[0]) return ka[0] - kb[0];
+      if (ka[1] !== kb[1]) return ka[1] < kb[1] ? -1 : 1;
+      return rwStepCmp(a, b);
+    });
+    ordered.forEach(function(e, i) {
+      e.newId = ids[i];
+      if (kind === 'num') { numIds[e.id] = true; if (st.done[e.id]) newDone[ids[i]] = true; if (st.cur[e.id]) newCur[ids[i]] = true; }
+      if (e.newId !== e.id) changed = true;
+    });
+  });
+  if (!changed) return;
+  Object.keys(st.done).forEach(function(n) { if (!numIds[n]) newDone[n] = true; });   // statuses of numbers with no step stay put
+  Object.keys(st.cur).forEach(function(n) { if (!numIds[n]) newCur[n] = true; });
+  entries.forEach(function(e) {
+    e.title.metric = 'Runway Step ' + e.newId;
+    e.subs.forEach(function(r) { r.metric = 'Runway Step ' + e.newId + ' Subtext'; });
+  });
+  st.done = newDone; st.cur = newCur; rwWriteStepSets(st);
+}
+
 function rwMoveStep(srcKey, anchorKey, before, colRaw) {
   var entries = rwStepEntries(), src = null, anchor = null;
   entries.forEach(function(e) { if (e.title._key === srcKey) src = e; if (anchorKey && e.title._key === anchorKey) anchor = e; });
@@ -15112,6 +15145,7 @@ function rwMoveStep(srcKey, anchorKey, before, colRaw) {
   }
   src.title.track_against = colRaw;
   src.subs.forEach(function(r) { r.track_against = colRaw; });
+  rwResequenceSteps();
   renderRunway();
 }
 
@@ -15225,6 +15259,7 @@ function runwaySetEdit(on) {
   if (!on && runwayEditing() && runwayHasChanges() && !confirm('Discard your unsaved changes?')) return;
   runwayEdit = on;
   runwayWork = on ? runwayCloneRows() : null;
+  if (on) rwResequenceSteps();     // numbering that has drifted from the layout order is put right (shows as an unsaved change)
   rwOpenPills = {};
   renderRunway();
 }
@@ -15423,7 +15458,19 @@ function wireRunwayEditing() {
     var strip = e.target.closest && e.target.closest('.runway-rowdrop');
     if (strip) return { mode: 'rowstart', el: strip, t: strip.getAttribute('data-before') === '' ? null : parseInt(strip.getAttribute('data-before'), 10) };
     var col = e.target.closest && e.target.closest('.runway-col[data-colnum]');
-    if (!col) return null;
+    if (!col) {
+      // Over a gap (between rows or columns, margins, a row's empty end): use the nearest column in the row closest to the pointer.
+      var best = null, bestD = 1e9;
+      [].forEach.call(panel.querySelectorAll('.runway-col[data-colnum]'), function(c) {
+        var rc = c.getBoundingClientRect();
+        var dy = e.clientY < rc.top ? rc.top - e.clientY : (e.clientY > rc.bottom ? e.clientY - rc.bottom : 0);
+        var dx = e.clientX < rc.left ? rc.left - e.clientX : (e.clientX > rc.right ? e.clientX - rc.right : 0);
+        var d = dy * 3 + dx;
+        if (d < bestD) { bestD = d; best = c; }
+      });
+      if (!best || bestD > 400) return null;
+      col = best;
+    }
     var t = parseInt(col.getAttribute('data-colnum'), 10);
     if (t === dragCol) return null;
     var r = col.getBoundingClientRect();
@@ -15438,8 +15485,8 @@ function wireRunwayEditing() {
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', 'runway-column');
     if (e.dataTransfer.setDragImage) e.dataTransfer.setDragImage(col.querySelector('.runway-col-hdr') || col, 24, 16);
-    document.documentElement.classList.add('rw-col-dragging');
-    setTimeout(function() { col.classList.add('rw-col-dragging'); }, 0);
+    // Layout changes made inside dragstart can make the browser cancel the drag, so the strips and fade appear a tick later.
+    setTimeout(function() { if (dragCol !== null) { document.documentElement.classList.add('rw-col-dragging'); col.classList.add('rw-col-dragging'); } }, 30);
   });
   panel.addEventListener('dragover', function(e) {
     if (dragCol === null) return;
@@ -15708,6 +15755,15 @@ function getRunwayData() {
       .sort(function(a, b) { return a.letter < b.letter ? -1 : a.letter > b.letter ? 1 : 0; })
       .map(function(s) { return s.section; });
   }).concat(legacyCols.map(function(lc) { return lc.sections; }));
+
+  // Numbers and letters shown follow the layout (column by column), whatever the stored order: the same set of displayed
+  // numbers is dealt out again in that order.
+  var seqNum = [], seqAlpha = [];
+  columns.forEach(function(secs) { secs.forEach(function(sc) { sc.steps.forEach(function(stp) { (stp.kind === 'num' ? seqNum : seqAlpha).push(stp); }); }); });
+  var numSlots = seqNum.map(function(x) { return x.displayNum; }).sort(function(a, b) { return a - b; });
+  seqNum.forEach(function(x, i) { x.displayNum = numSlots[i]; });
+  var alphaSlots = seqAlpha.map(function(x) { return x.displayLetter; }).sort();
+  seqAlpha.forEach(function(x, i) { x.displayLetter = alphaSlots[i]; });
 
   var phases = Object.keys(byPhase).map(function(k) { return byPhase[k]; })
     .sort(function(a, b) { return a.num - b.num; });
