@@ -7640,7 +7640,7 @@ function lwHoldingMap() {
     var cfg = cfgRows[ci];
     if (!cfg.id || !/ Holding$/.test(cfg.usedFor || '')) continue;
     rules.push({
-      acctId: cfg.id,
+      acctId: cfg.id.split(',')[0].trim(),           // several accounts may be listed; the reserve is charged to the first
       ids:    (cfg.assocCatIds && cfg.assocCatIds.length) ? cfg.assocCatIds : null,
       match:  cfg.usedFor.replace(/ Holding$/, '').trim()
     });
@@ -7754,16 +7754,23 @@ function lwPipelineBudgetedAvailable(monthKey) {
 // the first selected "Base Operations Holding" account (where that budgeted cash actually sits);
 // failing that, the first selected Pipeline account, then the first selected checking account (else
 // the first selected account). null when the subtraction is off or nothing is selected.
+// Accounts of the "Base Operations Holding" key (one or several, comma separated), in the order listed.
+function baseOpsAcctIds() {
+  var ids = [];
+  (state.catConfig || []).forEach(function(c) {
+    if (String(c.usedFor || '').trim().toLowerCase() !== 'base operations holding' || !c.id) return;
+    String(c.id).split(',').forEach(function(x) { x = x.trim(); if (x && ids.indexOf(x) === -1) ids.push(x); });
+  });
+  return ids;
+}
 function lwPipelineBudgetHolderId() {
   if (!lwBudgetedRemainderOn()) return null;
   var accts = (state.data && state.data.lwAccounts) || [];
   // Net Worth renders every Pipeline account (it has no per-account Pipeline selection), so it
   // charges against all accounts regardless of the Liquid Balances selection.
   function inPlay(a) { return state.nwRendering || state.lwSelectedAccounts[a.id]; }
-  var baseOpsIds = {}, cfgRows = state.catConfig || [], ci;
-  for (ci = 0; ci < cfgRows.length; ci++) {
-    if (cfgRows[ci].id && (cfgRows[ci].usedFor || '') === 'Base Operations Holding') baseOpsIds[cfgRows[ci].id] = true;
-  }
+  var baseOpsIds = {};
+  baseOpsAcctIds().forEach(function(id) { baseOpsIds[id] = true; });
   var i, firstPipe = null, firstChecking = null, firstAny = null;
   for (i = 0; i < accts.length; i++) {
     if (!inPlay(accts[i])) continue;
@@ -11830,12 +11837,6 @@ function isDebtAcctType(type) {
     || type === 'medicalDebt' || type === 'otherLiability' || type === 'otherDebt';
 }
 
-function resolveCashBasisAcctId() {
-  for (var i = 0; i < state.catConfig.length; i++) {
-    if (state.catConfig[i].usedFor === 'Cash Basis') return state.catConfig[i].id;
-  }
-  return null;
-}
 
 // Account History "pseudo-accounts" -- aggregate trend/balance views across every account of
 // a given type, instead of one account at a time. isDebt controls the same abs-value/orange
@@ -11937,9 +11938,9 @@ function populateAcctHistoryFilter() {
   if (state.acctHistoryId && sel.querySelector('option[value="' + state.acctHistoryId + '"]')) {
     sel.value = state.acctHistoryId;
   } else if (allAccts.length > 0) {
-    var cashBasisAcctId = resolveCashBasisAcctId();
-    sel.value           = (cashBasisAcctId && sel.querySelector('option[value="' + cashBasisAcctId + '"]'))
-      ? cashBasisAcctId : allAccts[0].id;
+    // Default to the first Base Operations Holding account that is in the list, else the first account
+    var defaultAcctId = baseOpsAcctIds().filter(function(id) { return sel.querySelector('option[value="' + id + '"]'); })[0];
+    sel.value           = defaultAcctId || allAccts[0].id;
     state.acctHistoryId = sel.value;
     localStorage.setItem('sel-acct-history-id', state.acctHistoryId);
   }
@@ -12533,13 +12534,9 @@ function renderAccountHistoryBody(d, acctId) {
     }
   }
 
-  // Float Ratio overlay when viewing the Cash Basis account
+  // Float Ratio overlay when viewing a Base Operations Holding account
   var floatValues = null;
-  var cashBasisCfgAH = null;
-  for (var ahfi = 0; ahfi < state.catConfig.length; ahfi++) {
-    if (state.catConfig[ahfi].usedFor === 'Cash Basis') { cashBasisCfgAH = state.catConfig[ahfi]; break; }
-  }
-  if (cashBasisCfgAH && acctId === cashBasisCfgAH.id) {
+  if (baseOpsAcctIds().indexOf(acctId) !== -1) {
     var creditAcctIdsAH = [];
     if (d.lwAccounts) {
       for (var ahcai = 0; ahcai < d.lwAccounts.length; ahcai++) {
@@ -14343,6 +14340,9 @@ function wireNwMilestones() {
 // their own Group as the section, plus a marker row once they have been moved to the database. ----
 var USAGE_TYPES = { 'Tag': 1, 'Account': 1, 'Category': 1, 'Category Group': 1 };
 var USAGE_SKIP = /^(leverage|milestone)\b/i;   // belong to other areas / tabs
+// Keys nothing reads any more: never offered for moving, and cleared out of the database if they were moved earlier.
+var USAGE_OBSOLETE = /^(cash basis|breakfix coverage|recoverable costs.*)$/i;
+function usageObsoleteDbRows() { return (dbCfg.all || []).filter(function(r) { return USAGE_OBSOLETE.test(String(r.metric || '').trim()); }); }
 var USAGE_TARGETS = /^(birth year|credit float|net liquid minimum|net liquid|net worth delta)$/i;   // the Targets the popover manages
 // How each managed Target is shown: its unit, an example, and what it does.
 var USAGE_TARGET_META = {
@@ -14361,7 +14361,7 @@ function usageMissingFromDb() {
   usageDbRows().forEach(function(r) { have[usageKey(r)] = true; });
   return sheetUsageRows().filter(function(r) { return !have[usageKey(r)]; });
 }
-function isUsageRow(r) { return (!!USAGE_TYPES[r.type] || (r.type === 'Target' && USAGE_TARGETS.test(r.metric || ''))) && r.section !== 'Runway' && !USAGE_SKIP.test(r.metric || ''); }
+function isUsageRow(r) { return !USAGE_OBSOLETE.test(String(r.metric || '').trim()) && (!!USAGE_TYPES[r.type] || (r.type === 'Target' && USAGE_TARGETS.test(r.metric || ''))) && r.section !== 'Runway' && !USAGE_SKIP.test(r.metric || ''); }
 function usageMigrated() { return dbMarker('Usage Migrated'); }
 function usageDbRows() { return usageMigrated() ? dbCfg.all.filter(isUsageRow) : []; }
 function usageSig() { return JSON.stringify(usageDbRows().map(function(r) { return [r.id, r.metric, r.type, r.text, r.section, r.amount, r.assoc_category_ids]; })); }
@@ -14369,7 +14369,7 @@ function sheetUsageRows() {
   return sheetConfigRows(function(r) {
     var m = sheetMetric(r), sec = (r['Group'] || r['Section'] || '').trim();
     var ty = (r['Type'] || '').trim();
-    return (!!USAGE_TYPES[ty] || (ty === 'Target' && USAGE_TARGETS.test(m))) && sec !== 'Runway' && !USAGE_SKIP.test(m) && m;
+    return (!!USAGE_TYPES[ty] || (ty === 'Target' && USAGE_TARGETS.test(m))) && sec !== 'Runway' && !USAGE_SKIP.test(m) && !USAGE_OBSOLETE.test(m) && m;
   });
 }
 // The database's copy of these keys replaces the sheet's, key by key (and supplies them outright once
@@ -14436,6 +14436,10 @@ function usageIds(r) { return String(r.text || '').split(',').map(function(s) { 
 function openUsageModal() {
   var m = document.getElementById('usage-modal');
   if (!m) return;
+  var stale = dbConfigWritable() ? usageObsoleteDbRows() : [];
+  if (stale.length) {                 // retired keys (Cash Basis, Breakfix Coverage, Recoverable Costs): drop them from the database
+    dbCfgCommit({ deletes: stale.map(function(r) { return r.id; }) }).then(function() { applyConfigOverlays(); if (m.style.display !== 'none') { usageWork = usageMigrated() ? usageCloneRows() : null; renderUsageModal(); } }).catch(function() {});
+  }
   usageMsg = '';
   usageWork = usageMigrated() ? usageCloneRows() : null;
   m.style.display = 'flex';
