@@ -1478,6 +1478,12 @@ td.hbt-num:last-child { width: 13%; }
 .um-btn:disabled { color: #bbb; background: #f6f6f3; cursor: not-allowed; }
 .um-primary:not(:disabled) { background: #1565c0; border-color: #1565c0; color: #fff; }
 .um-primary:hover:not(:disabled) { background: #0f5199; }
+.um-hint-top { margin: 0 0 6px; }
+.um-rule { border-top: 1px solid #f0f0f2; }
+.um-rule .um-ctl { display: flex; flex-direction: column; gap: 6px; }
+.um-rm { align-self: flex-start; color: #b3261e; }
+.um-rule .um-sublbl { flex: 0 0 150px; }
+.um-rule .um-sub .um-in:not(select):not(.um-amt) { flex: 1; min-width: 0; }
 .um-unit { font-size: 15px; color: #777; margin-left: 4px; }
 .um-hint { font-size: 13px; color: #888; margin-top: 4px; }
 .um-note { font-size: 15px; color: #444; line-height: 1.5; padding: 4px 0; }
@@ -2131,6 +2137,12 @@ html.rw-tab-active #tab-row { z-index: 30; }
             <label for="plan-sel">Plan</label>
             <select id="plan-sel"></select>
           </div>
+          <div class="settings-tab-block" data-tab="leverage">
+            <div class="settings-divider"></div>
+            <div class="settings-row">
+              <button class="config-picker-btn" id="usage-rules-btn" style="width:100%;justify-content:center">Manage Expiration &amp; Card Rules</button>
+            </div>
+          </div>
           <div class="settings-tab-block" data-tab="acct-summary">
             <div class="settings-divider"></div>
             <div class="settings-row">
@@ -2726,7 +2738,7 @@ html.rw-tab-active #tab-row { z-index: 30; }
 <!-- Manage Tags & Account Usage -->
 <div id="usage-modal" style="display:none">
   <div class="um-box" role="dialog" aria-modal="true" aria-label="Manage Tags and Account Usage">
-    <div class="um-hdr"><span>Manage Tags &amp; Account Usage</span><button type="button" id="um-close" title="Close">&times;</button></div>
+    <div class="um-hdr"><span>Manage Tags, Accounts &amp; Rules</span><button type="button" id="um-close" title="Close">&times;</button></div>
     <div class="um-body" id="um-body"></div>
     <div class="um-foot"><span id="um-msg"></span><span id="um-foot-btns"><button type="button" class="um-btn" id="um-cancel">Close</button><button type="button" class="um-btn um-primary" id="um-save" disabled>Save</button></span></div>
   </div>
@@ -14330,7 +14342,7 @@ function wireNwMilestones() {
 // accounts, categories). Edited in the "Manage Tags & Account Usage" popover; stored as config rows with
 // their own Group as the section, plus a marker row once they have been moved to the database. ----
 var USAGE_TYPES = { 'Tag': 1, 'Account': 1, 'Category': 1, 'Category Group': 1 };
-var USAGE_SKIP = /^(leverage|expiration|card transactions|milestone)\b/i;   // belong to other areas / tabs
+var USAGE_SKIP = /^(leverage|milestone)\b/i;   // belong to other areas / tabs
 var USAGE_TARGETS = /^(birth year|credit float|net liquid minimum|net liquid|net worth delta)$/i;   // the Targets the popover manages
 // How each managed Target is shown: its unit, an example, and what it does.
 var USAGE_TARGET_META = {
@@ -14405,6 +14417,20 @@ function usageDiff() {
 }
 function usageHasChanges() { var d = usageDiff(); return !!(d.updates.length || d.inserts.length || d.deletes.length); }
 function usageRow(key) { for (var i = 0; i < usageWork.length; i++) if (usageWork[i]._key === key) return usageWork[i]; return null; }
+// Arbitrage tab rules share the 'Account' type with real account keys but are edited as their own kind of row.
+function usageKind(r) {
+  var m = String(r.metric || '');
+  if (/^expiration \d+$/i.test(m)) return 'expiration';
+  if (/^card transactions \d+$/i.test(m)) return 'card';
+  return r.type;
+}
+function usagePayeeOf(r) { var m = String(r.track_against || '').match(/^\s*payee\s*=\s*['"]?([^'"]*?)['"]?\s*$/i); return m ? m[1].trim() : ''; }
+var UM_UNITS = ['days', 'weeks', 'months', 'years'];
+function usageNextRule(kind) {
+  var re = kind === 'expiration' ? /^expiration (\d+)$/i : /^card transactions (\d+)$/i, n = 0;
+  usageWork.forEach(function(r) { var m = String(r.metric || '').match(re); if (m) n = Math.max(n, parseInt(m[1], 10)); });
+  return n + 1;
+}
 function usageIds(r) { return String(r.text || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean); }
 
 function openUsageModal() {
@@ -14441,11 +14467,11 @@ function renderUsageModal() {
       var names = [];
       missing.forEach(function(r) { if (names.indexOf(r.metric) === -1) names.push(r.metric); });
       h += '<div class="um-note">' + missing.length + ' more key' + (missing.length === 1 ? ' is' : 's are') + ' still read from your Google Sheet (' + escHtml(names.slice(0, 6).join(', ')) + (names.length > 6 ? ', …' : '')
-        + '). Move ' + (missing.length === 1 ? 'it' : 'them') + ' here to manage ' + (missing.length === 1 ? 'it' : 'them') + ' in the database; afterwards they can be deleted from the sheet.'
+        + '). Move ' + (missing.length === 1 ? 'it' : 'them') + ' here to manage ' + (missing.length === 1 ? 'it' : 'them') + ' in the database (afterwards they can be deleted from the sheet), or delete ' + (missing.length === 1 ? 'it' : 'them') + ' from the sheet if you no longer want ' + (missing.length === 1 ? 'it' : 'them') + '. A key removed here but still in the sheet keeps being read from the sheet.'
         + '<div><button type="button" id="um-move-more" class="um-btn">Move to database</button></div></div>';
     }
     USAGE_ORDER.forEach(function(g) {
-      var rows = usageWork.filter(function(r) { return r.type === g[0]; });
+      var rows = usageWork.filter(function(r) { return usageKind(r) === g[0]; });
       if (!rows.length && g[0] !== 'Tag') return;
       h += '<div class="um-sec"><div class="um-sec-t">' + g[1] + '</div>';
       if (g[0] === 'Tag') {
@@ -14486,6 +14512,7 @@ function renderUsageModal() {
       });
       h += '</div>';
     });
+    h += umRulesHtml(ch);
   }
   body.innerHTML = h;
   var msg = document.getElementById('um-msg');
@@ -14494,6 +14521,42 @@ function renderUsageModal() {
   if (foot) foot.style.display = usageMigrated() ? '' : 'none';
   if (sv) sv.disabled = !dirty;
   if (cc) cc.textContent = dirty ? 'Discard' : 'Close';
+}
+// Arbitrage tab: "Expiration N" (points expiry) and "Card Transactions N" (debit card widget) rules.
+function umRulesHtml(ch) {
+  var h = '', ex = usageWork.filter(function(r) { return usageKind(r) === 'expiration'; }), cd = usageWork.filter(function(r) { return usageKind(r) === 'card'; });
+  function numSort(a, b) { return (parseInt(String(a.metric).match(/\d+/)[0], 10)) - (parseInt(String(b.metric).match(/\d+/)[0], 10)); }
+  ex.sort(numSort); cd.sort(numSort);
+  h += '<div class="um-sec" id="um-sec-rules"><div class="um-sec-t">Points expiration rules</div>'
+    + '<div class="um-hint um-hint-top">Next Points Expiration card on Arbitrage: finds the latest matching transaction in the account and adds the time below to its date. The first rule is used.</div>';
+  ex.forEach(function(r) {
+    var amt = umNum(r.amount), unit = String(r.unit || 'months').trim().toLowerCase();
+    if (UM_UNITS.indexOf(unit) === -1) unit = UM_UNITS.indexOf(unit + 's') !== -1 ? unit + 's' : 'months';
+    var accts = '<option value="">Choose an account…</option>', seen = false;
+    ch.accounts.forEach(function(a) { if (a.id === r.text) seen = true; accts += '<option value="' + escAttr(a.id) + '"' + (a.id === r.text ? ' selected' : '') + '>' + escHtml(a.name + (a.closed ? ' (closed)' : '')) + '</option>'; });
+    if (r.text && !seen) accts += '<option value="' + escAttr(r.text) + '" selected>Unknown account (removed from YNAB?)</option>';
+    h += '<div class="um-row um-rule"><div class="um-lbl">' + escHtml(r.metric) + '</div><div class="um-ctl">'
+      + '<div class="um-sub"><span class="um-sublbl">Account</span><select class="um-in" data-key="' + escAttr(r._key) + '" data-f="text">' + accts + '</select></div>'
+      + '<div class="um-sub"><span class="um-sublbl">Payee</span><input type="text" class="um-in" data-key="' + escAttr(r._key) + '" data-f="payee" value="' + escAttr(usagePayeeOf(r)) + '" placeholder="e.g. Expedia (blank = latest transaction)"></div>'
+      + '<div class="um-sub"><span class="um-sublbl">Expires</span><input type="text" class="um-in um-amt" inputmode="numeric" maxlength="4" data-key="' + escAttr(r._key) + '" data-f="amount" value="' + escAttr(amt) + '" aria-label="Expires after">'
+      + ' <select class="um-in" data-key="' + escAttr(r._key) + '" data-f="unit">' + UM_UNITS.map(function(u) { return '<option value="' + u + '"' + (u === unit ? ' selected' : '') + '>' + u + '</option>'; }).join('') + '</select> after that transaction</div>'
+      + '<button type="button" class="um-btn um-rm" data-act="del" data-key="' + escAttr(r._key) + '">Remove rule</button>'
+      + '</div></div>';
+  });
+  h += '<div class="um-row"><div class="um-lbl"></div><div class="um-ctl"><button type="button" class="um-btn um-add" data-act="add-rule" data-kind="expiration">+ Add expiration rule</button></div></div></div>';
+
+  h += '<div class="um-sec"><div class="um-sec-t">Debit card transaction rules</div>'
+    + '<div class="um-hint um-hint-top">Debit Card Transactions widget on Arbitrage: the card whose Plaid connection name contains the text below uses that rule.</div>';
+  cd.forEach(function(r) {
+    h += '<div class="um-row um-rule"><div class="um-lbl">' + escHtml(r.metric) + '</div><div class="um-ctl">'
+      + '<div class="um-sub"><span class="um-sublbl">Connection</span><input type="text" class="um-in" data-key="' + escAttr(r._key) + '" data-f="text" value="' + escAttr(r.text) + '" placeholder="Part of the Plaid connection name, e.g. CUNJ Checking"></div>'
+      + '<div class="um-sub"><span class="um-sublbl">Card purchases start with</span><input type="text" class="um-in" data-key="' + escAttr(r._key) + '" data-f="track_against" value="' + escAttr(r.track_against) + '" placeholder="e.g. Card purchase /"></div>'
+      + '<div class="um-sub"><span class="um-sublbl">Show last</span><input type="text" class="um-in um-amt" inputmode="numeric" maxlength="3" data-key="' + escAttr(r._key) + '" data-f="amount" value="' + escAttr(umNum(r.amount)) + '" aria-label="Number of transactions"> transactions</div>'
+      + '<button type="button" class="um-btn um-rm" data-act="del" data-key="' + escAttr(r._key) + '">Remove rule</button>'
+      + '</div></div>';
+  });
+  h += '<div class="um-row"><div class="um-lbl"></div><div class="um-ctl"><button type="button" class="um-btn um-add" data-act="add-rule" data-kind="card">+ Add card rule</button></div></div></div>';
+  return h;
 }
 function umGroupOptions(ch, cur) {
   var h = '', seen = false;
@@ -14532,6 +14595,14 @@ function usageSaveEdits() {
   var d = usageDiff();
   var badMsg = '';
   usageWork.forEach(function(r) {
+    var kind = usageKind(r), rv = String(r.amount == null ? '' : r.amount).trim();
+    if (!badMsg && kind === 'expiration') {
+      if (!String(r.text || '').trim()) badMsg = r.metric + ': choose an account.';
+      else if (!/^\d+(\.0+)?$/.test(rv) || +rv < 1) badMsg = r.metric + ': enter how long until it expires as a whole number, e.g. 18.';
+    } else if (!badMsg && kind === 'card') {
+      if (!String(r.text || '').trim()) badMsg = r.metric + ': enter part of the Plaid connection name.';
+      else if (!/^\d+(\.0+)?$/.test(rv) || +rv < 1) badMsg = r.metric + ': enter how many transactions to show, e.g. 10.';
+    }
     if (badMsg || r.type !== 'Target') return;
     var v = String(r.amount == null ? '' : r.amount).trim();
     if (/^birth year$/i.test(r.metric)) {
@@ -14568,6 +14639,14 @@ function wireUsageModal() {
     var gb = document.getElementById('settings-gear-btn'); if (gb) gb.classList.remove('active');
     openUsageModal();
   });
+  var rulesBtn = document.getElementById('usage-rules-btn');
+  if (rulesBtn) rulesBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    var sp = document.getElementById('settings-panel'); if (sp) sp.style.display = 'none';
+    var gb = document.getElementById('settings-gear-btn'); if (gb) gb.classList.remove('active');
+    openUsageModal();
+    var sec = document.getElementById('um-sec-rules'); if (sec) sec.scrollIntoView({ block: 'start' });
+  });
   document.getElementById('um-close').addEventListener('click', closeUsageModal);
   document.getElementById('um-cancel').addEventListener('click', function() {
     if (usageWork && usageHasChanges()) { usageWork = usageCloneRows(); renderUsageModal(); } else closeUsageModal();
@@ -14596,6 +14675,13 @@ function wireUsageModal() {
       var key = act.getAttribute('data-key');
       usageWork = usageWork.filter(function(r) { return r._key !== key; });
       renderUsageModal();
+    } else if (act.getAttribute('data-act') === 'add-rule') {
+      var kind = act.getAttribute('data-kind'), nn = usageNextRule(kind);
+      usageWork.push(dbRowTemplate(kind === 'expiration'
+        ? { id: null, _key: 'n' + (++usageNewKey), metric: 'Expiration ' + nn, type: 'Account', section: 'Leverage', amount: '12', unit: 'months', position: 1e6 + usageNewKey }
+        : { id: null, _key: 'n' + (++usageNewKey), metric: 'Card Transactions ' + nn, type: 'Account', section: 'Leverage', amount: '10', unit: 'transactions', position: 1e6 + usageNewKey }));
+      renderUsageModal();
+      var rules = m.querySelectorAll('.um-rule'); if (rules.length) { var lastRule = rules[rules.length - 1]; lastRule.scrollIntoView({ block: 'nearest' }); }
     } else if (act.getAttribute('data-act') === 'add-tag') {
       usageWork.push(dbRowTemplate({ id: null, _key: 'n' + (++usageNewKey), metric: act.getAttribute('data-metric'), type: 'Tag', section: act.getAttribute('data-sec') || 'Usage', position: 1e6 + usageNewKey }));
       renderUsageModal();
@@ -14616,7 +14702,8 @@ function wireUsageModal() {
       sum.innerHTML = umAcctSummary(ids, byObj);
     } else {
       var f = el.getAttribute('data-f');
-      row[f] = f === 'text' && row.type === 'Tag' ? el.value.trim() : el.value;
+      if (f === 'payee') row.track_against = el.value.trim() ? 'Payee = "' + el.value.trim() + '"' : '';
+      else row[f] = f === 'text' && row.type === 'Tag' ? el.value.trim() : el.value;
     }
     var dirty = usageHasChanges();
     document.getElementById('um-save').disabled = !dirty;
