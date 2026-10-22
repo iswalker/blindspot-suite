@@ -15,6 +15,14 @@ CREATE TABLE IF NOT EXISTS users (
   last_seen_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS ynab_sessions (
+  session_hash TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  refresh_token_enc TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS account_group_defs (
   group_name TEXT PRIMARY KEY,
   sort_order INTEGER NOT NULL
