@@ -1478,6 +1478,8 @@ td.hbt-num:last-child { width: 13%; }
 .um-btn:disabled { color: #bbb; background: #f6f6f3; cursor: not-allowed; }
 .um-primary:not(:disabled) { background: #1565c0; border-color: #1565c0; color: #fff; }
 .um-primary:hover:not(:disabled) { background: #0f5199; }
+.um-unit { font-size: 15px; color: #777; margin-left: 4px; }
+.um-hint { font-size: 13px; color: #888; margin-top: 4px; }
 .um-note { font-size: 15px; color: #444; line-height: 1.5; padding: 4px 0; }
 .um-note .um-btn { margin-top: 12px; }
 .um-sec { margin-bottom: 18px; }
@@ -14329,7 +14331,24 @@ function wireNwMilestones() {
 // their own Group as the section, plus a marker row once they have been moved to the database. ----
 var USAGE_TYPES = { 'Tag': 1, 'Account': 1, 'Category': 1, 'Category Group': 1 };
 var USAGE_SKIP = /^(leverage|expiration|card transactions|milestone)\b/i;   // belong to other areas / tabs
-var USAGE_TARGETS = /^birth year$/i;     // the one Target the popover manages so far
+var USAGE_TARGETS = /^(birth year|credit float|net liquid minimum|net liquid|net worth delta)$/i;   // the Targets the popover manages
+// How each managed Target is shown: its unit, an example, and what it does.
+var USAGE_TARGET_META = {
+  'birth year':         { unit: 'year', ph: '1993', max: 4,  hint: 'Used for ages on the Net Worth milestones and Preview.' },
+  'credit float':       { unit: '$',    ph: '5000', max: 12, hint: 'The credit float line on the Liquid Balances chart.' },
+  'net liquid minimum': { unit: '$',    ph: '13000', max: 12, hint: 'The minimum line on the Liquid Balances chart.' },
+  'net liquid':         { unit: '$',    ph: '18000', max: 12, hint: 'The target line on the Liquid Balances chart.' },
+  'net worth delta':    { unit: '%',    ph: '1.5',  max: 8,  hint: 'Expected monthly growth in net worth, for the Net Worth table and Preview.' }
+};
+function usageTargetMeta(metric) { return USAGE_TARGET_META[String(metric || '').trim().toLowerCase()] || { unit: '', ph: '', max: 12, hint: '' }; }
+function umNum(v) { return String(v == null ? '' : v).replace(/^(-?\d+)\.0+$/, '$1'); }   // 5000.0 reads as 5000
+// Keys of a kind this popover manages that the sheet still has but the database doesn't (e.g. added to the popover later).
+function usageKey(r) { var t = String(r.type || ''); return (String(r.metric || '') + '|' + t + (t === 'Tag' ? '|' + (r.text || '') : '')).toLowerCase(); }
+function usageMissingFromDb() {
+  var have = {};
+  usageDbRows().forEach(function(r) { have[usageKey(r)] = true; });
+  return sheetUsageRows().filter(function(r) { return !have[usageKey(r)]; });
+}
 function isUsageRow(r) { return (!!USAGE_TYPES[r.type] || (r.type === 'Target' && USAGE_TARGETS.test(r.metric || ''))) && r.section !== 'Runway' && !USAGE_SKIP.test(r.metric || ''); }
 function usageMigrated() { return dbMarker('Usage Migrated'); }
 function usageDbRows() { return usageMigrated() ? dbCfg.all.filter(isUsageRow) : []; }
@@ -14417,6 +14436,14 @@ function renderUsageModal() {
       : '<div class="um-note">No tag or account keys were found in your Google Sheet to move. <div><button type="button" id="um-move" class="um-btn">Start with an empty set</button></div></div>';
   } else {
     dirty = usageHasChanges();
+    var missing = usageMissingFromDb();
+    if (missing.length) {
+      var names = [];
+      missing.forEach(function(r) { if (names.indexOf(r.metric) === -1) names.push(r.metric); });
+      h += '<div class="um-note">' + missing.length + ' more key' + (missing.length === 1 ? ' is' : 's are') + ' still read from your Google Sheet (' + escHtml(names.slice(0, 6).join(', ')) + (names.length > 6 ? ', …' : '')
+        + '). Move ' + (missing.length === 1 ? 'it' : 'them') + ' here to manage ' + (missing.length === 1 ? 'it' : 'them') + ' in the database; afterwards they can be deleted from the sheet.'
+        + '<div><button type="button" id="um-move-more" class="um-btn">Move to database</button></div></div>';
+    }
     USAGE_ORDER.forEach(function(g) {
       var rows = usageWork.filter(function(r) { return r.type === g[0]; });
       if (!rows.length && g[0] !== 'Tag') return;
@@ -14442,7 +14469,10 @@ function renderUsageModal() {
         } else if (r.type === 'Category') {
           h += '<select class="um-in" data-key="' + escAttr(r._key) + '" data-f="text">' + umCategoryOptions(ch, r.text) + '</select>';
         } else if (r.type === 'Target') {
-          h += '<input type="text" class="um-in um-amt" inputmode="numeric" maxlength="4" data-key="' + escAttr(r._key) + '" data-f="amount" value="' + escAttr(r.amount) + '" placeholder="e.g. 1993" aria-label="Birth year">';
+          var tm = usageTargetMeta(r.metric);
+          h += '<input type="text" class="um-in um-amt" inputmode="decimal" maxlength="' + tm.max + '" data-key="' + escAttr(r._key) + '" data-f="amount" value="' + escAttr(umNum(r.amount)) + '" placeholder="e.g. ' + escAttr(tm.ph) + '" aria-label="' + escAttr(r.metric) + '">'
+            + (tm.unit ? ' <span class="um-unit">' + escHtml(tm.unit) + '</span>' : '')
+            + (tm.hint ? '<div class="um-hint">' + escHtml(tm.hint) + '</div>' : '');
         } else {
           h += umAccountPicker(ch, r);
           if (String(r.assoc_category_ids || '').trim() !== '') {
@@ -14500,8 +14530,17 @@ function umAccountPicker(ch, r) {
 
 function usageSaveEdits() {
   var d = usageDiff();
-  var badYear = usageWork.some(function(r) { return r.type === 'Target' && !(/^\d{4}$/.test(String(r.amount).trim()) && +r.amount >= 1900 && +r.amount <= new Date().getFullYear()); });
-  if (badYear) { usageMsg = 'Enter the birth year as four digits, e.g. 1993.'; document.getElementById('um-msg').textContent = usageMsg; return; }
+  var badMsg = '';
+  usageWork.forEach(function(r) {
+    if (badMsg || r.type !== 'Target') return;
+    var v = String(r.amount == null ? '' : r.amount).trim();
+    if (/^birth year$/i.test(r.metric)) {
+      if (!(/^\d{4}(\.0+)?$/.test(v) && +v >= 1900 && +v <= new Date().getFullYear())) badMsg = 'Enter the birth year as four digits, e.g. 1993.';
+    } else if (!/^-?\d+(\.\d+)?$/.test(v.replace(/[$,%\s]/g, ''))) {
+      badMsg = 'Enter ' + r.metric + ' as a number, e.g. ' + usageTargetMeta(r.metric).ph + '.';
+    }
+  });
+  if (badMsg) { usageMsg = badMsg; document.getElementById('um-msg').textContent = usageMsg; return; }
   var sv = document.getElementById('um-save');
   if (sv) sv.disabled = true;
   usageMsg = 'Saving…'; document.getElementById('um-msg').textContent = usageMsg;
@@ -14541,6 +14580,13 @@ function wireUsageModal() {
       rows.push(dbRowTemplate({ metric: 'Usage Migrated', type: 'Marker', section: 'Usage' }));
       usageMsg = 'Moving…'; renderUsageModal();
       dbCfgCommit({ inserts: rows }).then(function() { applyConfigOverlays(); usageWork = usageCloneRows(); usageMsg = 'Moved ' + (rows.length - 1) + ' keys to the database. You can now delete them from the sheet.'; renderUsageModal(); })
+        .catch(function(err) { usageMsg = 'Could not move them: ' + (err && err.message || 'failed'); renderUsageModal(); });
+      return;
+    }
+    if (e.target.closest('#um-move-more')) {
+      var more = usageMissingFromDb();
+      usageMsg = 'Moving…'; renderUsageModal();
+      dbCfgCommit({ inserts: more }).then(function() { applyConfigOverlays(); usageWork = usageCloneRows(); usageMsg = 'Moved ' + more.length + ' more key' + (more.length === 1 ? '' : 's') + ' to the database. You can now delete ' + (more.length === 1 ? 'it' : 'them') + ' from the sheet.'; renderUsageModal(); })
         .catch(function(err) { usageMsg = 'Could not move them: ' + (err && err.message || 'failed'); renderUsageModal(); });
       return;
     }
