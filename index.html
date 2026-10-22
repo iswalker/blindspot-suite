@@ -1551,7 +1551,16 @@ select.um-in { width: 100%; }
 }
 #runway-tagline { font-size: 15px; color: #555; margin: 2px 0; line-height: 1.4; }
 #runway-panel .panel-hdr { margin-bottom: 26px; }
-#runway-body { display: flex; gap: 48px; flex-wrap: wrap; padding-bottom: 50px; }
+#runway-body { padding-bottom: 50px; }
+.runway-row { display: flex; flex-wrap: wrap; gap: 0 48px; margin-bottom: 48px; }
+.runway-rowdrop { display: none; margin: 0 0 16px; padding: 8px 0; text-align: center; font-size: 14px; color: #1565c0; border: 2px dashed #90caf9; border-radius: 8px; background: #f4f9ff; }
+.runway-rowdrop.rw-drop-over, .runway-col.rw-drop-before-col, .runway-col.rw-drop-after-col { }
+html.rw-col-dragging .runway-rowdrop { display: block; }
+.runway-rowdrop.rw-drop-over { background: #e3f0ff; border-style: solid; }
+.runway-col.rw-drop-before-col { box-shadow: -12px 0 0 -8px #1565c0; }
+.runway-col.rw-drop-after-col { box-shadow: 12px 0 0 -8px #1565c0; }
+.runway-col.rw-col-dragging { opacity: .4; }
+.rw-col-grip { cursor: grab; }
 #runway-empty { font-size: 12px; color: #999; padding: 12px 0; }
 #runway-import {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; padding: 10px 14px;
@@ -1609,7 +1618,7 @@ html.rw-tab-active #tab-row { z-index: 30; }
 .rw-edit:focus { outline: 2px solid #1565c0; background: #f4f8ff; }
 .rw-edit.dirty { background: #fff8e1; }
 .rw-edit:empty::before { content: attr(data-ph); color: #b0b0b0; }
-.runway-col { flex: 0 1 568px; min-width: 240px; }
+.runway-col { flex: 1 1 240px; min-width: 240px; }
 .runway-col-hdr {
   font-size: 26px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
   color: #888; margin: 0 0 16px; padding-bottom: 6px; border-bottom: 2px solid #eee;
@@ -1656,7 +1665,7 @@ html.rw-tab-active #tab-row { z-index: 30; }
 }
 /* A flex item of #runway-body (see renderRunway) -- full-width so it forces a line break
    between the columns before and after it. */
-#runway-phases { flex-basis: 100%; width: 100%; margin: 16px 0 0; }
+#runway-phases { width: 100%; margin: 0; }
 .runway-phases-row { display: flex; }
 .runway-phase { flex: 1; display: flex; flex-direction: column; align-items: center; min-width: 0; }
 .runway-phase-chevron {
@@ -14747,6 +14756,7 @@ function wireUsageModal() {
 var RW_COLS = ['metric', 'type', 'text', 'section', 'amount', 'unit', 'multiplier', 'track_against', 'date_range',
   'assoc_category_ids', 'past_value', 'notes', 'old_account_ids', 'old_category_ids'];
 var runwayEdit = false;          // edit mode (pencil)
+var RW_COLS_PER_ROW = 4;
 var rwOpenPills = {};            // "<row key>|<field>" of empty pills opened with the "+ target / amount / tag" buttons
 var runwayWork = null;           // working copy of the rows while editing
 var runwayNewKey = 0;
@@ -14981,6 +14991,7 @@ function rwRemoveColumn(n) {
   if (m === undefined) m = others[0];
   var msg = 'Remove this column?' + (steps ? ' Its ' + steps + ' step' + (steps === 1 ? '' : 's') + ' will move to column ' + (m < n ? m : m - 1) + '.' : '');
   if (!confirm(msg)) return;
+  rwColLeaveRow(nums, n);
   // the neighbour's first section is the base column, else whichever of its sections exists
   var target = null;
   runwayWork.forEach(function(r) {
@@ -14994,6 +15005,59 @@ function rwRemoveColumn(n) {
   });
   runwayWork = runwayWork.filter(function(r) { var x = String(r.metric || '').match(RW_COL_ROW); return !(x && parseInt(x[1], 10) === n); });
   rwShiftColumns(n + 1, -1);
+  renderRunway();
+}
+
+// ---- columns: order and rows ----
+// A column's base header row ("Runway Column <n>", else its lowest lettered section) carries the layout flag: Date Range =
+// "new row" means the column starts a new row. Rows otherwise fill up to RW_COLS_PER_ROW columns.
+function rwColFlagRow(n) {
+  var best = null;
+  runwayWork.forEach(function(r) {
+    var m = String(r.metric || '').match(RW_COL_ROW);
+    if (!m || m[3] || parseInt(m[1], 10) !== n) return;
+    if (best === null || m[2].toLowerCase() < best.l) best = { row: r, l: m[2].toLowerCase() };
+  });
+  return best && best.row;
+}
+function rwColFlag(n) { var r = rwColFlagRow(n); return !!(r && /^new row$/i.test(String(r.date_range || ''))); }
+function rwSetColFlag(n, on) { var r = rwColFlagRow(n); if (r) r.date_range = on ? 'new row' : (/^new row$/i.test(String(r.date_range || '')) ? '' : r.date_range); }
+function rwColRowsLayout(order) {   // [[col numbers of row 1], ...] for the given left-to-right order
+  var rows = [], cur = [];
+  order.forEach(function(n) { if (cur.length && (rwColFlag(n) || cur.length >= RW_COLS_PER_ROW)) { rows.push(cur); cur = []; } cur.push(n); });
+  if (cur.length) rows.push(cur);
+  return rows;
+}
+// Take a column out of its row; if it was first in a row that has others, the next one now starts that row.
+function rwColLeaveRow(order, n) {
+  var rows = rwColRowsLayout(order);
+  rows.forEach(function(r) { if (r[0] === n && r.length > 1) rwSetColFlag(r[1], true); });
+}
+// mode: 'before' / 'after' (next to column t, in its row) or 'rowstart' (alone before column t -- or at the end when t is null -- on a new row)
+function rwMoveColumn(src, mode, t) {
+  var order = rwColumnNumbers(), sorted = order.slice();
+  if (src === t) return;
+  rwColLeaveRow(order, src);
+  var rest = order.filter(function(x) { return x !== src; });
+  if (mode === 'rowstart') {
+    var at = t === null ? rest.length : rest.indexOf(t);
+    rest.splice(at, 0, src);
+    rwSetColFlag(src, true);
+    if (t !== null) rwSetColFlag(t, true);
+  } else {
+    var rowsNow = rwColRowsLayout(rest), tFirst = rowsNow.some(function(r) { return r[0] === t; });
+    rest.splice(rest.indexOf(t) + (mode === 'after' ? 1 : 0), 0, src);
+    if (mode === 'before' && tFirst) { rwSetColFlag(src, rwColFlag(t)); rwSetColFlag(t, false); } else rwSetColFlag(src, false);
+  }
+  // renumber so the order on screen is the order of the numbers (same set of numbers, dealt out again)
+  var map = {};
+  rest.forEach(function(oldN, i) { map[oldN] = sorted[i]; });
+  runwayWork.forEach(function(r) {
+    var m = String(r.metric || '').match(RW_COL_ROW);
+    if (m && map[parseInt(m[1], 10)] !== undefined) r.metric = 'Runway Column ' + map[parseInt(m[1], 10)] + m[2].toLowerCase() + (m[3] ? ' Subtext' : '');
+    var tt = String(r.track_against || '').match(RW_COL_REF);
+    if (tt && RW_STEP_ROW.test(String(r.metric || '')) && map[parseInt(tt[1], 10)] !== undefined) r.track_against = 'Runway Column ' + map[parseInt(tt[1], 10)] + tt[2].toLowerCase();
+  });
   renderRunway();
 }
 
@@ -15287,6 +15351,12 @@ function wireRunwayEditing() {
   // Ctrl/Cmd+S on the Runway tab while editing: save what changed, then leave edit mode (if the save fails
   // the error shows and editing carries on). The browser's own "save page" is suppressed.
   document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && state.activeTab === 'runway' && runwayEditing() && !e.defaultPrevented) {   // Esc = the X button
+      e.preventDefault();
+      if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+      runwayCancelEdit();
+      return;
+    }
     if (!(e.ctrlKey || e.metaKey) || e.altKey || String(e.key).toLowerCase() !== 's') return;
     if (state.activeTab !== 'runway' || !runwayEditing()) return;
     e.preventDefault();
@@ -15315,7 +15385,7 @@ function wireRunwayEditing() {
     return { sec: sec, el: last, key: last.getAttribute('data-key'), before: false };
   }
   panel.addEventListener('dragstart', function(e) {
-    var g = e.target.closest && e.target.closest('.rw-grip');
+    var g = e.target.closest && e.target.closest('.rw-grip:not(.rw-col-grip)');
     if (!g || !runwayEditing()) return;
     var stepEl = g.closest('.runway-step');
     dragKey = stepEl && stepEl.getAttribute('data-key');
@@ -15341,6 +15411,58 @@ function wireRunwayEditing() {
     e.preventDefault();
     clearDrop(); dragKey = null;
     if (t) rwMoveStep(key, t.key, t.before, t.sec.getAttribute('data-col') || '');
+  });
+  // Columns: drag by the grip in a column header onto the left / right half of another column (next to it, same row), or onto a
+  // "new row" strip between rows (alone on a row).
+  var dragCol = null;
+  function colClear() {
+    var marked = panel.querySelectorAll('.rw-drop-before-col, .rw-drop-after-col, .rw-drop-over');
+    for (var i = 0; i < marked.length; i++) marked[i].classList.remove('rw-drop-before-col', 'rw-drop-after-col', 'rw-drop-over');
+  }
+  function colTarget(e) {
+    var strip = e.target.closest && e.target.closest('.runway-rowdrop');
+    if (strip) return { mode: 'rowstart', el: strip, t: strip.getAttribute('data-before') === '' ? null : parseInt(strip.getAttribute('data-before'), 10) };
+    var col = e.target.closest && e.target.closest('.runway-col[data-colnum]');
+    if (!col) return null;
+    var t = parseInt(col.getAttribute('data-colnum'), 10);
+    if (t === dragCol) return null;
+    var r = col.getBoundingClientRect();
+    return { mode: e.clientX < r.left + r.width / 2 ? 'before' : 'after', el: col, t: t };
+  }
+  panel.addEventListener('dragstart', function(e) {
+    var g = e.target.closest && e.target.closest('.rw-col-grip');
+    if (!g || !runwayEditing()) return;
+    var col = g.closest('.runway-col[data-colnum]');
+    if (!col) { e.preventDefault(); return; }
+    dragCol = parseInt(col.getAttribute('data-colnum'), 10);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', 'runway-column');
+    if (e.dataTransfer.setDragImage) e.dataTransfer.setDragImage(col.querySelector('.runway-col-hdr') || col, 24, 16);
+    document.documentElement.classList.add('rw-col-dragging');
+    setTimeout(function() { col.classList.add('rw-col-dragging'); }, 0);
+  });
+  panel.addEventListener('dragover', function(e) {
+    if (dragCol === null) return;
+    var t = colTarget(e);
+    colClear();
+    if (!t) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    t.el.classList.add(t.mode === 'rowstart' ? 'rw-drop-over' : (t.mode === 'before' ? 'rw-drop-before-col' : 'rw-drop-after-col'));
+  });
+  panel.addEventListener('drop', function(e) {
+    if (dragCol === null) return;
+    var t = colTarget(e), src = dragCol;
+    e.preventDefault();
+    colClear(); dragCol = null;
+    document.documentElement.classList.remove('rw-col-dragging');
+    if (t) rwMoveColumn(src, t.mode, t.t);
+  });
+  panel.addEventListener('dragend', function() {
+    dragCol = null; colClear();
+    document.documentElement.classList.remove('rw-col-dragging');
+    var d = panel.querySelectorAll('.rw-col-dragging');
+    for (var i = 0; i < d.length; i++) d[i].classList.remove('rw-col-dragging');
   });
   panel.addEventListener('dragend', function() {
     dragKey = null; clearDrop();
@@ -15465,6 +15587,7 @@ function getRunwayData() {
       if (!colDefs[hdrKey]) colDefs[hdrKey] = { header: '', subtext: '' };
       colDefs[hdrKey].header = c.id || '';
       colDefs[hdrKey].headerId = c.dbId || null;
+      colDefs[hdrKey].newRow = /^new row$/i.test(c.dateRange || '');   // this column starts a new row (kept in the header row's Date Range)
     } else if ((mSub = usedFor.match(RUNWAY_SUBTEXT_RE))) {
       var sn = parseInt(mSub[1], 10);
       if (!byNum[sn]) byNum[sn] = { kind: 'num', num: sn, title: '', tag: null, subtext: '', col: null, amount: '', targetYears: null };
@@ -15570,7 +15693,7 @@ function getRunwayData() {
     var sec = sectionsByKey[sectionOrder[oi]];
     var def = colDefs[sec.key];
     var section = { header: (def && def.header) ? def.header : sec.raw, subtext: def ? def.subtext : '', steps: sec.steps,
-                    headerId: def ? def.headerId || null : null, subtextId: def ? def.subtextId || null : null, raw: sec.raw, num: sec.num, letter: sec.letter };
+                    headerId: def ? def.headerId || null : null, subtextId: def ? def.subtextId || null : null, raw: sec.raw, num: sec.num, letter: sec.letter, newRow: !!(def && def.newRow) };
     if (sec.num !== null) {
       if (!columnsByNum[sec.num]) { columnsByNum[sec.num] = []; columnNums.push(sec.num); }
       columnsByNum[sec.num].push({ letter: sec.letter, section: section });
@@ -15686,7 +15809,7 @@ function renderRunway() {
 
   function renderSection(sec) {
     var colCtl = (runwayEditing() && sec.first && sec.num !== null && sec.num !== undefined)
-      ? '<div class="rw-ctl rw-ctl-col"><button type="button" data-act="add-col" data-col="' + sec.num + '" title="Add a column after this one">+ column</button>'
+      ? '<div class="rw-ctl rw-ctl-col"><span class="rw-grip rw-col-grip" draggable="true" title="Drag to reorder columns, or onto a new row">\u2807\u2807</span><button type="button" data-act="add-col" data-col="' + sec.num + '" title="Add a column after this one">+ column</button>'
         + '<button type="button" data-act="del-col" data-col="' + sec.num + '" title="Remove this column (its steps move to the neighbouring column)">\u00d7 column</button></div>' : '';
     var h = '<div class="runway-col-hdr">' + colCtl + rwTxt(sec.header, sec.headerId, 'text', 'Section title') + '</div>'
       + (sec.subtext || (runwayEditing() && sec.subtextId) ? '<div class="runway-col-subtext">' + rwTxt(sec.subtext, sec.subtextId, 'text', 'Add subtext', true) + '</div>' : '');
@@ -15742,16 +15865,31 @@ function renderRunway() {
 
   var phasesHtml = renderRunwayPhasesHtml(data);
   var html = '';
-  for (var ci = 0; ci < data.columns.length; ci++) {
-    var sections = data.columns[ci];
+  function colHtmlOf(sections) {
     var colHtml = '';
     for (var se = 0; se < sections.length; se++) {
       sections[se].first = se === 0;
       colHtml += '<div class="runway-section" data-col="' + escAttr(sections[se].raw || '') + '">' + renderSection(sections[se]) + '</div>';
     }
-    html += '<div class="runway-col">' + colHtml + '</div>';
+    var num = sections[0].num;
+    return '<div class="runway-col"' + (num !== null && num !== undefined ? ' data-colnum="' + num + '"' : '') + '>' + colHtml + '</div>';
   }
-  // Life Phases close out the tab: a full-width flex item after every column, so it lands on its own line at the bottom.
+  // Columns flow into rows of up to RW_COLS_PER_ROW, each row filling the full width; a column flagged "new row"
+  // starts a row of its own choosing. Rows are real elements so columns can be dragged between them.
+  var rows = [], curRow = [];
+  data.columns.forEach(function(sections) {
+    if (curRow.length && (sections[0].newRow || curRow.length >= RW_COLS_PER_ROW)) { rows.push(curRow); curRow = []; }
+    curRow.push(sections);
+  });
+  if (curRow.length) rows.push(curRow);
+  function rowDrop(beforeNum) { return runwayEditing() ? '<div class="runway-rowdrop" data-before="' + (beforeNum === null ? '' : beforeNum) + '">Drop here to start a new row</div>' : ''; }
+  rows.forEach(function(r) {
+    var firstNum = r[0][0].num;
+    html += rowDrop(firstNum === undefined ? null : firstNum);
+    html += '<div class="runway-row">' + r.map(colHtmlOf).join('') + '</div>';
+  });
+  html += rowDrop(null);
+  // Life Phases close out the tab, after every row of columns.
   if (phasesHtml) html += phasesHtml;
   body.innerHTML = html;
 }
