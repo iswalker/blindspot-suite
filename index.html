@@ -1586,7 +1586,7 @@ html.rw-tab-active #tab-row { z-index: 30; }
 #runway-body.rw-editing .runway-step.rw-drop-after { box-shadow: 0 3px 0 #1565c0; }
 .rw-edit { white-space: pre-wrap; min-width: 1.5em; display: inline-block; vertical-align: baseline; }
 .rw-edit.multi { display: block; }
-.runway-amt-pill .rw-edit, .runway-tag-pill .rw-edit { min-width: 3em; }
+.runway-amt-pill .rw-edit, .runway-tag-pill .rw-edit, .runway-blue-pill .rw-edit { min-width: 3em; }
 .rw-edit { outline: 1px dashed #90a4ae; outline-offset: 2px; border-radius: 3px; cursor: text; }
 .rw-edit:focus { outline: 2px solid #1565c0; background: #f4f8ff; }
 .rw-edit.dirty { background: #fff8e1; }
@@ -1616,6 +1616,11 @@ html.rw-tab-active #tab-row { z-index: 30; }
 }
 .runway-title { font-size: 18px; font-weight: 700; color: #222; line-height: 1.3; }
 .runway-subtext { font-size: 13px; color: #888; margin-top: 3px; line-height: 1.35; }
+.runway-blue-pill {
+  display: inline-block; padding: 2px 8px; border-radius: 12px;
+  background: #e3f0ff; color: #1565c0; font-weight: 600; font-size: 14px;
+  margin-left: 4px; vertical-align: middle;
+}
 .runway-amt-pill {
   display: inline-block; padding: 2px 8px; border-radius: 12px;
   background: #e8f5e9; color: #2e7d32; font-weight: 600; font-size: 14px;
@@ -15147,6 +15152,7 @@ function wireRunwayEditing() {
     var val = rwNormText(rwReadEl(el, multi), multi);
     if (field === 'text') row.text = val;
     else if (field === 'amount') row.amount = val;
+    else if (field === 'blue') row.date_range = val;
     else if (field === 'title' || field === 'tag') {
       var box = el.closest('.runway-title'), tEl = box && box.querySelector('[data-field="title"]'), gEl = box && box.querySelector('[data-field="tag"]');
       var title = tEl ? rwNormText(rwReadEl(tEl, false), false) : '', tag = gEl ? rwNormText(rwReadEl(gEl, false), false).replace(/^\[|\]$/g, '').trim() : '';
@@ -15394,6 +15400,7 @@ function getRunwayData() {
       byNum[tn].tag = tagM1 ? tagM1[1] : null;
       byNum[tn].tagPrefix = tagM1 ? tagM1[0] : '';
       byNum[tn].titleId = c.dbId || null;
+      byNum[tn].blue = c.dateRange || '';            // blue tag: kept in the title row's Date Range column (Track Against names the column)
       byNum[tn].title = tagM1 ? (c.id || '').slice(tagM1[0].length) : (c.id || '');
       byNum[tn].col = runwayColKey(c.trackAgainstRaw, legacyOrder);
       // Shown as-is (plain text), not reformatted -- the Amount column isn't always a dollar figure.
@@ -15406,6 +15413,7 @@ function getRunwayData() {
       byAlpha[ta].tag = tagM2 ? tagM2[1] : null;
       byAlpha[ta].tagPrefix = tagM2 ? tagM2[0] : '';
       byAlpha[ta].titleId = c.dbId || null;
+      byAlpha[ta].blue = c.dateRange || '';
       byAlpha[ta].title = tagM2 ? (c.id || '').slice(tagM2[0].length) : (c.id || '');
       byAlpha[ta].col = runwayColKey(c.trackAgainstRaw, legacyOrder);
       byAlpha[ta].amount = c.amountRaw || '';
@@ -15600,6 +15608,9 @@ function renderRunway() {
         circleHtml = '<div class="runway-circle rw-' + stepState + '" data-step="' + s.num + '"' + (runwayEditing() || runwayDbRows() ? ' title="Click to change status"' : '') + '>' + icon + '</div>';
       }
       var editing = runwayEditing() && s.titleId;
+      // Blue tag (Date Range column), listed first, then the green amount, then the grey tag (Factors).
+      var bluePill = editing ? ' <span class="runway-blue-pill">' + rwTxt(s.blue || '', s.titleId, 'blue', 'blue tag') + '</span>'
+        : (s.blue ? ' <span class="runway-blue-pill">' + escAttr(s.blue) + '</span>' : '');
       var amtPill = editing ? ' <span class="runway-amt-pill">' + rwTxt(s.amount, s.titleId, 'amount', 'amount') + '</span>'
         : (s.amount ? ' <span class="runway-amt-pill">' + escAttr(s.amount) + '</span>' : '');
       // A target date in the Unit column becomes an orange "X.Yy" pill (years from today),
@@ -15616,7 +15627,7 @@ function renderRunway() {
         +   circleHtml
         +   '<div class="runway-step-num">' + (s.kind === 'alpha' ? s.displayLetter : s.displayNum) + '</div>'
         +   '<div class="runway-step-text">'
-        +     '<div class="runway-title">' + rwTxt(s.title, s.titleId, 'title', 'Step title') + amtPill + datePill + tagPill + '</div>'
+        +     '<div class="runway-title">' + rwTxt(s.title, s.titleId, 'title', 'Step title') + bluePill + amtPill + datePill + tagPill + '</div>'
         +     (s.subtext || (runwayEditing() && s.subtextId) ? '<div class="runway-subtext">' + rwTxt(s.subtext, s.subtextId, 'text', 'Add subtext', true) + '</div>' : '')
         +   '</div>'
         + '</div>';
