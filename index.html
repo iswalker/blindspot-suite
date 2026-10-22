@@ -15407,7 +15407,7 @@ function getRunwayData() {
       byNum[tn].tag = tagM1 ? tagM1[1] : null;
       byNum[tn].tagPrefix = tagM1 ? tagM1[0] : '';
       byNum[tn].titleId = c.dbId || null;
-      byNum[tn].blue = c.dateRange || '';            // blue tag: kept in the title row's Date Range column (Track Against names the column)
+      byNum[tn].blue = c.dateRange || '';            // target (the blue pill): kept in the title row's Date Range column (Track Against names the column)
       byNum[tn].title = tagM1 ? (c.id || '').slice(tagM1[0].length) : (c.id || '');
       byNum[tn].col = runwayColKey(c.trackAgainstRaw, legacyOrder);
       // Shown as-is (plain text), not reformatted -- the Amount column isn't always a dollar figure.
@@ -15617,8 +15617,8 @@ function renderRunway() {
         circleHtml = '<div class="runway-circle rw-' + stepState + '" data-step="' + s.num + '"' + (runwayEditing() || runwayDbRows() ? ' title="Click to change status"' : '') + '>' + icon + '</div>';
       }
       var editing = runwayEditing() && s.titleId;
-      // Blue tag (Date Range column), listed first, then the green amount, then the grey tag (Factors).
-      var bluePill = editing ? ' <span class="runway-blue-pill">' + rwTxt(s.blue || '', s.titleId, 'blue', 'blue tag') + '</span>'
+      // Target (blue pill, Date Range column), listed first, then the green amount, then the grey tag (Factors).
+      var bluePill = editing ? ' <span class="runway-blue-pill">' + rwTxt(s.blue || '', s.titleId, 'blue', 'target') + '</span>'
         : (s.blue ? ' <span class="runway-blue-pill">' + escAttr(s.blue) + '</span>' : '');
       var amtPill = editing ? ' <span class="runway-amt-pill">' + rwTxt(s.amount, s.titleId, 'amount', 'amount') + '</span>'
         : (s.amount ? ' <span class="runway-amt-pill">' + escAttr(s.amount) + '</span>' : '');
