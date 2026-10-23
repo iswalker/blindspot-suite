@@ -1550,7 +1550,9 @@ select.um-in { width: 100%; }
   overflow-y: auto; z-index: 300; padding: 6px 0;
 }
 #runway-tagline { font-size: 15px; color: #555; margin: 2px 0; line-height: 1.4; }
-#runway-panel .panel-hdr { margin-bottom: 26px; }
+#runway-panel .panel-hdr { margin-bottom: 26px; flex-wrap: nowrap; align-items: flex-start; }
+#runway-tagline { flex: 1 1 0; min-width: 0; }
+#runway-hdr-right { flex: none; }
 #runway-body { padding-bottom: 50px; }
 .runway-row { display: flex; flex-wrap: wrap; gap: 0 48px; margin-bottom: 48px; }
 .runway-rowdrop { display: none; margin: 0 0 16px; padding: 8px 0; text-align: center; font-size: 14px; color: #1565c0; border: 2px dashed #90caf9; border-radius: 8px; background: #f4f9ff; }
@@ -14162,7 +14164,7 @@ function getNwBirthYear() {
 // own columns. Once an area has rows there they win over the Google Sheet's; until then the sheet is
 // still used, and a banner offers to move it across. The last copy is cached in localStorage so the
 // tab paints instantly (and still works offline); the server is asked on first use each page load.
-var dbCfg = { rows: {}, all: [], status: {} };   // all = every API row; rows[section] = those of one area; status.all = loading | ready | unavailable | error
+var dbCfg = { rows: {}, all: [], status: {}, error: null };   // all = every API row; rows[section] = those of one area; status.all = loading | ready | unavailable | error
 
 function dbCfgBudget() { return localStorage.getItem('ynab-budget-id') || ''; }
 
@@ -14210,9 +14212,12 @@ function loadDbConfig(force) {
   return dbCfgRequest('GET', { budgetId: budget }).then(function(res) {
     dbCfgStore(res.rows || []);
     dbCfg.status.all = 'ready';
+    dbCfg.error = null;
   }).catch(function(e) {
     dbCfg.status.all = e && e.code === 'not_configured' ? 'unavailable' : 'error';
+    dbCfg.error = { code: e && e.code, message: (e && e.message) || 'request failed' };
   }).then(function() {
+    if (dbCfg.status.all === 'error' && state.activeTab === 'runway') renderRunway();   // say why the Runway is empty
     if (dbCfg.status.all === 'ready' && usageSig() !== usageBefore) {
       applyConfigOverlays();
       if (state.data) refreshYnab();            // config the cached data was built from has changed
@@ -15379,6 +15384,10 @@ function wireRunwayEditing() {
     var circ = e.target.closest('.runway-circle[data-step]');
     if (circ) { rwCycleStep(parseInt(circ.getAttribute('data-step'), 10)); renderRunway(); }
   });
+  panel.addEventListener('click', function(e) {
+    if (e.target.closest('#runway-retry-btn')) { loadDbConfig(true).then(function() { renderRunway(); }); }
+    else if (e.target.closest('#runway-relogin-btn')) { ynabClearLogin(); showUpload(); }
+  });
   var pen = document.getElementById('runway-edit-btn');
   if (pen) pen.addEventListener('click', function() { if (runwayEditing()) runwayFinishEdit(); else runwaySetEdit(!runwayEdit); });
   var xBtn = document.getElementById('runway-edit-cancel');
@@ -15857,9 +15866,16 @@ function renderRunway() {
     return;
   }
   if (!data.steps.length) {
-    body.innerHTML = '<div id="runway-empty">Configure Config.csv rows with Metric = "Runway Step &lt;n&gt;" '
-      + '(Text = title), "Runway Step &lt;n&gt; Subtext" (Text = subtext), and "Runway Step" '
-      + '(Amount = current step) to see your Runway.</div>';
+    if (dbCfg.status.all === 'error') {        // the database could not be read: say so rather than implying nothing is set up
+      var expired = dbCfg.error && (dbCfg.error.code === 401 || /sign-in has expired/i.test(dbCfg.error.message || ''));
+      body.innerHTML = '<div id="runway-empty"><strong>Couldn\u2019t load your Runway from the database.</strong> ' + escHtml((dbCfg.error && dbCfg.error.message) || '')
+        + '<div style="margin-top:12px"><button type="button" id="runway-retry-btn" class="um-btn">Try again</button>'
+        + (expired ? ' <button type="button" id="runway-relogin-btn" class="um-btn">Log in to YNAB</button>' : '') + '</div></div>';
+      return;
+    }
+    body.innerHTML = '<div id="runway-empty">No Runway found. ' + (dbCfg.status.all === 'unavailable' ? 'The database isn\u2019t connected on this deployment, so only Config sheet rows can supply it: '
+      : 'It lives in the database once moved there; until then it is read from the Config sheet: ') + 'rows with Metric = "Runway Step &lt;n&gt;" '
+      + '(Text = title), "Runway Step &lt;n&gt; Subtext" (Text = subtext) and "Runway Step" (Amount = current step).</div>';
     return;
   }
 
