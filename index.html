@@ -1521,7 +1521,7 @@ select.um-in { width: 100%; }
 }
 
 /* ---- Runway ---- */
-#runway-hdr-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+#runway-hdr-right { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-left: auto; position: relative; min-width: 76px; }
 #runway-factors-wrap { position: relative; }
 #runway-edit-btn, #runway-edit-cancel {
   position: relative; width: 34px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
@@ -1532,10 +1532,11 @@ select.um-in { width: 100%; }
 #runway-edit-btn.active { background: #1565c0; border-color: #1565c0; color: #fff; }
 #runway-edit-btn.active:hover { background: #0f5199; }
 #runway-edit-btn.dirty::after { content: ''; position: absolute; top: -4px; right: -4px; width: 9px; height: 9px; border-radius: 50%; background: #f59e0b; border: 2px solid #fff; box-sizing: content-box; }
-#runway-edit-msg { font-size: 14px; color: #555; }
+#runway-edit-msg { position: absolute; right: 0; top: 36px; z-index: 5; font-size: 14px; color: #555; white-space: nowrap; }
+#runway-edit-msg:empty { display: none; }
 .rw-add-pill { height: 28px; padding: 0 9px; font-size: 13px; color: #555; background: #fff; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; white-space: nowrap; }
 .rw-add-pill:hover { background: #eef2fb; border-color: #90a4ae; }
-#runway-edit-msg.rw-fail { color: #c62828; font-weight: 600; max-width: 46ch; text-align: right; }
+#runway-edit-msg.rw-fail { color: #c62828; font-weight: 600; white-space: normal; width: max-content; max-width: min(46ch, 80vw); text-align: right; background: #fff; padding: 6px 10px; border: 1px solid #e5a5a0; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.12); }
 #runway-factors-btn {
   padding: 6px 12px; background: #fff; border: 1px solid #ccc;
   border-radius: 5px; font-size: 15px; cursor: pointer; color: #555; white-space: nowrap;
@@ -1629,6 +1630,9 @@ html.rw-tab-active #tab-row { z-index: 30; }
 .runway-section:not(:first-child) { margin-top: 32px; }
 .runway-step { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 26px; }
 .runway-step:last-child { margin-bottom: 0; }
+/* The status circle sits under the step number, so the text beside them can use the width. */
+.runway-step-lead { flex: none; width: 44px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.runway-step-lead .runway-step-num { margin: 0; }
 .runway-circle {
   flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
@@ -15924,8 +15928,10 @@ function renderRunway() {
         + '<button type="button" data-act="del-step" data-key="' + escAttr(s.titleId) + '" title="Remove this step">\u00d7</button></div>' : '';
       h += '<div class="runway-step"' + (editing ? ' data-key="' + escAttr(s.titleId) + '"' : '') + '>'
         +   ctl
-        +   circleHtml
-        +   '<div class="runway-step-num">' + (s.kind === 'alpha' ? s.displayLetter : s.displayNum) + '</div>'
+        +   '<div class="runway-step-lead">'
+        +     '<div class="runway-step-num">' + (s.kind === 'alpha' ? s.displayLetter : s.displayNum) + '</div>'
+        +     circleHtml
+        +   '</div>'
         +   '<div class="runway-step-text">'
         +     '<div class="runway-title">' + rwTxt(s.title, s.titleId, 'title', 'Step title') + bluePill + amtPill + datePill + tagPill + '</div>'
         +     (s.subtext || (runwayEditing() && s.subtextId) ? '<div class="runway-subtext">' + rwTxt(s.subtext, s.subtextId, 'text', 'Add subtext', true) + '</div>' : '')
