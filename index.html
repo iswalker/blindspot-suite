@@ -2195,6 +2195,9 @@ html.rw-tab-active #tab-row { z-index: 30; }
                 <div id="as-acct-filter-panel"></div>
               </div>
             </div>
+            <div class="settings-row">
+              <button class="config-picker-btn" id="usage-savings-btn" style="width:100%;justify-content:center">Manage Savings Reserve</button>
+            </div>
           </div>
           <div class="settings-tab-block" data-tab="home">
             <div class="settings-divider"></div>
@@ -3899,6 +3902,7 @@ function fetchYnabData(apiKey, budgetId) {
 
   var catIdToGroup   = {};
   var catIdToName    = {};
+  var catBalNow      = {};   // { catId: Available right now } -- every category, whatever its group (Account Summary savings reserve)
   var groupPivot     = {};
   var catPivot       = {};
   var groupCats      = {};
@@ -3945,6 +3949,7 @@ function fetchYnabData(apiKey, budgetId) {
       for (var c = 0; c < cats.length; c++) {
         catIdToGroup[cats[c].id] = cg.name;
         catIdToName[cats[c].id]  = cats[c].name;
+        if (!cats[c].deleted) catBalNow[cats[c].id] = (cats[c].balance || 0) / 1000;
         // Pre-seed groupCats in YNAB display order; months loop will skip duplicates
         if (!cats[c].deleted) {
           if (!groupCats[cg.name]) groupCats[cg.name] = [];
@@ -4540,7 +4545,7 @@ function fetchYnabData(apiKey, budgetId) {
                groupPivot: groupPivot, catPivot: catPivot, activeCats: activeCats,
                regTxns: regTxns, allAccounts: allAccounts,
                allAccountsInfo: allAccountsInfo, lwAccounts: lwAccounts,
-               nwAccounts: nwAccounts, acctTxns: acctTxns, acctTxnsTracking: acctTxnsTracking, acctTxnsRed: acctTxnsRed, acctTxnsContrib: acctTxnsContrib, acctTrkTxns: acctTrkTxns, acctTxnsList: acctTxnsList, catIdTxns: catIdTxns, catIdAllTxns: catIdAllTxns, catIdToName: catIdToName, catIdToGroup: catIdToGroup,
+               nwAccounts: nwAccounts, acctTxns: acctTxns, acctTxnsTracking: acctTxnsTracking, acctTxnsRed: acctTxnsRed, acctTxnsContrib: acctTxnsContrib, acctTrkTxns: acctTrkTxns, acctTxnsList: acctTxnsList, catIdTxns: catIdTxns, catIdAllTxns: catIdAllTxns, catIdToName: catIdToName, catIdToGroup: catIdToGroup, catBalNow: catBalNow,
                cancelOutByMonth: cancelOutByMonth,
                pendingTxns: pendingTxns,
                upcomingRenewals: upcomingRenewals,
@@ -8307,7 +8312,7 @@ function renderAsCards(accts) {
   if (!el) return;
   if (!accts) { el.innerHTML = ''; return; }
   var t = {}, net = 0;
-  accts.forEach(function(a) { t[a.group] = (t[a.group] || 0) + a.balance; net += a.balance; });
+  accts.forEach(function(a) { t[a.group] = (t[a.group] || 0) + asCounted(a); net += asCounted(a); });
   var liquid = (t.Cash || 0) + (t.Credit || 0) + (t.Savings || 0);
   var accessible = liquid + (t.Investments || 0) * AS_INVEST_HAIRCUT;
   var cards = [
@@ -8377,6 +8382,41 @@ function asSplitRows(accts) {
       out.push(a);
     }
   });
+  out.sort(function(x, y) { return Math.abs(y.balance) - Math.abs(x.balance); });
+  return out;
+}
+
+// Savings reserve: money set aside in a YNAB category but sitting in a Cash account. Each "Savings Reserve N"
+// config row names the account (Text) and the category (Associated Category ID). The account keeps its full
+// balance in its own group, noted with how much is reserved; the reserved amount (the category's Available,
+// never below zero) is counted in Savings instead, as a line of its own, so group totals move by that amount.
+function asSavingsRules() {
+  var out = [];
+  (state.catConfig || []).forEach(function(c) {
+    if (!/^savings reserve( \d+)?$/i.test(String(c.usedFor || '').trim())) return;
+    var acct = String(c.id || '').split(',')[0].trim(), cat = (c.assocCatIds || [])[0];
+    if (acct && cat) out.push({ acctId: acct, catId: cat });
+  });
+  return out;
+}
+function asCounted(a) { return a.balance - (a.reserved || 0); }
+function asApplySavings(accts) {
+  var rules = asSavingsRules(), d = state.data || {};
+  if (!rules.length || !d.catBalNow) return accts;
+  var out = accts.slice(), added = [];
+  rules.forEach(function(r) {
+    var bal = d.catBalNow[r.catId];
+    if (bal === undefined || !(bal > 0)) return;
+    for (var i = 0; i < out.length; i++) {
+      var a = out[i];
+      if (a.id !== r.acctId || a.derived || a.note || a.group === 'Savings') continue;
+      var amt = Math.round(bal * 100) / 100;
+      out[i] = Object.assign({}, a, { reserved: (a.reserved || 0) + amt });
+      added.push({ id: a.id, name: (d.catIdToName || {})[r.catId] || 'Savings', balance: amt, group: 'Savings', note: 'reserved in ' + a.name, derived: true });
+      break;
+    }
+  });
+  out = out.concat(added);
   out.sort(function(x, y) { return Math.abs(y.balance) - Math.abs(x.balance); });
   return out;
 }
@@ -8467,7 +8507,7 @@ function renderAcctSummary() {
   populateAsAccountFilter();
   var accts = asOpenAccounts(), by = {};
   var allAccts = accts;
-  accts = asSplitRows(accts);
+  accts = asApplySavings(asSplitRows(accts));
   renderAsCards(accts);
   accts.forEach(function(a) { (by[a.group] = by[a.group] || []).push(a); });
   var html = '';
@@ -8479,7 +8519,7 @@ function renderAcctSummary() {
     var list = by[g];
     if (!list || !list.length) return;
     var total = 0;
-    list.forEach(function(a) { total += a.balance; });
+    list.forEach(function(a) { total += asCounted(a); });
     // Unassigned is where new accounts wait, so it starts open until the user chooses otherwise
     var open = state.acctSummaryOpen[g] === undefined ? g === AS_UNASSIGNED : !!state.acctSummaryOpen[g];
     html += '<div class="as-group' + (open ? ' open' : '') + '" data-grp="' + escAttr(g) + '">'
@@ -8497,7 +8537,8 @@ function renderAcctSummary() {
           return '<label class="as-row' + (sel && !a.derived ? ' sel' : '') + (a.derived ? ' derived' : '') + '">'
             + (a.derived ? '<span class="as-chk-spacer"></span>' : '<input type="checkbox" class="as-chk" data-id="' + escAttr(a.id) + '"' + (sel ? ' checked' : '') + '>')
             + '<span class="as-aname" title="' + escAttr(label) + '">' + escHtml(a.name) + (a.note ? '<span class="as-note"> \u00B7 ' + escHtml(a.note) + '</span>' : '') + '</span>'
-            + '<span class="as-abal' + (a.balance < 0 ? ' neg' : '') + '">' + asFmtMoney(a.balance) + '</span></label>';
+            + '<span class="as-abal' + (a.balance < 0 ? ' neg' : '') + '">' + asFmtMoney(a.balance)
+            + (a.reserved ? '<span class="as-note"> (' + asFmtMoney(a.reserved) + ' reserved)</span>' : '') + '</span></label>';
         }).join('')
       + '</div></div>';
   });
@@ -14338,12 +14379,13 @@ function usageKind(r) {
   var m = String(r.metric || '');
   if (/^expiration \d+$/i.test(m)) return 'expiration';
   if (/^card transactions \d+$/i.test(m)) return 'card';
+  if (/^savings reserve \d+$/i.test(m)) return 'savings';
   return r.type;
 }
 function usagePayeeOf(r) { var m = String(r.track_against || '').match(/^\s*payee\s*=\s*['"]?([^'"]*?)['"]?\s*$/i); return m ? m[1].trim() : ''; }
 var UM_UNITS = ['days', 'weeks', 'months', 'years'];
 function usageNextRule(kind) {
-  var re = kind === 'expiration' ? /^expiration (\d+)$/i : /^card transactions (\d+)$/i, n = 0;
+  var re = kind === 'expiration' ? /^expiration (\d+)$/i : kind === 'savings' ? /^savings reserve (\d+)$/i : /^card transactions (\d+)$/i, n = 0;
   usageWork.forEach(function(r) { var m = String(r.metric || '').match(re); if (m) n = Math.max(n, parseInt(m[1], 10)); });
   return n + 1;
 }
@@ -14432,7 +14474,7 @@ function renderUsageModal() {
       });
       h += '</div>';
     });
-    h += umRulesHtml(ch);
+    h += umSavingsHtml(ch) + umRulesHtml(ch);
   }
   body.innerHTML = h;
   var msg = document.getElementById('um-msg');
@@ -14441,6 +14483,25 @@ function renderUsageModal() {
   if (foot) foot.style.display = usageMigrated() ? '' : 'none';
   if (sv) sv.disabled = !dirty;
   if (cc) cc.textContent = dirty ? 'Discard' : 'Close';
+}
+// Account Summary tab: "Savings Reserve N" rows. Text = the Cash account holding the money, Associated Category ID = the
+// category that marks how much of it is savings.
+function umSavingsHtml(ch) {
+  var rows = usageWork.filter(function(r) { return usageKind(r) === 'savings'; });
+  rows.sort(function(a, b) { return parseInt(String(a.metric).match(/\d+/)[0], 10) - parseInt(String(b.metric).match(/\d+/)[0], 10); });
+  var h = '<div class="um-sec" id="um-sec-savings"><div class="um-sec-t">Savings reserve</div>'
+    + '<div class="um-hint um-hint-top">Account Summary: money kept in a category but held in a Cash account. The account still shows its full balance, noted with the amount reserved; that amount (the category’s Available) is counted under Savings instead.</div>';
+  rows.forEach(function(r) {
+    var accts = '<option value="">Choose an account…</option>', seen = false;
+    ch.accounts.forEach(function(a) { if (a.id === r.text) seen = true; accts += '<option value="' + escAttr(a.id) + '"' + (a.id === r.text ? ' selected' : '') + '>' + escHtml(a.name + (a.closed ? ' (closed)' : '')) + '</option>'; });
+    if (r.text && !seen) accts += '<option value="' + escAttr(r.text) + '" selected>Unknown account (removed from YNAB?)</option>';
+    h += '<div class="um-row um-rule"><div class="um-lbl">' + escHtml(r.metric) + '</div><div class="um-ctl">'
+      + '<div class="um-sub"><span class="um-sublbl">Cash account</span><select class="um-in" data-key="' + escAttr(r._key) + '" data-f="text">' + accts + '</select></div>'
+      + '<div class="um-sub"><span class="um-sublbl">Savings category</span><select class="um-in" data-key="' + escAttr(r._key) + '" data-f="assoc_category_ids">' + umCategoryOptions(ch, String(r.assoc_category_ids || '').split(',')[0].trim()) + '</select></div>'
+      + '<button type="button" class="um-btn um-rm" data-act="del" data-key="' + escAttr(r._key) + '">Remove</button>'
+      + '</div></div>';
+  });
+  return h + '<div class="um-row"><div class="um-lbl"></div><div class="um-ctl"><button type="button" class="um-btn um-add" data-act="add-rule" data-kind="savings">+ Add savings reserve</button></div></div></div>';
 }
 // Arbitrage tab: "Expiration N" (points expiry) and "Card Transactions N" (debit card widget) rules.
 function umRulesHtml(ch) {
@@ -14516,7 +14577,10 @@ function usageSaveEdits() {
   var badMsg = '';
   usageWork.forEach(function(r) {
     var kind = usageKind(r), rv = String(r.amount == null ? '' : r.amount).trim();
-    if (!badMsg && kind === 'expiration') {
+    if (!badMsg && kind === 'savings') {
+      if (!String(r.text || '').trim()) badMsg = r.metric + ': choose the Cash account.';
+      else if (!String(r.assoc_category_ids || '').trim()) badMsg = r.metric + ': choose the savings category.';
+    } else if (!badMsg && kind === 'expiration') {
       if (!String(r.text || '').trim()) badMsg = r.metric + ': choose an account.';
       else if (!/^\d+(\.0+)?$/.test(rv) || +rv < 1) badMsg = r.metric + ': enter how long until it expires as a whole number, e.g. 18.';
     } else if (!badMsg && kind === 'card') {
@@ -14567,6 +14631,14 @@ function wireUsageModal() {
     openUsageModal();
     var sec = document.getElementById('um-sec-rules'); if (sec) sec.scrollIntoView({ block: 'start' });
   });
+  var savingsBtn = document.getElementById('usage-savings-btn');
+  if (savingsBtn) savingsBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    var sp = document.getElementById('settings-panel'); if (sp) sp.style.display = 'none';
+    var gb = document.getElementById('settings-gear-btn'); if (gb) gb.classList.remove('active');
+    openUsageModal();
+    var sec = document.getElementById('um-sec-savings'); if (sec) sec.scrollIntoView({ block: 'start' });
+  });
   document.getElementById('um-close').addEventListener('click', closeUsageModal);
   document.getElementById('um-cancel').addEventListener('click', function() {
     if (usageWork && usageHasChanges()) { usageWork = usageCloneRows(); renderUsageModal(); } else closeUsageModal();
@@ -14597,7 +14669,9 @@ function wireUsageModal() {
       renderUsageModal();
     } else if (act.getAttribute('data-act') === 'add-rule') {
       var kind = act.getAttribute('data-kind'), nn = usageNextRule(kind);
-      usageWork.push(dbRowTemplate(kind === 'expiration'
+      usageWork.push(dbRowTemplate(kind === 'savings'
+        ? { id: null, _key: 'n' + (++usageNewKey), metric: 'Savings Reserve ' + nn, type: 'Account', section: 'Account Summary', position: 1e6 + usageNewKey }
+        : kind === 'expiration'
         ? { id: null, _key: 'n' + (++usageNewKey), metric: 'Expiration ' + nn, type: 'Account', section: 'Leverage', amount: '12', unit: 'months', position: 1e6 + usageNewKey }
         : { id: null, _key: 'n' + (++usageNewKey), metric: 'Card Transactions ' + nn, type: 'Account', section: 'Leverage', amount: '10', unit: 'transactions', position: 1e6 + usageNewKey }));
       renderUsageModal();
