@@ -3033,38 +3033,11 @@ var state = {
 state.lwIncludePipeline = state.lwPipelineMode !== '';
 
 // ============================================================
-// INDEXEDDB CACHE
+// YNAB data is never cached: every page load pulls it fresh (see initApp / fetchYnabData). Only settings and
+// preferences persist (localStorage, and the database for config keys). An older version kept the processed data
+// in IndexedDB; this drops that leftover copy.
 // ============================================================
-var DB_NAME  = 'ynab-monthly-net';
-var DB_VER   = 1;
-var DB_STORE = 'files';
-
-function openDB() {
-  return new Promise(function(resolve, reject) {
-    var req = indexedDB.open(DB_NAME, DB_VER);
-    req.onupgradeneeded = function(e) { e.target.result.createObjectStore(DB_STORE); };
-    req.onsuccess = function(e) { resolve(e.target.result); };
-    req.onerror   = function(e) { reject(e.target.error); };
-  });
-}
-function dbGet(key) {
-  return openDB().then(function(db) {
-    return new Promise(function(resolve, reject) {
-      var req = db.transaction(DB_STORE, 'readonly').objectStore(DB_STORE).get(key);
-      req.onsuccess = function(e) { resolve(e.target.result); };
-      req.onerror   = function(e) { reject(e.target.error); };
-    });
-  });
-}
-function dbPut(key, val) {
-  return openDB().then(function(db) {
-    return new Promise(function(resolve, reject) {
-      var req = db.transaction(DB_STORE, 'readwrite').objectStore(DB_STORE).put(val, key);
-      req.onsuccess = function() { resolve(); };
-      req.onerror   = function(e) { reject(e.target.error); };
-    });
-  });
-}
+try { indexedDB.deleteDatabase('ynab-monthly-net'); } catch (e) {}
 
 // ============================================================
 // CSV PARSER
@@ -3910,15 +3883,11 @@ function refreshReconciliationData() {
   renderTable();
 }
 
-function fetchYnabData(apiKey, budgetId, opts) {
+function fetchYnabData(apiKey, budgetId) {
   // The group/category split below must see the Config override before it runs,
   // not just before render.
   applyMarginGroupOverride();
   applyGivingGroupOverride();
-  opts = opts || {};
-  var prevMonthsKnowledge   = (opts.serverKnowledge && opts.serverKnowledge.months) || null;
-  var prevRawMonthCache     = opts.rawMonthCache       || {};
-  var prevAllMonthKeys      = opts.allMonthKeys        || null;
 
   var catIdToGroup   = {};
   var catIdToName    = {};
@@ -3958,9 +3927,6 @@ function fetchYnabData(apiKey, budgetId, opts) {
   // Resolved at category-load time: category ID → dueDays
   // Targets: "Pending Packing & Dropoff ~", "Pending Return Creation / Listing ~", "Pending Decision ~"
   var pendingCatIdMap = {};
-  var newMonthsKnow     = null;
-  var updatedMonthCache = null;
-  var finalAllMonthKeys = null;
 
   setProgress('Loading categories…');
   return ynabGet('/budgets/' + budgetId + '/categories', apiKey)
@@ -3994,60 +3960,20 @@ function fetchYnabData(apiKey, budgetId, opts) {
       }
     }
     setProgress('Loading budget months…');
-    var monthsUrl = '/budgets/' + budgetId + '/months' +
-      (prevMonthsKnowledge ? '?last_knowledge_of_server=' + prevMonthsKnowledge : '');
-    return ynabGet(monthsUrl, apiKey);
+    return ynabGet('/budgets/' + budgetId + '/months', apiKey);
   })
   .then(function(data) {
-    var newMonthsKnowledge = data.server_knowledge || null;
-    var returnedMonths     = (data.months || []).filter(function(m) { return !m.deleted; });
-
-    var allMonthKeys_local, fetchMonthKeys;
-    if (prevMonthsKnowledge && prevAllMonthKeys) {
-      // Incremental: returnedMonths only contains months that changed
-      var changedKeys = returnedMonths.map(function(m) { return m.month.slice(0, 7); });
-      allMonthKeys_local = prevAllMonthKeys.slice();
-      for (var ni = 0; ni < changedKeys.length; ni++) {
-        if (allMonthKeys_local.indexOf(changedKeys[ni]) === -1) {
-          allMonthKeys_local.push(changedKeys[ni]);
-          allMonthKeys_local.sort();
-        }
-      }
-      fetchMonthKeys = changedKeys;
-      setProgress(fetchMonthKeys.length > 0
-        ? 'Updating ' + fetchMonthKeys.length + ' changed month(s)…'
-        : 'Budget up to date, loading transactions…');
-    } else {
-      // Full load
-      var budgetedMonths = returnedMonths.filter(function(m) { return m.budgeted !== 0; });
-      allMonthKeys_local = budgetedMonths.map(function(m) { return m.month.slice(0, 7); });
-      fetchMonthKeys     = allMonthKeys_local;
-      setProgress('Loading ' + fetchMonthKeys.length + ' months of budget data…');
-    }
-
-    return Promise.all(fetchMonthKeys.map(function(mk) {
+    var returnedMonths = (data.months || []).filter(function(m) { return !m.deleted; });
+    var budgetedMonths = returnedMonths.filter(function(m) { return m.budgeted !== 0; });
+    var monthKeys = budgetedMonths.map(function(m) { return m.month.slice(0, 7); });
+    setProgress('Loading ' + monthKeys.length + ' months of budget data…');
+    return Promise.all(monthKeys.map(function(mk) {
       return ynabGet('/budgets/' + budgetId + '/months/' + mk + '-01', apiKey)
         .then(function(d) { return { month: mk, cats: d.month.categories }; });
-    })).then(function(freshMonths) {
-      // Merge fresh data into the raw month cache
-      var updatedCache = {};
-      for (var ck in prevRawMonthCache) updatedCache[ck] = prevRawMonthCache[ck];
-      for (var fi = 0; fi < freshMonths.length; fi++) {
-        updatedCache[freshMonths[fi].month] = freshMonths[fi].cats;
-      }
-      return {
-        monthArr:    allMonthKeys_local.map(function(mk) { return { month: mk, cats: updatedCache[mk] || [] }; }),
-        monthCache:  updatedCache,
-        monthsKnow:  newMonthsKnowledge,
-        allMonthKeys: allMonthKeys_local
-      };
-    });
+    })).then(function(monthArr) { return { monthArr: monthArr }; });
   })
   .then(function(monthResult) {
-    var monthArr      = monthResult.monthArr;
-    updatedMonthCache = monthResult.monthCache;
-    newMonthsKnow     = monthResult.monthsKnow;
-    finalAllMonthKeys = monthResult.allMonthKeys;
+    var monthArr = monthResult.monthArr;
 
     for (var mi = 0; mi < monthArr.length; mi++) {
       var md = monthArr[mi], key = md.month, cats = md.cats || [];
@@ -4602,7 +4528,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
 
       setProgress('');
       return { allKeys: allKeys, incomePivot: incomePivot, incomeAcctPivot: incomeAcctPivot, incomePayeePivot: incomePayeePivot,
-               incomeAcctRedPivot: incomeAcctRedPivot, incomePayeeRedPivot: incomePayeeRedPivot, incomeRedSched: true,
+               incomeAcctRedPivot: incomeAcctRedPivot, incomePayeeRedPivot: incomePayeeRedPivot,
                groupPivot: groupPivot, catPivot: catPivot, activeCats: activeCats,
                regTxns: regTxns, allAccounts: allAccounts,
                allAccountsInfo: allAccountsInfo, lwAccounts: lwAccounts,
@@ -4616,9 +4542,7 @@ function fetchYnabData(apiKey, budgetId, opts) {
                reconTxnsByAcct: reconTxnsByAcct, grpActByAcct: grpActByAcct,
                nonLiqCatAct: nonLiqCatAct,
                recovCatAvail: recovCatAvail, recovCatActivity: recovCatActivity,
-               serverKnowledge: { months: newMonthsKnow },
-               rawMonthCache: updatedMonthCache,
-               allMonthKeys: finalAllMonthKeys };
+             };
     });
   });
 }
@@ -4994,22 +4918,6 @@ function cfIncomeAmt(d, month, payee, acct, plain) {
   return m || 0;
 }
 
-// Pipeline needs each transaction's flag, which data cached before flags were loaded lacks.
-// Rather than leaving the user to find the refresh button, turning Pipeline on fetches it.
-var pipelineFlagsRefreshing = false;
-function pipelineFlagsHint() {
-  if (pipelineFlagsRefreshing) return 'Loading transaction flags…';
-  return '⚠ Transaction flags not loaded — ' + (state.refreshProblem || 'refresh YNAB data');
-}
-function ensurePipelineFlags() {
-  if (pipelineFlagsRefreshing || !state.data || (state.data.acctTxnsRed && state.data.acctTxnsContrib && state.data.incomeRedSched)) return;
-  var p = refreshYnab();
-  if (!p) return;
-  pipelineFlagsRefreshing = true;
-  var done = function() { pipelineFlagsRefreshing = false; syncExclusionToggles(); };
-  p.then(done, done);
-}
-
 function refreshYnab() {
   var apiKey   = localStorage.getItem('ynab-api-key');
   var budgetId = localStorage.getItem('ynab-budget-id');
@@ -5020,18 +4928,11 @@ function refreshYnab() {
     return;
   }
   state.refreshProblem = null;
-  var refreshOpts = {};
-  if (state.data && state.data.serverKnowledge) {
-    refreshOpts.serverKnowledge   = state.data.serverKnowledge;
-    refreshOpts.rawMonthCache     = state.data.rawMonthCache     || {};
-    refreshOpts.allMonthKeys      = state.data.allMonthKeys      || null;
-  }
   return ensureConfigLoaded()
-  .then(function() { return fetchYnabData(apiKey, budgetId, refreshOpts); })
+  .then(function() { return fetchYnabData(apiKey, budgetId); })
   .then(function(data) {
     state.data     = data;
     state.loadedAt = Date.now();
-    dbPut('processed', { data: state.data, savedAt: state.loadedAt }).catch(function() {});
     populateRangeFilter();
     populateAccountFilter();
     populateLwRangeFilter();
@@ -5071,12 +4972,6 @@ function loadYnabBudget(apiKey, budgetId) {
   .then(function(data) {
     state.data     = data;
     state.loadedAt = Date.now();
-    dbPut('processed', { data: state.data, savedAt: state.loadedAt })
-      .then(function() {
-        document.getElementById('cache-label').textContent =
-          'Loaded from YNAB — cached for next session';
-      })
-      .catch(function() {});
     showReport();
   })
   .catch(function(e) {
@@ -5167,7 +5062,6 @@ function remeasureCashFlowColumns() {
   layoutCashFlowColumns();
 }
 
-var cfRedIncomeRequested = false;
 function renderTable(opts) {
   opts = opts || {};
   var acctSel = opts.acctMap || state.selectedAccounts;
@@ -5176,8 +5070,6 @@ function renderTable(opts) {
   var d = state.data;
   var keys = opts.keys || d.allKeys.filter(function(k) { return k >= state.fromKey && k <= state.toKey; });
   cfSparklineKeys = keys;
-  // Pipeline income counts only Red-flagged inflows, which older cached data can't tell apart.
-  if (state.lwIncludePipeline && !d.incomeRedSched && !cfRedIncomeRequested) { cfRedIncomeRequested = true; ensurePipelineFlags(); }
 
   if (keys.length === 0) {
     document.getElementById(tableId).innerHTML =
@@ -7841,7 +7733,7 @@ function lwCancelOutThrough(monthKey) {
 function lwMemoIsContribution(memo) { return /#contribution/i.test(memo || ''); }
 function lwRothContribOnly(acctId) {
   if (state.nwRendering || state.ahRendering || !state.lwIncludeExceptionAccts) return false;
-  if (!state.data || !state.data.acctTxnsContrib) return false;   // cached data from before this rule: refresh first
+  if (!state.data || !state.data.acctTxnsContrib) return false;
   var accts = (state.data && state.data.lwAccounts) || [];
   for (var i = 0; i < accts.length; i++) {
     if (accts[i].id === acctId) return !!accts[i].isException && /roth/i.test(accts[i].name || '');
@@ -7958,17 +7850,6 @@ function syncExclusionToggles() {
     nwPipeSeg.setAttribute('data-active', state.nwPipelineMode);
     var nwPipeInc = document.getElementById('nw-pipeline-include-btn');
     if (nwPipeInc) nwPipeInc.classList.toggle('active', state.nwPipelineMode === 'include');
-  }
-  var nwPipeWarnEl = document.getElementById('nw-pipeline-warn');
-  if (nwPipeWarnEl) {
-    var nwNeedsFlags = state.nwPipelineMode !== '' && state.data && state.data.lwAccounts && !state.data.acctTxnsRed;
-    nwPipeWarnEl.textContent = nwNeedsFlags ? pipelineFlagsHint() : '';
-  }
-  // Cached data from before flags were loaded has no Red-flag sums; a refresh brings them in.
-  var pipeWarnEl = document.getElementById('lw-pipeline-warn');
-  if (pipeWarnEl) {
-    var needsFlags = state.lwPipelineMode !== '' && state.data && state.data.lwAccounts && !state.data.acctTxnsRed;
-    pipeWarnEl.textContent = needsFlags ? pipelineFlagsHint() : '';
   }
   // Without "<name> Holding" rows this toggle has nothing to deduct and appears broken, which
   // is what happens whenever the Config workbook has not loaded.
@@ -8469,16 +8350,12 @@ function populateAsAccountFilter() {
 // A "Roth" account assigned to a group other than Investments counts there for its "#contribution"
 // transactions only (the same rule Liquid Balances applies to Roth exception accounts); whatever is
 // left of its balance -- growth and other activity -- is listed under Investments instead. The total
-// across groups is unchanged. Needs acctTxnsContrib, which data cached before that rule lacks.
+// across groups is unchanged. Needs acctTxnsContrib.
 function asIsRoth(a) { return /roth/i.test(a.name || ''); }
 function asContribTotal(id) {
   var m = ((state.data || {}).acctTxnsContrib || {})[id] || {}, t = 0;
   for (var k in m) t += m[k];
   return t;
-}
-function asNeedsContribData() {
-  if (!state.data || state.data.acctTxnsContrib) return false;
-  return asOpenAccounts(true).some(function(a) { return asIsRoth(a) && a.group !== AS_UNASSIGNED && a.group !== 'Investments'; });
 }
 function asSplitRows(accts) {
   var out = [];
@@ -8495,7 +8372,6 @@ function asSplitRows(accts) {
   out.sort(function(x, y) { return Math.abs(y.balance) - Math.abs(x.balance); });
   return out;
 }
-var asContribRequested = false;
 
 function asSaveMap() { localStorage.setItem('acct-summary-groups', JSON.stringify(state.acctGroupMap)); }
 
@@ -8582,8 +8458,6 @@ function renderAcctSummary() {
   if (sy) { sy.textContent = asSync.status; sy.classList.toggle('err', !!asSync.err); }
   populateAsAccountFilter();
   var accts = asOpenAccounts(), by = {};
-  // cached data from before #contribution sums existed: fetch them once so Roth accounts can be split
-  if (!asContribRequested && asNeedsContribData()) { asContribRequested = true; ensurePipelineFlags(); }
   var allAccts = accts;
   accts = asSplitRows(accts);
   renderAsCards(accts);
@@ -13072,7 +12946,7 @@ function runReconcile() {
   if (!d || !acctId || !csvTxns || !csvTxns.length) { resultsEl.style.display = 'none'; return; }
 
   if (!d.acctTxnsList) {
-    statusEl.innerHTML = '<span class="rec-warn">&#9888; Transaction detail not available in cached data &mdash; please click <strong>&#8635; Refresh</strong> to reload from YNAB, then re-upload your CSV.</span>';
+    statusEl.innerHTML = '<span class="rec-warn">&#9888; Transaction detail isn&rsquo;t loaded from YNAB yet &mdash; reload the page, then re-upload your CSV.</span>';
     resultsEl.style.display = 'none';
     return;
   }
@@ -13438,23 +13312,12 @@ function renderHome() {
   }
 
   // Recoverable Costs (Trend): project each "=" category's Available forward using 30-day avg daily spend.
-  // Activity lookup: prefer recovCatActivity (fresh data); fall back to searching catActivityPivot
-  // across expense groups (works with older cached data where recovCatActivity wasn't stored yet).
   function getRecovAct(catName, monthKey) {
-    if (d.recovCatActivity && d.recovCatActivity[catName]) {
-      return d.recovCatActivity[catName][monthKey] || 0;
-    }
-    if (d.catActivityPivot) {
-      for (var fg = 0; fg < EXPENSE_GROUPS.length; fg++) {
-        var fgrp = (d.catActivityPivot[EXPENSE_GROUPS[fg]] || {})[catName];
-        if (fgrp && fgrp[monthKey] !== undefined) return fgrp[monthKey];
-      }
-    }
-    return 0;
+    return ((d.recovCatActivity || {})[catName] || {})[monthKey] || 0;
   }
 
   var trendTotal   = 0;
-  var hasTrendData = !!(d.recovCatAvail && (d.recovCatActivity || d.catActivityPivot));
+  var hasTrendData = !!(d.recovCatAvail && d.recovCatActivity);
   var trendItems   = [];
   if (hasTrendData) {
     var today2        = new Date();
@@ -16112,11 +15975,6 @@ function showReport() {
   updateGoogleSheetButton();
   if (!dbCfg.status.all) loadDbConfig();
   if (pendingDrivePicker) { var dpTok = pendingDrivePicker; pendingDrivePicker = null; showDrivePicker(dpTok); }
-  if (state.loadedAt) {
-    var d = new Date(state.loadedAt);
-    document.getElementById('cache-label').textContent =
-      'Cached ' + d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-  }
 }
 function showUpload() {
   document.getElementById('loading').style.display = 'none';
@@ -16150,52 +16008,32 @@ function initApp(oauthSource) {
   // the sheet picker once it is showing
   if (oauthSource === 'google') pendingDrivePicker = localStorage.getItem('google-access-token');
 
-  // 1. Try IndexedDB cache (stores processed data object, not raw CSV)
-  dbGet('processed').then(function(cached) {
-    // A fresh YNAB sign-in clears the saved budget. Showing stale cached data then would leave
-    // refreshYnab() with nothing to refresh from, forever -- so go pick the budget first.
-    if (cached && cached.data && localStorage.getItem('ynab-api-key') && !localStorage.getItem('ynab-budget-id')) {
-      autoConnectYnab();
-      return;
-    }
-    if (cached && cached.data) {
-      state.data     = cached.data;
-      state.loadedAt = cached.savedAt || null;
-      ensureConfigLoaded().then(function() {
-        showReport();
-        setTimeout(function() { refreshYnab(); }, 50);
-      });
-      return;
-    }
-
-    // 2. Auto-reconnect via saved YNAB credentials
-    var savedKey    = localStorage.getItem('ynab-api-key');
-    var savedBudget = localStorage.getItem('ynab-budget-id');
-    if (savedKey && savedBudget) {
-      ensureConfigLoaded()
-      .then(function() { return fetchYnabData(savedKey, savedBudget); })
-      .then(function(data) {
-        state.data     = data;
-        state.loadedAt = Date.now();
-        dbPut('processed', { data: state.data, savedAt: state.loadedAt }).catch(function() {});
-        showReport();
-      })
-      .catch(function() { showUpload(); });
-      return;
-    }
-
-    // 2.5. OAuth token received but no budget yet — pick one and load it
-    if (savedKey && !savedBudget) {
-      autoConnectYnab();
-      return;
-    }
-
-    // 3. No cached data and no saved YNAB credentials — show the connect screen
-    showUpload();
-
-  }).catch(function() {
-    showUpload();
-  });
+  // Every page load pulls the data from YNAB afresh and shows nothing until it has arrived (there is no cached copy).
+  var savedKey    = localStorage.getItem('ynab-api-key');
+  var savedBudget = localStorage.getItem('ynab-budget-id');
+  if (savedKey && savedBudget) {
+    setProgress('Loading your budget\u2026');
+    ensureConfigLoaded()
+    .then(function() { return fetchYnabData(savedKey, savedBudget); })
+    .then(function(data) {
+      state.data     = data;
+      state.loadedAt = Date.now();
+      showReport();
+    })
+    .catch(function(e) {
+      var msg = (e && e.message) || 'connection failed';
+      if (msg.toLowerCase().indexOf('unauthorized') !== -1 || msg.indexOf('401') !== -1) ynabClearLogin();
+      showUpload();
+      setProgress('Could not load your budget: ' + msg + '. ' + (localStorage.getItem('ynab-api-key') ? 'Reload to try again.' : 'Log in to YNAB again.'));
+    });
+    return;
+  }
+  // Signed in but no budget picked yet: choose one and load it
+  if (savedKey && !savedBudget) {
+    autoConnectYnab();
+    return;
+  }
+  showUpload();
 }
 
 // ============================================================
@@ -16375,7 +16213,6 @@ document.addEventListener('DOMContentLoaded', function() {
     var apiKey = localStorage.getItem('ynab-api-key');
     var newId  = this.value;
     if (!apiKey || !newId || newId === localStorage.getItem('ynab-budget-id')) return;
-    // Clear incremental cache so the new budget does a full load
     localStorage.removeItem('ynab-budget-id');
     state.data = null;
     loadYnabBudget(apiKey, newId);
@@ -16595,7 +16432,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (homeAcctIsPipeline(state.data.allAccounts[cpI])) state.selectedAccounts[state.data.allAccounts[cpI]] = true;
       }
     }
-    if (state.lwPipelineMode !== '') ensurePipelineFlags();
     syncExclusionToggles();
     populateLwAccountFilter();
     populateAccountFilter();
@@ -16610,7 +16446,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('nw-pipeline-' + mode + '-btn').addEventListener('click', function() {
       state.nwPipelineMode = state.nwPipelineMode === mode ? '' : mode;
       localStorage.setItem('nw-pipeline-mode', state.nwPipelineMode || 'off');
-      if (state.nwPipelineMode !== '') ensurePipelineFlags();
       syncExclusionToggles();
       renderNetWorth();
     });
