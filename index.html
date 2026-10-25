@@ -3184,6 +3184,14 @@ function rpDefaultToKey(keys) {
   for (var i = keys.length - 1; i >= 0; i--) if (keys[i] < today) return keys[i];
   return keys[0];
 }
+// The Lessons Learned / Arbitrage pickers list months that have tagged transactions; this adds the current month
+// (with a zero total) when it has none yet, so the range can always end at it.
+function rpAddCurrentMonth(keys, byMonth) {
+  var today = dtKey(new Date());
+  if (keys.indexOf(today) !== -1 || today < keys[0]) return keys;
+  if (byMonth[today] === undefined) byMonth[today] = 0;
+  return keys.concat(today);
+}
 var rpKeysCache = {};
 var rpPending   = {};
 var rpOpenId    = null;
@@ -10286,6 +10294,8 @@ function renderLessonsLearned() {
     return;
   }
 
+  var dataKeys = allKeys;
+  allKeys = rpAddCurrentMonth(allKeys, byMonth);
   // Populate range picker; sets state.lessonsFromKey / lessonsToKey
   populateLessonsRangeFilter(allKeys);
 
@@ -10310,7 +10320,7 @@ function renderLessonsLearned() {
   }
 
   // Projected year-end for current year (3-month avg × remaining months)
-  var last3Keys = allKeys.slice(-3);
+  var last3Keys = dataKeys.slice(-3);
   var sum3 = 0;
   for (var li = 0; li < last3Keys.length; li++) sum3 += byMonth[last3Keys[li]] || 0;
   var avg3    = last3Keys.length ? sum3 / last3Keys.length : 0;
@@ -11628,6 +11638,8 @@ function renderLeverage() {
     return;
   }
 
+  var dataKeys = allKeys;
+  allKeys = rpAddCurrentMonth(allKeys, byMonth);
   populateLeverageRangeFilter(allKeys);
 
   var keys = allKeys.filter(function(k) { return k >= state.leverageFromKey && k <= state.leverageToKey; });
@@ -11648,7 +11660,7 @@ function renderLeverage() {
     for (var mti = 0; mti < mTxns.length; mti++) byYearTxns[yr].push(mTxns[mti]);
   }
 
-  var last3Keys = allKeys.slice(-3);
+  var last3Keys = dataKeys.slice(-3);
   var sum3 = 0;
   for (var li = 0; li < last3Keys.length; li++) sum3 += byMonth[last3Keys[li]] || 0;
   var avg3      = last3Keys.length ? sum3 / last3Keys.length : 0;
