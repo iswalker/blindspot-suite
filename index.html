@@ -724,6 +724,7 @@ html.as-tab-active #tab-row { z-index: 30; }
 .as-row.sel { background: #eef2fb; }
 .as-chk-spacer { flex: none; width: 17px; }
 .as-note { color: #999; font-size: 13px; }
+.as-reserved { color: #999; font-size: 13px; font-style: italic; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .as-row.derived { cursor: default; }
 .as-chk { flex: none; width: 17px; height: 17px; accent-color: #1a1a2e; cursor: pointer; margin: 0; }
 .as-aname { flex: 1; }
@@ -8537,8 +8538,8 @@ function renderAcctSummary() {
           return '<label class="as-row' + (sel && !a.derived ? ' sel' : '') + (a.derived ? ' derived' : '') + '">'
             + (a.derived ? '<span class="as-chk-spacer"></span>' : '<input type="checkbox" class="as-chk" data-id="' + escAttr(a.id) + '"' + (sel ? ' checked' : '') + '>')
             + '<span class="as-aname" title="' + escAttr(label) + '">' + escHtml(a.name) + (a.note ? '<span class="as-note"> \u00B7 ' + escHtml(a.note) + '</span>' : '') + '</span>'
-            + '<span class="as-abal' + (a.balance < 0 ? ' neg' : '') + '">' + asFmtMoney(a.balance)
-            + (a.reserved ? '<span class="as-note"> (' + asFmtMoney(a.reserved) + ' reserved)</span>' : '') + '</span></label>';
+            + (a.reserved ? '<span class="as-reserved">' + asFmtMoney(a.reserved) + ' reserved</span>' : '')
+            + '<span class="as-abal' + (a.balance < 0 ? ' neg' : '') + '">' + asFmtMoney(a.balance) + '</span></label>';
         }).join('')
       + '</div></div>';
   });
