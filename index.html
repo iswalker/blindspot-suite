@@ -5804,9 +5804,11 @@ function renderTable(opts) {
       }
       return out;
     };
-    var rcAdd = function(label, vals, bucket, hidden, cats) {
+    // clickType: a pane type served from something other than a reconTxns bucket
+    var rcAdd = function(label, vals, bucket, hidden, cats, clickType) {
       if (!rcNonZero(vals)) return;
-      if (!hidden) rcRows.push({ label: label, vals: vals, bucket: bucket || null, cats: cats || null });
+      if (!hidden) rcRows.push({ label: label, vals: vals, bucket: bucket || null, cats: cats || null,
+                                 clickType: clickType || null });
       for (var vj = 0; vj < vals.length; vj++) rcSumVals[vj] += vals[vj];
     };
     // Uncategorised is no longer reconciled here — it is a real expense line above, so it is
@@ -5833,6 +5835,12 @@ function renderTable(opts) {
     rcAdd('Previously Budgeted', pbTotals, null, false,
       Object.keys(pbCats).sort().map(function(l) { return { label: l, vals: pbCats[l] }; })
         .filter(function(r) { return rcNonZero(r.vals); }));
+
+    // Overspending the $0-floored Available deductions and YNAB's month-start reset leave
+    // uncovered -- see rcUnderAssigned
+    var rcUnder = rcUnderAssigned(keys, rcAccts, rcPrevKey);
+    cfUnderAssignedLists = rcUnder.lists;
+    rcAdd('Under-Assigned', rcUnder.vals, null, false, null, 'recon-under');
 
     // Activity YNAB attributes to a category but which landed in an excluded account
     var plCats = {}, plTotals = keys.map(function() { return 0; });
@@ -5950,7 +5958,7 @@ function renderTable(opts) {
         html += valCells(rcR.vals, mean(rcR.vals), true, 'recon',
                          cfReconBuckets.length - 1, undefined, undefined, undefined, true);
       } else {
-        html += valCells(rcR.vals, mean(rcR.vals), true, '',
+        html += valCells(rcR.vals, mean(rcR.vals), true, rcR.clickType || '',
                          undefined, undefined, undefined, undefined, true);
       }
       html += '</tr>';
@@ -6015,6 +6023,8 @@ var activeCell   = null;
 // Reconciliation buckets for the current Cash Flow render, indexed by data-gi so a
 // clicked cell can resolve back to its transaction list.
 var cfReconBuckets        = [];
+// Under-Assigned pane rows (categories with negative Available) for the current render, by month
+var cfUnderAssignedLists  = {};
 // { label, payees[] } per Income payee row, indexed by data-gi. Other holds the rolled-up set.
 var cfIncomePayeeRefs     = [];
 // { grp, cat } for each reconciliation category row, indexed by data-gi
@@ -7162,6 +7172,92 @@ function rcFilterTxns(list, bucket) {
   });
 }
 
+// Under-Assigned: overspending (negative Available) that the remaining-Available deductions
+// cannot carry. Each deduction pool -- a holding account's dist / budget reserve, and the
+// remaining budgeted Available charged to the holder account -- is floored at $0, and YNAB resets
+// a negative Available to $0 the following month with no assignment behind it. Neither touches
+// Net Liquid, so without this row both land in Unexplained. Each overspend is recognised exactly
+// once: whatever leftover Available elsewhere cannot absorb in its own month, and the rest when
+// YNAB clears it the month after.
+function rcUnderAssignedPools(accts) {
+  var pools = [], inSet = {}, already = {}, map = lwHoldingMap();
+  for (var i = 0; i < accts.length; i++) inSet[accts[i].id] = true;
+  for (var aid in map) {
+    var dist = [], bud = [];
+    for (var j = 0; j < map[aid].length; j++) {
+      var e = map[aid][j];
+      if (!lwHoldingScopeOn(e.scope)) continue;
+      // Mirrors lwPipelineBudgetedAvailable: any active holding rule removes the category from
+      // the remainder pool, whether or not its account is selected.
+      already[e.grp + '||' + e.cat] = true;
+      (e.scope === 'dist' ? dist : bud).push(e);
+    }
+    if (!inSet[aid]) continue;
+    if (dist.length) pools.push(dist);
+    if (bud.length)  pools.push(bud);
+  }
+  var holder = lwPipelineBudgetHolderId();
+  if (holder !== null && inSet[holder]) {
+    var rest = [], pivot = ((state.data || {}).catAvailPivot) || {};
+    for (var grp in pivot) {
+      for (var cat in pivot[grp]) {
+        if (!already[grp + '||' + cat]) rest.push({ grp: grp, cat: cat });
+      }
+    }
+    if (rest.length) pools.push(rest);
+  }
+  return pools;
+}
+
+// Returns { vals, lists }: the per-month gap contribution, and per month a pane list shaped like
+// transactions -- one row per category with negative Available (its Available as the amount),
+// plus the leftover-Available offset and last month's carried remainder so the list sums to the cell.
+function rcUnderAssigned(keys, accts, prevKeyFn) {
+  var pools = rcUnderAssignedPools(accts);
+  var pivot = ((state.data || {}).catAvailPivot) || {};
+  var stat = function(pool, mk) {
+    var pos = 0, neg = 0, negs = [];
+    for (var i = 0; i < pool.length; i++) {
+      var av = (((pivot[pool[i].grp] || {})[pool[i].cat]) || {})[mk] || 0;
+      if (av > 0) pos += av;
+      else if (av < 0) { neg += av; negs.push({ grp: pool[i].grp, cat: pool[i].cat, amt: av }); }
+    }
+    // floored: how much of the pool's net overspend the $0 floor kept off the balance
+    return { neg: neg, negs: negs, floored: Math.max(0, -(pos + neg)) };
+  };
+  var asRow = function(account, payee, memo, amt) {
+    return { account: account, date: '', payee: payee, memo: memo,
+             inflow: amt > 0 ? amt : 0, outflow: amt < 0 ? -amt : 0 };
+  };
+  var vals = [], lists = {};
+  for (var ki = 0; ki < keys.length; ki++) {
+    var k = keys[ki], pk = prevKeyFn(k);
+    var v = 0, offset = 0, carry = 0, catRows = [];
+    for (var p = 0; p < pools.length; p++) {
+      var cur = stat(pools[p], k), prv = stat(pools[p], pk);
+      offset += -cur.floored - cur.neg;
+      carry  += prv.floored + prv.neg;
+      v      += -cur.floored + prv.floored + prv.neg;
+      for (var ni = 0; ni < cur.negs.length; ni++) {
+        var n = cur.negs[ni];
+        catRows.push(asRow(n.grp, n.cat, 'Negative Available', n.amt));
+      }
+    }
+    catRows.sort(function(a, b) { return b.outflow - a.outflow; });
+    if (!isZeroish(offset)) {
+      catRows.push(asRow('', 'Leftover Available elsewhere', 'Absorbs part of the overspending', offset));
+    }
+    if (!isZeroish(carry)) {
+      catRows.push(asRow('', 'Rest of ' + keyLabel(pk) + ' overspending', "Cleared by YNAB's reset this month", carry));
+    }
+    // Stored in the gap's sign convention (cells render it negated), while the pane rows keep
+    // the as-displayed sign so they sum to the cell.
+    vals.push(-v);
+    lists[k] = catRows;
+  }
+  return { vals: vals, lists: lists };
+}
+
 // Drop entries that cancel each other out: an inflow and an outflow of the same amount, with
 // the same memo, in the same month. Matching is 1:1 — three outflows against one inflow leaves
 // two showing. The caller scopes the list to a single month, so that condition is implicit.
@@ -7231,8 +7327,9 @@ function getTxns(type, gi, ci, monthKey) {
     if (oref.cat.indexOf(CANCEL_OUT_MARKER) !== -1) olist = filterUnpairedTxns(olist);
     return olist.slice().sort(function(a, b) { return parseDateSort(b.date) - parseDateSort(a.date); });
   }
+  if (type === 'recon-under') return (cfUnderAssignedLists[monthKey] || []).slice();
   if (type === 'recon-uncat') {
-    var ulist = ((state.data.reconTxns || {})['@UNCAT'] || {})[monthKey] || [];
+    var ulist =((state.data.reconTxns || {})['@UNCAT'] || {})[monthKey] || [];
     return ulist.slice().sort(function(a, b) { return parseDateSort(b.date) - parseDateSort(a.date); });
   }
   // Reconciliation rows resolve against reconTxns, which is already scoped to the liquid
@@ -7295,6 +7392,7 @@ function getPaneTitle(type, gi, ci) {
     return cref ? cref.cat + (cref.cat.indexOf(CANCEL_OUT_MARKER) !== -1 ? ' (unpaired only, liquid accounts)' : ' (liquid accounts)') : '';
   }
   if (type === 'recon-uncat') return 'Uncategorised (liquid accounts)';
+  if (type === 'recon-under') return 'Under-Assigned (negative Available)';
   if (type === 'recon') {
     var rb = cfReconBuckets[gi];
     return rb ? rb.label + ' (liquid accounts)' : 'Reconciliation';
