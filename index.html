@@ -7219,8 +7219,9 @@ function getTxns(type, gi, ci, monthKey) {
     var cref = cfReconCatRefs[gi];
     if (!cref) return [];
     var clist = ((state.data.reconTxns || {})[cref.grp] || {})[monthKey] || [];
-    return rcFilterTxns(clist, cref.grp)
-      .filter(function(t) { return t.category === cref.cat; })
+    var rlistCat = rcFilterTxns(clist, cref.grp).filter(function(t) { return t.category === cref.cat; });
+    if (cref.cat.indexOf(CANCEL_OUT_MARKER) !== -1) rlistCat = filterUnpairedTxns(rlistCat);
+    return rlistCat
       .sort(function(a, b) { return parseDateSort(b.date) - parseDateSort(a.date); });
   }
   if (type === 'other-cat') {
@@ -7291,7 +7292,7 @@ function getPaneTitle(type, gi, ci) {
   }
   if (type === 'recon-cat') {
     var cref = cfReconCatRefs[gi];
-    return cref ? cref.cat + ' (liquid accounts)' : '';
+    return cref ? cref.cat + (cref.cat.indexOf(CANCEL_OUT_MARKER) !== -1 ? ' (unpaired only, liquid accounts)' : ' (liquid accounts)') : '';
   }
   if (type === 'recon-uncat') return 'Uncategorised (liquid accounts)';
   if (type === 'recon') {
