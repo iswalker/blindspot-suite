@@ -4080,6 +4080,7 @@ function fetchYnabData(apiKey, budgetId) {
       if ((state.catConfig[coci].usedFor || '') === 'Cancel Out') { cancelOutCatId = state.catConfig[coci].id; break; }
     }
     var cancelOutByMonth = {}; // { monthKey: amount }
+    var cancelOutRedByAcct = {}; // { acctId: { monthKey: amount } } -- Red-flagged Cancel Out lines only
     // Flag colour by transaction id (a split's sub-transactions inherit the parent's), so a
     // transfer can tell whether its other leg is Red-flagged -- see computeLiqReconData.
     var flagById = {};
@@ -4139,7 +4140,15 @@ function fetchYnabData(apiKey, budgetId) {
           } else if (t.category_id === cancelOutCatId) {
             coAmt = (t.amount || 0) / 1000;
           }
-          if (coAmt !== 0) cancelOutByMonth[tKey2] = (cancelOutByMonth[tKey2] || 0) + coAmt;
+          if (coAmt !== 0) {
+            cancelOutByMonth[tKey2] = (cancelOutByMonth[tKey2] || 0) + coAmt;
+            // A Red-flagged line in a Pipeline account is also counted by Include Pipeline, so
+            // it's kept per account for lwCancelOutThrough to avoid adding it twice.
+            if (t.flag_color === 'red') {
+              if (!cancelOutRedByAcct[t.account_id]) cancelOutRedByAcct[t.account_id] = {};
+              cancelOutRedByAcct[t.account_id][tKey2] = (cancelOutRedByAcct[t.account_id][tKey2] || 0) + coAmt;
+            }
+          }
         }
         if (!t.deleted) {
           var cAmt = 0;
@@ -4547,7 +4556,7 @@ function fetchYnabData(apiKey, budgetId) {
                regTxns: regTxns, allAccounts: allAccounts,
                allAccountsInfo: allAccountsInfo, lwAccounts: lwAccounts,
                nwAccounts: nwAccounts, acctTxns: acctTxns, acctTxnsTracking: acctTxnsTracking, acctTxnsRed: acctTxnsRed, acctTxnsContrib: acctTxnsContrib, acctTrkTxns: acctTrkTxns, acctTxnsList: acctTxnsList, catIdTxns: catIdTxns, catIdAllTxns: catIdAllTxns, catIdToName: catIdToName, catIdToGroup: catIdToGroup, catBalNow: catBalNow,
-               cancelOutByMonth: cancelOutByMonth,
+               cancelOutByMonth: cancelOutByMonth, cancelOutRedByAcct: cancelOutRedByAcct,
                pendingTxns: pendingTxns,
                upcomingRenewals: upcomingRenewals,
                catActivityPivot: catActivityPivot, catAvailPivot: catAvailPivot,
@@ -5499,7 +5508,7 @@ function renderTable(opts) {
 
   // Uncategorised closes out Decided Expenses — real spend with no category, so it never had
   // an assignment to show against, but it is money out all the same
-  html += '<tr class="data-row"><td><span class="grp-arrow"></span> Uncategorised</td>'
+  html += '<tr class="data-row"><td><span class="grp-arrow"></span> Uncategorized</td>'
         + valCells(uncatVals, avgUncat, true, 'recon-uncat') + '</tr>';
 
   if (state.showTotalExp) {
@@ -5836,9 +5845,8 @@ function renderTable(opts) {
       Object.keys(pbCats).sort().map(function(l) { return { label: l, vals: pbCats[l] }; })
         .filter(function(r) { return rcNonZero(r.vals); }));
 
-    // Overspending the $0-floored Available deductions and YNAB's month-start reset leave
-    // uncovered -- see rcUnderAssigned
-    var rcUnder = rcUnderAssigned(keys, rcAccts, rcPrevKey);
+    // Overspent categories the $0-floored Available deductions stop deducting -- see rcUnderAssigned
+    var rcUnder = rcUnderAssigned(keys, rcAccts);
     cfUnderAssignedLists = rcUnder.lists;
     rcAdd('Under-Assigned', rcUnder.vals, null, false, null, 'recon-under');
 
@@ -5917,7 +5925,7 @@ function renderTable(opts) {
     // transfers are excluded upstream because they net to zero.
     // Distinct from the row above: those carry a category, these are YNAB's uncategorised
     // on-budget-to-on-budget transfers, which Cash Flow never sees.
-    rcAdd('Uncategorised transfers out of liquid', keys.map(function(k) {
+    rcAdd('Uncategorized transfers out of liquid', keys.map(function(k) {
       return -rcAct('@TRANSFER', k);
     }), '@TRANSFER');
     // Whatever the components do not explain (toggle effects, excluded categories, rounding)
@@ -6805,13 +6813,15 @@ function lwComputeExclusionsSummary(accounts, monthKey) {
       for (var mi = 0; mi < mapped.length; mi++) byScope[mapped[mi].scope].push(mapped[mi]);
 
       if (sections.distribution.enabled && byScope.dist.length) {
+        // Mirrors lwHoldingReserve: each category floored at $0, so only positive Available is listed
         var distSum = 0, distShown = [];
         for (var di = 0; di < byScope.dist.length; di++) {
           var av1 = (((pivot[byScope.dist[di].grp] || {})[byScope.dist[di].cat] || {})[monthKey] || 0);
+          if (av1 <= 0 || isZeroish(av1)) continue;
           distSum += av1;
-          if (!isZeroish(av1)) distShown.push({ grp: byScope.dist[di].grp, cat: byScope.dist[di].cat, amt: av1 });
+          distShown.push({ grp: byScope.dist[di].grp, cat: byScope.dist[di].cat, amt: av1 });
         }
-        var distDeducted = Math.max(0, distSum);
+        var distDeducted = distSum;
         if (distShown.length || distDeducted) {
           var g2 = heldGroup(sections.distribution, groupName);
           g2.entries = g2.entries.concat(distShown);
@@ -6823,10 +6833,11 @@ function lwComputeExclusionsSummary(accounts, monthKey) {
         var budSum = 0, budShown = [];
         for (var bi = 0; bi < byScope.budget.length; bi++) {
           var av2 = (((pivot[byScope.budget[bi].grp] || {})[byScope.budget[bi].cat] || {})[monthKey] || 0);
+          if (av2 <= 0 || isZeroish(av2)) continue;
           budSum += av2;
-          if (!isZeroish(av2)) budShown.push({ grp: byScope.budget[bi].grp, cat: byScope.budget[bi].cat, amt: av2 });
+          budShown.push({ grp: byScope.budget[bi].grp, cat: byScope.budget[bi].cat, amt: av2 });
         }
-        var budDeducted = Math.max(0, budSum);
+        var budDeducted = budSum;
         if (budShown.length || budDeducted) {
           var g3 = heldGroup(sections.budgeted, groupName);
           g3.entries = g3.entries.concat(budShown);
@@ -6948,8 +6959,8 @@ function renderLwDriverDetail(d, monthKey, prevKey) {
   }
 
   // Exclude Distribution / Exclude Budgeted Expenses (reserve held in this account)
-  // Mirrors lwHoldingReserve: only scopes whose toggle is on, each floored at zero separately.
-  // Categories holding nothing this month are omitted rather than listed as $0.00.
+  // Mirrors lwHoldingReserve: only scopes whose toggle is on, each category floored at zero.
+  // Categories holding nothing (or overspent) this month are omitted rather than listed.
   h += '<div class="lwdm-d-sec">Excluded — held reserves</div>';
   var mapped = (lwHoldingMap()[d.id] || []).filter(function(e) { return lwHoldingScopeOn(e.scope); });
   if (!mapped.length) {
@@ -6960,11 +6971,11 @@ function renderLwDriverDetail(d, monthKey, prevKey) {
       + '</div>';
   } else {
     var pivot = ((state.data || {}).catAvailPivot) || {};
-    var scopeSum = { dist: 0, budget: 0 }, shownCount = 0;
+    var deducted = 0, shownCount = 0;
     for (var m = 0; m < mapped.length; m++) {
       var av = (((pivot[mapped[m].grp] || {})[mapped[m].cat] || {})[monthKey] || 0);
-      scopeSum[mapped[m].scope] += av;
-      if (isZeroish(av)) continue;
+      if (av <= 0 || isZeroish(av)) continue;
+      deducted += av;
       shownCount++;
       h += '<div class="lwdm-txn"><div class="lwdm-txn-l">'
         +    '<div class="lwdm-txn-cat">' + escHtml(mapped[m].cat) + '</div>'
@@ -6972,8 +6983,7 @@ function renderLwDriverDetail(d, monthKey, prevKey) {
         +  '<div class="lwdm-txn-amt">' + lwFmtPlain(av) + '</div></div>';
     }
     if (!shownCount) h += '<div class="lwdm-empty">Nothing held in these categories this month.</div>';
-    var deducted = Math.max(0, scopeSum.dist) + Math.max(0, scopeSum.budget);
-    h += '<div class="lwdm-d-tot"><span>Deducted (floored at $0)</span><span>'
+    h += '<div class="lwdm-d-tot"><span>Deducted (each category floored at $0)</span><span>'
       +    (deducted > 0 ? '-' : '') + lwFmtPlain(deducted) + '</span></div>';
   }
 
@@ -7002,7 +7012,7 @@ function renderLwDriverDetail(d, monthKey, prevKey) {
           +  '<div class="lwdm-txn-amt">' + lwFmtPlain(pe.amt) + '</div></div>';
       }
     }
-    h += '<div class="lwdm-d-tot"><span>Deducted (floored at $0)</span><span>'
+    h += '<div class="lwdm-d-tot"><span>Deducted (each category floored at $0)</span><span>'
       +    (pipeB.total > 0 ? '-' : '') + lwFmtPlain(pipeB.total) + '</span></div>';
   }
 
@@ -7172,88 +7182,59 @@ function rcFilterTxns(list, bucket) {
   });
 }
 
-// Under-Assigned: overspending (negative Available) that the remaining-Available deductions
-// cannot carry. Each deduction pool -- a holding account's dist / budget reserve, and the
-// remaining budgeted Available charged to the holder account -- is floored at $0, and YNAB resets
-// a negative Available to $0 the following month with no assignment behind it. Neither touches
-// Net Liquid, so without this row both land in Unexplained. Each overspend is recognised exactly
-// once: whatever leftover Available elsewhere cannot absorb in its own month, and the rest when
-// YNAB clears it the month after.
-function rcUnderAssignedPools(accts) {
-  var pools = [], inSet = {}, already = {}, map = lwHoldingMap();
+// Under-Assigned: overspending (negative Available) in a category whose Available the balance
+// side deducts. Each deducted category is floored at $0 on its own (lwHoldingReserve,
+// lwPipelineBudgetedAvailable), so an overspent one simply stops being deducted -- nothing
+// else's earmarked Available covers it -- while Net Liquid, being assignment-based, never sees
+// the overspend. Without this row it lands in Unexplained. YNAB's month-start reset of a negative
+// Available needs no term of its own: the category was already at the $0 floor.
+// The categories deducted for this account set: holding-mapped ones in a selected account, plus
+// every remaining category when the remaining-Available deduction is charged to one of them.
+function rcUnderAssignedCats(accts) {
+  var cats = [], inSet = {}, already = {}, map = lwHoldingMap();
   for (var i = 0; i < accts.length; i++) inSet[accts[i].id] = true;
   for (var aid in map) {
-    var dist = [], bud = [];
     for (var j = 0; j < map[aid].length; j++) {
       var e = map[aid][j];
       if (!lwHoldingScopeOn(e.scope)) continue;
       // Mirrors lwPipelineBudgetedAvailable: any active holding rule removes the category from
-      // the remainder pool, whether or not its account is selected.
+      // the remainder, whether or not its account is selected.
       already[e.grp + '||' + e.cat] = true;
-      (e.scope === 'dist' ? dist : bud).push(e);
+      if (inSet[aid]) cats.push(e);
     }
-    if (!inSet[aid]) continue;
-    if (dist.length) pools.push(dist);
-    if (bud.length)  pools.push(bud);
   }
   var holder = lwPipelineBudgetHolderId();
   if (holder !== null && inSet[holder]) {
-    var rest = [], pivot = ((state.data || {}).catAvailPivot) || {};
+    var pivot = ((state.data || {}).catAvailPivot) || {};
     for (var grp in pivot) {
       for (var cat in pivot[grp]) {
-        if (!already[grp + '||' + cat]) rest.push({ grp: grp, cat: cat });
+        if (!already[grp + '||' + cat]) cats.push({ grp: grp, cat: cat });
       }
     }
-    if (rest.length) pools.push(rest);
   }
-  return pools;
+  return cats;
 }
 
 // Returns { vals, lists }: the per-month gap contribution, and per month a pane list shaped like
-// transactions -- one row per category with negative Available (its Available as the amount),
-// plus the leftover-Available offset and last month's carried remainder so the list sums to the cell.
-function rcUnderAssigned(keys, accts, prevKeyFn) {
-  var pools = rcUnderAssignedPools(accts);
+// transactions -- one row per category with negative Available, that Available as the amount.
+function rcUnderAssigned(keys, accts) {
+  var cats  = rcUnderAssignedCats(accts);
   var pivot = ((state.data || {}).catAvailPivot) || {};
-  var stat = function(pool, mk) {
-    var pos = 0, neg = 0, negs = [];
-    for (var i = 0; i < pool.length; i++) {
-      var av = (((pivot[pool[i].grp] || {})[pool[i].cat]) || {})[mk] || 0;
-      if (av > 0) pos += av;
-      else if (av < 0) { neg += av; negs.push({ grp: pool[i].grp, cat: pool[i].cat, amt: av }); }
-    }
-    // floored: how much of the pool's net overspend the $0 floor kept off the balance
-    return { neg: neg, negs: negs, floored: Math.max(0, -(pos + neg)) };
-  };
-  var asRow = function(account, payee, memo, amt) {
-    return { account: account, date: '', payee: payee, memo: memo,
-             inflow: amt > 0 ? amt : 0, outflow: amt < 0 ? -amt : 0 };
-  };
   var vals = [], lists = {};
   for (var ki = 0; ki < keys.length; ki++) {
-    var k = keys[ki], pk = prevKeyFn(k);
-    var v = 0, offset = 0, carry = 0, catRows = [];
-    for (var p = 0; p < pools.length; p++) {
-      var cur = stat(pools[p], k), prv = stat(pools[p], pk);
-      offset += -cur.floored - cur.neg;
-      carry  += prv.floored + prv.neg;
-      v      += -cur.floored + prv.floored + prv.neg;
-      for (var ni = 0; ni < cur.negs.length; ni++) {
-        var n = cur.negs[ni];
-        catRows.push(asRow(n.grp, n.cat, 'Negative Available', n.amt));
-      }
+    var k = keys[ki], neg = 0, rows = [];
+    for (var ci = 0; ci < cats.length; ci++) {
+      var av = (((pivot[cats[ci].grp] || {})[cats[ci].cat]) || {})[k] || 0;
+      if (av >= 0 || isZeroish(av)) continue;
+      neg += av;
+      rows.push({ account: cats[ci].grp, date: '', payee: cats[ci].cat, memo: 'Negative Available',
+                  inflow: 0, outflow: -av });
     }
-    catRows.sort(function(a, b) { return b.outflow - a.outflow; });
-    if (!isZeroish(offset)) {
-      catRows.push(asRow('', 'Leftover Available elsewhere', 'Absorbs part of the overspending', offset));
-    }
-    if (!isZeroish(carry)) {
-      catRows.push(asRow('', 'Rest of ' + keyLabel(pk) + ' overspending', "Cleared by YNAB's reset this month", carry));
-    }
-    // Stored in the gap's sign convention (cells render it negated), while the pane rows keep
-    // the as-displayed sign so they sum to the cell.
-    vals.push(-v);
-    lists[k] = catRows;
+    rows.sort(function(a, b) { return b.outflow - a.outflow; });
+    // Stored in the gap's sign convention (cells render it negated); the pane rows keep the
+    // as-displayed sign so they sum to the cell.
+    vals.push(-neg);
+    lists[k] = rows;
   }
   return { vals: vals, lists: lists };
 }
@@ -7329,7 +7310,7 @@ function getTxns(type, gi, ci, monthKey) {
   }
   if (type === 'recon-under') return (cfUnderAssignedLists[monthKey] || []).slice();
   if (type === 'recon-uncat') {
-    var ulist =((state.data.reconTxns || {})['@UNCAT'] || {})[monthKey] || [];
+    var ulist = ((state.data.reconTxns || {})['@UNCAT'] || {})[monthKey] || [];
     return ulist.slice().sort(function(a, b) { return parseDateSort(b.date) - parseDateSort(a.date); });
   }
   // Reconciliation rows resolve against reconTxns, which is already scoped to the liquid
@@ -7391,7 +7372,7 @@ function getPaneTitle(type, gi, ci) {
     var cref = cfReconCatRefs[gi];
     return cref ? cref.cat + (cref.cat.indexOf(CANCEL_OUT_MARKER) !== -1 ? ' (unpaired only, liquid accounts)' : ' (liquid accounts)') : '';
   }
-  if (type === 'recon-uncat') return 'Uncategorised (liquid accounts)';
+  if (type === 'recon-uncat') return 'Uncategorized (liquid accounts)';
   if (type === 'recon-under') return 'Under-Assigned (negative Available)';
   if (type === 'recon') {
     var rb = cfReconBuckets[gi];
@@ -7749,27 +7730,27 @@ function lwHoldingScopeOn(scope) {
 }
 
 // Leftover Available held in acctId at monthKey, for whichever scopes are toggled on. Each
-// scope is floored at 0 separately so an overspend in one cannot offset a surplus in the other.
+// category is floored at 0 on its own: earmarked Available elsewhere never covers an overspent
+// category -- that shortfall stands until more is assigned (see the Under-Assigned row).
 function lwHoldingReserve(acctId, monthKey) {
   var entries = lwHoldingMap()[acctId];
   if (!entries || !entries.length) return 0;
   var pivot = ((state.data || {}).catAvailPivot) || {};
-  var distSum = 0, budgetSum = 0;
+  var sum = 0;
   for (var i = 0; i < entries.length; i++) {
     var e = entries[i];
     if (!lwHoldingScopeOn(e.scope)) continue;
-    var av = (((pivot[e.grp] || {})[e.cat] || {})[monthKey] || 0);
-    if (e.scope === 'dist') distSum += av; else budgetSum += av;
+    sum += Math.max(0, (((pivot[e.grp] || {})[e.cat] || {})[monthKey] || 0));
   }
-  return Math.max(0, distSum) + Math.max(0, budgetSum);
+  return sum;
 }
 
 // Remaining budgeted Available. Part of Exclude Budgeted Expenses; Net Worth gets it too when it
 // matches the Liquid Balances exclusion settings (it borrows lwExcludeBudgeted while it renders). The month-end Available of every
 // category (from catAvailPivot) is subtracted -- except the categories an active Exclude
 // Distribution / Exclude Budgeted Expenses toggle already deducts from their holding accounts
-// (lwHoldingMap), so nothing is removed twice. Summed across all the remaining categories and
-// floored at $0, like the holding reserves above.
+// (lwHoldingMap), so nothing is removed twice. Each remaining category is floored at $0 on its
+// own, like the holding reserves above, so entries lists only the categories actually deducted.
 function lwBudgetedRemainderOn() {
   return !!state.lwExcludeBudgeted;
 }
@@ -7786,11 +7767,12 @@ function lwPipelineBudgetedAvailable(monthKey) {
     for (var cat in pivot[grp]) {
       if (already[grp + '||' + cat]) continue;
       var av = ((pivot[grp][cat] || {})[monthKey] || 0);
+      if (av <= 0 || isZeroish(av)) continue;
       sum += av;
-      if (!isZeroish(av)) entries.push({ grp: grp, cat: cat, amt: av });
+      entries.push({ grp: grp, cat: cat, amt: av });
     }
   }
-  return { total: Math.max(0, sum), entries: entries };
+  return { total: sum, entries: entries };
 }
 
 // The one account the subtraction is charged to, so the combined total drops by exactly the amount:
@@ -7834,6 +7816,17 @@ function lwCancelOutThrough(monthKey) {
   var map = ((state.data || {}).cancelOutByMonth) || {};
   var total = 0;
   for (var k in map) { if (k <= monthKey) total += map[k]; }
+  // A Pipeline account in play under Include Pipeline already counts its Red-flagged transactions
+  // (acctBalanceAt -> lwRedFlaggedThrough), Cancel Out lines included -- skip those here so
+  // they aren't added a second time. Its non-Red Cancel Out lines are still pulled in.
+  if (state.lwPipelineMode !== '') {
+    var red = ((state.data || {}).cancelOutRedByAcct) || {};
+    for (var aid in red) {
+      if (!lwIsPipelineAcct(aid)) continue;
+      if (!(state.nwRendering || state.lwSelectedAccounts[aid])) continue;
+      for (var k2 in red[aid]) { if (k2 <= monthKey) total -= red[aid][k2]; }
+    }
+  }
   return total;
 }
 
