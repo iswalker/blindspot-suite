@@ -666,6 +666,92 @@ td.cell-active {
   flex-wrap: wrap;
 }
 
+/* ---- Taxes tab ---- */
+#taxes-panel { display: none; }
+.tax-hdr { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin: 4px 0 12px; }
+.tax-title { font-size: 18px; font-weight: 700; color: #222; }
+.tax-status { font-size: 13px; color: #888; }
+.tax-status.err { color: #c62828; }
+.tax-cards { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; max-width: 980px; }
+.tax-cards .home-metric-card { flex: 1 1 0; min-width: 150px; }
+.tax-cards .home-metric-value { color: #333; }
+.tax-sec-title { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #333; margin: 22px 0 8px; }
+.tax-hint { font-size: 13px; color: #666; margin: -2px 0 10px; line-height: 1.5; }
+.tax-hint code { background: #eeece4; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+.tax-narrow { max-width: 1100px; }
+.tax-help {
+  display: inline-flex; width: 16px; height: 16px; border-radius: 50%; background: #eee; color: #888;
+  font-size: 11px; font-weight: 700; font-style: normal; align-items: center; justify-content: center;
+  cursor: help; margin-left: 6px; vertical-align: 1px; user-select: none;
+}
+.tax-help:hover, .tax-help:focus { background: #ddd; color: #555; outline: none; }
+.tax-help-inline { margin: 0 1px; cursor: default; }
+/* Hover help (in the shared #lw-tooltip): sized 1-2px above the usual tooltip text */
+.taxtt { max-width: 340px; white-space: normal; }
+.taxtt-title { font-size: 15px; font-weight: 700; color: #333; margin-bottom: 6px; }
+.taxtt-formula { font-size: 14px; color: #333; line-height: 1.45; }
+.taxtt-note { font-size: 13px; color: #777; line-height: 1.45; margin-top: 6px; }
+#tax-month-table, .tax-side-table { border-collapse: collapse; width: 100%; }
+#tax-month-table th, .tax-side-table th { background: #fff; font-size: 12px; padding: 10px; color: #333; border-bottom: 1px solid #e4e4e0; position: static; }
+#tax-month-table td { padding: 4px 8px; font-size: 14px; font-variant-numeric: tabular-nums; }
+#tax-month-table td:first-child, #tax-month-table th:first-child { padding-left: 16px; min-width: 236px; background: #fff; position: sticky; left: 0; }
+#tax-month-table tr.tax-sec td { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #333; padding-top: 16px; border-bottom: 1px solid #e4e4e0; }
+#tax-month-table tr.tax-sec td + td { background: #fff; }
+#tax-month-table tr.tax-sub td, .tax-side-table tr.tax-sub td { background: #f6f6f2; font-weight: 600; font-style: italic; }
+#tax-month-table tr.tax-total td, .tax-side-table tr.tax-total td { font-weight: 700; font-size: 15px; border-top: 2px solid #777; border-bottom: 2px solid #777; background: #fff; }
+#tax-month-table th.tax-annual-col, #tax-month-table td.tax-annual-col { border-right: 1px solid #e4e4e0; font-weight: 600; }
+#tax-month-table th.tax-cur, #tax-month-table td.tax-cur { background: #fffbf2; }
+#tax-month-table tr.tax-sub td.tax-cur { background: #f3f1e8; }
+.tax-zero { color: #bbb; }
+.tax-neg { color: #c62828; }
+#tax-month-table td.tax-in { padding: 1px 2px; position: relative; }
+input.tax-cell, input.tax-val {
+  box-sizing: border-box; border: 1px solid transparent; background: transparent; text-align: right;
+  font: inherit; font-size: 14px; font-variant-numeric: tabular-nums; color: #1a4fa0; border-radius: 4px;
+}
+input.tax-cell { width: 100%; min-width: 74px; padding: 3px 6px; }
+input.tax-val { width: 110px; padding: 4px 8px; border-color: #ddd; background: #fff; }
+input.tax-val.tax-val-sm { width: 64px; }
+input.tax-cell:hover { border-color: #ddd; background: #fff; }
+input.tax-cell:focus, input.tax-val:focus { outline: none; border-color: #e07b22; background: #fff; color: #222; }
+td.tax-bad input.tax-cell, input.tax-val.tax-bad { border-color: #e57373; }
+.tax-fill {
+  position: absolute; left: 1px; top: 50%; transform: translateY(-50%); display: none; z-index: 2;
+  border: none; background: #e9e7df; color: #555; font-size: 12px; line-height: 1; padding: 3px 4px; border-radius: 4px; cursor: pointer;
+}
+.tax-fill:hover { background: #dcd9ce; }
+@media (hover: hover) { td.tax-in:hover .tax-fill { display: block; } }
+td.tax-in:focus-within .tax-fill { display: block; }
+.tax-side-table th { text-align: left; }
+.tax-side-table th.tax-amt, .tax-side-table td.tax-amt { text-align: right; }
+.tax-side-table td { padding: 6px 12px; font-size: 14px; text-align: left; font-variant-numeric: tabular-nums; }
+.tax-side-table td:first-child, .tax-side-table th:first-child { padding-left: 16px; background: #fff; }
+.tax-side-table tr.tax-sub td:first-child { background: #f6f6f2; }
+.tax-side-table tr.tax-sec td { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #333; padding-top: 14px; }
+.tax-limit { color: #777; font-size: 13px; white-space: normal; min-width: 160px; }
+#tax-figures td.tax-amt { white-space: normal; }
+.tax-note { color: #999; font-size: 12px; font-weight: 400; font-style: italic; }
+.tax-badge { display: inline-block; padding: 1px 8px; border-radius: 8px; font-size: 12px; font-weight: 600; }
+.tax-b-fed { background: #e3edfb; color: #1565c0; }
+.tax-b-state { background: #e6f4e7; color: #2e7d32; }
+.tax-b-both { background: #efede6; color: #555; }
+.tax-params-note { font-size: 13px; color: #777; margin: -2px 0 10px; line-height: 1.5; }
+.tax-params-note a { color: #1565c0; }
+.tax-err { color: #c62828; }
+.tax-link-btn { border: 1px solid #ccc; background: #fff; border-radius: 6px; padding: 2px 10px; font-size: 12px; color: #555; cursor: pointer; margin-left: 4px; }
+.tax-link-btn:hover { background: #f0f0ec; }
+.tax-brk-wrap { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+.tax-brk-wrap .lw-table-wrap { flex: 1 1 300px; min-width: 0; }
+.tax-side-table tr.tax-you td { background: #fff7e6; font-weight: 600; }
+.tax-you-tag { background: #e07b22; color: #fff; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 6px; margin-left: 4px; }
+.tax-set-row label { flex: 1; font-size: 14px; color: #555; white-space: nowrap; }
+.tax-set-row input { font-size: 13px; padding: 4px 6px; border: 1px solid #ccc; border-radius: 6px; background: #fff; width: 64px; }
+@media (max-width: 820px) {
+  #tax-month-table td:first-child, #tax-month-table th:first-child { min-width: 170px; max-width: 190px; white-space: normal; padding-left: 10px; }
+  .tax-cards { gap: 8px; }
+  .tax-cards .home-metric-card { flex: 1 1 calc(50% - 4px); min-width: 0; }
+}
+
 /* ---- Account Summary tab ---- */
 #acct-summary-panel { display: none; }
 /* Headline cards (same look as the Current Month cards, but kept on mobile). */
@@ -802,6 +888,7 @@ html.as-tab-active #tab-row { z-index: 30; }
 .tab-icon-acct-history { width: 33px; margin: 0 -4px -5px -3px; }
 .tab-icon-reconcile    { width: 50px; margin: 0 -13px -3px -14px; }
 .tab-icon-runway       { width: 38px; margin: 0px -1px -4px -4px; }
+.tab-icon-taxes        { width: 38px; margin: 0 -3px -3px -6px; }
 
 button { font-size: 14px; font-family: inherit; }
 select, input { font-family: inherit; }
@@ -2131,6 +2218,10 @@ html.rw-tab-active #tab-row { z-index: 30; }
           <svg class="tab-icon tab-icon-leverage" viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="m245.02 185.39h156v-30.281c0-13.453-11.062-24.469-24.469-24.469h-107.02c-13.453 0-24.469 11.062-24.469 24.469v30.281zm-45.422 0v-30.281c0-38.438 31.5-69.938 69.938-69.938h107.02c38.438 0 69.938 31.5 69.938 69.938v30.281h-20.719v-30.281c0-27.094-22.125-49.219-49.219-49.219h-107.02c-27.094 0-49.219 22.125-49.219 49.219v30.281zm-115.12 196.18c-4.7344-0.89062-9.4688-1.8281-14.203-2.7656-5.8594-0.98438-10.266-6.0938-10.266-12.188v-141.1c0-23.719 22.875-40.125 46.688-40.125h68.156v-30.281c0-52.078 42.562-94.688 94.688-94.688h107.02c52.078 0 94.688 42.562 94.688 94.688v30.281h68.156c23.812 0 46.688 16.406 46.688 40.125v141.1c0 5.7656-4.0781 10.969-9.9375 12.141-4.8281 0.98438-9.7031 1.9219-14.531 2.8125v164.16c0 29.344-23.953 53.344-53.344 53.344h-370.45c-29.344 0-53.344-23.953-53.344-53.344zm260.16-28.875h-43.219v74.062c0 18.891 23.109 28.969 36.844 15.234 3.9375-3.9375 6.375-9.3281 6.375-15.234zm24.75 50.25v23.812c0 40.828-49.781 62.062-79.078 32.719-8.3906-8.3906-13.594-19.969-13.594-32.719v-23.812c-56.297-2.0156-112.08-7.6875-167.44-16.969v159.74c0 15.703 12.891 28.594 28.594 28.594h370.4c15.703 0 28.594-12.891 28.594-28.594v-159.74c-55.406 9.2812-111.14 14.953-167.44 16.969zm-80.297-74.953h67.922c6.8438 0 12.375 5.5312 12.375 12.375v37.922c31.641-1.1719 63.375-3.5156 95.156-7.125 32.203-3.6094 64.734-8.5781 96.797-14.719v-130.92c0-9.3281-11.625-15.375-21.938-15.375h-432.71c-10.312 0-21.938 6.0469-21.938 15.375v130.92c63.375 12.188 127.69 19.453 191.95 21.844v-37.922c0-6.8438 5.5312-12.375 12.375-12.375zm761.48 409.5c-86.344-86.344-226.31-86.344-312.61 0-86.297 86.344-86.344 226.31 0 312.61 86.344 86.344 226.31 86.344 312.61 0 86.297-86.344 86.344-226.31 0-312.61zm-156.32-89.484c135.74 0 245.81 110.06 245.81 245.81s-110.06 245.81-245.81 245.81c-135.75 0-245.81-110.06-245.81-245.81s110.06-245.81 245.81-245.81zm111.28 134.53c61.453 61.453 61.453 161.11 0 222.56-61.453 61.453-161.11 61.453-222.56 0-61.453-61.453-61.453-161.11 0-222.56 61.453-61.453 161.11-61.453 222.56 0zm-111.28-70.828c100.59 0 182.11 81.562 182.11 182.11 0 100.59-81.562 182.11-182.11 182.11-100.59 0-182.11-81.562-182.11-182.11 0-100.59 81.562-182.11 182.11-182.11zm-12.375 71.672c0-6.8438 5.5312-12.375 12.375-12.375s12.375 5.5312 12.375 12.375v19.031c23.344 5.625 40.266 26.625 40.266 51.141 0 6.8438-5.5312 12.375-12.375 12.375s-12.375-5.5312-12.375-12.375c0-24.797-30.094-37.219-47.625-19.734-17.531 17.531-5.0625 47.625 19.734 47.625 46.734 0 70.266 56.766 37.219 89.812-6.75 6.75-15.281 11.672-24.844 13.969v19.031c0 6.8438-5.5312 12.375-12.375 12.375s-12.375-5.5312-12.375-12.375v-19.031c-23.344-5.625-40.266-26.625-40.266-51.141 0-6.8438 5.5312-12.375 12.375-12.375s12.375 5.5312 12.375 12.375c0 24.797 30.094 37.219 47.625 19.734 17.531-17.531 5.0625-47.625-19.734-47.625-46.734 0-70.266-56.766-37.219-89.812 6.75-6.75 15.281-11.672 24.844-13.969zm-330 169.08c6.75 0.9375 11.438 7.2188 10.453 13.969-0.9375 6.75-7.2188 11.438-13.969 10.453l-34.875-6.7031c-6.6094-1.5938-10.688-8.2031-9.1406-14.812 1.5938-6.6094 8.2031-10.688 14.812-9.1406l32.625 6.1875zm158.63-688.03c-6.4688-2.0625-10.078-9.0469-7.9688-15.516 2.0625-6.4688 9.0469-10.078 15.516-7.9688l28.734 10.547c6.2812 2.5781 9.2812 9.7969 6.7031 16.078s-9.7969 9.2812-16.078 6.7031zm-379.87 464.95c5.9531 3.2812 8.1562 10.781 4.875 16.781-3.2812 5.9531-10.781 8.1562-16.781 4.875l-49.078-27.047c33.562 91.266 103.97 165.52 193.4 203.68 6.2812 2.6719 9.1875 9.8906 6.5156 16.172s-9.8906 9.1875-16.172 6.5156c-94.172-40.172-168.47-117.42-205.08-212.81l-14.906 44.719c-2.1562 6.4688-9.0938 9.9375-15.562 7.8281-6.4688-2.1562-9.9375-9.0938-7.8281-15.562l26.391-79.125c2.4375-8.6719 11.25-11.953 18.562-7.6875l75.609 41.719zm656.29-249.52c3.375-5.9062 10.922-7.9219 16.828-4.5469s7.9219 10.922 4.5469 16.828l-33.094 57.328c-3.5156 6.375-11.109 8.4844-17.109 4.9688l-55.266-31.875c-5.9062-3.4219-7.9219-10.969-4.5-16.875s10.969-7.9219 16.875-4.5l31.688 18.281c-22.312-93.844-82.594-174.74-165.37-223.36-5.8594-3.4219-7.8281-10.969-4.4062-16.875 3.4219-5.8594 10.969-7.8281 16.875-4.4062 87.328 51.281 151.18 135.94 175.82 234.61l17.109-29.672z"/></svg>
           Arbitrage
         </button>
+        <button class="tab-btn" data-tab="taxes">
+          <svg class="tab-icon tab-icon-taxes" viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg"><path d="m737.81 371.62c-6.5625 0-12.562-4.3125-14.625-10.5-4.125-12.75-15.938-21.375-29.438-21.375s-25.312 8.625-29.438 21.375c-2.0625 6.375-7.875 10.5-14.625 10.5-13.5 0-25.312 8.625-29.438 21.375s0.375 26.625 11.25 34.688c5.4375 3.9375 7.6875 10.688 5.625 17.062-4.125 12.75 0.375 26.625 11.25 34.688 5.4375 3.9375 11.812 6 18.188 6s12.75-2.0625 18.188-6 12.562-3.9375 18 0c10.875 7.875 25.5 7.875 36.375 0s15.375-21.75 11.25-34.688c-2.0625-6.375 0-13.125 5.625-17.062 10.875-7.875 15.375-21.75 11.25-34.688-4.125-12.75-15.938-21.375-29.438-21.375zm-25.5 70.688c-11.812-4.5-24.938-4.5-36.938 0 0.5625-12.75-3.5625-25.125-11.438-35.062 12.188-3.375 22.875-11.062 29.812-21.75 6.9375 10.5 17.625 18.375 29.812 21.75-7.875 9.9375-12 22.312-11.438 35.062z"/><path d="m550.31 371.62c-6.5625 0-12.562-4.3125-14.625-10.5-4.125-12.75-15.938-21.375-29.438-21.375s-25.312 8.625-29.438 21.375c-2.0625 6.375-7.875 10.5-14.625 10.5-13.5 0-25.312 8.625-29.438 21.375s0.375 26.625 11.25 34.688c5.4375 3.9375 7.6875 10.688 5.625 17.062-4.125 12.75 0.375 26.625 11.25 34.688 5.4375 3.9375 11.812 6 18.188 6s12.75-2.0625 18.188-6 12.562-3.9375 18 0c10.875 7.875 25.5 7.875 36.375 0s15.375-21.75 11.25-34.688c-2.0625-6.375 0-13.125 5.625-17.062 10.875-7.875 15.375-21.75 11.25-34.688-4.125-12.75-15.938-21.375-29.438-21.375zm-25.5 70.688c-11.812-4.5-24.938-4.5-36.938 0 0.5625-12.75-3.5625-25.125-11.438-35.062 12.188-3.375 22.875-11.062 29.812-21.75 6.9375 10.5 17.625 18.375 29.812 21.75-7.875 9.9375-12 22.312-11.438 35.062z"/><path d="m787.5 281.25h-393.75c-30.938 0-56.25 25.312-56.25 56.25v281.25c0 135.94 108.75 300 243.75 300h18.75c135 0 243.75-164.06 243.75-300v-281.25c0-30.938-25.312-56.25-56.25-56.25zm-356.25 505.5c-34.5-49.688-56.25-111.75-56.25-168v-75h56.25zm93.75 82.125c-20.062-8.8125-39-21.75-56.25-38.062v-286.88h56.25zm93.75 11.062c-6.1875 0.9375-12.375 1.5-18.75 1.5h-18.75c-6.375 0-12.562-0.5625-18.75-1.5v-336.19h56.25zm93.75-48.938c-17.25 16.312-36.188 29.25-56.25 38.062v-325.31h56.25zm93.75-211.88c0 56.25-21.75 118.12-56.25 168v-243h56.25zm0-112.5h-431.25v-168.75c0-10.312 8.4375-18.75 18.75-18.75h393.75c10.312 0 18.75 8.4375 18.75 18.75z"/></svg>
+          Taxes
+        </button>
         <button class="tab-btn" data-tab="lessons">
           <svg class="tab-icon tab-icon-lessons" viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg"><path d="m600 37.5c-196.88 0-356.25 159.38-356.25 356.25v26.25c0 71.25 22.5 142.5 61.875 202.5l144.38 208.12v46.875l-7.5 16.875c-7.5 15-7.5 33.75 0 50.625l5.625 13.125-5.625 13.125c-7.5 15-7.5 33.75 0 50.625l7.5 16.875v43.125c0 24.375 16.875 46.875 41.25 54.375l108.75 26.25 108.75-31.875c24.375-7.5 41.25-28.125 41.25-54.375v-43.125l7.5-16.875c7.5-15 7.5-33.75 0-50.625l-5.625-9.375 5.625-13.125c7.5-15 7.5-33.75 0-50.625l-7.5-15v-46.875l144.38-208.12c39.375-60 61.875-129.38 61.875-202.5v-26.25c0-196.88-159.38-356.25-356.25-356.25zm-125.62 888.75c-1.875-5.625-1.875-11.25 0-16.875l13.125-24.375v-41.25h225v22.5l-234.38 67.5zm69.375-382.5h-46.875c-26.25 0-46.875-20.625-46.875-46.875s20.625-46.875 46.875-46.875 46.875 20.625 46.875 46.875zm75 262.5h-37.5v-225h37.5zm-131.25 219.38-11.25-24.375c-1.875-5.625-1.875-11.25 0-16.875l7.5-13.125 240-69.375 3.75 7.5c1.875 5.625 1.875 11.25 0 16.875l-16.875 30 3.75 9.375zm225 1.875v50.625c0 7.5-5.625 15-13.125 18.75l-99.375 28.125-99.375-28.125c-7.5-1.875-13.125-9.375-13.125-18.75v-13.125l238.12-63.75v1.875zm206.25-607.5c0 63.75-18.75 127.5-56.25 180l-140.62 206.25h-65.625v-225h46.875c46.875 0 84.375-37.5 84.375-84.375s-37.5-84.375-84.375-84.375-84.375 37.5-84.375 84.375v46.875h-37.5v-46.875c0-46.875-37.5-84.375-84.375-84.375s-84.375 37.5-84.375 84.375 37.5 84.375 84.375 84.375h46.875v225h-65.625l-140.62-206.25c-37.5-52.5-56.25-116.25-56.25-180v-18.75l37.5-37.5 56.25 56.25 50.625-50.625-26.25-26.25-24.375 24.375-56.25-56.25-33.75 33.75c28.125-174.38 191.25-292.5 363.75-266.25 97.5 15 181.88 75 228.75 159.38l-52.5 54.375-84.375-84.375-84.375 84.375-86.25-86.25h-82.5v37.5h67.5l101.25 101.25 84.375-84.375 84.375 84.375 71.25-71.25c15 37.5 22.5 78.75 22.5 118.12zm-262.5 123.75v-46.875c0-26.25 20.625-46.875 46.875-46.875s46.875 20.625 46.875 46.875-20.625 46.875-46.875 46.875z"/><path d="m943.36 155.12 75.57-75.57 26.516 26.516-75.57 75.57z"/><path d="m975 225h93.75v37.5h-93.75z"/><path d="m984.36 353.72 19.293-32.156 93.254 55.953-19.293 32.156z"/><path d="m93.75 356.25h93.75v37.5h-93.75z"/><path d="m118.37 219.89 26.516-26.516 75.57 75.57-26.516 26.516z"/><path d="m118.36 548.86 75.57-75.57 26.516 26.516-75.57 75.57z"/></svg>
           Lessons Learned
@@ -2186,6 +2277,19 @@ html.rw-tab-active #tab-row { z-index: 30; }
             <div class="settings-divider"></div>
             <div class="settings-row">
               <button class="config-picker-btn" id="usage-rules-btn" style="width:100%;justify-content:center">Manage Expiration &amp; Card Rules</button>
+            </div>
+          </div>
+          <div class="settings-tab-block" data-tab="taxes">
+            <div class="settings-divider"></div>
+            <div class="settings-row tax-set-row"><label for="tax-status-sel">Filing Status</label><select id="tax-status-sel"></select></div>
+            <div class="settings-row tax-set-row"><label for="tax-dependents-in">Dependents</label><input type="number" id="tax-dependents-in" min="0" max="30" step="1" inputmode="numeric"></div>
+            <div class="settings-row tax-set-row"><label for="tax-payfreq-sel">Paychecks</label><select id="tax-payfreq-sel"></select></div>
+            <div class="settings-row">
+              <label class="ios-toggle-wrap">
+                <input type="checkbox" id="tax-show-roll">
+                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+                Show Running Totals
+              </label>
             </div>
           </div>
           <div class="settings-tab-block" data-tab="acct-summary">
@@ -2536,6 +2640,24 @@ html.rw-tab-active #tab-row { z-index: 30; }
     </div>
     <div class="lw-table-wrap">
       <table id="leverage-txn-table"></table>
+    </div>
+  </div>
+  <div id="taxes-panel" style="display:none">
+    <div class="tax-hdr"><span class="tax-title" id="tax-title"></span><span class="tax-status" id="tax-status"></span></div>
+    <div class="tax-cards" id="tax-cards"></div>
+    <div class="tax-sec-title">Monthly Breakdown</div>
+    <div class="tax-hint" id="tax-empty-hint">Start with your monthly wages. Cells take math (e.g. <code>187000/12</code>), <strong>&raquo;</strong> copies a month to the rest of the year, and typing in Est. Annual spreads an amount evenly. Hover any <span class="tax-help tax-help-inline">?</span> for how a row is figured.</div>
+    <div class="lw-table-wrap" id="tax-month-wrap"><table id="tax-month-table"></table></div>
+    <div class="tax-sec-title">Itemized Deductions</div>
+    <div class="lw-table-wrap tax-narrow"><table id="tax-ded-table" class="tax-side-table"></table></div>
+    <div class="tax-sec-title">Credits</div>
+    <div class="lw-table-wrap tax-narrow"><table id="tax-cred-table" class="tax-side-table"></table></div>
+    <div class="tax-sec-title">Tax Brackets &amp; Figures</div>
+    <div class="tax-params-note" id="tax-params-note"></div>
+    <div class="tax-brk-wrap">
+      <div class="lw-table-wrap"><table id="tax-fed-brk" class="tax-side-table"></table></div>
+      <div class="lw-table-wrap"><table id="tax-state-brk" class="tax-side-table"></table></div>
+      <div class="lw-table-wrap"><table id="tax-figures" class="tax-side-table"></table></div>
     </div>
   </div>
   <div id="acct-history-panel" style="display:none">
@@ -7626,6 +7748,7 @@ function switchTab(tab) {
   document.getElementById('nw-panel').style.display       = tab === 'nw'       ? 'block' : 'none';
   document.getElementById('lessons-panel').style.display  = tab === 'lessons'  ? 'block' : 'none';
   document.getElementById('leverage-panel').style.display     = tab === 'leverage'     ? 'block' : 'none';
+  document.getElementById('taxes-panel').style.display        = tab === 'taxes'        ? 'block' : 'none';
   document.getElementById('acct-history-panel').style.display = tab === 'acct-history' ? 'block' : 'none';
   document.getElementById('runway-panel').style.display       = tab === 'runway'       ? 'block' : 'none';
   document.getElementById('reconcile-panel').style.display    = tab === 'reconcile'     ? 'block' : 'none';
@@ -7636,6 +7759,7 @@ function switchTab(tab) {
   if (tab === 'nw')           renderNetWorth();
   if (tab === 'lessons')      renderLessonsLearned();
   if (tab === 'leverage')     renderLeverage();
+  if (tab === 'taxes')        renderTaxes();
   if (tab === 'acct-history') renderAccountHistory();
   if (tab === 'runway')       renderRunway();
   if (tab === 'reconcile')    renderReconcile();
@@ -8667,6 +8791,793 @@ function asAssignSelected(group) {
   asSelected = {};
   document.getElementById('as-assign-wrap').classList.remove('open');
   renderAcctSummary();
+}
+
+// ============================================================
+// TAXES TAB
+// ============================================================
+// The year's tax bill, laid out like the workbook it replaces: monthly income and pre-tax amounts cut
+// down step by step to federal and state taxable income, with itemized deductions and credits entered
+// once for the year. Tax is figured on the year's totals through the real brackets (so a bonus month
+// is taxed like any other income); each month column shows its share, in proportion to its taxable
+// income. Tax-law figures (brackets, standard deductions, SALT cap, FICA limits, ...) come from
+// PolicyEngine's open parameter files, read straight from GitHub, with a built-in copy as fallback.
+// What the user types lives in one config row per year (section "Taxes", Metric "Taxes <year>",
+// Text = JSON) until these figures move to their own table or to YNAB tags.
+var TAX_YEAR = new Date().getFullYear();
+var TAX_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+var TAX_PE_BASE = 'https://raw.githubusercontent.com/PolicyEngine/policyengine-us/master/policyengine_us/parameters/gov/';
+var TAX_PE_SOURCE = 'https://github.com/PolicyEngine/policyengine-us/tree/master/policyengine_us/parameters/gov';
+var TAX_PE_FILES = ['irs/income/bracket.yaml', 'irs/deductions/standard/amount.yaml', 'irs/deductions/itemized/salt_and_real_estate/cap.yaml',
+  'irs/deductions/itemized/salt_and_real_estate/phase_out/threshold.yaml', 'irs/deductions/itemized/salt_and_real_estate/phase_out/rate.yaml',
+  'irs/deductions/itemized/salt_and_real_estate/phase_out/floor/amount.yaml', 'irs/deductions/itemized/salt_and_real_estate/phase_out/in_effect.yaml',
+  'irs/deductions/itemized/medical/floor.yaml', 'irs/payroll/social_security/cap.yaml', 'irs/payroll/social_security/rate/employee.yaml',
+  'irs/payroll/medicare/rate/employee.yaml', 'irs/payroll/medicare/additional/rate.yaml', 'irs/payroll/medicare/additional/exclusion.yaml',
+  'irs/self_employment/rate/social_security.yaml', 'irs/self_employment/rate/medicare.yaml',
+  'irs/ald/student_loan_interest/cap.yaml', 'irs/ald/student_loan_interest/reduction/start.yaml', 'irs/ald/student_loan_interest/reduction/divisor.yaml',
+  'irs/credits/ctc/amount/base.yaml', 'irs/credits/ctc/phase_out/threshold.yaml', 'irs/credits/ctc/phase_out/amount.yaml', 'irs/credits/ctc/phase_out/increment.yaml',
+  'states/de/tax/income/rate.yaml', 'states/de/tax/income/deductions/standard/amount.yaml', 'states/de/tax/income/credits/personal_credits/personal.yaml',
+  'states/de/tax/income/subtractions/plan_529/cap.yaml'];
+// Built-in copy of the same files (values in effect for TAX_FALLBACK_YEAR), used until the live ones load or if they can't.
+var TAX_FALLBACK_YEAR = 2026;
+var TAX_FALLBACK = {"irs/income/bracket.yaml":{"rates":{"1":{"2018-01-01":0.1},"2":{"2018-01-01":0.12},"3":{"2018-01-01":0.22},"4":{"2018-01-01":0.24},"5":{"2018-01-01":0.32},"6":{"2018-01-01":0.35},"7":{"2018-01-01":0.37}},"thresholds":{"1":{"SINGLE":{"values":{"2026-01-01":12400}},"JOINT":{"values":{"2026-01-01":24800}},"SEPARATE":{"values":{"2026-01-01":12400}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":17700}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":24800}}},"2":{"SINGLE":{"values":{"2026-01-01":50400}},"JOINT":{"values":{"2026-01-01":100800}},"SEPARATE":{"values":{"2026-01-01":50400}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":67450}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":100800}}},"3":{"SINGLE":{"values":{"2026-01-01":105700}},"JOINT":{"values":{"2026-01-01":211400}},"SEPARATE":{"values":{"2026-01-01":105700}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":105700}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":211400}}},"4":{"SINGLE":{"values":{"2026-01-01":201775}},"JOINT":{"values":{"2026-01-01":403550}},"SEPARATE":{"values":{"2026-01-01":201775}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":201750}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":403550}}},"5":{"SINGLE":{"values":{"2026-01-01":256225}},"JOINT":{"values":{"2026-01-01":512450}},"SEPARATE":{"values":{"2026-01-01":256225}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":256200}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":512450}}},"6":{"SINGLE":{"values":{"2026-01-01":640600}},"JOINT":{"values":{"2026-01-01":768700}},"SEPARATE":{"values":{"2026-01-01":384350}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":640600}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":768700}}},"7":{"SINGLE":{"values":{"2018-01-01":null}},"JOINT":{"values":{"2018-01-01":null}},"SEPARATE":{"values":{"2018-01-01":null}},"HEAD_OF_HOUSEHOLD":{"values":{"2018-01-01":null}},"SURVIVING_SPOUSE":{"values":{"2018-01-01":null}}}}},"irs/deductions/standard/amount.yaml":{"SINGLE":{"2026-01-01":16100},"JOINT":{"2026-01-01":32200},"SEPARATE":{"2026-01-01":16100},"HEAD_OF_HOUSEHOLD":{"2026-01-01":24150},"SURVIVING_SPOUSE":{"2026-01-01":32200}},"irs/deductions/itemized/salt_and_real_estate/cap.yaml":{"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":40400}},"JOINT":{"values":{"2026-01-01":40400}},"SEPARATE":{"values":{"2026-01-01":20200}},"SINGLE":{"values":{"2026-01-01":40400}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":40400}}},"irs/deductions/itemized/salt_and_real_estate/phase_out/threshold.yaml":{"SINGLE":{"2026-01-01":505000},"HEAD_OF_HOUSEHOLD":{"2026-01-01":505000},"JOINT":{"2026-01-01":505000},"SURVIVING_SPOUSE":{"2026-01-01":505000},"SEPARATE":{"2026-01-01":252500}},"irs/deductions/itemized/salt_and_real_estate/phase_out/rate.yaml":{"values":{"2025-01-01":0.3}},"irs/deductions/itemized/salt_and_real_estate/phase_out/floor/amount.yaml":{"SINGLE":{"2025-01-01":10000},"HEAD_OF_HOUSEHOLD":{"2025-01-01":10000},"JOINT":{"2025-01-01":10000},"SURVIVING_SPOUSE":{"2025-01-01":10000},"SEPARATE":{"2025-01-01":5000}},"irs/deductions/itemized/salt_and_real_estate/phase_out/in_effect.yaml":{"values":{"2025-01-01":true}},"irs/deductions/itemized/medical/floor.yaml":{"values":{"2017-01-01":0.075}},"irs/payroll/social_security/cap.yaml":{"values":{"2026-01-01":184500}},"irs/payroll/social_security/rate/employee.yaml":{"values":{"2013-01-01":0.062}},"irs/payroll/medicare/rate/employee.yaml":{"values":{"2013-01-01":0.0145}},"irs/payroll/medicare/additional/rate.yaml":{"values":{"2013-01-01":0.009}},"irs/payroll/medicare/additional/exclusion.yaml":{"SINGLE":{"2013-01-01":200000},"JOINT":{"2013-01-01":250000},"SEPARATE":{"2013-01-01":125000},"HEAD_OF_HOUSEHOLD":{"2013-01-01":200000},"SURVIVING_SPOUSE":{"2013-01-01":200000}},"irs/self_employment/rate/social_security.yaml":{"values":{"2013-01-01":0.124}},"irs/self_employment/rate/medicare.yaml":{"values":{"2013-01-01":0.029}},"irs/ald/student_loan_interest/cap.yaml":{"JOINT":{"2002-01-01":2500},"SINGLE":{"2002-01-01":2500},"SEPARATE":{"2002-01-01":0},"HEAD_OF_HOUSEHOLD":{"2002-01-01":2500},"SURVIVING_SPOUSE":{"2002-01-01":2500}},"irs/ald/student_loan_interest/reduction/start.yaml":{"JOINT":{"values":{"2026-01-01":175000}},"SINGLE":{"values":{"2026-01-01":85000}},"SEPARATE":{"2002-01-01":0},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":85000}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":85000}}},"irs/ald/student_loan_interest/reduction/divisor.yaml":{"JOINT":{"2002-01-01":30000},"SINGLE":{"2002-01-01":15000},"SEPARATE":{"2002-01-01":0},"HEAD_OF_HOUSEHOLD":{"2002-01-01":15000},"SURVIVING_SPOUSE":{"2002-01-01":15000}},"irs/credits/ctc/amount/base.yaml":{"brackets":[{"threshold":{"values":{"2013-01-01":0}},"amount":{"values":{"2025-01-01":2200}}},{"threshold":{"values":{"2022-01-01":17}},"amount":{"values":{"2013-01-01":0}}}]},"irs/credits/ctc/phase_out/threshold.yaml":{"SINGLE":{"2018-01-01":200000},"JOINT":{"2018-01-01":400000},"SEPARATE":{"2018-01-01":200000},"HEAD_OF_HOUSEHOLD":{"2018-01-01":200000},"SURVIVING_SPOUSE":{"2018-01-01":400000}},"irs/credits/ctc/phase_out/amount.yaml":{"values":{"0000-01-01":50}},"irs/credits/ctc/phase_out/increment.yaml":{"values":{"0000-01-01":1000}},"states/de/tax/income/rate.yaml":{"brackets":[{"threshold":{"1996-01-01":0},"rate":{"1996-01-01":0}},{"threshold":{"1996-01-01":2000},"rate":{"2014-01-01":0.022}},{"threshold":{"1996-01-01":5000},"rate":{"2014-01-01":0.039}},{"threshold":{"1996-01-01":10000},"rate":{"2014-01-01":0.048}},{"threshold":{"1996-01-01":20000},"rate":{"2014-01-01":0.052}},{"threshold":{"1996-01-01":25000},"rate":{"2014-01-01":0.0555}},{"threshold":{"2014-01-01":60000},"rate":{"2014-01-01":0.066}}]},"states/de/tax/income/deductions/standard/amount.yaml":{"JOINT":{"2000-01-01":6500},"SINGLE":{"2000-01-01":3250},"SEPARATE":{"2000-01-01":3250},"HEAD_OF_HOUSEHOLD":{"2000-01-01":3250},"SURVIVING_SPOUSE":{"2000-01-01":3250}},"states/de/tax/income/credits/personal_credits/personal.yaml":{"values":{"1996-01-01":110}},"states/de/tax/income/subtractions/plan_529/cap.yaml":{"JOINT":{"2022-01-01":2000},"SURVIVING_SPOUSE":{"2022-01-01":1000},"SINGLE":{"2022-01-01":1000},"HEAD_OF_HOUSEHOLD":{"2022-01-01":1000},"SEPARATE":{"2022-01-01":1000}}};
+var TAX_STATUSES = [['JOINT', 'Married filing jointly'], ['SINGLE', 'Single'], ['HEAD_OF_HOUSEHOLD', 'Head of household'], ['SEPARATE', 'Married filing separately']];
+var TAX_PAY_FREQ = [['semimonthly', 'Twice a month', 2], ['biweekly', 'Every two weeks', 26 / 12], ['weekly', 'Weekly', 52 / 12], ['monthly', 'Monthly', 1]];
+var TAX_MONTH_KEYS = ['wages', 'bonus', 'interest', 'business', 'hsa', 'premiums', 'k401', 'bizexp', 's529', 'treasury'];
+var TAX_DED_KEYS = ['giving', 'mortgage', 'property', 'medical', 'misc', 'studentLoan', 'stateOther'];
+// Credits figured as min(amount x %, cap). Defaults follow the workbook; all three numbers are editable.
+var TAX_CREDIT_DEFS = [
+  { k: 'childcare', label: 'Child & Dependent Care', pct: 20, cap: 1200, help: 'A share of what you pay for child or dependent care so you can work. Typically 20% of up to $6,000 of expenses (two or more children) at higher incomes.' },
+  { k: 'college', label: 'Education (College)', pct: 100, cap: 2500, help: 'American Opportunity / Lifetime Learning credits for tuition. Up to $2,500 per student, and they phase out at higher incomes, so set the cap to what applies to you.' },
+  { k: 'energy', label: 'Energy Efficiency Upgrades', pct: 30, cap: 2000, help: 'Typically 30% of qualifying home energy improvements, up to an annual cap. Check which credits are still available for the year.' },
+  { k: 'adoption', label: 'Adoption', pct: 100, cap: 15000, help: 'Qualified adoption expenses, up to the year’s per-child limit.' }
+];
+
+var taxParams = { docs: null, fetchedAt: 0, loading: false, error: '', tried: false };
+var taxDoc = null, taxDocFrom = '';          // where taxDoc came from: 'db' | 'local' | 'new'
+var taxSaveTimer = null, taxSaveState = '';  // '' | 'pending' | 'saving' | 'saved' | 'local' | an error message
+var taxHelpMap = {};
+var taxShowRoll = localStorage.getItem('tax-show-roll') === '1';
+
+// ---- Tax-law figures ----
+var TAX_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+// Keeps only what a year needs from a parameter file: drops descriptions/metadata, and cuts each dated
+// series down to the entry in effect on Jan 1 of that year.
+function taxTrimParam(n, year) {
+  if (Array.isArray(n)) return n.map(function(x) { return taxTrimParam(x, year); });
+  if (!n || typeof n !== 'object') return n;
+  var keys = Object.keys(n), o = {};
+  if (keys.length && keys.every(function(k) { return TAX_DATE_RE.test(k); })) {
+    var cut = year + '-01-01', best = null;
+    keys.forEach(function(k) { if (k <= cut && (best === null || k > best)) best = k; });
+    if (best !== null) o[best] = n[best];
+    return o;
+  }
+  keys.forEach(function(k) { if (k !== 'metadata' && k !== 'description' && k !== 'reference') o[k] = taxTrimParam(n[k], year); });
+  return o;
+}
+function taxLoadYamlLib() {
+  if (window.jsyaml) return Promise.resolve();
+  return new Promise(function(resolve, reject) {
+    var s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js';
+    s.onload = function() { resolve(); };
+    s.onerror = function() { reject(new Error('could not load the YAML reader')); };
+    document.head.appendChild(s);
+  });
+}
+// The live figures are kept for a week in this browser; Refresh (or a new year) reads them again. Without
+// Refresh they are asked for at most once per page load, so a failure doesn't retry on every render.
+function taxFetchParams(force) {
+  if (taxParams.loading || (taxParams.tried && !force)) return;
+  var cached = parseJsonLS('tax-params');
+  var usable = cached && cached.year === TAX_YEAR && cached.docs;
+  if (usable && !taxParams.docs) { taxParams.docs = cached.docs; taxParams.fetchedAt = cached.fetchedAt || 0; }
+  if (!force && usable && Date.now() - (cached.fetchedAt || 0) < 7 * 86400000) return;
+  taxParams.tried = true;
+  taxParams.loading = true;
+  taxParams.error = '';
+  taxLoadYamlLib().then(function() {
+    return Promise.all(TAX_PE_FILES.map(function(f) {
+      return fetch(TAX_PE_BASE + f, { cache: 'no-store' }).then(function(r) {
+        if (!r.ok) throw new Error(f + ' (HTTP ' + r.status + ')');
+        return r.text();
+      }).then(function(t) { return [f, taxTrimParam(window.jsyaml.load(t, { schema: window.jsyaml.JSON_SCHEMA }), TAX_YEAR)]; });
+    }));
+  }).then(function(pairs) {
+    var docs = {};
+    pairs.forEach(function(p) { docs[p[0]] = p[1]; });
+    taxParams.docs = docs;
+    taxParams.fetchedAt = Date.now();
+    try { localStorage.setItem('tax-params', JSON.stringify({ year: TAX_YEAR, fetchedAt: taxParams.fetchedAt, docs: docs })); } catch (e) {}
+  }).catch(function(e) {
+    taxParams.error = (e && e.message) || 'failed';
+  }).then(function() {
+    taxParams.loading = false;
+    if (state.activeTab === 'taxes') taxRerender();
+  });
+}
+function taxDocs() { return taxParams.docs || TAX_FALLBACK; }
+// The value in effect for TAX_YEAR from one dated series ({date: value} or {values: {date: value}}).
+function taxAt(node) {
+  if (node && typeof node === 'object' && !Array.isArray(node) && node.values !== undefined) node = node.values;
+  if (!node || typeof node !== 'object') return node;
+  var cut = TAX_YEAR + '-01-01', best = null;
+  Object.keys(node).forEach(function(k) { if (TAX_DATE_RE.test(k) && k <= cut && (best === null || k > best)) best = k; });
+  if (best === null) return undefined;
+  return node[best] === null ? Infinity : node[best];   // ".inf" (no limit) reads as null
+}
+function taxP(file, path, status, dflt) {
+  var docs = taxDocs(), n = docs[file];
+  if (n === undefined) n = TAX_FALLBACK[file];
+  (path || []).forEach(function(p) { n = n && n[p]; });
+  if (status && n && typeof n === 'object') n = n[status] !== undefined ? n[status] : n.JOINT;
+  var v = taxAt(n);
+  if (typeof v === 'boolean') return v;
+  return typeof v === 'number' ? v : dflt;
+}
+function taxLaw(status) {
+  var docs = taxDocs(), F = 'irs/income/bracket.yaml', fb = docs[F] || TAX_FALLBACK[F], fed = [], prev = 0;
+  for (var b = 1; b <= 7; b++) {
+    var rate = taxAt(fb.rates[b]), thr = fb.thresholds[b] || {};
+    var up = taxAt(thr[status] !== undefined ? thr[status] : thr.JOINT);
+    if (typeof rate !== 'number') continue;
+    fed.push({ from: prev, rate: rate });
+    prev = typeof up === 'number' ? up : Infinity;
+  }
+  var dr = docs['states/de/tax/income/rate.yaml'] || TAX_FALLBACK['states/de/tax/income/rate.yaml'];
+  var de = (dr.brackets || []).map(function(x) { return { from: taxAt(x.threshold), rate: taxAt(x.rate) }; })
+    .filter(function(x) { return typeof x.from === 'number' && typeof x.rate === 'number'; })
+    .sort(function(a, c) { return a.from - c.from; });
+  var ctcDoc = docs['irs/credits/ctc/amount/base.yaml'] || TAX_FALLBACK['irs/credits/ctc/amount/base.yaml'];
+  var ctcAmt = taxAt(((ctcDoc.brackets || [])[0] || {}).amount);
+  var S = 'irs/deductions/itemized/salt_and_real_estate/';
+  return {
+    fedBrackets: fed, deBrackets: de,
+    fedStd: taxP('irs/deductions/standard/amount.yaml', [], status, 0),
+    saltCap: taxP(S + 'cap.yaml', [], status, 10000),
+    saltPoOn: taxP(S + 'phase_out/in_effect.yaml', [], null, false) === true,
+    saltPoThreshold: taxP(S + 'phase_out/threshold.yaml', [], status, Infinity),
+    saltPoRate: taxP(S + 'phase_out/rate.yaml', [], null, 0),
+    saltPoFloor: taxP(S + 'phase_out/floor/amount.yaml', [], status, 10000),
+    medFloor: taxP('irs/deductions/itemized/medical/floor.yaml', [], null, 0.075),
+    ssCap: taxP('irs/payroll/social_security/cap.yaml', [], null, Infinity),
+    ssRate: taxP('irs/payroll/social_security/rate/employee.yaml', [], null, 0.062),
+    mcRate: taxP('irs/payroll/medicare/rate/employee.yaml', [], null, 0.0145),
+    mcAddRate: taxP('irs/payroll/medicare/additional/rate.yaml', [], null, 0.009),
+    mcAddThreshold: taxP('irs/payroll/medicare/additional/exclusion.yaml', [], status, 250000),
+    seSsRate: taxP('irs/self_employment/rate/social_security.yaml', [], null, 0.124),
+    seMcRate: taxP('irs/self_employment/rate/medicare.yaml', [], null, 0.029),
+    sliCap: taxP('irs/ald/student_loan_interest/cap.yaml', [], status, 2500),
+    sliStart: taxP('irs/ald/student_loan_interest/reduction/start.yaml', [], status, Infinity),
+    sliDivisor: taxP('irs/ald/student_loan_interest/reduction/divisor.yaml', [], status, 0),
+    ctcAmount: typeof ctcAmt === 'number' ? ctcAmt : 0,
+    ctcPoThreshold: taxP('irs/credits/ctc/phase_out/threshold.yaml', [], status, Infinity),
+    ctcPoAmount: taxP('irs/credits/ctc/phase_out/amount.yaml', [], null, 50),
+    ctcPoIncrement: taxP('irs/credits/ctc/phase_out/increment.yaml', [], null, 1000),
+    deStd: taxP('states/de/tax/income/deductions/standard/amount.yaml', [], status, 0),
+    dePersonal: taxP('states/de/tax/income/credits/personal_credits/personal.yaml', [], null, 0),
+    de529Cap: taxP('states/de/tax/income/subtractions/plan_529/cap.yaml', [], status, 0)
+  };
+}
+// Progressive tax: each bracket's rate on the slice of income that falls inside it.
+function taxBracketTax(income, brackets) {
+  var t = 0;
+  for (var i = 0; i < brackets.length; i++) {
+    var lo = brackets[i].from, hi = i + 1 < brackets.length ? brackets[i + 1].from : Infinity;
+    if (income <= lo) break;
+    t += (Math.min(income, hi) - lo) * brackets[i].rate;
+  }
+  return t;
+}
+function taxBracketIndex(income, brackets) {
+  var idx = 0;
+  for (var i = 0; i < brackets.length; i++) if (income > brackets[i].from) idx = i;
+  return idx;
+}
+
+// ---- What the user enters ----
+// Cells take a number or simple arithmetic ("187000/12", "=400.83*2"); blank is 0, anything unreadable is NaN.
+function taxEval(raw) {
+  var s = String(raw == null ? '' : raw).replace(/[$,\s]/g, '');
+  if (s.charAt(0) === '=') s = s.slice(1);
+  if (!s) return 0;
+  var i = 0;
+  function num() { var m = /^(\d+\.?\d*|\.\d+)/.exec(s.slice(i)); if (!m) throw 0; i += m[0].length; return parseFloat(m[0]); }
+  function factor() {
+    var c = s.charAt(i);
+    if (c === '-') { i++; return -factor(); }
+    if (c === '+') { i++; return factor(); }
+    if (c === '(') { i++; var v = expr(); if (s.charAt(i) !== ')') throw 0; i++; return v; }
+    return num();
+  }
+  function term() { var v = factor(); while (s.charAt(i) === '*' || s.charAt(i) === '/') { var op = s.charAt(i++), r = factor(); v = op === '*' ? v * r : v / r; } return v; }
+  function expr() { var v = term(); while (s.charAt(i) === '+' || s.charAt(i) === '-') { var op = s.charAt(i++), r = term(); v = op === '+' ? v + r : v - r; } return v; }
+  try { var v = expr(); return i === s.length && isFinite(v) ? v : NaN; } catch (e) { return NaN; }
+}
+function taxNum(raw) { var v = taxEval(raw); return isFinite(v) ? v : 0; }
+function taxPos(raw) { return Math.max(0, taxNum(raw)); }
+function taxNewDoc() {
+  var m = {}, c = {}, d = {};
+  TAX_MONTH_KEYS.forEach(function(k) { m[k] = TAX_MONTHS.map(function() { return ''; }); });
+  TAX_DED_KEYS.forEach(function(k) { d[k] = ''; });
+  TAX_CREDIT_DEFS.forEach(function(x) { c[x.k] = { amount: '', pct: String(x.pct), cap: String(x.cap) }; });
+  return { v: 1, year: TAX_YEAR, status: 'JOINT', dependents: '0', payFreq: 'semimonthly', m: m, d: d, c: c };
+}
+// Fills in anything a saved copy lacks (older versions, hand edits), so the rest of the code can rely on its shape.
+function taxNormalize(doc) {
+  var base = taxNewDoc();
+  if (!doc || typeof doc !== 'object') return base;
+  ['status', 'dependents', 'payFreq'].forEach(function(k) { if (doc[k] !== undefined && doc[k] !== null) base[k] = String(doc[k]); });
+  TAX_MONTH_KEYS.forEach(function(k) {
+    var a = doc.m && doc.m[k];
+    if (Array.isArray(a)) for (var i = 0; i < 12; i++) base.m[k][i] = a[i] == null ? '' : String(a[i]);
+  });
+  TAX_DED_KEYS.forEach(function(k) { if (doc.d && doc.d[k] != null) base.d[k] = String(doc.d[k]); });
+  TAX_CREDIT_DEFS.forEach(function(x) {
+    var c = doc.c && doc.c[x.k];
+    if (c) ['amount', 'pct', 'cap'].forEach(function(f) { if (c[f] != null) base.c[x.k][f] = String(c[f]); });
+  });
+  return base;
+}
+function taxDbRow() {
+  return (dbCfg.all || []).filter(function(r) { return r.section === 'Taxes' && r.metric === 'Taxes ' + TAX_YEAR; })[0] || null;
+}
+// The database copy wins once it has loaded, unless an edit made here is still on its way to it.
+function taxEnsureDoc() {
+  var busy = taxSaveTimer || taxSaveState === 'saving';
+  var row = taxDbRow();
+  if (row && taxDocFrom !== 'db' && !busy) {
+    try { taxDoc = taxNormalize(JSON.parse(row.text || '{}')); taxDocFrom = 'db'; return; } catch (e) {}
+  }
+  if (taxDoc) return;
+  var local = parseJsonLS('taxes-doc-' + TAX_YEAR);
+  taxDoc = taxNormalize(local);
+  taxDocFrom = local ? 'local' : 'new';
+}
+function taxQueueSave() {
+  taxSaveState = 'pending';
+  taxShowSaveState();
+  clearTimeout(taxSaveTimer);
+  taxSaveTimer = setTimeout(taxSave, 700);
+}
+function taxSave() {
+  taxSaveTimer = null;
+  var text = JSON.stringify(taxDoc);
+  try { localStorage.setItem('taxes-doc-' + TAX_YEAR, text); } catch (e) {}
+  if (taxSaveState === 'saving' || dbCfg.status.all === 'loading') { taxSaveTimer = setTimeout(taxSave, 800); return; }   // one write at a time
+  if (!dbConfigWritable()) { taxSaveState = 'local'; taxShowSaveState(); return; }
+  var row = taxDbRow();
+  taxSaveState = 'saving';
+  taxShowSaveState();
+  var change = row ? { updates: [{ id: row.id, text: text }] }
+    : { inserts: [dbRowTemplate({ metric: 'Taxes ' + TAX_YEAR, type: 'Tax Data', section: 'Taxes', text: text })] };
+  dbCfgCommit(change).then(function() {
+    taxDocFrom = 'db';
+    taxSaveState = taxSaveTimer ? 'pending' : 'saved';
+  }).catch(function(e) {
+    taxSaveState = 'Could not save: ' + ((e && e.message) || 'failed') + ' (kept in this browser)';
+  }).then(taxShowSaveState);
+}
+function taxShowSaveState() {
+  var el = document.getElementById('tax-status');
+  if (!el) return;
+  var s = taxSaveState, msg = '';
+  if (s === 'pending' || s === 'saving') msg = 'Saving…';
+  else if (s === 'saved') msg = 'Saved';
+  else if (s === 'local') msg = 'Saved in this browser only — the database isn’t connected';
+  else if (s) msg = s;
+  else if (dbCfg.status.all === 'loading' && taxDocFrom !== 'db') msg = 'Loading your saved figures…';
+  el.textContent = msg;
+  el.classList.toggle('err', /^Could not/.test(s));
+}
+
+// ---- The calculation ----
+function taxPayPeriods(doc) {
+  for (var i = 0; i < TAX_PAY_FREQ.length; i++) if (TAX_PAY_FREQ[i][0] === doc.payFreq) return TAX_PAY_FREQ[i][2];
+  return 2;
+}
+function taxSum(a) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i]; return s; }
+function taxMap(fn) { var o = []; for (var i = 0; i < 12; i++) o.push(fn(i)); return o; }
+// Each month's share of an annual figure, by its positive part of `basis` (even shares when nothing is positive).
+function taxWeights(basis) {
+  var pos = basis.map(function(x) { return Math.max(0, x); }), s = taxSum(pos);
+  return s > 0 ? pos.map(function(x) { return x / s; }) : taxMap(function() { return 1 / 12; });
+}
+function taxCompute(doc) {
+  var L = taxLaw(doc.status), v = {}, R = {};
+  TAX_MONTH_KEYS.forEach(function(k) { v[k] = doc.m[k].map(taxNum); });
+  var dependents = Math.max(0, Math.floor(taxNum(doc.dependents)));
+
+  R.gross = taxMap(function(i) { return v.wages[i] + v.bonus[i] + v.interest[i] + v.business[i]; });
+  R.ficaWages = taxMap(function(i) { return Math.max(0, v.wages[i] + v.bonus[i] - v.hsa[i] - v.premiums[i]); });
+  var ficaWagesA = taxSum(R.ficaWages);
+  // Self-employment tax on 92.35% of business profit (none under $400); Social Security only up to what wages left of the wage base.
+  var seNet = taxMap(function(i) { return v.business[i] - v.bizexp[i]; }), seNetA = taxSum(seNet);
+  var seBase = Math.max(0, seNetA) * 0.9235, seMain = 0, seAddl = 0;
+  if (seBase >= 400) {
+    seMain = L.seSsRate * Math.max(0, Math.min(seBase, L.ssCap - ficaWagesA)) + L.seMcRate * seBase;
+    seAddl = L.mcAddRate * Math.max(0, seBase - Math.max(0, L.mcAddThreshold - ficaWagesA));
+  }
+  var seW = taxWeights(seNet);
+  R.seTax = taxMap(function(i) { return (seMain + seAddl) * seW[i]; });
+  R.halfSe = taxMap(function(i) { return seMain / 2 * seW[i]; });
+  R.magi = taxMap(function(i) { return R.gross[i] - v.hsa[i] - v.premiums[i] - v.k401[i] - v.bizexp[i] - R.halfSe[i]; });
+  var magiA = taxSum(R.magi);
+  var sliPaid = taxPos(doc.d.studentLoan);
+  var sliCut = L.sliDivisor > 0 ? Math.min(1, Math.max(0, (magiA - L.sliStart) / L.sliDivisor)) : (magiA > L.sliStart ? 1 : 0);
+  var sliA = Math.min(sliPaid, L.sliCap) * (1 - sliCut);
+  R.sli = taxMap(function() { return sliA / 12; });
+  R.agi = taxMap(function(i) { return R.magi[i] - R.sli[i]; });
+  var agiA = taxSum(R.agi);
+
+  // State: AGI less the 529 subtraction (capped) and Treasury income, then the larger of its standard and itemized deductions.
+  var s529A = taxSum(v.s529), s529Ok = Math.min(Math.max(0, s529A), L.de529Cap), s529Share = s529A > 0 ? s529Ok / s529A : 0;
+  R.s529 = v.s529;
+  R.stateAgi = taxMap(function(i) { return R.agi[i] - v.s529[i] * s529Share - v.treasury[i]; });
+  var stateAgiA = taxSum(R.stateAgi);
+  var D = doc.d, giving = taxPos(D.giving), mortgage = taxPos(D.mortgage), property = taxPos(D.property), medical = taxPos(D.medical), misc = taxPos(D.misc);
+  var st = { giving: giving, mortgage: mortgage, property: property, medFloorPct: 0.10, miscFloorPct: 0.02 };
+  st.medFloor = st.medFloorPct * Math.max(0, agiA);
+  st.miscFloor = st.miscFloorPct * Math.max(0, agiA);
+  st.medical = Math.max(0, medical - st.medFloor);
+  st.misc = Math.max(0, misc - st.miscFloor);
+  st.itemized = giving + mortgage + property + st.medical + st.misc;
+  st.std = L.deStd;
+  st.itemizing = st.itemized > st.std;
+  st.used = Math.max(st.itemized, st.std);
+  R.stateDed = taxMap(function() { return st.used / 12; });
+  R.stateTaxable = taxMap(function(i) { return R.stateAgi[i] - R.stateDed[i]; });
+  var stTaxableA = Math.max(0, stateAgiA - st.used);
+  var stTaxA = taxBracketTax(stTaxableA, L.deBrackets);
+  var sc = { personal: dependents * L.dePersonal, other: taxPos(D.stateOther) };
+  sc.total = sc.personal + sc.other;
+  sc.applied = Math.min(sc.total, stTaxA);
+  var stDueA = stTaxA - sc.applied, stW = taxWeights(R.stateTaxable);
+  R.stateTax = taxMap(function(i) { return stTaxA * stW[i]; });
+  R.stateCredits = taxMap(function(i) { return sc.applied * stW[i]; });
+  R.stateDue = taxMap(function(i) { return stDueA * stW[i]; });
+
+  // Federal itemized: the state tax just figured joins property taxes under the SALT cap (which phases down at high AGI).
+  var saltCap = L.saltCap;
+  if (L.saltPoOn && agiA > L.saltPoThreshold) saltCap = Math.max(L.saltPoFloor, saltCap - L.saltPoRate * (agiA - L.saltPoThreshold));
+  var fed = { giving: giving, mortgage: mortgage, stateTax: stDueA, property: property, saltRaw: stDueA + property, saltCap: saltCap };
+  fed.salt = Math.min(fed.saltRaw, saltCap);
+  fed.medFloor = L.medFloor * Math.max(0, agiA);
+  fed.medical = Math.max(0, medical - fed.medFloor);
+  fed.itemized = giving + mortgage + fed.salt + fed.medical;
+  fed.std = L.fedStd;
+  fed.itemizing = fed.itemized > fed.std;
+  fed.used = Math.max(fed.itemized, fed.std);
+  var qbiA = Math.min(0.2 * Math.max(0, seNetA - seMain / 2), 0.2 * Math.max(0, agiA - fed.used));
+  R.fedDed = taxMap(function() { return fed.used / 12; });
+  R.qbi = taxMap(function(i) { return qbiA * seW[i]; });
+  R.fedTaxable = taxMap(function(i) { return R.agi[i] - R.fedDed[i] - R.qbi[i]; });
+  var fedTaxableA = Math.max(0, agiA - fed.used - qbiA);
+  var fedTaxA = taxBracketTax(fedTaxableA, L.fedBrackets);
+  var cr = { ctcFull: dependents * L.ctcAmount, items: {} };
+  cr.ctcCut = agiA > L.ctcPoThreshold ? Math.ceil((agiA - L.ctcPoThreshold) / L.ctcPoIncrement) * L.ctcPoAmount : 0;
+  cr.ctc = Math.max(0, cr.ctcFull - cr.ctcCut);
+  cr.total = cr.ctc;
+  TAX_CREDIT_DEFS.forEach(function(x) {
+    var c = doc.c[x.k], cap = String(c.cap).trim() === '' ? Infinity : taxPos(c.cap);
+    cr.items[x.k] = Math.max(0, Math.min(taxPos(c.amount) * taxNum(c.pct) / 100, cap));
+    cr.total += cr.items[x.k];
+  });
+  cr.applied = Math.min(cr.total, fedTaxA);     // treated as non-refundable: credits can't take the tax below zero
+  var fedDueA = fedTaxA - cr.applied, fW = taxWeights(R.fedTaxable);
+  R.fedTax = taxMap(function(i) { return fedTaxA * fW[i]; });
+  R.fedCredits = taxMap(function(i) { return cr.applied * fW[i]; });
+  R.fedDue = taxMap(function(i) { return fedDueA * fW[i]; });
+
+  // FICA month by month, so Social Security stops once the year's wages pass the wage base.
+  R.ss = []; R.medicare = [];
+  var cum = 0, ssCapMonth = -1;
+  for (var i = 0; i < 12; i++) {
+    var prev = cum;
+    cum += R.ficaWages[i];
+    if (ssCapMonth < 0 && cum >= L.ssCap && prev < L.ssCap) ssCapMonth = i;
+    R.ss.push(L.ssRate * (Math.min(cum, L.ssCap) - Math.min(prev, L.ssCap)));
+    R.medicare.push(L.mcRate * R.ficaWages[i] + L.mcAddRate * (Math.max(0, cum - L.mcAddThreshold) - Math.max(0, prev - L.mcAddThreshold)));
+  }
+  R.fica = taxMap(function(i) { return R.ss[i] + R.medicare[i] + R.seTax[i]; });
+  R.total = taxMap(function(i) { return R.fedDue[i] + R.fica[i] + R.stateDue[i]; });
+  var pp = taxPayPeriods(doc);
+  R.fedPP = taxMap(function(i) { return R.fedDue[i] / pp; });
+  R.statePP = taxMap(function(i) { return R.stateDue[i] / pp; });
+  var rf = 0, rs = 0;
+  R.fedRoll = taxMap(function(i) { return (rf += R.fedDue[i]); });
+  R.stateRoll = taxMap(function(i) { return (rs += R.stateDue[i]); });
+
+  return {
+    L: L, v: v, R: R, fed: fed, st: st, cr: cr, sc: sc, dependents: dependents, pp: pp, ssCapMonth: ssCapMonth,
+    A: { gross: taxSum(R.gross), magi: magiA, agi: agiA, stateAgi: stateAgiA, sliPaid: sliPaid, sliCut: sliCut, sli: sliA, s529: s529A, s529Ok: s529Ok,
+         fedTaxable: fedTaxableA, fedTax: fedTaxA, fedDue: fedDueA, stTaxable: stTaxableA, stTax: stTaxA, stDue: stDueA, qbi: qbiA,
+         seNet: seNetA, seTax: seMain + seAddl, ficaWages: ficaWagesA, fica: taxSum(R.fica), ss: taxSum(R.ss), medicare: taxSum(R.medicare),
+         total: taxSum(R.total) }
+  };
+}
+
+// ---- Rendering ----
+function taxFmt(v) {
+  var r = Math.round(v);
+  if (r === 0) r = 0;     // no "-$0"
+  return (r < 0 ? '-' : '') + '$' + Math.abs(r).toLocaleString('en-US');
+}
+function taxPct(v, dp) { return parseFloat((v * 100).toFixed(dp == null ? 1 : dp)) + '%'; }
+function taxStatusLabel(s) { for (var i = 0; i < TAX_STATUSES.length; i++) if (TAX_STATUSES[i][0] === s) return TAX_STATUSES[i][1]; return s; }
+function taxPayLabel(doc) { for (var i = 0; i < TAX_PAY_FREQ.length; i++) if (TAX_PAY_FREQ[i][0] === doc.payFreq) return TAX_PAY_FREQ[i][1].toLowerCase(); return ''; }
+function taxValCell(v, cls) {
+  return '<td class="' + (cls || '') + (Math.round(v) === 0 ? ' tax-zero' : (v < 0 ? ' tax-neg' : '')) + '">' + taxFmt(v) + '</td>';
+}
+// A hover (?) whose text is kept in taxHelpMap under `id`: a title, the formula, and optional notes.
+function taxHelpIcon(id, title, formula, notes) {
+  taxHelpMap[id] = '<div class="taxtt-title">' + escHtml(title) + '</div>'
+    + (formula ? '<div class="taxtt-formula">' + formula + '</div>' : '')
+    + (notes || []).filter(Boolean).map(function(n) { return '<div class="taxtt-note">' + n + '</div>'; }).join('');
+  return '<span class="tax-help" data-help="' + escAttr(id) + '" tabindex="0">?</span>';
+}
+function taxMonthRows(c, doc) {
+  var L = c.L, A = c.A, f = c.fed, st = c.st, sl = taxStatusLabel(doc.status), e = escHtml;
+  var fedMarg = L.fedBrackets[taxBracketIndex(A.fedTaxable, L.fedBrackets)] || { rate: 0 };
+  var stMarg = L.deBrackets[taxBracketIndex(A.stTaxable, L.deBrackets)] || { rate: 0 };
+  return [
+    { sec: 'Income' },
+    { k: 'wages', input: true, label: 'Wages', f: 'Gross pay before anything is taken out, for the month it is paid.',
+      n: ['Cells take math, e.g. 187000/12. » copies a month to the rest of the year; typing in Est. Annual spreads it evenly.'] },
+    { k: 'bonus', input: true, label: 'Bonuses', f: 'Taxed as ordinary income, the same as wages.',
+      n: ['The 22% “bonus rate” is only how much employers withhold from a bonus, not the tax on it.'] },
+    { k: 'interest', input: true, label: 'Interest', f: 'Taxable interest and dividends (savings, CDs, Treasury funds).', n: ['Not subject to FICA.'] },
+    { k: 'business', input: true, label: 'Business Income', f: 'Self-employment (1099) income before expenses.' },
+    { k: 'gross', label: 'Gross Income', sub: true, f: 'Wages + Bonuses + Interest + Business Income' },
+    { sec: 'Pre-Tax Adjustments' },
+    { k: 'hsa', input: true, label: 'FSA / HSA Contributions', f: 'Payroll FSA and HSA contributions.', n: ['Lower income tax and FICA.'] },
+    { k: 'premiums', input: true, label: 'Medical Premiums', f: 'Pre-tax (Section 125) health, dental and vision premiums.', n: ['Lower income tax and FICA. Not life or emergency coverage.'] },
+    { k: 'k401', input: true, label: '401(k) / IRA Contributions', f: 'Traditional (pre-tax) retirement contributions.', n: ['Lower income tax, but not FICA. Roth contributions don’t count here.'] },
+    { k: 'bizexp', input: true, label: 'Business Expenses', f: 'Expenses of the business: supplies, mileage, and the business share of the home (mortgage interest, property taxes, utilities, internet, insurance, repairs, depreciation over 39 years) or $5 per square foot.' },
+    { k: 'halfSe', label: '½ Self-Employment Tax', hideZero: true, f: 'Half of the self-employment tax (see FICA), which is deductible.' },
+    { k: 'magi', label: 'Modified Adjusted Gross Income', sub: true, f: 'Gross Income − FSA/HSA − Medical Premiums − 401(k)/IRA − Business Expenses − ½ Self-Employment Tax' },
+    { k: 'sli', label: 'Student Loan Interest', f: 'Interest paid (' + taxFmt(A.sliPaid) + ', entered under Deductions), up to ' + taxFmt(L.sliCap) + ', reduced as MAGI goes from ' + taxFmt(L.sliStart) + ' to ' + taxFmt(L.sliStart + L.sliDivisor) + '.',
+      n: ['Your MAGI of ' + taxFmt(A.magi) + ' leaves ' + taxPct(1 - A.sliCut, 0) + ' of it: ' + taxFmt(A.sli) + ' for the year, spread evenly.'] },
+    { k: 'agi', label: 'Adjusted Gross Income', sub: true, f: 'MAGI − Student Loan Interest' },
+    { sec: 'Federal' },
+    { k: 'fedDed', label: 'Standard / Itemized Deduction', f: 'The larger of the standard deduction (' + taxFmt(f.std) + ', ' + e(sl.toLowerCase()) + ') and your itemized deductions (' + taxFmt(f.itemized) + ') — using ' + (f.itemizing ? 'itemized' : 'standard') + '.',
+      n: ['See Itemized Deductions below. Spread evenly over the year.'] },
+    { k: 'qbi', label: 'Qualified Business Income Deduction', hideZero: true, f: '20% of business profit (after ½ self-employment tax), up to 20% of taxable income.' },
+    { k: 'fedTaxable', label: 'Federal Taxable Income', sub: true, f: 'AGI − Standard / Itemized Deduction − QBI Deduction' },
+    { k: 'fedTax', label: 'Federal Income Tax', f: 'The year’s taxable income (' + taxFmt(A.fedTaxable) + ') through the federal brackets below = ' + taxFmt(A.fedTax) + '.',
+      n: ['Effective rate ' + taxPct(A.fedTaxable > 0 ? A.fedTax / A.fedTaxable : 0) + ' of taxable income; top bracket reached ' + taxPct(fedMarg.rate, 0) + '.', 'Each month shows its share, in proportion to its taxable income, so the months add up to the year.'] },
+    { k: 'fedCredits', label: 'Federal Credits', f: 'Child Tax Credit (' + taxFmt(c.cr.ctc) + ') + the other credits under Credits below (' + taxFmt(c.cr.total - c.cr.ctc) + ').',
+      n: [c.cr.total > A.fedTax ? 'Limited to the tax itself (' + taxFmt(A.fedTax) + ').' : ''] },
+    { k: 'fedDue', label: 'Federal Income Tax Due', sub: true, f: 'Federal Income Tax − Federal Credits' },
+    { sec: 'FICA' },
+    { k: 'ficaWages', label: 'FICA Wages', f: 'Wages + Bonuses − FSA/HSA − Medical Premiums', n: ['401(k) contributions don’t lower FICA wages, and interest isn’t part of them.'] },
+    { k: 'ss', label: 'Social Security', f: taxPct(L.ssRate) + ' of FICA wages, up to the ' + taxFmt(L.ssCap) + ' wage base' + (c.ssCapMonth >= 0 ? ' (reached in ' + TAX_MONTHS[c.ssCapMonth] + ')' : '') + '.',
+      n: ['The wage base applies per person; this treats all wages as one earner’s.'] },
+    { k: 'medicare', label: 'Medicare', f: taxPct(L.mcRate, 2) + ' of FICA wages, plus ' + taxPct(L.mcAddRate) + ' Additional Medicare Tax on wages over ' + taxFmt(L.mcAddThreshold) + ' (' + e(sl.toLowerCase()) + ').' },
+    { k: 'seTax', label: 'Self-Employment Tax', hideZero: true, f: taxPct(L.seSsRate) + ' Social Security (up to what wages leave of the wage base) + ' + taxPct(L.seMcRate) + ' Medicare, on 92.35% of business profit. None when profit is under $400.' },
+    { k: 'fica', label: 'FICA Total', sub: true, f: 'Social Security + Medicare + Self-Employment Tax' },
+    { sec: 'State (Delaware)' },
+    { k: 's529', input: true, label: '529 Contributions', f: 'Delaware subtracts 529 plan contributions, up to ' + taxFmt(L.de529Cap) + ' (' + e(sl.toLowerCase()) + ').',
+      n: [A.s529 > L.de529Cap ? 'You’ve entered ' + taxFmt(A.s529) + '; only ' + taxFmt(A.s529Ok) + ' counts.' : ''] },
+    { k: 'treasury', input: true, label: 'SGOV / Treasury Income', f: 'Interest from U.S. Treasuries (e.g. SGOV, USFR), which states don’t tax.', n: ['It is still federal income, so include it under Interest too.'] },
+    { k: 'stateAgi', label: 'State AGI', sub: true, f: 'AGI − 529 Contributions (up to the cap) − SGOV / Treasury Income' },
+    { k: 'stateDed', label: 'Standard / Itemized Deduction', f: 'The larger of Delaware’s standard deduction (' + taxFmt(st.std) + ') and your Delaware itemized deductions (' + taxFmt(st.itemized) + ') — using ' + (st.itemizing ? 'itemized' : 'standard') + '.',
+      n: ['See Itemized Deductions below. Spread evenly over the year.'] },
+    { k: 'stateTaxable', label: 'State Taxable Income', sub: true, f: 'State AGI − Standard / Itemized Deduction' },
+    { k: 'stateTax', label: 'State Income Tax', f: 'The year’s state taxable income (' + taxFmt(A.stTaxable) + ') through the Delaware brackets below = ' + taxFmt(A.stTax) + '.',
+      n: ['Top bracket reached ' + taxPct(stMarg.rate, 2) + '. Each month shows its share, in proportion to its taxable income.'] },
+    { k: 'stateCredits', label: 'State Credits', f: 'Personal credit (' + taxFmt(L.dePersonal) + ' × ' + c.dependents + ' dependents = ' + taxFmt(c.sc.personal) + ') + other state / local tax paid (' + taxFmt(c.sc.other) + ').',
+      n: [c.sc.total > A.stTax ? 'Limited to the tax itself (' + taxFmt(A.stTax) + ').' : ''] },
+    { k: 'stateDue', label: 'State Tax Due', sub: true, f: 'State Income Tax − State Credits' },
+    { sec: 'Total' },
+    { k: 'total', label: 'Total Tax', total: true, f: 'Federal Income Tax Due + FICA Total + State Tax Due',
+      n: ['That is ' + taxPct(A.gross > 0 ? A.total / A.gross : 0) + ' of gross income.'] },
+    { k: 'fedPP', label: 'Federal Per Paycheck', noAnnual: true, f: 'Federal Income Tax Due ÷ paychecks in the month (paid ' + e(taxPayLabel(doc)) + ' — change it in Settings).', n: ['Compare with the federal withholding on your pay stub.'] },
+    { k: 'statePP', label: 'State Per Paycheck', noAnnual: true, f: 'State Tax Due ÷ paychecks in the month.', n: ['Compare with the state withholding on your pay stub.'] },
+    { k: 'fedRoll', label: 'Federal Running Total', noAnnual: true, roll: true, f: 'Federal Income Tax Due, January through this month.' },
+    { k: 'stateRoll', label: 'State Running Total', noAnnual: true, roll: true, f: 'State Tax Due, January through this month.' }
+  ];
+}
+function renderTaxMonthTable(c, doc) {
+  var el = document.getElementById('tax-month-table');
+  if (!el) return;
+  var curM = new Date().getFullYear() === TAX_YEAR ? new Date().getMonth() : -1;
+  var h = '<thead><tr><th>' + TAX_YEAR + '</th><th class="tax-annual-col">Est. Annual</th>'
+    + TAX_MONTHS.map(function(m, i) { return '<th' + (i === curM ? ' class="tax-cur"' : '') + '>' + m + '</th>'; }).join('') + '</tr></thead><tbody>';
+  taxMonthRows(c, doc).forEach(function(row) {
+    if (row.sec) { h += '<tr class="tax-sec"><td>' + escHtml(row.sec) + '</td><td colspan="13"></td></tr>'; return; }
+    if (row.roll && !taxShowRoll) return;
+    var vals = (row.input ? c.v[row.k] : c.R[row.k]) || taxMap(function() { return 0; }), ann = taxSum(vals);
+    if (row.hideZero && vals.every(function(x) { return Math.abs(x) < 0.5; })) return;
+    h += '<tr class="' + (row.sub ? 'tax-sub' : row.total ? 'tax-total' : row.input ? 'tax-inrow' : '') + '">'
+      + '<td>' + escHtml(row.label) + taxHelpIcon('m:' + row.k, row.label, row.f, row.n) + '</td>';
+    if (row.input) {
+      var raws = doc.m[row.k];
+      h += '<td class="tax-in tax-annual-col">' + taxCellInput(row.k, 'A', '', ann, row.label + ', ' + TAX_YEAR + ' total') + '</td>';
+      for (var i = 0; i < 12; i++) {
+        var bad = !isFinite(taxEval(raws[i]));
+        h += '<td class="tax-in' + (i === curM ? ' tax-cur' : '') + (bad ? ' tax-bad' : '') + '">' + taxCellInput(row.k, i, raws[i], c.v[row.k][i], row.label + ', ' + TAX_MONTHS[i])
+          + (i < 11 ? '<button type="button" class="tax-fill" data-k="' + row.k + '" data-m="' + i + '" title="Copy ' + TAX_MONTHS[i] + ' to the rest of the year" tabindex="-1">»</button>' : '') + '</td>';
+      }
+    } else {
+      h += row.noAnnual ? '<td class="tax-annual-col"></td>' : taxValCell(ann, 'tax-annual-col');
+      for (var j = 0; j < 12; j++) h += taxValCell(vals[j], j === curM ? 'tax-cur' : '');
+    }
+    h += '</tr>';
+  });
+  el.innerHTML = h + '</tbody>';
+}
+// An editable cell: shows the formatted amount, and the raw entry (e.g. "187000/12") while focused.
+function taxCellInput(k, m, raw, val, label) {
+  var shown = String(raw).trim() === '' && m !== 'A' ? '' : taxFmt(val);
+  return '<input type="text" class="tax-cell" inputmode="decimal" autocomplete="off" data-k="' + k + '" data-m="' + m + '" data-raw="' + escAttr(raw)
+    + '" data-shown="' + escAttr(shown) + '" value="' + escAttr(shown) + '" aria-label="' + escAttr(label) + '">';
+}
+// An editable yearly figure (deductions and credits): data-path like "d.giving" or "c.college.pct".
+function taxValInput(path, raw, ph, cls) {
+  return '<input type="text" class="tax-val' + (cls ? ' ' + cls : '') + (isFinite(taxEval(raw)) ? '' : ' tax-bad') + '" inputmode="decimal" autocomplete="off" data-path="' + path + '" value="' + escAttr(raw) + '" placeholder="' + escAttr(ph || '0') + '">';
+}
+function taxBadge(which) {
+  var t = { fed: ['Federal', 'tax-b-fed'], state: ['State', 'tax-b-state'], both: ['Both', 'tax-b-both'] }[which];
+  return '<span class="tax-badge ' + t[1] + '">' + t[0] + '</span>';
+}
+function renderTaxDedTable(c, doc) {
+  var el = document.getElementById('tax-ded-table');
+  if (!el) return;
+  var f = c.fed, st = c.st, L = c.L, A = c.A, dash = '<span class="tax-zero">—</span>', toSalt = '<span class="tax-note">in SALT</span>';
+  function row(k, label, help, applies, amount, limit, fv, sv) {
+    return '<tr><td>' + escHtml(label) + taxHelpIcon('d:' + k, label, help[0], help.slice(1)) + '</td><td>' + taxBadge(applies) + '</td><td class="tax-amt">' + amount + '</td>'
+      + '<td class="tax-limit">' + limit + '</td><td class="tax-amt">' + fv + '</td><td class="tax-amt">' + sv + '</td></tr>';
+  }
+  function money(v) { return '<span class="' + (Math.round(v) === 0 ? 'tax-zero' : '') + '">' + taxFmt(v) + '</span>'; }
+  var saltLimit = 'Capped at ' + taxFmt(f.saltCap) + (L.saltPoOn && A.agi > L.saltPoThreshold ? ' (reduced from ' + taxFmt(L.saltCap) + ' as AGI is over ' + taxFmt(L.saltPoThreshold) + ')' : '');
+  var h = '<thead><tr><th>Deduction</th><th>Applies To</th><th class="tax-amt">Amount</th><th>Limit</th><th class="tax-amt">Federal</th><th class="tax-amt">State</th></tr></thead><tbody>'
+    + row('giving', 'Giving', ['Charitable gifts for the year.', 'Entered by hand for now; later this can come from #itemize-tagged transactions.'], 'both', taxValInput('d.giving', doc.d.giving), '', money(f.giving), money(st.giving))
+    + row('mortgage', 'Mortgage Interest', ['Home mortgage interest for the year (Form 1098).', 'Only the share not already used as a business expense. Interest on up to $750,000 of mortgage debt counts.'], 'both', taxValInput('d.mortgage', doc.d.mortgage), '', money(f.mortgage), money(st.mortgage))
+    + row('property', 'Property Taxes', ['Real estate taxes paid for the year.', 'Federally they count toward the SALT cap, together with state income tax.'], 'both', taxValInput('d.property', doc.d.property), 'Federal: part of SALT', toSalt, money(st.property))
+    + row('statetax', 'State Income Tax', ['State Tax Due from the monthly table, deductible federally (under the SALT cap).', 'Not deductible on the state return itself.'], 'fed', money(f.stateTax), 'From State Tax Due', toSalt, dash)
+    + row('salt', 'SALT (State + Property Taxes)', ['State Income Tax + Property Taxes, up to the federal cap.', 'The cap falls by ' + taxPct(L.saltPoRate, 0) + ' of AGI over ' + taxFmt(L.saltPoThreshold) + ', but not below ' + taxFmt(L.saltPoFloor) + '.'], 'fed', money(f.saltRaw), saltLimit, money(f.salt), dash)
+    + row('medical', 'Medical (Not HSA-Reimbursed)', ['Out-of-pocket medical and dental costs not paid from an HSA or FSA.', 'Only the part above a share of AGI counts: ' + taxPct(L.medFloor) + ' federally, ' + taxPct(st.medFloorPct, 0) + ' for the state.'], 'both', taxValInput('d.medical', doc.d.medical),
+      'Over ' + taxPct(L.medFloor) + ' of AGI (' + taxFmt(f.medFloor) + ') · State: over ' + taxPct(st.medFloorPct, 0) + ' (' + taxFmt(st.medFloor) + ')', money(f.medical), money(st.medical))
+    + row('misc', 'Misc. Over 2%', ['Miscellaneous deductions (unreimbursed job expenses, tax prep, ...).', 'No longer deductible federally; the state counts the part over 2% of AGI.'], 'state', taxValInput('d.misc', doc.d.misc), 'Over 2% of AGI (' + taxFmt(st.miscFloor) + ')', dash, money(st.misc))
+    + '<tr class="tax-sub"><td>Itemized Total</td><td></td><td></td><td></td><td class="tax-amt">' + taxFmt(f.itemized) + '</td><td class="tax-amt">' + taxFmt(st.itemized) + '</td></tr>'
+    + '<tr><td>Standard Deduction' + taxHelpIcon('d:std', 'Standard Deduction', 'The flat deduction for your filing status (' + escHtml(taxStatusLabel(doc.status).toLowerCase()) + '), federal and Delaware.', ['From the tax figures below.']) + '</td><td></td><td></td><td></td><td class="tax-amt">' + taxFmt(f.std) + '</td><td class="tax-amt">' + taxFmt(st.std) + '</td></tr>'
+    + '<tr class="tax-total"><td>Deduction Used' + taxHelpIcon('d:used', 'Deduction Used', 'The larger of Itemized Total and the Standard Deduction, separately for federal and state.', ['Feeds Standard / Itemized Deduction in the monthly table.']) + '</td><td></td><td></td><td></td>'
+    +   '<td class="tax-amt">' + taxFmt(f.used) + ' <span class="tax-note">' + (f.itemizing ? 'itemized' : 'standard') + '</span></td>'
+    +   '<td class="tax-amt">' + taxFmt(st.used) + ' <span class="tax-note">' + (st.itemizing ? 'itemized' : 'standard') + '</span></td></tr>'
+    + '<tr class="tax-sec"><td colspan="6">Above the Line</td></tr>'
+    + row('sli', 'Student Loan Interest', ['Student loan interest paid for the year (Form 1098-E).', 'Reduces AGI for both returns rather than being itemized, so it applies even with the standard deduction.'], 'both', taxValInput('d.studentLoan', doc.d.studentLoan),
+      'Up to ' + taxFmt(L.sliCap) + '; phases out from ' + taxFmt(L.sliStart) + ' to ' + taxFmt(L.sliStart + L.sliDivisor) + ' MAGI', money(A.sli), money(A.sli))
+    + '</tbody>';
+  el.innerHTML = h;
+}
+function renderTaxCredTable(c, doc) {
+  var el = document.getElementById('tax-cred-table');
+  if (!el) return;
+  var L = c.L, cr = c.cr, sc = c.sc, A = c.A;
+  function money(v) { return '<span class="' + (Math.round(v) === 0 ? 'tax-zero' : '') + '">' + taxFmt(v) + '</span>'; }
+  var h = '<thead><tr><th>Credit</th><th>Applies To</th><th class="tax-amt">Amount</th><th class="tax-amt">%</th><th class="tax-amt">Cap</th><th class="tax-amt">Credit</th></tr></thead><tbody>'
+    + '<tr><td>Child Tax Credit' + taxHelpIcon('c:ctc', 'Child Tax Credit', taxFmt(L.ctcAmount) + ' per qualifying child under 17 (dependents are set in Settings).', ['Reduced by ' + taxFmt(L.ctcPoAmount) + ' for each ' + taxFmt(L.ctcPoIncrement) + ' of AGI over ' + taxFmt(L.ctcPoThreshold) + '.' + (cr.ctcCut > 0 ? ' Yours is reduced by ' + taxFmt(Math.min(cr.ctcCut, cr.ctcFull)) + '.' : '')]) + '</td>'
+    +   '<td>' + taxBadge('fed') + '</td><td class="tax-amt">' + c.dependents + ' × ' + taxFmt(L.ctcAmount) + '</td><td></td><td class="tax-amt tax-note">over ' + taxFmt(L.ctcPoThreshold) + ' AGI</td><td class="tax-amt">' + money(cr.ctc) + '</td></tr>';
+  TAX_CREDIT_DEFS.forEach(function(x) {
+    var v = doc.c[x.k];
+    h += '<tr><td>' + escHtml(x.label) + taxHelpIcon('c:' + x.k, x.label, 'min(Amount × %, Cap)', [x.help]) + '</td><td>' + taxBadge('fed') + '</td>'
+      + '<td class="tax-amt">' + taxValInput('c.' + x.k + '.amount', v.amount, '0') + '</td>'
+      + '<td class="tax-amt">' + taxValInput('c.' + x.k + '.pct', v.pct, String(x.pct), 'tax-val-sm') + '</td>'
+      + '<td class="tax-amt">' + taxValInput('c.' + x.k + '.cap', v.cap, 'none') + '</td>'
+      + '<td class="tax-amt">' + money(cr.items[x.k]) + '</td></tr>';
+  });
+  h += '<tr><td>Delaware Personal Credit' + taxHelpIcon('c:depersonal', 'Delaware Personal Credit', taxFmt(L.dePersonal) + ' for each dependent (set in Settings).') + '</td><td>' + taxBadge('state') + '</td>'
+    +   '<td class="tax-amt">' + c.dependents + ' × ' + taxFmt(L.dePersonal) + '</td><td></td><td></td><td class="tax-amt">' + money(sc.personal) + '</td></tr>'
+    + '<tr><td>Other State / Local Tax Paid' + taxHelpIcon('c:stateother', 'Other State / Local Tax Paid', 'Income tax paid to another state or locality on the same income, credited against Delaware tax.') + '</td><td>' + taxBadge('state') + '</td>'
+    +   '<td class="tax-amt">' + taxValInput('d.stateOther', doc.d.stateOther) + '</td><td></td><td></td><td class="tax-amt">' + money(sc.other) + '</td></tr>'
+    + '<tr class="tax-sub"><td>Federal Credits Total' + taxHelpIcon('c:fedtotal', 'Federal Credits Total', 'Child Tax Credit + the credits above.', ['Limited to the federal income tax (' + taxFmt(A.fedTax) + '); treated as non-refundable.']) + '</td><td></td><td></td><td></td><td></td><td class="tax-amt">' + taxFmt(cr.applied) + (cr.applied < cr.total ? ' <span class="tax-note">of ' + taxFmt(cr.total) + '</span>' : '') + '</td></tr>'
+    + '<tr class="tax-sub"><td>State Credits Total' + taxHelpIcon('c:sttotal', 'State Credits Total', 'Delaware Personal Credit + Other State / Local Tax Paid.', ['Limited to the state income tax (' + taxFmt(A.stTax) + ').']) + '</td><td></td><td></td><td></td><td></td><td class="tax-amt">' + taxFmt(sc.applied) + (sc.applied < sc.total ? ' <span class="tax-note">of ' + taxFmt(sc.total) + '</span>' : '') + '</td></tr>'
+    + '</tbody>';
+  el.innerHTML = h;
+}
+function renderTaxBrackets(c, doc) {
+  var L = c.L, A = c.A, sl = taxStatusLabel(doc.status);
+  function brk(id, title, brackets, income) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    var at = taxBracketIndex(income, brackets);
+    var h = '<thead><tr><th colspan="4">' + escHtml(title) + '</th></tr><tr><th class="tax-amt">From</th><th class="tax-amt">To</th><th class="tax-amt">Rate</th><th class="tax-amt">Tax Below</th></tr></thead><tbody>';
+    brackets.forEach(function(b, i) {
+      var hi = i + 1 < brackets.length ? brackets[i + 1].from : Infinity, you = income > 0 && i === at;
+      h += '<tr' + (you ? ' class="tax-you" title="Your top bracket"' : '') + '><td class="tax-amt">' + taxFmt(b.from) + '</td><td class="tax-amt">' + (hi === Infinity ? 'and up' : taxFmt(hi)) + '</td>'
+        + '<td class="tax-amt">' + taxPct(b.rate, 2) + '</td><td class="tax-amt">' + taxFmt(taxBracketTax(b.from, brackets)) + (you ? ' <span class="tax-you-tag">you</span>' : '') + '</td></tr>';
+    });
+    el.innerHTML = h + '</tbody>';
+  }
+  brk('tax-fed-brk', 'Federal · ' + sl + ' · ' + TAX_YEAR, L.fedBrackets, A.fedTaxable);
+  brk('tax-state-brk', 'Delaware · ' + TAX_YEAR, L.deBrackets, A.stTaxable);
+  var fig = document.getElementById('tax-figures');
+  if (fig) {
+    var rows = [
+      ['Federal standard deduction', taxFmt(L.fedStd)], ['Delaware standard deduction', taxFmt(L.deStd)],
+      ['SALT cap', taxFmt(L.saltCap) + (L.saltPoOn ? ' (phases down over ' + taxFmt(L.saltPoThreshold) + ' AGI)' : '')],
+      ['Medical deduction floor', taxPct(L.medFloor) + ' of AGI'],
+      ['Social Security', taxPct(L.ssRate) + ' up to ' + taxFmt(L.ssCap)],
+      ['Medicare', taxPct(L.mcRate, 2) + ' + ' + taxPct(L.mcAddRate) + ' over ' + taxFmt(L.mcAddThreshold)],
+      ['Child Tax Credit', taxFmt(L.ctcAmount) + ' per child'], ['Delaware personal credit', taxFmt(L.dePersonal) + ' each'],
+      ['Student loan interest', 'up to ' + taxFmt(L.sliCap) + ', phase-out ' + taxFmt(L.sliStart) + '–' + taxFmt(L.sliStart + L.sliDivisor)],
+      ['Delaware 529 subtraction', 'up to ' + taxFmt(L.de529Cap)]
+    ];
+    fig.innerHTML = '<thead><tr><th colspan="2">Other Figures · ' + escHtml(sl) + '</th></tr></thead><tbody>'
+      + rows.map(function(r) { return '<tr><td>' + escHtml(r[0]) + '</td><td class="tax-amt">' + escHtml(r[1]) + '</td></tr>'; }).join('') + '</tbody>';
+  }
+  var note = document.getElementById('tax-params-note');
+  if (note) {
+    var live = !!taxParams.docs, when = taxParams.fetchedAt ? new Date(taxParams.fetchedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+    note.innerHTML = (live ? 'Figures for ' + TAX_YEAR + ' from <a href="' + TAX_PE_SOURCE + '" target="_blank" rel="noopener">PolicyEngine’s open tax parameters</a> (IRS and Delaware sources), read ' + escHtml(when) + '.'
+        : 'Using the built-in ' + TAX_FALLBACK_YEAR + ' figures' + (taxParams.loading ? ' while the latest load…' : '') + '.')
+      + (taxParams.error ? ' <span class="tax-err">Couldn’t load the latest: ' + escHtml(taxParams.error) + '.</span>' : '')
+      + ' <button type="button" class="tax-link-btn" id="tax-refresh-params"' + (taxParams.loading ? ' disabled' : '') + '>' + (taxParams.loading ? 'Loading…' : 'Refresh') + '</button>';
+  }
+}
+function renderTaxCards(c) {
+  var el = document.getElementById('tax-cards');
+  if (!el) return;
+  var A = c.A, g = A.gross;
+  function pct(v) { return g > 0 ? taxPct(v / g) + ' of gross income' : ' '; }
+  el.innerHTML = [
+    ['Federal Income Tax', A.fedDue, pct(A.fedDue)], ['FICA', A.fica, pct(A.fica)], ['State Tax', A.stDue, pct(A.stDue)], ['Total Tax', A.total, pct(A.total)]
+  ].map(function(x) {
+    return '<div class="home-metric-card"><div class="home-metric-label">' + escHtml(x[0]) + '</div><div class="home-metric-sub">' + escHtml(x[2]) + '</div>'
+      + '<div class="home-metric-value">' + taxFmt(x[1]) + '</div></div>';
+  }).join('');
+}
+function taxSyncSettings() {
+  var s = document.getElementById('tax-status-sel'), d = document.getElementById('tax-dependents-in'), p = document.getElementById('tax-payfreq-sel'), r = document.getElementById('tax-show-roll');
+  if (s) { if (!s.options.length) s.innerHTML = TAX_STATUSES.map(function(x) { return '<option value="' + x[0] + '">' + escHtml(x[1]) + '</option>'; }).join(''); s.value = taxDoc.status; }
+  if (p) { if (!p.options.length) p.innerHTML = TAX_PAY_FREQ.map(function(x) { return '<option value="' + x[0] + '">' + escHtml(x[1]) + '</option>'; }).join(''); p.value = taxDoc.payFreq; }
+  if (d && document.activeElement !== d) d.value = taxDoc.dependents;
+  if (r) r.checked = taxShowRoll;
+}
+function renderTaxes() {
+  if (!document.getElementById('taxes-panel')) return;
+  taxEnsureDoc();
+  taxFetchParams(false);
+  taxHelpMap = {};
+  var c = taxCompute(taxDoc);
+  var title = document.getElementById('tax-title');
+  if (title) title.textContent = TAX_YEAR + ' Taxes · ' + taxStatusLabel(taxDoc.status) + ' · Delaware';
+  renderTaxCards(c);
+  renderTaxMonthTable(c, taxDoc);
+  renderTaxDedTable(c, taxDoc);
+  renderTaxCredTable(c, taxDoc);
+  renderTaxBrackets(c, taxDoc);
+  var hint = document.getElementById('tax-empty-hint');
+  if (hint) hint.style.display = c.A.gross ? 'none' : '';
+  taxSyncSettings();
+  taxShowSaveState();
+}
+// Re-renders without losing the cell being edited (Tab / Enter have usually moved focus on by then).
+function taxRerender() {
+  var a = document.activeElement, sel = null;
+  if (a && a.closest && a.closest('#taxes-panel')) {
+    if (a.classList.contains('tax-cell')) sel = '.tax-cell[data-k="' + a.getAttribute('data-k') + '"][data-m="' + a.getAttribute('data-m') + '"]';
+    else if (a.classList.contains('tax-val')) sel = '.tax-val[data-path="' + a.getAttribute('data-path') + '"]';
+  }
+  renderTaxes();
+  if (sel) { var n = document.querySelector('#taxes-panel ' + sel); if (n) n.focus(); }
+}
+function taxSetPath(path, value) {
+  var parts = path.split('.'), o = taxDoc;
+  for (var i = 0; i < parts.length - 1; i++) o = o[parts[i]];
+  o[parts[parts.length - 1]] = value;
+}
+function taxChanged() { taxQueueSave(); setTimeout(taxRerender, 0); }
+
+function wireTaxes() {
+  var panel = document.getElementById('taxes-panel');
+  if (!panel) return;
+  panel.addEventListener('focusin', function(e) {
+    var t = e.target;
+    if (t.classList && t.classList.contains('tax-cell')) {
+      t.value = t.getAttribute('data-m') !== 'A' ? t.getAttribute('data-raw') : '';
+      t.select();                       // typing replaces the entry, as in a spreadsheet
+      t.setAttribute('data-just-focused', '1');
+    }
+  });
+  // A click's own mouseup would otherwise drop the selection made on focus
+  panel.addEventListener('mouseup', function(e) {
+    var t = e.target;
+    if (t.classList && t.classList.contains('tax-cell') && t.hasAttribute('data-just-focused')) { e.preventDefault(); t.removeAttribute('data-just-focused'); }
+  });
+  panel.addEventListener('focusout', function(e) {
+    var t = e.target;
+    if (t.classList && t.classList.contains('tax-cell') && !t.hasAttribute('data-dirty')) t.value = t.getAttribute('data-shown');
+  });
+  panel.addEventListener('input', function(e) { if (e.target.classList.contains('tax-cell')) e.target.setAttribute('data-dirty', '1'); });
+  panel.addEventListener('change', function(e) {
+    var t = e.target;
+    if (t.classList.contains('tax-cell')) {
+      var k = t.getAttribute('data-k'), m = t.getAttribute('data-m'), raw = t.value.trim();
+      if (m === 'A') {                       // a yearly amount spreads evenly over the twelve months
+        if (raw === '') return;
+        var total = taxEval(raw);
+        if (!isFinite(total)) { t.classList.add('tax-bad'); return; }
+        var each = Math.round(total / 12 * 100) / 100;
+        for (var i = 0; i < 12; i++) taxDoc.m[k][i] = total ? String(each) : '';
+      } else {
+        taxDoc.m[k][parseInt(m, 10)] = raw;
+      }
+      taxChanged();
+    } else if (t.classList.contains('tax-val')) {
+      taxSetPath(t.getAttribute('data-path'), t.value.trim());
+      taxChanged();
+    }
+  });
+  panel.addEventListener('keydown', function(e) {
+    var t = e.target;
+    if (e.key === 'Enter' && t.classList && (t.classList.contains('tax-cell') || t.classList.contains('tax-val'))) {
+      e.preventDefault();
+      // Down to the same month on the next editable row, like a spreadsheet
+      var all = [].slice.call(panel.querySelectorAll(t.classList.contains('tax-cell') ? '.tax-cell[data-m="' + t.getAttribute('data-m') + '"]' : '.tax-val'));
+      var next = all[all.indexOf(t) + 1];
+      if (next) next.focus(); else t.blur();
+    } else if (e.key === 'Escape' && t.classList && t.classList.contains('tax-cell')) {
+      t.value = t.getAttribute('data-m') === 'A' ? '' : t.getAttribute('data-raw');   // back to what it was, so no change fires
+      t.removeAttribute('data-dirty');
+      t.blur();
+    }
+  });
+  panel.addEventListener('click', function(e) {
+    var fill = e.target.closest('.tax-fill');
+    if (fill) {
+      var k = fill.getAttribute('data-k'), m = parseInt(fill.getAttribute('data-m'), 10), src = taxDoc.m[k][m];
+      for (var i = m + 1; i < 12; i++) taxDoc.m[k][i] = src;
+      taxChanged();
+      return;
+    }
+    if (e.target.closest('#tax-refresh-params')) { taxFetchParams(true); taxRerender(); return; }
+    var help = e.target.closest('.tax-help');
+    if (help) { var r = help.getBoundingClientRect(); taxShowHelp(help, r.right, r.top + r.height / 2); e.stopPropagation(); }
+  });
+  panel.addEventListener('mousemove', function(e) {
+    var help = e.target.closest && e.target.closest('.tax-help');
+    if (help) taxShowHelp(help, e.clientX, e.clientY); else taxHideHelp();
+  });
+  panel.addEventListener('mouseleave', taxHideHelp);
+  document.addEventListener('click', function(e) { if (!e.target.closest || !e.target.closest('.tax-help')) taxHideHelp(); });
+  window.addEventListener('scroll', taxHideHelp, true);
+
+  var s = document.getElementById('tax-status-sel'), d = document.getElementById('tax-dependents-in'), p = document.getElementById('tax-payfreq-sel'), r = document.getElementById('tax-show-roll');
+  if (s) s.addEventListener('change', function() { taxEnsureDoc(); taxDoc.status = s.value; taxChanged(); });
+  if (p) p.addEventListener('change', function() { taxEnsureDoc(); taxDoc.payFreq = p.value; taxChanged(); });
+  if (d) d.addEventListener('change', function() {
+    taxEnsureDoc();
+    var n = Math.max(0, Math.min(30, Math.floor(taxNum(d.value))));
+    d.value = n;
+    taxDoc.dependents = String(n);
+    taxChanged();
+  });
+  if (r) r.addEventListener('change', function() {
+    taxShowRoll = r.checked;
+    try { localStorage.setItem('tax-show-roll', taxShowRoll ? '1' : '0'); } catch (x) {}
+    renderTaxes();
+  });
+}
+var taxHelpShown = null;
+function taxShowHelp(icon, x, y) {
+  var tip = document.getElementById('lw-tooltip'), html = taxHelpMap[icon.getAttribute('data-help')];
+  if (!tip || !html) return;
+  if (taxHelpShown !== icon) { tip.innerHTML = '<div class="taxtt">' + html + '</div>'; taxHelpShown = icon; }
+  tip.style.display = 'block';
+  var tw = tip.offsetWidth, th = tip.offsetHeight, tx = x + 14, ty = y - th / 2;
+  if (tx + tw > window.innerWidth - 8) tx = x - tw - 14;
+  var pos = clampToViewport(tx, ty, tw, th);
+  tip.style.left = pos.x + 'px';
+  tip.style.top = pos.y + 'px';
+}
+function taxHideHelp() {
+  if (!taxHelpShown) return;
+  taxHelpShown = null;
+  var tip = document.getElementById('lw-tooltip');
+  if (tip) tip.style.display = 'none';
 }
 
 // ---- Net Worth "30y Outlook" projection ----
@@ -14235,6 +15146,7 @@ function loadDbConfig(force) {
       applyConfigOverlays();
       if (state.data) refreshYnab();            // config the cached data was built from has changed
     }
+    if (state.activeTab === 'taxes' && taxDocFrom !== 'db') taxRerender();   // adopt the saved copy once it arrives
     if (dbCfgSig() === before) return;
     if (state.activeTab === 'runway') renderRunway();
     if (state.activeTab === 'nw') renderNetWorth();
@@ -16106,6 +17018,7 @@ function showReport() {
   document.getElementById('nw-panel').style.display       = tab === 'nw'       ? 'block' : 'none';
   document.getElementById('lessons-panel').style.display  = tab === 'lessons'  ? 'block' : 'none';
   document.getElementById('leverage-panel').style.display     = tab === 'leverage'     ? 'block' : 'none';
+  document.getElementById('taxes-panel').style.display        = tab === 'taxes'        ? 'block' : 'none';
   document.getElementById('acct-history-panel').style.display = tab === 'acct-history' ? 'block' : 'none';
   document.getElementById('runway-panel').style.display       = tab === 'runway'       ? 'block' : 'none';
   document.getElementById('reconcile-panel').style.display    = tab === 'reconcile'     ? 'block' : 'none';
@@ -16143,6 +17056,7 @@ function showReport() {
   if (tab === 'nw')       renderNetWorth();
   if (tab === 'lessons')      renderLessonsLearned();
   if (tab === 'leverage')     renderLeverage();
+  if (tab === 'taxes')        renderTaxes();
   if (tab === 'acct-history') renderAccountHistory();
   if (tab === 'runway')       renderRunway();
   if (tab === 'reconcile')    renderReconcile();
@@ -16957,6 +17871,7 @@ document.addEventListener('DOMContentLoaded', function() {
   wireRunwayEditing();
   wireNwMilestones();
   wireUsageModal();
+  wireTaxes();
 
   // Table click delegation: detail pane OR expand/collapse
   document.getElementById('main-table').addEventListener('click', function(e) {
