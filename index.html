@@ -668,9 +668,10 @@ td.cell-active {
 
 /* ---- Taxes tab ---- */
 #taxes-panel { display: none; }
-.tax-hdr { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin: 4px 0 12px; }
+.tax-hdr { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 4px 0 12px; }
 .tax-title { font-size: 18px; font-weight: 700; color: #222; }
 .tax-status { font-size: 13px; color: #888; }
+.tax-filing { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #666; }
 .tax-status.err { color: #c62828; }
 .tax-cards { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; max-width: 980px; }
 .tax-cards .home-metric-card { flex: 1 1 0; min-width: 150px; }
@@ -888,7 +889,7 @@ html.as-tab-active #tab-row { z-index: 30; }
 .tab-icon-acct-history { width: 33px; margin: 0 -4px -5px -3px; }
 .tab-icon-reconcile    { width: 50px; margin: 0 -13px -3px -14px; }
 .tab-icon-runway       { width: 38px; margin: 0px -1px -4px -4px; }
-.tab-icon-taxes        { width: 38px; margin: 0 -3px -3px -6px; }
+.tab-icon-taxes        { width: 55px; margin: 0 -13px -3px -18px; }
 
 button { font-size: 14px; font-family: inherit; }
 select, input { font-family: inherit; }
@@ -1622,8 +1623,9 @@ select.um-in { width: 100%; }
 #runway-edit-btn.dirty::after { content: ''; position: absolute; top: -4px; right: -4px; width: 9px; height: 9px; border-radius: 50%; background: #f59e0b; border: 2px solid #fff; box-sizing: content-box; }
 #runway-edit-msg { position: absolute; right: 0; top: 36px; z-index: 5; font-size: 14px; color: #555; white-space: nowrap; }
 #runway-edit-msg:empty { display: none; }
-.rw-add-pill { height: 28px; padding: 0 9px; font-size: 13px; color: #555; background: #fff; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; white-space: nowrap; }
-.rw-add-pill:hover { background: #eef2fb; border-color: #90a4ae; }
+/* Empty pills while editing: faded until something is typed in */
+#runway-body.rw-editing .rw-pill-empty { opacity: .55; }
+#runway-body.rw-editing .rw-pill-empty:focus-within { opacity: 1; }
 #runway-edit-msg.rw-fail { color: #c62828; font-weight: 600; white-space: normal; width: max-content; max-width: min(46ch, 80vw); text-align: right; background: #fff; padding: 6px 10px; border: 1px solid #e5a5a0; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.12); }
 #runway-factors-btn {
   padding: 6px 12px; background: #fff; border: 1px solid #ccc;
@@ -1687,6 +1689,8 @@ html.rw-tab-active #tab-row { z-index: 30; }
 }
 .rw-ctl button:hover { background: #f0f0f0; }
 .rw-ctl button[data-act^="del"]:hover { background: #fdecea; color: #c62828; border-color: #e5a5a0; }
+/* A step's controls sit just above its top-right corner, so they never cover the step's own title or its pills. */
+.runway-step > .rw-ctl { top: auto; bottom: 100%; margin-bottom: -4px; }
 .rw-ctl-phase { top: 4px; right: 4px; }
 .rw-ctl-col { top: 2px; right: 0; }
 .rw-ctl-col button { width: auto; padding: 0 9px; font-size: 13px; white-space: nowrap; }
@@ -2281,7 +2285,6 @@ html.rw-tab-active #tab-row { z-index: 30; }
           </div>
           <div class="settings-tab-block" data-tab="taxes">
             <div class="settings-divider"></div>
-            <div class="settings-row tax-set-row"><label for="tax-status-sel">Filing Status</label><select id="tax-status-sel"></select></div>
             <div class="settings-row tax-set-row"><label for="tax-dependents-in">Dependents</label><input type="number" id="tax-dependents-in" min="0" max="30" step="1" inputmode="numeric"></div>
             <div class="settings-row tax-set-row"><label for="tax-payfreq-sel">Paychecks</label><select id="tax-payfreq-sel"></select></div>
             <div class="settings-row">
@@ -2643,7 +2646,7 @@ html.rw-tab-active #tab-row { z-index: 30; }
     </div>
   </div>
   <div id="taxes-panel" style="display:none">
-    <div class="tax-hdr"><span class="tax-title" id="tax-title"></span><span class="tax-status" id="tax-status"></span></div>
+    <div class="tax-hdr"><span class="tax-title" id="tax-title"></span><label class="tax-filing"><span>Filing status</span><select id="tax-status-sel" aria-label="Filing status"></select></label><span class="tax-status" id="tax-status"></span></div>
     <div class="tax-cards" id="tax-cards"></div>
     <div class="tax-sec-title">Monthly Breakdown</div>
     <div class="tax-hint" id="tax-empty-hint">Start with your monthly wages. Cells take math (e.g. <code>187000/12</code>), <strong>&raquo;</strong> copies a month to the rest of the year, and typing in Est. Annual spreads an amount evenly. Hover any <span class="tax-help tax-help-inline">?</span> for how a row is figured.</div>
@@ -8821,7 +8824,7 @@ var TAX_PE_FILES = ['irs/income/bracket.yaml', 'irs/deductions/standard/amount.y
 // Built-in copy of the same files (values in effect for TAX_FALLBACK_YEAR), used until the live ones load or if they can't.
 var TAX_FALLBACK_YEAR = 2026;
 var TAX_FALLBACK = {"irs/income/bracket.yaml":{"rates":{"1":{"2018-01-01":0.1},"2":{"2018-01-01":0.12},"3":{"2018-01-01":0.22},"4":{"2018-01-01":0.24},"5":{"2018-01-01":0.32},"6":{"2018-01-01":0.35},"7":{"2018-01-01":0.37}},"thresholds":{"1":{"SINGLE":{"values":{"2026-01-01":12400}},"JOINT":{"values":{"2026-01-01":24800}},"SEPARATE":{"values":{"2026-01-01":12400}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":17700}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":24800}}},"2":{"SINGLE":{"values":{"2026-01-01":50400}},"JOINT":{"values":{"2026-01-01":100800}},"SEPARATE":{"values":{"2026-01-01":50400}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":67450}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":100800}}},"3":{"SINGLE":{"values":{"2026-01-01":105700}},"JOINT":{"values":{"2026-01-01":211400}},"SEPARATE":{"values":{"2026-01-01":105700}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":105700}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":211400}}},"4":{"SINGLE":{"values":{"2026-01-01":201775}},"JOINT":{"values":{"2026-01-01":403550}},"SEPARATE":{"values":{"2026-01-01":201775}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":201750}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":403550}}},"5":{"SINGLE":{"values":{"2026-01-01":256225}},"JOINT":{"values":{"2026-01-01":512450}},"SEPARATE":{"values":{"2026-01-01":256225}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":256200}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":512450}}},"6":{"SINGLE":{"values":{"2026-01-01":640600}},"JOINT":{"values":{"2026-01-01":768700}},"SEPARATE":{"values":{"2026-01-01":384350}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":640600}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":768700}}},"7":{"SINGLE":{"values":{"2018-01-01":null}},"JOINT":{"values":{"2018-01-01":null}},"SEPARATE":{"values":{"2018-01-01":null}},"HEAD_OF_HOUSEHOLD":{"values":{"2018-01-01":null}},"SURVIVING_SPOUSE":{"values":{"2018-01-01":null}}}}},"irs/deductions/standard/amount.yaml":{"SINGLE":{"2026-01-01":16100},"JOINT":{"2026-01-01":32200},"SEPARATE":{"2026-01-01":16100},"HEAD_OF_HOUSEHOLD":{"2026-01-01":24150},"SURVIVING_SPOUSE":{"2026-01-01":32200}},"irs/deductions/itemized/salt_and_real_estate/cap.yaml":{"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":40400}},"JOINT":{"values":{"2026-01-01":40400}},"SEPARATE":{"values":{"2026-01-01":20200}},"SINGLE":{"values":{"2026-01-01":40400}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":40400}}},"irs/deductions/itemized/salt_and_real_estate/phase_out/threshold.yaml":{"SINGLE":{"2026-01-01":505000},"HEAD_OF_HOUSEHOLD":{"2026-01-01":505000},"JOINT":{"2026-01-01":505000},"SURVIVING_SPOUSE":{"2026-01-01":505000},"SEPARATE":{"2026-01-01":252500}},"irs/deductions/itemized/salt_and_real_estate/phase_out/rate.yaml":{"values":{"2025-01-01":0.3}},"irs/deductions/itemized/salt_and_real_estate/phase_out/floor/amount.yaml":{"SINGLE":{"2025-01-01":10000},"HEAD_OF_HOUSEHOLD":{"2025-01-01":10000},"JOINT":{"2025-01-01":10000},"SURVIVING_SPOUSE":{"2025-01-01":10000},"SEPARATE":{"2025-01-01":5000}},"irs/deductions/itemized/salt_and_real_estate/phase_out/in_effect.yaml":{"values":{"2025-01-01":true}},"irs/deductions/itemized/medical/floor.yaml":{"values":{"2017-01-01":0.075}},"irs/payroll/social_security/cap.yaml":{"values":{"2026-01-01":184500}},"irs/payroll/social_security/rate/employee.yaml":{"values":{"2013-01-01":0.062}},"irs/payroll/medicare/rate/employee.yaml":{"values":{"2013-01-01":0.0145}},"irs/payroll/medicare/additional/rate.yaml":{"values":{"2013-01-01":0.009}},"irs/payroll/medicare/additional/exclusion.yaml":{"SINGLE":{"2013-01-01":200000},"JOINT":{"2013-01-01":250000},"SEPARATE":{"2013-01-01":125000},"HEAD_OF_HOUSEHOLD":{"2013-01-01":200000},"SURVIVING_SPOUSE":{"2013-01-01":200000}},"irs/self_employment/rate/social_security.yaml":{"values":{"2013-01-01":0.124}},"irs/self_employment/rate/medicare.yaml":{"values":{"2013-01-01":0.029}},"irs/ald/student_loan_interest/cap.yaml":{"JOINT":{"2002-01-01":2500},"SINGLE":{"2002-01-01":2500},"SEPARATE":{"2002-01-01":0},"HEAD_OF_HOUSEHOLD":{"2002-01-01":2500},"SURVIVING_SPOUSE":{"2002-01-01":2500}},"irs/ald/student_loan_interest/reduction/start.yaml":{"JOINT":{"values":{"2026-01-01":175000}},"SINGLE":{"values":{"2026-01-01":85000}},"SEPARATE":{"2002-01-01":0},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":85000}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":85000}}},"irs/ald/student_loan_interest/reduction/divisor.yaml":{"JOINT":{"2002-01-01":30000},"SINGLE":{"2002-01-01":15000},"SEPARATE":{"2002-01-01":0},"HEAD_OF_HOUSEHOLD":{"2002-01-01":15000},"SURVIVING_SPOUSE":{"2002-01-01":15000}},"irs/credits/ctc/amount/base.yaml":{"brackets":[{"threshold":{"values":{"2013-01-01":0}},"amount":{"values":{"2025-01-01":2200}}},{"threshold":{"values":{"2022-01-01":17}},"amount":{"values":{"2013-01-01":0}}}]},"irs/credits/ctc/phase_out/threshold.yaml":{"SINGLE":{"2018-01-01":200000},"JOINT":{"2018-01-01":400000},"SEPARATE":{"2018-01-01":200000},"HEAD_OF_HOUSEHOLD":{"2018-01-01":200000},"SURVIVING_SPOUSE":{"2018-01-01":400000}},"irs/credits/ctc/phase_out/amount.yaml":{"values":{"0000-01-01":50}},"irs/credits/ctc/phase_out/increment.yaml":{"values":{"0000-01-01":1000}},"states/de/tax/income/rate.yaml":{"brackets":[{"threshold":{"1996-01-01":0},"rate":{"1996-01-01":0}},{"threshold":{"1996-01-01":2000},"rate":{"2014-01-01":0.022}},{"threshold":{"1996-01-01":5000},"rate":{"2014-01-01":0.039}},{"threshold":{"1996-01-01":10000},"rate":{"2014-01-01":0.048}},{"threshold":{"1996-01-01":20000},"rate":{"2014-01-01":0.052}},{"threshold":{"1996-01-01":25000},"rate":{"2014-01-01":0.0555}},{"threshold":{"2014-01-01":60000},"rate":{"2014-01-01":0.066}}]},"states/de/tax/income/deductions/standard/amount.yaml":{"JOINT":{"2000-01-01":6500},"SINGLE":{"2000-01-01":3250},"SEPARATE":{"2000-01-01":3250},"HEAD_OF_HOUSEHOLD":{"2000-01-01":3250},"SURVIVING_SPOUSE":{"2000-01-01":3250}},"states/de/tax/income/credits/personal_credits/personal.yaml":{"values":{"1996-01-01":110}},"states/de/tax/income/subtractions/plan_529/cap.yaml":{"JOINT":{"2022-01-01":2000},"SURVIVING_SPOUSE":{"2022-01-01":1000},"SINGLE":{"2022-01-01":1000},"HEAD_OF_HOUSEHOLD":{"2022-01-01":1000},"SEPARATE":{"2022-01-01":1000}}};
-var TAX_STATUSES = [['JOINT', 'Married filing jointly'], ['SINGLE', 'Single'], ['HEAD_OF_HOUSEHOLD', 'Head of household'], ['SEPARATE', 'Married filing separately']];
+var TAX_STATUSES = [['SINGLE', 'Single'], ['JOINT', 'Married filing jointly'], ['HEAD_OF_HOUSEHOLD', 'Head of household'], ['SEPARATE', 'Married filing separately']];
 var TAX_PAY_FREQ = [['semimonthly', 'Twice a month', 2], ['biweekly', 'Every two weeks', 26 / 12], ['weekly', 'Weekly', 52 / 12], ['monthly', 'Monthly', 1]];
 var TAX_MONTH_KEYS = ['wages', 'bonus', 'interest', 'business', 'hsa', 'premiums', 'k401', 'bizexp', 's529', 'treasury'];
 var TAX_DED_KEYS = ['giving', 'mortgage', 'property', 'medical', 'misc', 'studentLoan', 'stateOther'];
@@ -9443,7 +9446,7 @@ function renderTaxes() {
   taxHelpMap = {};
   var c = taxCompute(taxDoc);
   var title = document.getElementById('tax-title');
-  if (title) title.textContent = TAX_YEAR + ' Taxes · ' + taxStatusLabel(taxDoc.status) + ' · Delaware';
+  if (title) title.textContent = TAX_YEAR + ' Taxes · Delaware';
   renderTaxCards(c);
   renderTaxMonthTable(c, taxDoc);
   renderTaxDedTable(c, taxDoc);
@@ -15720,7 +15723,6 @@ var RW_COLS = ['metric', 'type', 'text', 'section', 'amount', 'unit', 'multiplie
   'assoc_category_ids', 'past_value', 'notes', 'old_account_ids', 'old_category_ids'];
 var runwayEdit = false;          // edit mode (pencil)
 var RW_COLS_PER_ROW = 4;
-var rwOpenPills = {};            // "<row key>|<field>" of empty pills opened with the "+ target / amount / tag" buttons
 var runwayWork = null;           // working copy of the rows while editing
 var runwayNewKey = 0;
 var runwayImportMsg = '';        // result of the last import attempt, shown in the banner
@@ -15883,10 +15885,13 @@ function rwShiftStepTokens(from, delta, dropNum) {   // renumbering steps keeps 
 }
 
 // ---- adding / removing steps and phases (renumbering what follows so the sequence stays gap-free) ----
-var RW_STEP_ROW = /^runway step\s+(\d+|[a-z])(\s+subtext)?$/i;
+var RW_STEP_ROW = /^runway step\s+(\d+|[a-z]+)(\s+subtext)?$/i;
+// Lettered steps run A..Z, then AA, AB, ... AZ, BA, ... (like spreadsheet columns). Letters <-> 1, 2, 3, ...
+function rwLetterNum(l) { var n = 0; String(l).toUpperCase().split('').forEach(function(ch) { n = n * 26 + (ch.charCodeAt(0) - 64); }); return n; }
+function rwNumLetter(n) { var l = ''; while (n > 0) { var r = (n - 1) % 26; l = String.fromCharCode(65 + r) + l; n = Math.floor((n - 1) / 26); } return l; }
 var RW_PHASE_ROW = /^runway phase\s+(\d+)(\s+subtext)?$/i;
 function rwStepId(metric) { var m = String(metric || '').match(RW_STEP_ROW); return m ? m[1] : null; }
-function rwShiftSteps(kind, from, delta, to) {   // kind 'num' (from = number) or 'alpha' (from..to = char codes)
+function rwShiftSteps(kind, from, delta, to) {   // kind 'num' (from = number) or 'alpha' (from..to = letter positions, A = 1)
   runwayWork.forEach(function(r) {
     var m = String(r.metric || '').match(RW_STEP_ROW);
     if (!m) return;
@@ -15895,14 +15900,14 @@ function rwShiftSteps(kind, from, delta, to) {   // kind 'num' (from = number) o
       var n = parseInt(m[1], 10);
       if (n >= from) r.metric = 'Runway Step ' + (n + delta) + (m[2] ? ' Subtext' : '');
     } else if (kind === 'alpha' && !isNum) {
-      var code = m[1].toUpperCase().charCodeAt(0);
-      if (code >= from && code <= to) r.metric = 'Runway Step ' + String.fromCharCode(code + delta) + (m[2] ? ' Subtext' : '');
+      var code = rwLetterNum(m[1]);
+      if (code >= from && code <= to) r.metric = 'Runway Step ' + rwNumLetter(code + delta) + (m[2] ? ' Subtext' : '');
     }
   });
 }
 function rwLettersInUse() {
   var used = {};
-  runwayWork.forEach(function(r) { var m = String(r.metric || '').match(RW_STEP_ROW); if (m && !/^\d+$/.test(m[1])) used[m[1].toUpperCase().charCodeAt(0)] = true; });
+  runwayWork.forEach(function(r) { var m = String(r.metric || '').match(RW_STEP_ROW); if (m && !/^\d+$/.test(m[1])) used[rwLetterNum(m[1])] = true; });
   return used;
 }
 function rwInt(v) { var m = String(v == null ? '' : v).match(/^\s*(\d+)(?:\.0+)?\s*$/); return m ? parseInt(m[1], 10) : null; }
@@ -15948,7 +15953,7 @@ function rwAddColumn(n) {
 function rwRemoveColumn(n) {
   var nums = rwColumnNumbers();
   if (nums.length < 2) { alert('A Runway needs at least one column.'); return; }
-  var steps = runwayWork.filter(function(r) { var t = String(r.track_against || '').match(RW_COL_REF); return t && parseInt(t[1], 10) === n && /^runway step\s+(\d+|[a-z])$/i.test(String(r.metric || '')); }).length;
+  var steps = runwayWork.filter(function(r) { var t = String(r.track_against || '').match(RW_COL_REF); return t && parseInt(t[1], 10) === n && /^runway step\s+(\d+|[a-z]+)$/i.test(String(r.metric || '')); }).length;
   var others = nums.filter(function(x) { return x !== n; });
   var m = others.filter(function(x) { return x < n; }).pop();
   if (m === undefined) m = others[0];
@@ -16042,7 +16047,7 @@ function rwStepEntries() {
   });
   return Object.keys(byId).map(function(k) { return byId[k]; }).filter(function(e) { return e.title; });
 }
-function rwStepCmp(a, b) { return a.kind === 'num' ? Number(a.id) - Number(b.id) : (a.id < b.id ? -1 : a.id > b.id ? 1 : 0); }
+function rwStepCmp(a, b) { return a.kind === 'num' ? Number(a.id) - Number(b.id) : rwLetterNum(a.id) - rwLetterNum(b.id); }
 // Steps are numbered (and lettered) in the order the layout shows them: column by column, section by section, and within a
 // section by their current order. Deals the same set of numbers out again in that order; statuses stay with their step.
 function rwResequenceSteps() {
@@ -16124,11 +16129,10 @@ function rwAddStep(titleKey) {
   } else {
     // Letters in use may run consecutively across columns; make room by shifting only the unbroken run
     // that starts at the new letter, up to the first unused letter.
-    var code = id.toUpperCase().charCodeAt(0) + 1, used = rwLettersInUse(), free = code;
+    var code = rwLetterNum(id) + 1, used = rwLettersInUse(), free = code;
     while (used[free]) free++;
-    if (free > 90) { alert('There are no free letters left to renumber into for another lettered step.'); return; }
     rwShiftSteps('alpha', code, 1, free - 1);
-    var L = String.fromCharCode(code);
+    var L = rwNumLetter(code);
     rwInsertAfter(keys, [rwNewRow({ metric: 'Runway Step ' + L, text: 'New step', track_against: col }), rwNewRow({ metric: 'Runway Step ' + L + ' Subtext', track_against: col })]);
   }
   renderRunway();
@@ -16140,7 +16144,7 @@ function rwRemoveStep(titleKey) {
   runwayWork = runwayWork.filter(function(r) { return keys.indexOf(r._key) === -1; });
   if (/^\d+$/.test(id)) { var n = parseInt(id, 10); rwShiftStepTokens(n + 1, -1, n); rwShiftSteps('num', n + 1, -1); }
   else {
-    var lc = id.toUpperCase().charCodeAt(0), usedNow = rwLettersInUse(), gap = lc + 1;
+    var lc = rwLetterNum(id), usedNow = rwLettersInUse(), gap = lc + 1;
     while (usedNow[gap]) gap++;
     rwShiftSteps('alpha', lc + 1, -1, gap - 1);
   }
@@ -16223,7 +16227,6 @@ function runwaySetEdit(on) {
   runwayEdit = on;
   runwayWork = on ? runwayCloneRows() : null;
   if (on) rwResequenceSteps();     // numbering that has drifted from the layout order is put right (shows as an unsaved change)
-  rwOpenPills = {};
   renderRunway();
 }
 
@@ -16326,12 +16329,6 @@ function wireRunwayEditing() {
       var key = act.getAttribute('data-key'), a = act.getAttribute('data-act');
       if (a === 'add-step') rwAddStep(key);
       else if (a === 'del-step') rwRemoveStep(key);
-      else if (a === 'add-pill') {
-        rwOpenPills[key + '|' + act.getAttribute('data-field')] = true;
-        renderRunway();
-        var pe = document.querySelector('.rw-edit[data-rid="' + key + '"][data-field="' + act.getAttribute('data-field') + '"]');
-        if (pe) pe.focus();
-      }
       else if (a === 'add-col') rwAddColumn(parseInt(act.getAttribute('data-col'), 10));
       else if (a === 'del-col') rwRemoveColumn(parseInt(act.getAttribute('data-col'), 10));
       else if (a === 'add-phase') rwAddPhase(key);
@@ -16350,8 +16347,8 @@ function wireRunwayEditing() {
   if (pen) pen.addEventListener('click', function() { if (runwayEditing()) runwayFinishEdit(); else runwaySetEdit(!runwayEdit); });
   var xBtn = document.getElementById('runway-edit-cancel');
   if (xBtn) xBtn.addEventListener('click', runwayCancelEdit);
-  // Ctrl/Cmd+S on the Runway tab while editing: save what changed, then leave edit mode (if the save fails
-  // the error shows and editing carries on). The browser's own "save page" is suppressed.
+  // Ctrl/Cmd+E on the Runway tab starts editing. Ctrl/Cmd+S while editing saves what changed, then leaves edit mode (if
+  // the save fails the error shows and editing carries on). The browser's own shortcuts are suppressed.
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape' && state.activeTab === 'runway' && runwayEditing() && !e.defaultPrevented) {   // Esc = the X button
       e.preventDefault();
@@ -16359,8 +16356,14 @@ function wireRunwayEditing() {
       runwayCancelEdit();
       return;
     }
-    if (!(e.ctrlKey || e.metaKey) || e.altKey || String(e.key).toLowerCase() !== 's') return;
-    if (state.activeTab !== 'runway' || !runwayEditing()) return;
+    if (!(e.ctrlKey || e.metaKey) || e.altKey || state.activeTab !== 'runway') return;
+    var k = String(e.key).toLowerCase();
+    if (k === 'e') {                              // Ctrl/Cmd+E = the pencil: start editing (the browser's own shortcut is suppressed)
+      e.preventDefault();
+      if (!runwayEditing()) runwaySetEdit(true);
+      return;
+    }
+    if (k !== 's' || !runwayEditing()) return;
     e.preventDefault();
     runwayFinishEdit();
   });
@@ -16519,8 +16522,8 @@ var RUNWAY_GOAL_RE        = /^runway goal$/i;
 var RUNWAY_CURRENT_RE     = /^runway step$/i;
 var RUNWAY_SUBTEXT_RE     = /^runway step\s+(\d+)\s+subtext$/i;
 var RUNWAY_TITLE_RE       = /^runway step\s+(\d+)$/i;
-var RUNWAY_ALPHA_SUBTEXT_RE = /^runway step\s+([a-z])\s+subtext$/i;
-var RUNWAY_ALPHA_TITLE_RE   = /^runway step\s+([a-z])$/i;
+var RUNWAY_ALPHA_SUBTEXT_RE = /^runway step\s+([a-z]+)\s+subtext$/i;
+var RUNWAY_ALPHA_TITLE_RE   = /^runway step\s+([a-z]+)$/i;
 var RUNWAY_COL_SUBTEXT_RE   = /^runway column\s+(\d+)([a-z]?)\s+subtext$/i;
 var RUNWAY_COL_HDR_RE       = /^runway column\s+(\d+)([a-z]?)$/i;
 var RUNWAY_PHASE_CURRENT_RE = /^runway phase$/i;
@@ -16640,7 +16643,7 @@ function getRunwayData() {
     }
   }
   var alphaSteps = Object.keys(byAlpha).map(function(k) { return byAlpha[k]; })
-    .sort(function(a, b) { return a.letter < b.letter ? -1 : a.letter > b.letter ? 1 : 0; });
+    .sort(function(a, b) { return rwLetterNum(a.letter) - rwLetterNum(b.letter); });
   var numSteps = Object.keys(byNum).map(function(k) { return byNum[k]; })
     .sort(function(a, b) { return a.num - b.num; });
   // Lettered steps sort before numbered steps within a section.
@@ -16674,7 +16677,7 @@ function getRunwayData() {
   for (var rai = 0; rai < alphaSteps.length; rai++) {
     var as = alphaSteps[rai];
     if (as.tag && factors[as.tag] === false) { alphaHiddenBefore++; continue; }
-    as.displayLetter = String.fromCharCode(as.letter.charCodeAt(0) - alphaHiddenBefore);
+    as.displayLetter = rwNumLetter(rwLetterNum(as.letter) - alphaHiddenBefore);
   }
 
   // Group steps into sections (one per distinct column key), preserving first-appearance order.
@@ -16729,7 +16732,7 @@ function getRunwayData() {
   columns.forEach(function(secs) { secs.forEach(function(sc) { sc.steps.forEach(function(stp) { (stp.kind === 'num' ? seqNum : seqAlpha).push(stp); }); }); });
   var numSlots = seqNum.map(function(x) { return x.displayNum; }).sort(function(a, b) { return a - b; });
   seqNum.forEach(function(x, i) { x.displayNum = numSlots[i]; });
-  var alphaSlots = seqAlpha.map(function(x) { return x.displayLetter; }).sort();
+  var alphaSlots = seqAlpha.map(function(x) { return x.displayLetter; }).sort(function(a, b) { return rwLetterNum(a) - rwLetterNum(b); });
   seqAlpha.forEach(function(x, i) { x.displayLetter = alphaSlots[i]; });
 
   var phases = Object.keys(byPhase).map(function(k) { return byPhase[k]; })
@@ -16858,27 +16861,20 @@ function renderRunway() {
       }
       var editing = runwayEditing() && s.titleId;
       // Target (blue pill, Date Range column), listed first, then the green amount, then the grey tag (Factors).
-      // In edit mode an empty pill takes no room (so nothing reflows); the hover toolbar's "+ target / + amount / + tag"
-      // buttons open one to type into.
-      function pillOpen(field) { return editing && rwOpenPills[s.titleId + '|' + field]; }
-      var bluePill = editing ? ((s.blue || pillOpen('blue')) ? ' <span class="runway-blue-pill">' + rwTxt(s.blue || '', s.titleId, 'blue', 'target') + '</span>' : '')
+      // In edit mode every step shows all three, empty ones as placeholders to type into; leaving edit mode drops the empty ones.
+      function pillCls(v) { return v ? '' : ' rw-pill-empty'; }
+      var bluePill = editing ? ' <span class="runway-blue-pill' + pillCls(s.blue) + '">' + rwTxt(s.blue || '', s.titleId, 'blue', 'target') + '</span>'
         : (s.blue ? ' <span class="runway-blue-pill">' + escAttr(s.blue) + '</span>' : '');
-      var amtPill = editing ? ((s.amount || pillOpen('amount')) ? ' <span class="runway-amt-pill">' + rwTxt(s.amount, s.titleId, 'amount', 'amount') + '</span>' : '')
+      var amtPill = editing ? ' <span class="runway-amt-pill' + pillCls(s.amount) + '">' + rwTxt(s.amount, s.titleId, 'amount', 'amount') + '</span>'
         : (s.amount ? ' <span class="runway-amt-pill">' + escAttr(s.amount) + '</span>' : '');
       // A target date in the Unit column becomes an orange "X.Yy" pill (years from today),
       // shown after the amount pill and before the tag pill.
       var datePill = s.targetYears ? ' <span class="runway-date-pill">' + escAttr(s.targetYears) + '</span>' : '';
       // A "[Tag] Title" prefix in the Text column becomes a grey tag pill, shown last
       // (title, then amount, then date, then tag).
-      var tagPill = editing ? ((s.tag || pillOpen('tag')) ? ' <span class="runway-tag-pill">' + rwTxt(s.tag || '', s.titleId, 'tag', 'tag') + '</span>' : '')
+      var tagPill = editing ? ' <span class="runway-tag-pill' + pillCls(s.tag) + '">' + rwTxt(s.tag || '', s.titleId, 'tag', 'tag') + '</span>'
         : (s.tag ? ' <span class="runway-tag-pill">' + escAttr(s.tag) + '</span>' : '');
-      var addPills = '';
-      if (editing) {
-        if (!s.blue && !pillOpen('blue')) addPills += '<button type="button" class="rw-add-pill" data-act="add-pill" data-field="blue" data-key="' + escAttr(s.titleId) + '" title="Add a target (blue pill)">+ target</button>';
-        if (!s.amount && !pillOpen('amount')) addPills += '<button type="button" class="rw-add-pill" data-act="add-pill" data-field="amount" data-key="' + escAttr(s.titleId) + '" title="Add an amount (green pill)">+ amount</button>';
-        if (!s.tag && !pillOpen('tag')) addPills += '<button type="button" class="rw-add-pill" data-act="add-pill" data-field="tag" data-key="' + escAttr(s.titleId) + '" title="Add a Factor tag (grey pill)">+ tag</button>';
-      }
-      var ctl = editing ? '<div class="rw-ctl">' + addPills + '<span class="rw-grip" draggable="true" title="Drag to reorder, or drop in another column">\u2807\u2807</span><button type="button" data-act="add-step" data-key="' + escAttr(s.titleId) + '" title="Add a step below">+</button>'
+      var ctl = editing ? '<div class="rw-ctl"><span class="rw-grip" draggable="true" title="Drag to reorder, or drop in another column">\u2807\u2807</span><button type="button" data-act="add-step" data-key="' + escAttr(s.titleId) + '" title="Add a step below">+</button>'
         + '<button type="button" data-act="del-step" data-key="' + escAttr(s.titleId) + '" title="Remove this step">\u00d7</button></div>' : '';
       h += '<div class="runway-step"' + (editing ? ' data-key="' + escAttr(s.titleId) + '"' : '') + '>'
         +   ctl
