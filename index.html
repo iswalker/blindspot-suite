@@ -717,6 +717,9 @@ td.cell-active {
 #tax-month-table th.tax-annual-col, #tax-month-table td.tax-annual-col { border-right: 1px solid #e4e4e0; font-weight: 600; }
 #tax-month-table th.tax-cur, #tax-month-table td.tax-cur { background: #fffbf2; }
 #tax-month-table tr.tax-sub td.tax-cur { background: #f3f1e8; }
+/* Expected bill: still to pay (orange) / refund (blue), the same colours as the Account History tab */
+.tax-owe { color: #d08609; }
+.tax-refund { color: #4285f4; }
 .tax-zero { color: #bbb; }
 .tax-neg { color: #c62828; }
 #tax-month-table td.tax-in { padding: 1px 2px; position: relative; }
@@ -8973,6 +8976,9 @@ function taxLaw(status) {
     saltPoFloor: taxP(S + 'phase_out/floor/amount.yaml', [], status, 10000),
     medFloor: taxP('irs/deductions/itemized/medical/floor.yaml', [], null, 0.075),
     ssCap: taxP('irs/payroll/social_security/cap.yaml', [], null, Infinity),
+    // Flat withholding on supplemental pay (bonuses): the third-lowest federal rate (22% under the current rates), and the top rate
+    // on the part over $1 million. Both follow the bracket rates above, so they change when those do.
+    suppRate: fed.length > 2 ? fed[2].rate : 0.22, suppHigh: fed.length ? fed[fed.length - 1].rate : 0.37, suppThreshold: 1000000,
     ssRate: taxP('irs/payroll/social_security/rate/employee.yaml', [], null, 0.062),
     mcRate: taxP('irs/payroll/medicare/rate/employee.yaml', [], null, 0.0145),
     mcAddRate: taxP('irs/payroll/medicare/additional/rate.yaml', [], null, 0.009),
@@ -9179,6 +9185,12 @@ function taxCompute(doc) {
   AN.bonusFica = AN.fica - taxSum(reg.R.fica);
   AN.bonusState = AN.stateDue - taxSum(reg.R.stateDue);
   c.wh = { fed: taxWithholding(doc.w.fed, taxSum(reg.R.fedDue)), state: taxWithholding(doc.w.state, taxSum(reg.R.stateDue)) };
+  // Federal withholding on the bonus at the flat supplemental rate, and what is left to pay (or get back) once that and the paystub
+  // withholding are taken off the year's federal tax. Positive = still owed, negative = overpaid.
+  var L = full.L;
+  AN.bonusFedWh = bonusA > 0 ? Math.min(bonusA, L.suppThreshold) * L.suppRate + Math.max(0, bonusA - L.suppThreshold) * L.suppHigh : 0;
+  AN.fedExpected = AN.fedDue - (c.wh.fed.any ? c.wh.fed.total : 0) - AN.bonusFedWh;
+  c.expMonths = c.wh.fed.any ? taxMap(function(i) { return reg.R.fedDue[i] - c.wh.fed.vals[i]; }) : null;
   return c;
 }
 function taxCore(doc, bonusDec, fixed) {
@@ -9334,6 +9346,11 @@ function taxFmt(v) {
 function taxPct(v, dp) { return parseFloat((v * 100).toFixed(dp == null ? 1 : dp)) + '%'; }
 function taxStatusLabel(s) { for (var i = 0; i < TAX_STATUSES.length; i++) if (TAX_STATUSES[i][0] === s) return TAX_STATUSES[i][1]; return s; }
 function taxPayLabel(doc) { for (var i = 0; i < TAX_PAY_FREQ.length; i++) if (TAX_PAY_FREQ[i][0] === doc.payFreq) return TAX_PAY_FREQ[i][1].toLowerCase(); return ''; }
+// Owed (positive) in orange, overpaid (negative) in blue: the Account History tab's debt and balance colours.
+function taxSignedCell(v, cls) {
+  var z = Math.round(v) === 0;
+  return '<td class="' + (cls || '') + (z ? ' tax-zero' : (v > 0 ? ' tax-owe' : ' tax-refund')) + '">' + taxFmt(v) + '</td>';
+}
 function taxValCell(v, cls) {
   return '<td class="' + (cls || '') + (Math.round(v) === 0 ? ' tax-zero' : (v < 0 ? ' tax-neg' : '')) + '">' + taxFmt(v) + '</td>';
 }
@@ -9352,7 +9369,8 @@ var TAX_ROW_OPS = {
   fedDed: '\u2212', qbi: '\u2212', fedTaxable: '=', fedTax: '\u00D7', fedCredits: '\u2212', fedDue: '=',
   ss: '\u00D7', medicare: '\u00D7', seTax: '+', fica: '=',
   s529: '\u2212', treasury: '\u2212', stateAgi: '=', stateDed: '\u2212', stateTaxable: '=', stateTax: '\u00D7', stateCredits: '\u2212', stateDue: '=',
-  total: '=', fedPP: '\u00F7', statePP: '\u00F7'
+  total: '=', fedPP: '\u00F7', statePP: '\u00F7',
+  fedWh: '\u2212', bonusFedWh: '\u2212', fedExpected: '='
 };
 function taxRowRate(k, c) {
   var A = c.A, AN = c.AN;
@@ -9362,6 +9380,7 @@ function taxRowRate(k, c) {
   if (k === 'ss') return pct(AN.ss, AN.ficaWages);
   if (k === 'medicare') return pct(AN.medicare, AN.ficaWages);
   if (k === 'fedPP' || k === 'statePP') return String(Math.round(c.pp * 100) / 100);
+  if (k === 'bonusFedWh') return taxPct(c.L.suppRate, 0);
   return '';
 }
 function taxMonthRows(c, doc) {
@@ -9397,8 +9416,12 @@ function taxMonthRows(c, doc) {
     { k: 'fedCredits', label: 'Federal Credits', f: 'Child Tax Credit (' + taxFmt(c.cr.ctc) + ') + the other credits under Credits below (' + taxFmt(c.cr.total - c.cr.ctc) + ').',
       n: [c.cr.total > A.fedTax ? 'Limited to the tax itself (' + taxFmt(A.fedTax) + ').' : ''] },
     { k: 'fedDue', label: 'Federal Income Tax Due', sub: true, f: 'Federal Income Tax − Federal Credits', n: ['The months cover regular pay; Est. Annual also includes the tax on bonuses.'] },
-    { k: 'fedWh', wh: 'fed', label: 'Federal Withheld', f: 'What your paychecks actually withheld, month by month. Leave it blank until you have figures.',
+    { k: 'fedWh', wh: 'fed', label: 'Paystub Federal Withheld', f: 'What your paychecks actually withheld, month by month. Leave it blank until you have figures.',
       n: ['Once you enter some months, the months after the last one entered show what each must withhold to reach the year\u2019s federal tax on regular pay: (Federal Income Tax Due for the year \u2212 withheld so far) \u00F7 months remaining.', 'Type over a projected month to enter its actual figure. Bonus withholding is separate: see \u201Cfrom bonuses\u201D under Total.'] },
+    { k: 'bonusFedWh', annualOnly: true, hideZero: true, label: 'Bonus Federal Withheld', f: 'Bonuses \u00D7 the flat federal withholding rate on supplemental pay (' + taxPct(L.suppRate, 0) + ').',
+      n: ['That rate is the third-lowest federal bracket rate, so it follows the tax figures; over $1,000,000 of bonuses the top rate (' + taxPct(L.suppHigh, 0) + ') applies to the excess.', 'Withheld when the bonus is paid, so it has no monthly figure.'] },
+    { k: 'fedExpected', expected: true, label: 'Expected Federal Tax Bill', sub: true, f: 'Federal Income Tax Due \u2212 Paystub Federal Withheld \u2212 Bonus Federal Withheld',
+      n: ['Positive (orange): still to pay. Negative (blue): withheld more than the tax, so a refund.', 'The year column uses the paystub withholding you entered plus the projected months, so it reflects the amounts you are on track to withhold. Months show Federal Income Tax Due less that month\u2019s paystub withholding, once you have entered some.'] },
     { sec: 'FICA' },
     { k: 'ficaWages', label: 'FICA Wages', f: 'Wages + Bonuses − FSA/HSA − Medical Premiums', n: ['401(k) contributions don’t lower FICA wages, and interest isn’t part of them.'] },
     { k: 'ss', label: 'Social Security', f: taxPct(L.ssRate) + ' of FICA wages, up to the ' + taxFmt(L.ssCap) + ' wage base' + (c.ssCapMonth >= 0 ? ' (reached in ' + TAX_MONTHS[c.ssCapMonth] + ')' : '') + '.',
@@ -9451,7 +9474,7 @@ function renderTaxMonthTable(c, doc) {
     if (row.hideZero && (row.annualOnly ? Math.abs(ann) < 0.5 : vals.every(function(x) { return Math.abs(x) < 0.5; }))) return;
     h += '<tr class="' + (row.sub ? 'tax-sub' : row.total ? 'tax-total' : row.input ? 'tax-inrow' : '') + '">'
       + '<td><span class="tax-op">' + (TAX_ROW_OPS[row.k] || '') + '</span>' + escHtml(row.label)
-      + (TAX_ROW_OPS[row.k] === '\u00D7' || TAX_ROW_OPS[row.k] === '\u00F7' ? '<span class="tax-rate" title="' + (TAX_ROW_OPS[row.k] === '\u00F7' ? 'Paychecks in a month' : 'Effective rate for the year') + '">' + TAX_ROW_OPS[row.k] + '\u00A0' + taxRowRate(row.k, c) + '</span>' : '')
+      + (TAX_ROW_OPS[row.k] === '\u00D7' || TAX_ROW_OPS[row.k] === '\u00F7' || row.k === 'bonusFedWh' ? '<span class="tax-rate" title="' + (row.k === 'bonusFedWh' ? 'Flat federal withholding rate on bonuses' : TAX_ROW_OPS[row.k] === '\u00F7' ? 'Paychecks in a month' : 'Effective rate for the year') + '">' + (row.k === 'bonusFedWh' ? '\u00D7' : TAX_ROW_OPS[row.k]) + '\u00A0' + taxRowRate(row.k, c) + '</span>' : '')
       + taxHelpIcon('m:' + row.k, row.label, row.f, row.n) + '</td>';
     if (row.annualInput) {      // yearly only: the months stay empty
       h += '<td class="tax-in tax-annual-col' + (isFinite(taxEval(doc.bonus)) ? '' : ' tax-bad') + '">' + taxCellInput(row.k, 'A', String(doc.bonus), ann, row.label + ', ' + TAX_YEAR + ' total') + '</td>';
@@ -9465,6 +9488,9 @@ function renderTaxMonthTable(c, doc) {
           + taxCellInput(wk, wi, wraw[wi], wd.vals[wi], row.label + ', ' + TAX_MONTHS[wi], wd.any ? taxFmt(wd.vals[wi]) : '', wd.auto[wi] ? ' tax-auto' : '')
           + (wi < 11 ? '<button type="button" class="tax-fill" data-k="' + wk + '" data-m="' + wi + '" title="Copy ' + TAX_MONTHS[wi] + ' to the rest of the year" tabindex="-1">\u00BB</button>' : '') + '</td>';
       }
+    } else if (row.expected) {   // what is still owed (orange) or will come back (blue)
+      h += taxSignedCell(c.AN.fedExpected, 'tax-annual-col');
+      for (var ei = 0; ei < 12; ei++) h += c.expMonths ? taxSignedCell(c.expMonths[ei], ei === curM ? 'tax-cur' : '') : '<td' + (ei === curM ? ' class="tax-cur"' : '') + '></td>';
     } else if (row.annualOnly) {
       h += taxValCell(ann, 'tax-annual-col');
       for (var ai = 0; ai < 12; ai++) h += '<td' + (ai === curM ? ' class="tax-cur"' : '') + '></td>';
