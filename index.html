@@ -757,6 +757,7 @@ td.tax-in:focus-within .tax-fill { display: block; }
 .tax-nostate th:nth-child(6), .tax-nostate td:nth-child(6) { display: none; }
 .tax-limit { color: #777; font-size: 13px; white-space: normal; min-width: 160px; }
 #tax-figures td.tax-amt { white-space: normal; }
+.tax-check { display: inline-block; width: 18px; margin-left: 2px; text-align: center; color: #1e8e4e; font-weight: 700; }
 .tax-note { color: #999; font-size: 12px; font-weight: 400; font-style: italic; }
 .tax-badge { display: inline-block; padding: 1px 8px; border-radius: 8px; font-size: 12px; font-weight: 600; }
 .tax-b-fed { background: #e3edfb; color: #1565c0; }
@@ -9671,6 +9672,8 @@ function renderTaxDedTable(c, doc) {
       + '<td class="tax-limit">' + limit + '</td><td class="tax-amt">' + fv + '</td><td class="tax-amt">' + sv + '</td></tr>';
   }
   function money(v) { return '<span class="' + (Math.round(v) === 0 ? 'tax-zero' : '') + '">' + taxFmt(v) + '</span>'; }
+  // A green check marks whichever of Itemized Total / Standard Deduction is the larger and so the one used (a fixed-width slot keeps the figures aligned).
+  function used(v, on) { return taxFmt(v) + '<span class="tax-check"' + (on ? ' title="Larger, so this is the deduction used"' : '') + '>' + (on ? '\u2713' : '') + '</span>'; }
   var saltLimit = 'Capped at ' + taxFmt(f.saltCap) + (L.saltPoOn && A.agi > L.saltPoThreshold ? ' (reduced from ' + taxFmt(L.saltCap) + ' as AGI is over ' + taxFmt(L.saltPoThreshold) + ')' : '');
   var h = '<thead><tr><th>Deduction</th><th>Applies To</th><th class="tax-amt">Amount</th><th>Limit</th><th class="tax-amt">Federal</th><th class="tax-amt">' + escHtml(L.stateNone ? 'State' : L.stateName) + '</th></tr></thead><tbody>'
     + row('giving', 'Giving', ['Charitable gifts for the year.', L.charityFloorOn ? 'Only the part above ' + taxPct(L.charityFloor) + ' of AGI is deductible when itemizing; ' + (L.stateNone ? 'the state' : L.stateName) + ' starts from the same federal figure.' : '', 'Entered by hand for now; later this can come from #itemize-tagged transactions.'].filter(Boolean), 'both', taxValInput('d.giving', doc.d.giving),
@@ -9682,11 +9685,8 @@ function renderTaxDedTable(c, doc) {
     + row('medical', 'Medical (Not HSA-Reimbursed)', ['Out-of-pocket medical and dental costs not paid from an HSA or FSA.', 'Only the part above a share of AGI counts: ' + taxPct(L.medFloor) + ' federally, ' + taxPct(st.medFloorPct, 0) + ' for the state.'], 'both', taxValInput('d.medical', doc.d.medical),
       'Over ' + taxPct(L.medFloor) + ' of AGI (' + taxFmt(f.medFloor) + ') · State: over ' + taxPct(st.medFloorPct, 0) + ' (' + taxFmt(st.medFloor) + ')', money(f.medical), money(st.medical))
     + row('misc', 'Misc. Over 2%', ['Miscellaneous deductions (unreimbursed job expenses, tax prep, ...).', 'No longer deductible federally; the state counts the part over 2% of AGI.'], 'state', taxValInput('d.misc', doc.d.misc), 'Over 2% of AGI (' + taxFmt(st.miscFloor) + ')', dash, money(st.misc))
-    + '<tr class="tax-sub"><td>Itemized Total</td><td></td><td></td><td></td><td class="tax-amt">' + taxFmt(f.itemized) + '</td><td class="tax-amt">' + taxFmt(st.itemized) + '</td></tr>'
-    + '<tr><td>Standard Deduction' + taxHelpIcon('d:std', 'Standard Deduction', 'The flat deduction for your filing status (' + escHtml(taxStatusLabel(doc.status).toLowerCase()) + '), federal and ' + escHtml(L.stateNone ? 'state' : L.stateName) + '.', ['From the tax figures below.']) + '</td><td></td><td></td><td></td><td class="tax-amt">' + taxFmt(f.std) + '</td><td class="tax-amt">' + taxFmt(st.std) + '</td></tr>'
-    + '<tr class="tax-total"><td>Deduction Used' + taxHelpIcon('d:used', 'Deduction Used', 'The larger of Itemized Total and the Standard Deduction, separately for federal and state.', ['Feeds Standard / Itemized Deduction in the monthly table.']) + '</td><td></td><td></td><td></td>'
-    +   '<td class="tax-amt">' + taxFmt(f.used) + ' <span class="tax-note">' + (f.itemizing ? 'itemized' : 'standard') + '</span></td>'
-    +   '<td class="tax-amt">' + taxFmt(st.used) + ' <span class="tax-note">' + (st.itemizing ? 'itemized' : 'standard') + '</span></td></tr>'
+    + '<tr class="tax-sub"><td>Itemized Total</td><td></td><td></td><td></td><td class="tax-amt">' + used(f.itemized, f.itemizing) + '</td><td class="tax-amt">' + used(st.itemized, st.itemizing) + '</td></tr>'
+    + '<tr><td>Standard Deduction' + taxHelpIcon('d:std', 'Standard Deduction', 'The flat deduction for your filing status (' + escHtml(taxStatusLabel(doc.status).toLowerCase()) + '), federal and ' + escHtml(L.stateNone ? 'state' : L.stateName) + '.', ['From the tax figures below.', 'The larger of this and Itemized Total is the deduction used, marked with a green check. It feeds Standard / Itemized Deduction in the monthly table.']) + '</td><td></td><td></td><td></td><td class="tax-amt">' + used(f.std, !f.itemizing) + '</td><td class="tax-amt">' + used(st.std, !st.itemizing) + '</td></tr>'
     + '</tbody>';
   el.classList.toggle('tax-nostate', !!L.stateNone);     // no state column when the state has no income tax
   el.innerHTML = h;
