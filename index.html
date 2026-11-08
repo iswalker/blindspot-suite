@@ -8836,20 +8836,29 @@ var TAX_PE_FILES = ['irs/income/bracket.yaml', 'irs/deductions/standard/amount.y
   'irs/ald/student_loan_interest/cap.yaml', 'irs/ald/student_loan_interest/reduction/start.yaml', 'irs/ald/student_loan_interest/reduction/divisor.yaml',
   'irs/credits/ctc/amount/base.yaml', 'irs/credits/ctc/phase_out/threshold.yaml', 'irs/credits/ctc/phase_out/amount.yaml', 'irs/credits/ctc/phase_out/increment.yaml',
   'states/de/tax/income/rate.yaml', 'states/de/tax/income/deductions/standard/amount.yaml', 'states/de/tax/income/credits/personal_credits/personal.yaml',
-  'states/de/tax/income/subtractions/plan_529/cap.yaml'];
+  'states/de/tax/income/subtractions/plan_529/cap.yaml',
+  'irs/credits/cdcc/max.yaml', 'irs/credits/cdcc/eligibility/max.yaml', 'irs/credits/cdcc/phase_out/start.yaml', 'irs/credits/cdcc/phase_out/min.yaml',
+  'irs/credits/cdcc/phase_out/max.yaml', 'irs/credits/cdcc/phase_out/rate.yaml', 'irs/credits/cdcc/phase_out/increment.yaml',
+  'irs/credits/cdcc/phase_out/amended_structure/applies.yaml', 'irs/credits/cdcc/phase_out/amended_structure/second_start.yaml',
+  'irs/credits/cdcc/phase_out/amended_structure/second_increment.yaml', 'irs/credits/cdcc/phase_out/amended_structure/second_min.yaml',
+  'irs/credits/education/phase_out.yaml', 'irs/credits/education/american_opportunity_credit/amount.yaml',
+  'irs/credits/energy_efficient_home_improvement/in_effect.yaml', 'irs/credits/energy_efficient_home_improvement/rates/improvements.yaml',
+  'irs/credits/energy_efficient_home_improvement/cap/annual/total.yaml', 'irs/credits/residential_clean_energy/applicable_percentage.yaml'];
 // Built-in copy of the same files (values in effect for TAX_FALLBACK_YEAR), used until the live ones load or if they can't.
 var TAX_FALLBACK_YEAR = 2026;
-var TAX_FALLBACK = {"irs/income/bracket.yaml":{"rates":{"1":{"2018-01-01":0.1},"2":{"2018-01-01":0.12},"3":{"2018-01-01":0.22},"4":{"2018-01-01":0.24},"5":{"2018-01-01":0.32},"6":{"2018-01-01":0.35},"7":{"2018-01-01":0.37}},"thresholds":{"1":{"SINGLE":{"values":{"2026-01-01":12400}},"JOINT":{"values":{"2026-01-01":24800}},"SEPARATE":{"values":{"2026-01-01":12400}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":17700}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":24800}}},"2":{"SINGLE":{"values":{"2026-01-01":50400}},"JOINT":{"values":{"2026-01-01":100800}},"SEPARATE":{"values":{"2026-01-01":50400}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":67450}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":100800}}},"3":{"SINGLE":{"values":{"2026-01-01":105700}},"JOINT":{"values":{"2026-01-01":211400}},"SEPARATE":{"values":{"2026-01-01":105700}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":105700}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":211400}}},"4":{"SINGLE":{"values":{"2026-01-01":201775}},"JOINT":{"values":{"2026-01-01":403550}},"SEPARATE":{"values":{"2026-01-01":201775}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":201750}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":403550}}},"5":{"SINGLE":{"values":{"2026-01-01":256225}},"JOINT":{"values":{"2026-01-01":512450}},"SEPARATE":{"values":{"2026-01-01":256225}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":256200}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":512450}}},"6":{"SINGLE":{"values":{"2026-01-01":640600}},"JOINT":{"values":{"2026-01-01":768700}},"SEPARATE":{"values":{"2026-01-01":384350}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":640600}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":768700}}},"7":{"SINGLE":{"values":{"2018-01-01":null}},"JOINT":{"values":{"2018-01-01":null}},"SEPARATE":{"values":{"2018-01-01":null}},"HEAD_OF_HOUSEHOLD":{"values":{"2018-01-01":null}},"SURVIVING_SPOUSE":{"values":{"2018-01-01":null}}}}},"irs/deductions/standard/amount.yaml":{"SINGLE":{"2026-01-01":16100},"JOINT":{"2026-01-01":32200},"SEPARATE":{"2026-01-01":16100},"HEAD_OF_HOUSEHOLD":{"2026-01-01":24150},"SURVIVING_SPOUSE":{"2026-01-01":32200}},"irs/deductions/itemized/salt_and_real_estate/cap.yaml":{"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":40400}},"JOINT":{"values":{"2026-01-01":40400}},"SEPARATE":{"values":{"2026-01-01":20200}},"SINGLE":{"values":{"2026-01-01":40400}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":40400}}},"irs/deductions/itemized/salt_and_real_estate/phase_out/threshold.yaml":{"SINGLE":{"2026-01-01":505000},"HEAD_OF_HOUSEHOLD":{"2026-01-01":505000},"JOINT":{"2026-01-01":505000},"SURVIVING_SPOUSE":{"2026-01-01":505000},"SEPARATE":{"2026-01-01":252500}},"irs/deductions/itemized/salt_and_real_estate/phase_out/rate.yaml":{"values":{"2025-01-01":0.3}},"irs/deductions/itemized/salt_and_real_estate/phase_out/floor/amount.yaml":{"SINGLE":{"2025-01-01":10000},"HEAD_OF_HOUSEHOLD":{"2025-01-01":10000},"JOINT":{"2025-01-01":10000},"SURVIVING_SPOUSE":{"2025-01-01":10000},"SEPARATE":{"2025-01-01":5000}},"irs/deductions/itemized/salt_and_real_estate/phase_out/in_effect.yaml":{"values":{"2025-01-01":true}},"irs/deductions/itemized/medical/floor.yaml":{"values":{"2017-01-01":0.075}},"irs/payroll/social_security/cap.yaml":{"values":{"2026-01-01":184500}},"irs/payroll/social_security/rate/employee.yaml":{"values":{"2013-01-01":0.062}},"irs/payroll/medicare/rate/employee.yaml":{"values":{"2013-01-01":0.0145}},"irs/payroll/medicare/additional/rate.yaml":{"values":{"2013-01-01":0.009}},"irs/payroll/medicare/additional/exclusion.yaml":{"SINGLE":{"2013-01-01":200000},"JOINT":{"2013-01-01":250000},"SEPARATE":{"2013-01-01":125000},"HEAD_OF_HOUSEHOLD":{"2013-01-01":200000},"SURVIVING_SPOUSE":{"2013-01-01":200000}},"irs/self_employment/rate/social_security.yaml":{"values":{"2013-01-01":0.124}},"irs/self_employment/rate/medicare.yaml":{"values":{"2013-01-01":0.029}},"irs/ald/student_loan_interest/cap.yaml":{"JOINT":{"2002-01-01":2500},"SINGLE":{"2002-01-01":2500},"SEPARATE":{"2002-01-01":0},"HEAD_OF_HOUSEHOLD":{"2002-01-01":2500},"SURVIVING_SPOUSE":{"2002-01-01":2500}},"irs/ald/student_loan_interest/reduction/start.yaml":{"JOINT":{"values":{"2026-01-01":175000}},"SINGLE":{"values":{"2026-01-01":85000}},"SEPARATE":{"2002-01-01":0},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":85000}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":85000}}},"irs/ald/student_loan_interest/reduction/divisor.yaml":{"JOINT":{"2002-01-01":30000},"SINGLE":{"2002-01-01":15000},"SEPARATE":{"2002-01-01":0},"HEAD_OF_HOUSEHOLD":{"2002-01-01":15000},"SURVIVING_SPOUSE":{"2002-01-01":15000}},"irs/credits/ctc/amount/base.yaml":{"brackets":[{"threshold":{"values":{"2013-01-01":0}},"amount":{"values":{"2025-01-01":2200}}},{"threshold":{"values":{"2022-01-01":17}},"amount":{"values":{"2013-01-01":0}}}]},"irs/credits/ctc/phase_out/threshold.yaml":{"SINGLE":{"2018-01-01":200000},"JOINT":{"2018-01-01":400000},"SEPARATE":{"2018-01-01":200000},"HEAD_OF_HOUSEHOLD":{"2018-01-01":200000},"SURVIVING_SPOUSE":{"2018-01-01":400000}},"irs/credits/ctc/phase_out/amount.yaml":{"values":{"0000-01-01":50}},"irs/credits/ctc/phase_out/increment.yaml":{"values":{"0000-01-01":1000}},"states/de/tax/income/rate.yaml":{"brackets":[{"threshold":{"1996-01-01":0},"rate":{"1996-01-01":0}},{"threshold":{"1996-01-01":2000},"rate":{"2014-01-01":0.022}},{"threshold":{"1996-01-01":5000},"rate":{"2014-01-01":0.039}},{"threshold":{"1996-01-01":10000},"rate":{"2014-01-01":0.048}},{"threshold":{"1996-01-01":20000},"rate":{"2014-01-01":0.052}},{"threshold":{"1996-01-01":25000},"rate":{"2014-01-01":0.0555}},{"threshold":{"2014-01-01":60000},"rate":{"2014-01-01":0.066}}]},"states/de/tax/income/deductions/standard/amount.yaml":{"JOINT":{"2000-01-01":6500},"SINGLE":{"2000-01-01":3250},"SEPARATE":{"2000-01-01":3250},"HEAD_OF_HOUSEHOLD":{"2000-01-01":3250},"SURVIVING_SPOUSE":{"2000-01-01":3250}},"states/de/tax/income/credits/personal_credits/personal.yaml":{"values":{"1996-01-01":110}},"states/de/tax/income/subtractions/plan_529/cap.yaml":{"JOINT":{"2022-01-01":2000},"SURVIVING_SPOUSE":{"2022-01-01":1000},"SINGLE":{"2022-01-01":1000},"HEAD_OF_HOUSEHOLD":{"2022-01-01":1000},"SEPARATE":{"2022-01-01":1000}}};
+var TAX_FALLBACK = {"irs/income/bracket.yaml":{"rates":{"1":{"2018-01-01":0.1},"2":{"2018-01-01":0.12},"3":{"2018-01-01":0.22},"4":{"2018-01-01":0.24},"5":{"2018-01-01":0.32},"6":{"2018-01-01":0.35},"7":{"2018-01-01":0.37}},"thresholds":{"1":{"SINGLE":{"values":{"2026-01-01":12400}},"JOINT":{"values":{"2026-01-01":24800}},"SEPARATE":{"values":{"2026-01-01":12400}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":17700}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":24800}}},"2":{"SINGLE":{"values":{"2026-01-01":50400}},"JOINT":{"values":{"2026-01-01":100800}},"SEPARATE":{"values":{"2026-01-01":50400}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":67450}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":100800}}},"3":{"SINGLE":{"values":{"2026-01-01":105700}},"JOINT":{"values":{"2026-01-01":211400}},"SEPARATE":{"values":{"2026-01-01":105700}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":105700}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":211400}}},"4":{"SINGLE":{"values":{"2026-01-01":201775}},"JOINT":{"values":{"2026-01-01":403550}},"SEPARATE":{"values":{"2026-01-01":201775}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":201750}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":403550}}},"5":{"SINGLE":{"values":{"2026-01-01":256225}},"JOINT":{"values":{"2026-01-01":512450}},"SEPARATE":{"values":{"2026-01-01":256225}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":256200}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":512450}}},"6":{"SINGLE":{"values":{"2026-01-01":640600}},"JOINT":{"values":{"2026-01-01":768700}},"SEPARATE":{"values":{"2026-01-01":384350}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":640600}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":768700}}},"7":{"SINGLE":{"values":{"2018-01-01":null}},"JOINT":{"values":{"2018-01-01":null}},"SEPARATE":{"values":{"2018-01-01":null}},"HEAD_OF_HOUSEHOLD":{"values":{"2018-01-01":null}},"SURVIVING_SPOUSE":{"values":{"2018-01-01":null}}}}},"irs/deductions/standard/amount.yaml":{"SINGLE":{"2026-01-01":16100},"JOINT":{"2026-01-01":32200},"SEPARATE":{"2026-01-01":16100},"HEAD_OF_HOUSEHOLD":{"2026-01-01":24150},"SURVIVING_SPOUSE":{"2026-01-01":32200}},"irs/deductions/itemized/salt_and_real_estate/cap.yaml":{"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":40400}},"JOINT":{"values":{"2026-01-01":40400}},"SEPARATE":{"values":{"2026-01-01":20200}},"SINGLE":{"values":{"2026-01-01":40400}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":40400}}},"irs/deductions/itemized/salt_and_real_estate/phase_out/threshold.yaml":{"SINGLE":{"2026-01-01":505000},"HEAD_OF_HOUSEHOLD":{"2026-01-01":505000},"JOINT":{"2026-01-01":505000},"SURVIVING_SPOUSE":{"2026-01-01":505000},"SEPARATE":{"2026-01-01":252500}},"irs/deductions/itemized/salt_and_real_estate/phase_out/rate.yaml":{"values":{"2025-01-01":0.3}},"irs/deductions/itemized/salt_and_real_estate/phase_out/floor/amount.yaml":{"SINGLE":{"2025-01-01":10000},"HEAD_OF_HOUSEHOLD":{"2025-01-01":10000},"JOINT":{"2025-01-01":10000},"SURVIVING_SPOUSE":{"2025-01-01":10000},"SEPARATE":{"2025-01-01":5000}},"irs/deductions/itemized/salt_and_real_estate/phase_out/in_effect.yaml":{"values":{"2025-01-01":true}},"irs/deductions/itemized/medical/floor.yaml":{"values":{"2017-01-01":0.075}},"irs/payroll/social_security/cap.yaml":{"values":{"2026-01-01":184500}},"irs/payroll/social_security/rate/employee.yaml":{"values":{"2013-01-01":0.062}},"irs/payroll/medicare/rate/employee.yaml":{"values":{"2013-01-01":0.0145}},"irs/payroll/medicare/additional/rate.yaml":{"values":{"2013-01-01":0.009}},"irs/payroll/medicare/additional/exclusion.yaml":{"SINGLE":{"2013-01-01":200000},"JOINT":{"2013-01-01":250000},"SEPARATE":{"2013-01-01":125000},"HEAD_OF_HOUSEHOLD":{"2013-01-01":200000},"SURVIVING_SPOUSE":{"2013-01-01":200000}},"irs/self_employment/rate/social_security.yaml":{"values":{"2013-01-01":0.124}},"irs/self_employment/rate/medicare.yaml":{"values":{"2013-01-01":0.029}},"irs/ald/student_loan_interest/cap.yaml":{"JOINT":{"2002-01-01":2500},"SINGLE":{"2002-01-01":2500},"SEPARATE":{"2002-01-01":0},"HEAD_OF_HOUSEHOLD":{"2002-01-01":2500},"SURVIVING_SPOUSE":{"2002-01-01":2500}},"irs/ald/student_loan_interest/reduction/start.yaml":{"JOINT":{"values":{"2026-01-01":175000}},"SINGLE":{"values":{"2026-01-01":85000}},"SEPARATE":{"2002-01-01":0},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":85000}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":85000}}},"irs/ald/student_loan_interest/reduction/divisor.yaml":{"JOINT":{"2002-01-01":30000},"SINGLE":{"2002-01-01":15000},"SEPARATE":{"2002-01-01":0},"HEAD_OF_HOUSEHOLD":{"2002-01-01":15000},"SURVIVING_SPOUSE":{"2002-01-01":15000}},"irs/credits/ctc/amount/base.yaml":{"brackets":[{"threshold":{"values":{"2013-01-01":0}},"amount":{"values":{"2025-01-01":2200}}},{"threshold":{"values":{"2022-01-01":17}},"amount":{"values":{"2013-01-01":0}}}]},"irs/credits/ctc/phase_out/threshold.yaml":{"SINGLE":{"2018-01-01":200000},"JOINT":{"2018-01-01":400000},"SEPARATE":{"2018-01-01":200000},"HEAD_OF_HOUSEHOLD":{"2018-01-01":200000},"SURVIVING_SPOUSE":{"2018-01-01":400000}},"irs/credits/ctc/phase_out/amount.yaml":{"values":{"0000-01-01":50}},"irs/credits/ctc/phase_out/increment.yaml":{"values":{"0000-01-01":1000}},"states/de/tax/income/rate.yaml":{"brackets":[{"threshold":{"1996-01-01":0},"rate":{"1996-01-01":0}},{"threshold":{"1996-01-01":2000},"rate":{"2014-01-01":0.022}},{"threshold":{"1996-01-01":5000},"rate":{"2014-01-01":0.039}},{"threshold":{"1996-01-01":10000},"rate":{"2014-01-01":0.048}},{"threshold":{"1996-01-01":20000},"rate":{"2014-01-01":0.052}},{"threshold":{"1996-01-01":25000},"rate":{"2014-01-01":0.0555}},{"threshold":{"2014-01-01":60000},"rate":{"2014-01-01":0.066}}]},"states/de/tax/income/deductions/standard/amount.yaml":{"JOINT":{"2000-01-01":6500},"SINGLE":{"2000-01-01":3250},"SEPARATE":{"2000-01-01":3250},"HEAD_OF_HOUSEHOLD":{"2000-01-01":3250},"SURVIVING_SPOUSE":{"2000-01-01":3250}},"states/de/tax/income/credits/personal_credits/personal.yaml":{"values":{"1996-01-01":110}},"states/de/tax/income/subtractions/plan_529/cap.yaml":{"JOINT":{"2022-01-01":2000},"SURVIVING_SPOUSE":{"2022-01-01":1000},"SINGLE":{"2022-01-01":1000},"HEAD_OF_HOUSEHOLD":{"2022-01-01":1000},"SEPARATE":{"2022-01-01":1000}},"irs/credits/cdcc/max.yaml":{"values":{"2022-01-01":3000}},"irs/credits/cdcc/eligibility/max.yaml":{"values":{"2010-01-01":2}},"irs/credits/cdcc/phase_out/start.yaml":{"values":{"2022-01-01":15000}},"irs/credits/cdcc/phase_out/min.yaml":{"values":{"2026-01-01":0.35}},"irs/credits/cdcc/phase_out/max.yaml":{"values":{"2026-01-01":0.5}},"irs/credits/cdcc/phase_out/rate.yaml":{"values":{"2013-01-01":0.01}},"irs/credits/cdcc/phase_out/increment.yaml":{"values":{"2013-01-01":2000}},"irs/credits/cdcc/phase_out/amended_structure/applies.yaml":{"values":{"2026-01-01":true}},"irs/credits/cdcc/phase_out/amended_structure/second_start.yaml":{"HEAD_OF_HOUSEHOLD":{"2026-01-01":75000},"JOINT":{"2026-01-01":150000},"SEPARATE":{"2026-01-01":75000},"SINGLE":{"2026-01-01":75000},"SURVIVING_SPOUSE":{"2026-01-01":75000}},"irs/credits/cdcc/phase_out/amended_structure/second_increment.yaml":{"HEAD_OF_HOUSEHOLD":{"2026-01-01":2000},"JOINT":{"2026-01-01":4000},"SEPARATE":{"2026-01-01":2000},"SINGLE":{"2026-01-01":2000},"SURVIVING_SPOUSE":{"2026-01-01":2000}},"irs/credits/cdcc/phase_out/amended_structure/second_min.yaml":{"values":{"2026-01-01":0.2}},"irs/credits/education/phase_out.yaml":{"start":{"single":{"values":{"2010-01-01":80000}},"joint":{"values":{"2010-01-01":160000}}},"length":{"single":{"values":{"2010-01-01":10000}},"joint":{"values":{"2010-01-01":20000}}}},"irs/credits/education/american_opportunity_credit/amount.yaml":{"brackets":[{"threshold":{"2009-01-01":0},"rate":{"2009-01-01":1}},{"threshold":{"2009-01-01":2000},"rate":{"2009-01-01":0.25}},{"threshold":{"2009-01-01":4000},"rate":{"2009-01-01":0}}]},"irs/credits/energy_efficient_home_improvement/in_effect.yaml":{"values":{"2026-01-01":false}},"irs/credits/energy_efficient_home_improvement/rates/improvements.yaml":{"values":{"2023-01-01":0.3}},"irs/credits/energy_efficient_home_improvement/cap/annual/total.yaml":{"values":{"2023-01-01":1200}},"irs/credits/residential_clean_energy/applicable_percentage.yaml":{"values":{"2026-01-01":0}}};
 var TAX_STATUSES = [['SINGLE', 'Single'], ['JOINT', 'Married filing jointly'], ['HEAD_OF_HOUSEHOLD', 'Head of household'], ['SEPARATE', 'Married filing separately']];
 var TAX_PAY_FREQ = [['semimonthly', 'Twice a month', 2], ['biweekly', 'Every two weeks', 26 / 12], ['weekly', 'Weekly', 52 / 12], ['monthly', 'Monthly', 1]];
 var TAX_MONTH_KEYS = ['wages', 'interest', 'business', 'hsa', 'premiums', 'k401', 'bizexp', 's529', 'treasury'];
 var TAX_DED_KEYS = ['giving', 'mortgage', 'property', 'medical', 'misc', 'studentLoan', 'stateOther'];
-// Credits figured as min(amount x %, cap). Defaults follow the workbook; all three numbers are editable.
+// Credits other than the Child Tax Credit. You enter what you spent; the rate and limit come from the tax figures (see taxCore), except
+// for adoption, which they don't carry, so its % and cap are entered by hand. `count` is an optional number of people the credit is for.
 var TAX_CREDIT_DEFS = [
-  { k: 'childcare', label: 'Child & Dependent Care', pct: 20, cap: 1200, help: 'A share of what you pay for child or dependent care so you can work. Typically 20% of up to $6,000 of expenses (two or more children) at higher incomes.' },
-  { k: 'college', label: 'Education (College)', pct: 100, cap: 2500, help: 'American Opportunity / Lifetime Learning credits for tuition. Up to $2,500 per student, and they phase out at higher incomes, so set the cap to what applies to you.' },
-  { k: 'energy', label: 'Energy Efficiency Upgrades', pct: 30, cap: 2000, help: 'Typically 30% of qualifying home energy improvements, up to an annual cap. Check which credits are still available for the year.' },
-  { k: 'adoption', label: 'Adoption', pct: 100, cap: 15000, help: 'Qualified adoption expenses, up to the year’s per-child limit.' }
+  { k: 'childcare', label: 'Child & Dependent Care', live: true, count: 'care-qualifying people', help: 'A share of what you pay for care of a child under 13 (or a dependent unable to care for themselves) so you can work. The share starts at its maximum and falls as AGI rises; expenses count up to a limit per person, for up to two people.' },
+  { k: 'college', label: 'Education (College)', live: true, count: 'students', help: 'American Opportunity Credit: 100% of the first $2,000 and 25% of the next $2,000 of tuition, fees and course materials per student (up to $2,500 each), phasing out as AGI rises. Enter total expenses and the number of students. The Lifetime Learning Credit is not included.' },
+  { k: 'energy', label: 'Energy Efficiency Upgrades', live: true, help: 'Energy Efficient Home Improvement Credit: a share of qualifying improvements (windows, doors, insulation, heat pumps, ...), up to an annual limit. Heat pumps have a separate, additional limit that is not modelled here.' },
+  { k: 'cleanenergy', label: 'Residential Clean Energy', live: true, help: 'Solar, battery storage, geothermal and similar home systems: a percentage of what they cost, with no dollar cap.' },
+  { k: 'adoption', label: 'Adoption', pct: 100, cap: '', help: 'Qualified adoption expenses, up to the year\u2019s per-child limit (Form 8839). The tax figures don\u2019t include this one, so enter the limit for your year as the cap.' }
 ];
 
 var taxParams = { docs: null, fetchedAt: 0, loading: false, error: '', tried: false };
@@ -8890,7 +8899,7 @@ function taxLoadYamlLib() {
 function taxFetchParams(force) {
   if (taxParams.loading || (taxParams.tried && !force)) return;
   var cached = parseJsonLS('tax-params');
-  var usable = cached && cached.year === TAX_YEAR && cached.docs;
+  var usable = cached && cached.year === TAX_YEAR && cached.docs && TAX_PE_FILES.every(function(f) { return cached.docs[f] !== undefined; });
   if (usable && !taxParams.docs) { taxParams.docs = cached.docs; taxParams.fetchedAt = cached.fetchedAt || 0; }
   if (!force && usable && Date.now() - (cached.fetchedAt || 0) < 7 * 86400000) return;
   taxParams.tried = true;
@@ -8976,8 +8985,37 @@ function taxLaw(status) {
     ctcPoIncrement: taxP('irs/credits/ctc/phase_out/increment.yaml', [], null, 1000),
     deStd: taxP('states/de/tax/income/deductions/standard/amount.yaml', [], status, 0),
     dePersonal: taxP('states/de/tax/income/credits/personal_credits/personal.yaml', [], null, 0),
-    de529Cap: taxP('states/de/tax/income/subtractions/plan_529/cap.yaml', [], status, 0)
+    de529Cap: taxP('states/de/tax/income/subtractions/plan_529/cap.yaml', [], status, 0),
+    cdcc: {                                   // Child and Dependent Care Credit: rate falls with AGI, expenses capped per person
+      max: taxP('irs/credits/cdcc/max.yaml', [], null, 3000), persons: taxP('irs/credits/cdcc/eligibility/max.yaml', [], null, 2),
+      rateMax: taxP('irs/credits/cdcc/phase_out/max.yaml', [], null, 0.35), min: taxP('irs/credits/cdcc/phase_out/min.yaml', [], null, 0.2),
+      step: taxP('irs/credits/cdcc/phase_out/rate.yaml', [], null, 0.01), inc: taxP('irs/credits/cdcc/phase_out/increment.yaml', [], null, 2000),
+      start: taxP('irs/credits/cdcc/phase_out/start.yaml', [], null, 15000),
+      amended: taxP('irs/credits/cdcc/phase_out/amended_structure/applies.yaml', [], null, false) === true,
+      start2: taxP('irs/credits/cdcc/phase_out/amended_structure/second_start.yaml', [], status, Infinity),
+      inc2: taxP('irs/credits/cdcc/phase_out/amended_structure/second_increment.yaml', [], status, 2000),
+      min2: taxP('irs/credits/cdcc/phase_out/amended_structure/second_min.yaml', [], null, 0.2)
+    },
+    edu: taxEduLaw(status),                   // American Opportunity Credit schedule and its AGI phase-out
+    energy: {
+      inEffect: taxP('irs/credits/energy_efficient_home_improvement/in_effect.yaml', [], null, true) === true,
+      rate: taxP('irs/credits/energy_efficient_home_improvement/rates/improvements.yaml', [], null, 0.3),
+      cap: taxP('irs/credits/energy_efficient_home_improvement/cap/annual/total.yaml', [], null, Infinity),
+      cleanRate: taxP('irs/credits/residential_clean_energy/applicable_percentage.yaml', [], null, 0)
+    }
   };
+}
+// American Opportunity Credit: a marginal schedule on one student's expenses (100% of the first $2,000, 25% of the next $2,000),
+// reduced to nothing across an AGI range; married filing separately can't claim it.
+function taxEduLaw(status) {
+  var docs = taxDocs(), F = 'irs/credits/education/american_opportunity_credit/amount.yaml', d = docs[F] || TAX_FALLBACK[F], sched = [];
+  ((d && d.brackets) || []).forEach(function(b) {
+    var from = taxAt(b.threshold), rate = taxAt(b.rate);
+    if (typeof from === 'number' && typeof rate === 'number') sched.push({ from: from, rate: rate });
+  });
+  sched.sort(function(a, b) { return a.from - b.from; });
+  var kind = status === 'JOINT' || status === 'SURVIVING_SPOUSE' ? 'joint' : 'single';
+  return { aotc: sched, allowed: status !== 'SEPARATE', poStart: taxP('irs/credits/education/phase_out.yaml', ['start', kind], null, Infinity), poLen: taxP('irs/credits/education/phase_out.yaml', ['length', kind], null, 0) };
 }
 // Progressive tax: each bracket's rate on the slice of income that falls inside it.
 function taxBracketTax(income, brackets) {
@@ -9020,7 +9058,7 @@ function taxNewDoc() {
   var m = {}, c = {}, d = {};
   TAX_MONTH_KEYS.forEach(function(k) { m[k] = TAX_MONTHS.map(function() { return ''; }); });
   TAX_DED_KEYS.forEach(function(k) { d[k] = ''; });
-  TAX_CREDIT_DEFS.forEach(function(x) { c[x.k] = { amount: '', pct: String(x.pct), cap: String(x.cap) }; });
+  TAX_CREDIT_DEFS.forEach(function(x) { c[x.k] = { amount: '', pct: x.pct == null ? '' : String(x.pct), cap: x.cap == null ? '' : String(x.cap), count: '' }; });
   var w = { fed: TAX_MONTHS.map(function() { return ''; }), state: TAX_MONTHS.map(function() { return ''; }) };   // actual withholding, by month
   return { v: 1, year: TAX_YEAR, status: 'JOINT', dependents: '0', payFreq: 'semimonthly', bonus: '', m: m, w: w, d: d, c: c };
 }
@@ -9043,7 +9081,7 @@ function taxNormalize(doc) {
   TAX_DED_KEYS.forEach(function(k) { if (doc.d && doc.d[k] != null) base.d[k] = String(doc.d[k]); });
   TAX_CREDIT_DEFS.forEach(function(x) {
     var c = doc.c && doc.c[x.k];
-    if (c) ['amount', 'pct', 'cap'].forEach(function(f) { if (c[f] != null) base.c[x.k][f] = String(c[f]); });
+    if (c) ['amount', 'pct', 'cap', 'count'].forEach(function(f) { if (c[f] != null && (!x.live || f === 'amount' || f === 'count')) base.c[x.k][f] = String(c[f]); });
   });
   return base;
 }
@@ -9214,9 +9252,36 @@ function taxCore(doc, bonusDec) {
   cr.ctcCut = agiA > L.ctcPoThreshold ? Math.ceil((agiA - L.ctcPoThreshold) / L.ctcPoIncrement) * L.ctcPoAmount : 0;
   cr.ctc = Math.max(0, cr.ctcFull - cr.ctcCut);
   cr.total = cr.ctc;
+  cr.meta = {};
+  var cd = L.cdcc, ed = L.edu, en = L.energy;
   TAX_CREDIT_DEFS.forEach(function(x) {
-    var c = doc.c[x.k], cap = String(c.cap).trim() === '' ? Infinity : taxPos(c.cap);
-    cr.items[x.k] = Math.max(0, Math.min(taxPos(c.amount) * taxNum(c.pct) / 100, cap));
+    var c = doc.c[x.k], exp = taxPos(c.amount), val = 0, m = { live: !!x.live };
+    if (x.k === 'childcare') {
+      var people = String(c.count).trim() === '' ? dependents : Math.max(0, Math.floor(taxNum(c.count)));
+      people = Math.min(people, cd.persons);
+      var rate = Math.max(cd.min, cd.rateMax - cd.step * Math.ceil(Math.max(0, agiA - cd.start) / cd.inc));
+      if (cd.amended && agiA > cd.start2) rate = Math.max(cd.min2, rate - cd.step * Math.ceil((agiA - cd.start2) / cd.inc2));
+      m.rate = rate; m.people = people; m.perPerson = cd.max; m.limit = people * cd.max;
+      val = rate * Math.min(exp, m.limit);
+    } else if (x.k === 'college') {
+      var n = String(c.count).trim() === '' ? 1 : Math.max(1, Math.floor(taxNum(c.count)));
+      var perStudent = taxBracketTax(exp / n, ed.aotc), maxPer = ed.aotc.length ? taxBracketTax(ed.aotc[ed.aotc.length - 1].from, ed.aotc) : 0;
+      var cut = !ed.allowed ? 1 : (ed.poLen > 0 ? Math.min(1, Math.max(0, (agiA - ed.poStart) / ed.poLen)) : (agiA > ed.poStart ? 1 : 0));
+      m.students = n; m.perPerson = maxPer; m.limit = n * maxPer; m.cut = cut; m.notAllowed = !ed.allowed;
+      val = n * perStudent * (1 - cut);
+    } else if (x.k === 'energy') {
+      m.ended = !en.inEffect; m.rate = en.rate; m.limit = en.cap;
+      val = m.ended ? 0 : Math.min(exp * en.rate, en.cap);
+    } else if (x.k === 'cleanenergy') {
+      m.ended = !(en.cleanRate > 0); m.rate = en.cleanRate; m.limit = Infinity;
+      val = exp * en.cleanRate;
+    } else {                                   // adoption: percentage and cap entered by hand
+      var cap = String(c.cap).trim() === '' ? Infinity : taxPos(c.cap);
+      m.rate = taxNum(c.pct) / 100; m.limit = cap;
+      val = Math.min(exp * m.rate, cap);
+    }
+    cr.items[x.k] = Math.max(0, val);
+    cr.meta[x.k] = m;
     cr.total += cr.items[x.k];
   });
   cr.applied = Math.min(cr.total, fedTaxA);     // treated as non-refundable: credits can't take the tax below zero
@@ -9456,17 +9521,41 @@ function renderTaxDedTable(c, doc) {
 function renderTaxCredTable(c, doc) {
   var el = document.getElementById('tax-cred-table');
   if (!el) return;
-  var L = c.L, cr = c.cr, sc = c.sc, A = c.A;
+  var L = c.L, cr = c.cr, sc = c.sc, A = c.A, cd = L.cdcc, ed = L.edu;
   function money(v) { return '<span class="' + (Math.round(v) === 0 ? 'tax-zero' : '') + '">' + taxFmt(v) + '</span>'; }
-  var h = '<thead><tr><th>Credit</th><th>Applies To</th><th class="tax-amt">Amount</th><th class="tax-amt">%</th><th class="tax-amt">Cap</th><th class="tax-amt">Credit</th></tr></thead><tbody>'
+  var h = '<thead><tr><th>Credit</th><th>Applies To</th><th class="tax-amt">Amount</th><th class="tax-amt">Rate</th><th class="tax-amt">Limit</th><th class="tax-amt">Credit</th></tr></thead><tbody>'
     + '<tr><td>Child Tax Credit' + taxHelpIcon('c:ctc', 'Child Tax Credit', taxFmt(L.ctcAmount) + ' per qualifying child under 17. The number of dependents is set at the top of the page.', ['Reduced by ' + taxFmt(L.ctcPoAmount) + ' for each ' + taxFmt(L.ctcPoIncrement) + ' of AGI over ' + taxFmt(L.ctcPoThreshold) + '.' + (cr.ctcCut > 0 ? ' Yours is reduced by ' + taxFmt(Math.min(cr.ctcCut, cr.ctcFull)) + '.' : '')]) + '</td>'
     +   '<td>' + taxBadge('fed') + '</td><td class="tax-amt">' + c.dependents + ' × ' + taxFmt(L.ctcAmount) + '</td><td></td><td class="tax-amt tax-note">over ' + taxFmt(L.ctcPoThreshold) + ' AGI</td><td class="tax-amt">' + money(cr.ctc) + '</td></tr>';
   TAX_CREDIT_DEFS.forEach(function(x) {
-    var v = doc.c[x.k];
-    h += '<tr><td>' + escHtml(x.label) + taxHelpIcon('c:' + x.k, x.label, 'min(Amount × %, Cap)', [x.help]) + '</td><td>' + taxBadge('fed') + '</td>'
-      + '<td class="tax-amt">' + taxValInput('c.' + x.k + '.amount', v.amount, '0') + '</td>'
-      + '<td class="tax-amt">' + taxValInput('c.' + x.k + '.pct', v.pct, String(x.pct), 'tax-val-sm') + '</td>'
-      + '<td class="tax-amt">' + taxValInput('c.' + x.k + '.cap', v.cap, 'none') + '</td>'
+    var v = doc.c[x.k], m = cr.meta[x.k], rateCell, limitCell, how, notes = [x.help];
+    if (!x.live) {
+      rateCell = taxValInput('c.' + x.k + '.pct', v.pct, '100', 'tax-val-sm');
+      limitCell = taxValInput('c.' + x.k + '.cap', v.cap, 'none');
+      how = 'min(Amount \u00D7 %, Cap)';
+    } else if (m.ended) {
+      rateCell = '<span class="tax-note">not available</span>';
+      limitCell = '<span class="tax-note">ended before ' + TAX_YEAR + '</span>';
+      how = 'This credit is not available for ' + TAX_YEAR + ' under the current tax figures, so it is $0.';
+    } else if (x.k === 'childcare') {
+      rateCell = taxPct(m.rate, 0);
+      limitCell = '<input type="text" class="tax-val tax-val-xs" inputmode="numeric" data-path="c.childcare.count" value="' + escAttr(v.count) + '" placeholder="' + m.people + '" aria-label="Number of care-qualifying people"> \u00D7 ' + taxFmt(m.perPerson);
+      how = 'Rate \u00D7 Expenses, with expenses counted up to ' + taxFmt(cd.max) + ' per person for up to ' + cd.persons + ' people.';
+      notes.push('The rate is ' + taxPct(cd.rateMax, 0) + ' at most, falling ' + taxPct(cd.step, 0) + ' for each ' + taxFmt(cd.inc) + ' of AGI over ' + taxFmt(cd.start) + ' (to ' + taxPct(cd.min, 0) + ')' + (cd.amended ? ', then further above ' + taxFmt(cd.start2) + ' (to ' + taxPct(cd.min2, 0) + ')' : '') + '. Yours, at AGI ' + taxFmt(A.agi) + ', is ' + taxPct(m.rate, 0) + '.',
+        'People defaults to your dependents (' + c.dependents + '), at most ' + cd.persons + '. Enter a number if only some of them are young enough or need care.');
+    } else if (x.k === 'college') {
+      rateCell = m.notAllowed ? '<span class="tax-note">not allowed</span>' : ed.aotc.filter(function(b) { return b.rate > 0; }).map(function(b) { return taxPct(b.rate, 0); }).join(' / ');
+      limitCell = '<input type="text" class="tax-val tax-val-xs" inputmode="numeric" data-path="c.college.count" value="' + escAttr(v.count) + '" placeholder="1" aria-label="Number of students"> \u00D7 ' + taxFmt(m.perPerson);
+      how = 'Per student: 100% of the first $2,000 + 25% of the next $2,000 of expenses (the amount entered is split evenly across students), less the AGI phase-out.';
+      notes.push(m.notAllowed ? 'Married filing separately can\u2019t claim it.' : (m.cut > 0 ? 'Reduced by ' + taxPct(m.cut, 0) + ' because AGI is over ' + taxFmt(ed.poStart) + ' (gone at ' + taxFmt(ed.poStart + ed.poLen) + ').' : 'Phases out between ' + taxFmt(ed.poStart) + ' and ' + taxFmt(ed.poStart + ed.poLen) + ' of AGI.'));
+    } else {
+      rateCell = taxPct(m.rate, 0);
+      limitCell = isFinite(m.limit) ? 'up to ' + taxFmt(m.limit) : '<span class="tax-note">no cap</span>';
+      how = isFinite(m.limit) ? 'min(Expenses \u00D7 rate, annual limit)' : 'Expenses \u00D7 rate';
+    }
+    h += '<tr><td>' + escHtml(x.label) + taxHelpIcon('c:' + x.k, x.label, how, notes) + '</td><td>' + taxBadge('fed') + '</td>'
+      + '<td class="tax-amt">' + taxValInput('c.' + x.k + '.amount', v.amount, 'spent') + '</td>'
+      + '<td class="tax-amt">' + rateCell + '</td>'
+      + '<td class="tax-amt">' + limitCell + '</td>'
       + '<td class="tax-amt">' + money(cr.items[x.k]) + '</td></tr>';
   });
   h += '<tr><td>Delaware Personal Credit' + taxHelpIcon('c:depersonal', 'Delaware Personal Credit', taxFmt(L.dePersonal) + ' for each dependent. The number of dependents is set at the top of the page.') + '</td><td>' + taxBadge('state') + '</td>'
