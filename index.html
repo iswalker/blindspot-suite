@@ -736,6 +736,7 @@ input.tax-val { width: 110px; padding: 4px 8px; border-color: #ddd; background: 
 input.tax-val.tax-val-sm { width: 64px; }
 input.tax-cell:hover { border-color: #ddd; background: #fff; }
 input.tax-cell.tax-auto { color: #8a8a8a; font-style: italic; }       /* projected: what the month needs to withhold, not yet entered */
+input.tax-cell.tax-void { color: #8a8a8a; font-style: italic; }       /* entered but not counted (e.g. a 529 contribution over the AGI limit) */
 input.tax-cell:focus, input.tax-val:focus { outline: none; border-color: #e07b22; background: #fff; color: #222; }
 td.tax-bad input.tax-cell, input.tax-val.tax-bad { border-color: #e57373; }
 .tax-fill {
@@ -9280,8 +9281,10 @@ function taxCore(doc, bonusDec, fixed, statePaid) {
   var agiA = taxSum(R.agi);
 
   // State: AGI less the 529 subtraction (capped) and Treasury income, then the larger of its standard and itemized deductions.
-  var s529A = taxSum(v.s529), s529Barred = agiA > L.de529AgiLimit;
-  var s529Ok = s529Barred ? 0 : Math.min(Math.max(0, s529A), L.de529Cap), s529Share = s529A > 0 ? s529Ok / s529A : 0;
+  // The AGI limit is judged on the whole year (bonus included), so the regular-pay pass takes the year's figure rather than
+  // re-judging it on its own, lower AGI.
+  var s529A = taxSum(v.s529), s529Barred = fixed ? fixed.s529Barred : agiA > L.de529AgiLimit;
+  var s529Ok = fixed ? fixed.s529Ok : (s529Barred ? 0 : Math.min(Math.max(0, s529A), L.de529Cap)), s529Share = s529A > 0 ? s529Ok / s529A : 0;
   R.s529 = v.s529;
   R.stateAgi = taxMap(function(i) { return R.agi[i] - v.s529[i] * s529Share - v.treasury[i]; });
   var stateAgiA = taxSum(R.stateAgi);
@@ -9395,7 +9398,7 @@ function taxCore(doc, bonusDec, fixed, statePaid) {
 
   return {
     L: L, v: v, R: R, fed: fed, st: st, cr: cr, sc: sc, dependents: dependents, pp: pp, ssCapMonth: ssCapMonth,
-    yearly: { sli: sliA, stUsed: st.used, fedUsed: fed.used, qbi: qbiA, crTotal: cr.total },
+    yearly: { sli: sliA, stUsed: st.used, fedUsed: fed.used, qbi: qbiA, crTotal: cr.total, s529Ok: s529Ok, s529Barred: s529Barred },
     A: { gross: taxSum(R.gross), magi: magiA, agi: agiA, stateAgi: stateAgiA, sliPaid: sliPaid, sliCut: sliCut, sli: sliA, s529: s529A, s529Ok: s529Ok, s529Barred: s529Barred,
          fedTaxable: fedTaxableA, fedTax: fedTaxA, fedDue: fedDueA, stTaxable: stTaxableA, stTax: stTaxA, stDue: stDueA, qbi: qbiA,
          seNet: seNetA, seTax: seMain + seAddl, ficaWages: ficaWagesA, fica: taxSum(R.fica), ss: taxSum(R.ss), medicare: taxSum(R.medicare),
@@ -9504,6 +9507,8 @@ function taxMonthRows(c, doc) {
   ] : [
     { k: 's529', input: true, label: '529 Contributions', f: L.stateName + ' subtracts 529 plan contributions, up to ' + taxFmt(L.de529Cap) + ' (' + e(sl.toLowerCase()) + ')' + (isFinite(L.de529AgiLimit) ? ', only when federal AGI is ' + taxFmt(L.de529AgiLimit) + ' or less' : '') + '.',
       n: ['Enter contributions in the month they\u2019re made. Est. Annual shows what the state actually subtracts, which can be less than what\u2019s entered.'],
+      // Entries stay as context but read as not counted (grey italic) when the AGI limit zeroes the year out
+      voidMonths: function() { return A.s529Barred && A.s529 > 0 ? 'Not counted: AGI (' + taxFmt(A.agi) + ') is over ' + taxFmt(L.de529AgiLimit) : ''; },
       // The year's figure is what counts, not an entry: the cap and the AGI limit can cut it below the months' total
       calcAnnual: function() {
         var why = A.s529Barred && A.s529 > 0 ? 'AGI (' + taxFmt(A.agi) + ') is over ' + taxFmt(L.de529AgiLimit) + ', so none of the ' + taxFmt(A.s529) + ' entered counts.'
@@ -9583,9 +9588,11 @@ function renderTaxMonthTable(c, doc) {
       var raws = doc.m[row.k];
       h += row.calcAnnual ? row.calcAnnual()
         : '<td class="tax-in tax-annual-col">' + taxCellInput(row.k, 'A', '', ann, row.label + ', ' + TAX_YEAR + ' total') + '</td>';
+      var voidWhy = row.voidMonths ? row.voidMonths() : '';
       for (var i = 0; i < 12; i++) {
         var bad = !isFinite(taxEval(raws[i]));
-        h += '<td class="tax-in' + (i === curM ? ' tax-cur' : '') + (bad ? ' tax-bad' : '') + '">' + taxCellInput(row.k, i, raws[i], c.v[row.k][i], row.label + ', ' + TAX_MONTHS[i])
+        h += '<td class="tax-in' + (i === curM ? ' tax-cur' : '') + (bad ? ' tax-bad' : '') + '"' + (voidWhy && String(raws[i]).trim() !== '' ? ' title="' + escAttr(voidWhy) + '"' : '') + '>'
+          + taxCellInput(row.k, i, raws[i], c.v[row.k][i], row.label + ', ' + TAX_MONTHS[i] + (voidWhy ? ' (not counted)' : ''), undefined, voidWhy ? ' tax-void' : '')
           + (i < 11 ? '<button type="button" class="tax-fill" data-k="' + row.k + '" data-m="' + i + '" title="Copy ' + TAX_MONTHS[i] + ' to the rest of the year" tabindex="-1">»</button>' : '') + '</td>';
       }
     } else {
