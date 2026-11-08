@@ -704,17 +704,18 @@ td.cell-active {
 .taxtt-formula { font-size: 14px; color: #333; line-height: 1.45; }
 .taxtt-note { font-size: 13px; color: #777; line-height: 1.45; margin-top: 6px; }
 #tax-month-table, .tax-side-table { border-collapse: collapse; width: 100%; }
-#tax-month-table th, .tax-side-table th { background: #fff; font-size: 12px; padding: 10px; color: #333; border-bottom: 1px solid #e4e4e0; position: static; }
+/* Headers match Cash Flow's: 13px / 600 / letter-spaced, 12px padding, 2px rule underneath */
+#tax-month-table th, .tax-side-table th { background: #fff; font-size: 13px; font-weight: 600; letter-spacing: .06em; padding: 12px; color: #333; border-bottom: 2px solid #e2e2e2; position: static; }
 /* The month headers stay pinned to the top of the viewport while the page scrolls past the table, as on Cash Flow:
    the table has no scroll zone of its own (an overflow container would pin them to itself instead), so on a narrow
    screen the page scrolls sideways on this tab. */
 #tax-month-wrap { overflow: visible; }
-#tax-month-table th { position: sticky; top: 0; z-index: 3; border-bottom: none; box-shadow: inset 0 -1px 0 #e4e4e0; }
+#tax-month-table th { position: sticky; top: 0; z-index: 3; border-bottom: none; box-shadow: inset 0 -2px 0 #e2e2e2; }
 #tax-month-table th:first-child { z-index: 4; left: 0; }
-#tax-month-table th#tax-section-label { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }   /* one line always, so the header never changes height as the label changes */
+#tax-month-table th#tax-section-label { font-size: 14px; font-weight: 700; letter-spacing: 0; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }   /* one line always, so the header never changes height as the label changes */
 #tax-month-table td { padding: 4px 8px; font-size: 14px; font-variant-numeric: tabular-nums; }
 #tax-month-table td:first-child, #tax-month-table th:first-child { padding-left: 16px; min-width: 236px; background: #fff; position: sticky; left: 0; }
-#tax-month-table tr.tax-sec td { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #333; padding-top: 16px; border-bottom: 1px solid #e4e4e0; }
+#tax-month-table tr.tax-sec td { font-size: 14px; font-weight: 700; color: #333; padding-top: 16px; border-bottom: 1px solid #e4e4e0; }
 #tax-month-table tr.tax-sec td + td { background: #fff; }
 #tax-month-table tr.tax-sub td, .tax-side-table tr.tax-sub td { background: #f6f6f2; font-weight: 600; font-style: italic; }
 #tax-month-table tr.tax-total td, .tax-side-table tr.tax-total td { font-weight: 700; font-size: 15px; border-top: 2px solid #777; border-bottom: 2px solid #777; background: #fff; }
@@ -753,7 +754,7 @@ td.tax-in:focus-within .tax-fill { display: block; }
 .tax-side-table td { padding: 6px 12px; font-size: 14px; text-align: left; font-variant-numeric: tabular-nums; }
 .tax-side-table td:first-child, .tax-side-table th:first-child { padding-left: 16px; background: #fff; }
 .tax-side-table tr.tax-sub td:first-child { background: #f6f6f2; }
-.tax-side-table tr.tax-sec td { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #333; padding-top: 14px; }
+.tax-side-table tr.tax-sec td { font-size: 14px; font-weight: 700; color: #333; padding-top: 14px; }
 .tax-nostate th:nth-child(6), .tax-nostate td:nth-child(6) { display: none; }
 .tax-limit { color: #777; font-size: 13px; white-space: normal; min-width: 160px; }
 #tax-figures td.tax-amt { white-space: normal; }
@@ -1770,6 +1771,7 @@ html.rw-tab-active #tab-row { z-index: 30; }
 }
 .runway-title { font-size: 18px; font-weight: 700; color: #222; line-height: 1.3; }
 .runway-subtext { font-size: 13px; color: #888; margin-top: 3px; line-height: 1.35; }
+.runway-blurb { font-size: 14px; color: #666; margin-top: 3px; line-height: 1.35; }
 .runway-blue-pill {
   display: inline-block; padding: 2px 8px; border-radius: 8px;
   background: #e3f0ff; color: #1565c0; font-weight: 600; font-size: 14px;
@@ -1806,6 +1808,7 @@ html.rw-tab-active #tab-row { z-index: 30; }
 .runway-phase-chevron.rwp-current { background: #1565c0; }
 .runway-phase-chevron.rwp-future  { background: #ccc; color: #888; }
 .runway-phase-title { font-size: 20px; font-weight: 700; color: #222; margin-top: 8px; text-align: center; }
+.runway-phase-blurb { font-size: 16px; color: #666; line-height: 1.35; padding: 4px 12px 0; }
 .runway-phase-subtext { font-size: 15px; color: #888; line-height: 1.35; padding: 10px 12px; }
 
 /* ---- Net Worth Outlook preview toggle (12m / 15y / 30y) ---- */
@@ -3819,7 +3822,7 @@ function configRowFromObject(r, keepEmpty) {
   var pastValueRaw = (r['Past Value'] || '').trim().replace(/[$,]/g, '');
   var pastValue = pastValueRaw !== '' ? parseFloat(pastValueRaw) : 0;
   if (isNaN(pastValue)) pastValue = 0;
-  return { id: id, type: type, usedFor: usedFor, section: section, dueDays: dueDays, amount: amount, amountRaw: amountRaw, unit: unit, multiplier: multiplier, dateRange: dateRange, assocCatIds: assocCatIds, trackAgainst: trackAgainst, trackAgainstRaw: trackAgainstRaw, pastValue: pastValue };
+  return { id: id, type: type, usedFor: usedFor, section: section, dueDays: dueDays, amount: amount, amountRaw: amountRaw, unit: unit, multiplier: multiplier, dateRange: dateRange, assocCatIds: assocCatIds, trackAgainst: trackAgainst, trackAgainstRaw: trackAgainstRaw, pastValue: pastValue, notes: String(r['Notes'] || '') };
 }
 
 // Merchants CSV: first column is the Payee name; remaining columns each represent
@@ -15572,7 +15575,7 @@ function dbCfgConfigRows(section, rowsOverride) {
       'Metric': r.metric, 'Type': r.type, 'Text': r.text, 'Group': r.section, 'Amount': r.amount, 'Unit': r.unit,
       'Transaction Multiplier': r.multiplier === null || r.multiplier === undefined ? '' : String(r.multiplier),
       'Track Against': r.track_against, 'Date Range': r.date_range, 'Associated Category ID(s)': r.assoc_category_ids,
-      'Past Value': r.past_value ? String(r.past_value) : ''
+      'Past Value': r.past_value ? String(r.past_value) : '', 'Notes': r.notes || ''
     }, true);
     cfg.dbId = r._key || String(r.id);
     return cfg;
@@ -16698,6 +16701,7 @@ function wireRunwayEditing() {
     if (field === 'text') row.text = val;
     else if (field === 'amount') row.amount = val;
     else if (field === 'blue') row.date_range = val;
+    else if (field === 'blurb') row.notes = val;
     else if (field === 'unit') {
       row.unit = val;
       var yrs = runwayTargetYears(val), yEl = el.parentNode && el.parentNode.querySelector('.rw-date-yrs');
@@ -16913,7 +16917,8 @@ function wireRunwayEditing() {
 //                                        section it belongs to -- the literal key, e.g.
 //                                        "Runway Column 2" or "Runway Column 1b" -- not the
 //                                        display text from that section's own Text column
-//   "Runway Step <n> Subtext"  Text    = smaller text shown under step <n>'s title
+//   "Runway Step <n>"          Notes   = the step's own subtext, shown right under its title (above the description below)
+//   "Runway Step <n> Subtext"  Text    = smaller text shown under step <n>'s title (the description)
 //   "Runway Step <a>"          Text    = same as "Runway Step <n>" but <a> is a single letter
 //                                        (A, B, ...) instead of a number -- an unnumbered step
 //                                        with no done/current/future state; its badge just shows
@@ -16924,7 +16929,8 @@ function wireRunwayEditing() {
 //   "Runway Phase <n>"         Text    = primary text shown under the nth chevron in the
 //                                        chevron-style progress bar across the top of the tab;
 //                                        Track Against = the year range shown inside the chevron
-//   "Runway Phase <n> Subtext" Text    = smaller text shown under phase <n>'s primary text
+//   "Runway Phase <n>"         Notes   = the phase's own subtext, shown right under its primary text
+//   "Runway Phase <n> Subtext" Text    = smaller text shown under phase <n>'s primary text (the description)
 //   "Runway Phase"             Amount  = the phase number the user is currently on -- chevrons
 //                                        before it are done (green), it is current (blue), after
 //                                        it are future (grey)
@@ -17000,6 +17006,7 @@ function getRunwayData() {
       byPhase[pn1].title = c.id || '';
       byPhase[pn1].titleId = c.dbId || null;
       byPhase[pn1].yearRange = (c.trackAgainstRaw || '').trim();
+      byPhase[pn1].blurb = runwayDbRows() ? (c.notes || '') : '';      // the phase's subtext: kept in the title row's Notes column
     } else if (RUNWAY_CURRENT_RE.test(usedFor)) {
       var tokens = (c.amountRaw || c.id || '').split(',');
       for (var ti = 0; ti < tokens.length; ti++) {
@@ -17047,6 +17054,7 @@ function getRunwayData() {
       byNum[tn].amount = c.amountRaw || '';
       byNum[tn].targetYears = runwayTargetYears(c.unit);
       byNum[tn].targetDate = (c.unit || '').trim();
+      byNum[tn].blurb = runwayDbRows() ? (c.notes || '') : '';          // the step's subtext: kept in the title row's Notes column
     } else if ((mAlphaTitle = usedFor.match(RUNWAY_ALPHA_TITLE_RE))) {
       var ta = mAlphaTitle[1].toUpperCase();
       if (!byAlpha[ta]) byAlpha[ta] = { kind: 'alpha', letter: ta, title: '', tag: null, subtext: '', col: null, amount: '', targetYears: null };
@@ -17060,6 +17068,7 @@ function getRunwayData() {
       byAlpha[ta].amount = c.amountRaw || '';
       byAlpha[ta].targetYears = runwayTargetYears(c.unit);
       byAlpha[ta].targetDate = (c.unit || '').trim();
+      byAlpha[ta].blurb = runwayDbRows() ? (c.notes || '') : '';
     }
   }
   var alphaSteps = Object.keys(byAlpha).map(function(k) { return byAlpha[k]; })
@@ -17216,7 +17225,9 @@ function renderRunwayPhasesHtml(data) {
       +   pctl
       +   '<div class="runway-phase-chevron rwp-' + pState + '">' + (pe ? rwTxt(p.yearRange, p.titleId, 'yearRange', 'years') : escAttr(p.yearRange)) + '</div>'
       +   '<div class="runway-phase-title">' + rwTxt(p.title, p.titleId, 'text', 'Phase title') + '</div>'
-      +   (p.subtext || (runwayEditing() && p.subtextId) ? '<div class="runway-phase-subtext">' + rwTxt(p.subtext, p.subtextId, 'text', 'Add subtext', true) + '</div>' : '')
+      +   (pe ? '<div class="runway-phase-blurb' + (p.blurb ? '' : ' rw-pill-empty') + '">' + rwTxt(p.blurb, p.titleId, 'blurb', 'Add subtext', true) + '</div>'
+            : p.blurb ? '<div class="runway-phase-blurb">' + rwPara(p.blurb) + '</div>' : '')
+      +   (p.subtext || (runwayEditing() && p.subtextId) ? '<div class="runway-phase-subtext">' + rwTxt(p.subtext, p.subtextId, 'text', 'Add description', true) + '</div>' : '')
       + '</div>';
   }).join('');
   return '<div id="runway-phases">'
@@ -17309,7 +17320,10 @@ function renderRunway() {
         +   '</div>'
         +   '<div class="runway-step-text">'
         +     '<div class="runway-title">' + rwTxt(s.title, s.titleId, 'title', 'Step title') + bluePill + amtPill + datePill + tagPill + '</div>'
-        +     (s.subtext || (runwayEditing() && s.subtextId) ? '<div class="runway-subtext">' + rwTxt(s.subtext, s.subtextId, 'text', 'Add subtext', true) + '</div>' : '')
+        // Subtext sits between the title and the description: always there to type into in edit mode (faded while empty), gone when saved empty
+        +     (editing ? '<div class="runway-blurb' + pillCls(s.blurb) + '">' + rwTxt(s.blurb, s.titleId, 'blurb', 'Add subtext', true) + '</div>'
+                : s.blurb ? '<div class="runway-blurb">' + rwPara(s.blurb) + '</div>' : '')
+        +     (s.subtext || (runwayEditing() && s.subtextId) ? '<div class="runway-subtext">' + rwTxt(s.subtext, s.subtextId, 'text', 'Add description', true) + '</div>' : '')
         +   '</div>'
         + '</div>';
     }
