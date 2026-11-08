@@ -2319,6 +2319,13 @@ html.rw-tab-active #tab-row { z-index: 30; }
                 Show Running Totals
               </label>
             </div>
+            <div class="settings-row">
+              <label class="ios-toggle-wrap">
+                <input type="checkbox" id="tax-show-treasury">
+                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+                Show Treasury Income
+              </label>
+            </div>
           </div>
           <div class="settings-tab-block" data-tab="acct-summary">
             <div class="settings-divider"></div>
@@ -8897,6 +8904,9 @@ var taxDoc = null, taxDocFrom = '';          // where taxDoc came from: 'db' | '
 var taxSaveTimer = null, taxSaveState = '';  // '' | 'pending' | 'saving' | 'saved' | 'local' | an error message
 var taxHelpMap = {};
 var taxShowRoll = localStorage.getItem('tax-show-roll') === '1';
+// Off by default: the SGOV / Treasury Income row is hidden and left out of State AGI. Amounts already
+// entered are kept and count again once it's switched back on.
+var taxShowTreasury = localStorage.getItem('tax-show-treasury') === '1';
 
 // ---- Tax-law figures ----
 var TAX_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -9280,13 +9290,13 @@ function taxCore(doc, bonusDec, fixed, statePaid) {
   R.agi = taxMap(function(i) { return R.magi[i] - R.sli[i]; });
   var agiA = taxSum(R.agi);
 
-  // State: AGI less the 529 subtraction (capped) and Treasury income, then the larger of its standard and itemized deductions.
+  // State: AGI less the 529 subtraction (capped) and Treasury income (when shown), then the larger of its standard and itemized deductions.
   // The AGI limit is judged on the whole year (bonus included), so the regular-pay pass takes the year's figure rather than
   // re-judging it on its own, lower AGI.
   var s529A = taxSum(v.s529), s529Barred = fixed ? fixed.s529Barred : agiA > L.de529AgiLimit;
   var s529Ok = fixed ? fixed.s529Ok : (s529Barred ? 0 : Math.min(Math.max(0, s529A), L.de529Cap)), s529Share = s529A > 0 ? s529Ok / s529A : 0;
   R.s529 = v.s529;
-  R.stateAgi = taxMap(function(i) { return R.agi[i] - v.s529[i] * s529Share - v.treasury[i]; });
+  R.stateAgi = taxMap(function(i) { return R.agi[i] - v.s529[i] * s529Share - (taxShowTreasury ? v.treasury[i] : 0); });
   var stateAgiA = taxSum(R.stateAgi);
   var D = doc.d, givingPaid = taxPos(D.giving), mortgage = taxPos(D.mortgage), property = taxPos(D.property), medical = taxPos(D.medical), misc = taxPos(D.misc);
   // Itemized giving counts only above the charitable floor (0.5% of AGI from 2026). Delaware itemizes from the federal charitable
@@ -9516,8 +9526,8 @@ function taxMonthRows(c, doc) {
         return '<td class="tax-annual-col' + (Math.round(A.s529Ok) === 0 ? ' tax-zero' : '') + '">'
           + (why ? taxHelpIcon('m:s529-ann', '529 Subtraction Counted', why) + ' ' : '') + taxFmt(A.s529Ok) + '</td>';
       } },
-    { k: 'treasury', input: true, label: 'SGOV / Treasury Income', f: 'Interest from U.S. Treasuries (e.g. SGOV, USFR), which states don\u2019t tax.', n: ['It is still federal income, so include it under Interest too.'] },
-    { k: 'stateAgi', label: 'State AGI', sub: true, f: 'AGI \u2212 529 Contributions (up to the cap) \u2212 SGOV / Treasury Income' },
+    taxShowTreasury ? { k: 'treasury', input: true, label: 'SGOV / Treasury Income', f: 'Interest from U.S. Treasuries (e.g. SGOV, USFR), which states don\u2019t tax.', n: ['It is still federal income, so include it under Interest too.'] } : null,
+    { k: 'stateAgi', label: 'State AGI', sub: true, f: 'AGI \u2212 529 Contributions (up to the cap)' + (taxShowTreasury ? ' \u2212 SGOV / Treasury Income' : '') },
     { k: 'stateDed', label: 'Standard / Itemized Deduction', f: 'The larger of ' + L.stateName + '\u2019s standard deduction (' + taxFmt(st.std) + ') and your ' + L.stateName + ' itemized deductions (' + taxFmt(st.itemized) + ') \u2014 using ' + (st.itemizing ? 'itemized' : 'standard') + '.',
       n: ['See Itemized Deductions below. Spread evenly over the year.'] },
     { k: 'stateTaxable', label: 'State Taxable Income', sub: true, f: 'State AGI \u2212 Standard / Itemized Deduction' },
@@ -9551,6 +9561,7 @@ function renderTaxMonthTable(c, doc) {
   var h = '<thead><tr><th id="tax-section-label">Income</th><th class="tax-annual-col">Est. Annual</th>'
     + TAX_MONTHS.map(function(m, i) { return '<th' + (i === curM ? ' class="tax-cur"' : '') + '>' + m + '</th>'; }).join('') + '</tr></thead><tbody>';
   taxMonthRows(c, doc).forEach(function(row) {
+    if (!row) return;
     if (row.sec) {
       if (row.sec === 'Income') return;      // the first section's name lives in the pinned header's top-left cell instead
       h += '<tr class="tax-sec"><td>' + escHtml(row.sec) + '</td><td colspan="13"></td></tr>'; return;
@@ -9792,6 +9803,8 @@ function taxSyncSettings() {
   if (p) { if (!p.options.length) p.innerHTML = TAX_PAY_FREQ.map(function(x) { return '<option value="' + x[0] + '">' + escHtml(x[1]) + '</option>'; }).join(''); p.value = taxDoc.payFreq; }
   if (d && document.activeElement !== d) d.value = taxDoc.dependents;
   if (r) r.checked = taxShowRoll;
+  var tr = document.getElementById('tax-show-treasury');
+  if (tr) tr.checked = taxShowTreasury;
 }
 function renderTaxes() {
   if (!document.getElementById('taxes-panel')) return;
@@ -9928,6 +9941,12 @@ function wireTaxes() {
   if (r) r.addEventListener('change', function() {
     taxShowRoll = r.checked;
     try { localStorage.setItem('tax-show-roll', taxShowRoll ? '1' : '0'); } catch (x) {}
+    renderTaxes();
+  });
+  var tr = document.getElementById('tax-show-treasury');
+  if (tr) tr.addEventListener('change', function() {
+    taxShowTreasury = tr.checked;
+    try { localStorage.setItem('tax-show-treasury', taxShowTreasury ? '1' : '0'); } catch (x) {}
     renderTaxes();
   });
 }
