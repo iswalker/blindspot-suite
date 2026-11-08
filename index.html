@@ -672,6 +672,7 @@ td.cell-active {
 .tax-title { font-size: 18px; font-weight: 700; color: #222; }
 .tax-status { font-size: 13px; color: #888; }
 .tax-filing { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #666; }
+.tax-filing input { width: 56px; font-size: 13px; padding: 5px 6px; border: 1px solid #ccc; border-radius: 8px; background: #fff; }
 .tax-status.err { color: #c62828; }
 .tax-cards { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; max-width: 980px; }
 .tax-cards .home-metric-card { flex: 1 1 0; min-width: 150px; }
@@ -694,6 +695,12 @@ td.cell-active {
 .taxtt-note { font-size: 13px; color: #777; line-height: 1.45; margin-top: 6px; }
 #tax-month-table, .tax-side-table { border-collapse: collapse; width: 100%; }
 #tax-month-table th, .tax-side-table th { background: #fff; font-size: 12px; padding: 10px; color: #333; border-bottom: 1px solid #e4e4e0; position: static; }
+/* The month headers stay pinned to the top of the viewport while the page scrolls past the table, as on Cash Flow:
+   the table has no scroll zone of its own (an overflow container would pin them to itself instead), so on a narrow
+   screen the page scrolls sideways on this tab. */
+#tax-month-wrap { overflow: visible; }
+#tax-month-table th { position: sticky; top: 0; z-index: 3; border-bottom: none; box-shadow: inset 0 -1px 0 #e4e4e0; }
+#tax-month-table th:first-child { z-index: 4; left: 0; }
 #tax-month-table td { padding: 4px 8px; font-size: 14px; font-variant-numeric: tabular-nums; }
 #tax-month-table td:first-child, #tax-month-table th:first-child { padding-left: 16px; min-width: 236px; background: #fff; position: sticky; left: 0; }
 #tax-month-table tr.tax-sec td { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #333; padding-top: 16px; border-bottom: 1px solid #e4e4e0; }
@@ -713,6 +720,7 @@ input.tax-cell, input.tax-val {
 input.tax-cell { width: 100%; min-width: 74px; padding: 3px 6px; }
 input.tax-val { width: 110px; padding: 4px 8px; border-color: #ddd; background: #fff; }
 input.tax-val.tax-val-sm { width: 64px; }
+input.tax-val.tax-val-xs { width: 48px; }
 input.tax-cell:hover { border-color: #ddd; background: #fff; }
 input.tax-cell:focus, input.tax-val:focus { outline: none; border-color: #e07b22; background: #fff; color: #222; }
 td.tax-bad input.tax-cell, input.tax-val.tax-bad { border-color: #e57373; }
@@ -748,6 +756,7 @@ td.tax-in:focus-within .tax-fill { display: block; }
 .tax-set-row label { flex: 1; font-size: 14px; color: #555; white-space: nowrap; }
 .tax-set-row input { font-size: 13px; padding: 4px 6px; border: 1px solid #ccc; border-radius: 6px; background: #fff; width: 64px; }
 @media (max-width: 820px) {
+  html.tax-tab-active, html.tax-tab-active body { overflow-x: visible; }
   #tax-month-table td:first-child, #tax-month-table th:first-child { min-width: 170px; max-width: 190px; white-space: normal; padding-left: 10px; }
   .tax-cards { gap: 8px; }
   .tax-cards .home-metric-card { flex: 1 1 calc(50% - 4px); min-width: 0; }
@@ -2285,7 +2294,6 @@ html.rw-tab-active #tab-row { z-index: 30; }
           </div>
           <div class="settings-tab-block" data-tab="taxes">
             <div class="settings-divider"></div>
-            <div class="settings-row tax-set-row"><label for="tax-dependents-in">Dependents</label><input type="number" id="tax-dependents-in" min="0" max="30" step="1" inputmode="numeric"></div>
             <div class="settings-row tax-set-row"><label for="tax-payfreq-sel">Paychecks</label><select id="tax-payfreq-sel"></select></div>
             <div class="settings-row">
               <label class="ios-toggle-wrap">
@@ -2646,7 +2654,7 @@ html.rw-tab-active #tab-row { z-index: 30; }
     </div>
   </div>
   <div id="taxes-panel" style="display:none">
-    <div class="tax-hdr"><span class="tax-title" id="tax-title"></span><label class="tax-filing"><span>Filing status</span><select id="tax-status-sel" aria-label="Filing status"></select></label><span class="tax-status" id="tax-status"></span></div>
+    <div class="tax-hdr"><span class="tax-title" id="tax-title"></span><label class="tax-filing"><span>Filing status</span><select id="tax-status-sel" aria-label="Filing status"></select></label><label class="tax-filing"><span>Dependents</span><input type="number" id="tax-dependents-in" min="0" max="30" step="1" inputmode="numeric" aria-label="Number of dependents"></label><span class="tax-status" id="tax-status"></span></div>
     <div class="tax-cards" id="tax-cards"></div>
     <div class="tax-sec-title">Monthly Breakdown</div>
     <div class="tax-hint" id="tax-empty-hint">Start with your monthly wages. Cells take math (e.g. <code>187000/12</code>), <strong>&raquo;</strong> copies a month to the rest of the year, and typing in Est. Annual spreads an amount evenly. Hover any <span class="tax-help tax-help-inline">?</span> for how a row is figured.</div>
@@ -7744,6 +7752,7 @@ function switchTab(tab) {
   document.documentElement.classList.toggle('cf-tab-active', tab === 'margin');
   document.documentElement.classList.toggle('as-tab-active', tab === 'acct-summary');
   document.documentElement.classList.toggle('rw-tab-active', tab === 'runway');
+  document.documentElement.classList.toggle('tax-tab-active', tab === 'taxes');
   document.getElementById('acct-summary-panel').style.display = tab === 'acct-summary' ? 'block' : 'none';
   document.getElementById('home-panel').style.display     = tab === 'home'     ? 'block' : 'none';
   document.getElementById('margin-panel').style.display   = tab === 'margin'   ? 'block' : 'none';
@@ -9361,8 +9370,8 @@ function renderTaxCredTable(c, doc) {
   var L = c.L, cr = c.cr, sc = c.sc, A = c.A;
   function money(v) { return '<span class="' + (Math.round(v) === 0 ? 'tax-zero' : '') + '">' + taxFmt(v) + '</span>'; }
   var h = '<thead><tr><th>Credit</th><th>Applies To</th><th class="tax-amt">Amount</th><th class="tax-amt">%</th><th class="tax-amt">Cap</th><th class="tax-amt">Credit</th></tr></thead><tbody>'
-    + '<tr><td>Child Tax Credit' + taxHelpIcon('c:ctc', 'Child Tax Credit', taxFmt(L.ctcAmount) + ' per qualifying child under 17 (dependents are set in Settings).', ['Reduced by ' + taxFmt(L.ctcPoAmount) + ' for each ' + taxFmt(L.ctcPoIncrement) + ' of AGI over ' + taxFmt(L.ctcPoThreshold) + '.' + (cr.ctcCut > 0 ? ' Yours is reduced by ' + taxFmt(Math.min(cr.ctcCut, cr.ctcFull)) + '.' : '')]) + '</td>'
-    +   '<td>' + taxBadge('fed') + '</td><td class="tax-amt">' + c.dependents + ' × ' + taxFmt(L.ctcAmount) + '</td><td></td><td class="tax-amt tax-note">over ' + taxFmt(L.ctcPoThreshold) + ' AGI</td><td class="tax-amt">' + money(cr.ctc) + '</td></tr>';
+    + '<tr><td>Child Tax Credit' + taxHelpIcon('c:ctc', 'Child Tax Credit', taxFmt(L.ctcAmount) + ' per qualifying child under 17 (enter the number of dependents here or at the top of the page).', ['Reduced by ' + taxFmt(L.ctcPoAmount) + ' for each ' + taxFmt(L.ctcPoIncrement) + ' of AGI over ' + taxFmt(L.ctcPoThreshold) + '.' + (cr.ctcCut > 0 ? ' Yours is reduced by ' + taxFmt(Math.min(cr.ctcCut, cr.ctcFull)) + '.' : '')]) + '</td>'
+    +   '<td>' + taxBadge('fed') + '</td><td class="tax-amt">' + taxValInput('dependents', doc.dependents, '0', 'tax-val-xs') + ' × ' + taxFmt(L.ctcAmount) + '</td><td></td><td class="tax-amt tax-note">over ' + taxFmt(L.ctcPoThreshold) + ' AGI</td><td class="tax-amt">' + money(cr.ctc) + '</td></tr>';
   TAX_CREDIT_DEFS.forEach(function(x) {
     var v = doc.c[x.k];
     h += '<tr><td>' + escHtml(x.label) + taxHelpIcon('c:' + x.k, x.label, 'min(Amount × %, Cap)', [x.help]) + '</td><td>' + taxBadge('fed') + '</td>'
@@ -9371,8 +9380,8 @@ function renderTaxCredTable(c, doc) {
       + '<td class="tax-amt">' + taxValInput('c.' + x.k + '.cap', v.cap, 'none') + '</td>'
       + '<td class="tax-amt">' + money(cr.items[x.k]) + '</td></tr>';
   });
-  h += '<tr><td>Delaware Personal Credit' + taxHelpIcon('c:depersonal', 'Delaware Personal Credit', taxFmt(L.dePersonal) + ' for each dependent (set in Settings).') + '</td><td>' + taxBadge('state') + '</td>'
-    +   '<td class="tax-amt">' + c.dependents + ' × ' + taxFmt(L.dePersonal) + '</td><td></td><td></td><td class="tax-amt">' + money(sc.personal) + '</td></tr>'
+  h += '<tr><td>Delaware Personal Credit' + taxHelpIcon('c:depersonal', 'Delaware Personal Credit', taxFmt(L.dePersonal) + ' for each dependent (the same number as the Child Tax Credit uses).') + '</td><td>' + taxBadge('state') + '</td>'
+    +   '<td class="tax-amt">' + taxValInput('dependents', doc.dependents, '0', 'tax-val-xs') + ' × ' + taxFmt(L.dePersonal) + '</td><td></td><td></td><td class="tax-amt">' + money(sc.personal) + '</td></tr>'
     + '<tr><td>Other State / Local Tax Paid' + taxHelpIcon('c:stateother', 'Other State / Local Tax Paid', 'Income tax paid to another state or locality on the same income, credited against Delaware tax.') + '</td><td>' + taxBadge('state') + '</td>'
     +   '<td class="tax-amt">' + taxValInput('d.stateOther', doc.d.stateOther) + '</td><td></td><td></td><td class="tax-amt">' + money(sc.other) + '</td></tr>'
     + '<tr class="tax-sub"><td>Federal Credits Total' + taxHelpIcon('c:fedtotal', 'Federal Credits Total', 'Child Tax Credit + the credits above.', ['Limited to the federal income tax (' + taxFmt(A.fedTax) + '); treated as non-refundable.']) + '</td><td></td><td></td><td></td><td></td><td class="tax-amt">' + taxFmt(cr.applied) + (cr.applied < cr.total ? ' <span class="tax-note">of ' + taxFmt(cr.total) + '</span>' : '') + '</td></tr>'
@@ -9382,7 +9391,22 @@ function renderTaxCredTable(c, doc) {
 }
 function renderTaxBrackets(c, doc) {
   var L = c.L, A = c.A, sl = taxStatusLabel(doc.status);
-  function brk(id, title, brackets, income) {
+  var gross = A.gross;
+  // Beneath each table: what the brackets would charge on the gross income entered (no deductions or credits), as a blended
+  // rate, next to what it actually comes to once deductions and credits are applied.
+  function blended(brackets, label, actual) {
+    var tax = taxBracketTax(gross, brackets), rate = gross > 0 ? tax / gross : 0, real = gross > 0 ? actual / gross : 0, top = brackets[taxBracketIndex(gross, brackets)] || { rate: 0 };
+    return '<tr class="tax-sec"><td colspan="4">On gross income</td></tr>'
+      + '<tr><td colspan="3">Gross income</td><td class="tax-amt">' + taxFmt(gross) + '</td></tr>'
+      + '<tr class="tax-sub"><td colspan="2">Blended rate' + taxHelpIcon('b:' + label, 'Blended Tax Rate (' + label + ')',
+          'Tax on gross income through the ' + label + ' brackets \u00F7 gross income.',
+          ['No deductions or credits: ' + taxFmt(tax) + ' on ' + taxFmt(gross) + ' of gross income.', 'It is below the ' + taxPct(top.rate, 2) + ' top bracket because the income in the lower brackets is taxed at their lower rates.']) + '</td>'
+      + '<td class="tax-amt">' + taxPct(rate, 2) + '</td><td class="tax-amt">' + taxFmt(tax) + '</td></tr>'
+      + '<tr><td colspan="2">After deductions &amp; credits' + taxHelpIcon('b:' + label + ':real', 'After Deductions & Credits (' + label + ')', 'Tax Due from the monthly table \u00F7 gross income.',
+          ['What you would actually pay (' + taxFmt(actual) + ') as a share of gross income.']) + '</td>'
+      + '<td class="tax-amt">' + taxPct(real, 2) + '</td><td class="tax-amt">' + taxFmt(actual) + '</td></tr>';
+  }
+  function brk(id, title, brackets, income, extra) {
     var el = document.getElementById(id);
     if (!el) return;
     var at = taxBracketIndex(income, brackets);
@@ -9392,10 +9416,10 @@ function renderTaxBrackets(c, doc) {
       h += '<tr' + (you ? ' class="tax-you" title="Your top bracket"' : '') + '><td class="tax-amt">' + taxFmt(b.from) + '</td><td class="tax-amt">' + (hi === Infinity ? 'and up' : taxFmt(hi)) + '</td>'
         + '<td class="tax-amt">' + taxPct(b.rate, 2) + '</td><td class="tax-amt">' + taxFmt(taxBracketTax(b.from, brackets)) + (you ? ' <span class="tax-you-tag">you</span>' : '') + '</td></tr>';
     });
-    el.innerHTML = h + '</tbody>';
+    el.innerHTML = h + (extra || '') + '</tbody>';
   }
-  brk('tax-fed-brk', 'Federal · ' + sl + ' · ' + TAX_YEAR, L.fedBrackets, A.fedTaxable);
-  brk('tax-state-brk', 'Delaware · ' + TAX_YEAR, L.deBrackets, A.stTaxable);
+  brk('tax-fed-brk', 'Federal · ' + sl + ' · ' + TAX_YEAR, L.fedBrackets, A.fedTaxable, blended(L.fedBrackets, 'Federal', A.fedDue));
+  brk('tax-state-brk', 'Delaware · ' + TAX_YEAR, L.deBrackets, A.stTaxable, blended(L.deBrackets, 'Delaware', A.stDue));
   var fig = document.getElementById('tax-figures');
   if (fig) {
     var rows = [
@@ -9477,6 +9501,13 @@ function taxChanged() { taxQueueSave(); setTimeout(taxRerender, 0); }
 function wireTaxes() {
   var panel = document.getElementById('taxes-panel');
   if (!panel) return;
+  // The month table scrolls with the page, so its pinned first column shows its edge once the page is scrolled sideways.
+  function taxEdge() {
+    var w = document.getElementById('tax-month-wrap');
+    if (w) w.classList.toggle('hscroll-active', (window.scrollX || window.pageXOffset || 0) > 0);
+  }
+  window.addEventListener('scroll', taxEdge, { passive: true });
+  window.addEventListener('resize', taxEdge);
   panel.addEventListener('focusin', function(e) {
     var t = e.target;
     if (t.classList && t.classList.contains('tax-cell')) {
@@ -17026,6 +17057,7 @@ function showReport() {
   document.documentElement.classList.toggle('cf-tab-active', tab === 'margin');
   document.documentElement.classList.toggle('as-tab-active', tab === 'acct-summary');
   document.documentElement.classList.toggle('rw-tab-active', tab === 'runway');
+  document.documentElement.classList.toggle('tax-tab-active', tab === 'taxes');
 
   // Sync row-shading toggle state
   document.body.classList.toggle('shading-mode', state.rowShading);
