@@ -9450,6 +9450,7 @@ function taxMonthRows(c, doc) {
     { k: 'fedCredits', label: 'Federal Credits', f: 'Child Tax Credit (' + taxFmt(c.cr.ctc) + ') + the other credits under Credits below (' + taxFmt(c.cr.total - c.cr.ctc) + ').',
       n: [c.cr.total > A.fedTax ? 'Limited to the tax itself (' + taxFmt(A.fedTax) + ').' : ''] },
     { k: 'fedDue', label: 'Federal Income Tax Due', sub: true, f: 'Federal Income Tax − Federal Credits', n: ['The months cover regular pay; Est. Annual also includes the tax on bonuses.'] },
+    { k: 'fedPP', label: 'Federal Per Paycheck', noAnnual: true, f: 'Federal Income Tax Due ÷ paychecks in the month (paid ' + e(taxPayLabel(doc)) + ' — change it in Settings).', n: ['Compare with the federal withholding on your pay stub.'] },
     { k: 'fedWh', wh: 'fed', label: 'Paystub Federal Withheld', f: 'What your paychecks actually withheld, month by month. Leave it blank until you have figures.',
       n: ['Once you enter some months, the months after the last one entered show what each must withhold to reach the year\u2019s federal tax on regular pay: (Federal Income Tax Due for the year \u2212 withheld so far) \u00F7 months remaining.', 'Type over a projected month to enter its actual figure. Bonus withholding is separate: see \u201Cfrom bonuses\u201D under Total.'] },
     { k: 'bonusFedWh', annualOnly: true, hideZero: true, label: 'Bonus Federal Withheld', f: 'Bonuses \u00D7 the flat federal withholding rate on supplemental pay (' + taxPct(L.suppRate, 0) + ').',
@@ -9479,6 +9480,7 @@ function taxMonthRows(c, doc) {
     { k: 'stateCredits', label: 'State Credits', f: 'Personal credit (' + taxFmt(L.dePersonal) + ' \u00D7 ' + c.dependents + ' dependents = ' + taxFmt(c.sc.personal) + ') + other state / local tax paid (' + taxFmt(c.sc.other) + ').',
       n: [c.sc.total > A.stTax ? 'Limited to the tax itself (' + taxFmt(A.stTax) + ').' : ''] },
     { k: 'stateDue', label: 'State Tax Due', sub: true, f: 'State Income Tax \u2212 State Credits', n: ['The months cover regular pay; Est. Annual also includes the tax on bonuses.'] },
+    { k: 'statePP', label: 'State Per Paycheck', noAnnual: true, f: 'State Tax Due ÷ paychecks in the month.', n: ['Compare with the state withholding on your pay stub.'] },
     { k: 'stateWh', wh: 'state', label: 'Paystub State Withheld', f: 'What your paychecks actually withheld for the state, month by month. Leave it blank until you have figures.',
       n: ['Once you enter some months, the months after the last one entered show what each must withhold to reach the year\u2019s state tax on regular pay: (State Tax Due for the year \u2212 withheld so far) \u00F7 months remaining.', 'Type over a projected month to enter its actual figure.'] },
     { k: 'bonusStateWh', annualOnly: true, hideZero: true, label: 'Bonus State Withheld', f: 'The state tax a bonus adds on top of your regular pay, which is how a bonus paid on its own is withheld (the \u201Cdifference\u201D method): tax on regular taxable pay plus the bonus, less the tax on regular pay, through the ' + L.stateName + ' brackets.',
@@ -9492,8 +9494,6 @@ function taxMonthRows(c, doc) {
     { k: 'bonusFed', annualOnly: true, hideZero: true, label: 'Federal Tax From Bonuses', f: 'Federal Income Tax Due for the year with bonuses \u2212 without them.', n: ['Included in Est. Annual only. Compare it with what was withheld from the bonus.'] },
     { k: 'bonusFica', annualOnly: true, hideZero: true, label: 'FICA From Bonuses', f: 'FICA Total for the year with bonuses \u2212 without them.', n: ['Included in Est. Annual only.'] },
     { k: 'bonusState', annualOnly: true, hideZero: true, label: 'State Tax From Bonuses', f: 'State Tax Due for the year with bonuses \u2212 without them.', n: ['Included in Est. Annual only.'] },
-    { k: 'fedPP', label: 'Federal Per Paycheck', noAnnual: true, f: 'Federal Income Tax Due ÷ paychecks in the month (paid ' + e(taxPayLabel(doc)) + ' — change it in Settings).', n: ['Compare with the federal withholding on your pay stub.'] },
-    { k: 'statePP', label: 'State Per Paycheck', noAnnual: true, f: 'State Tax Due ÷ paychecks in the month.', n: ['Compare with the state withholding on your pay stub.'] },
     { k: 'fedRoll', label: 'Federal Running Total', noAnnual: true, roll: true, f: 'Federal Income Tax Due, January through this month.' },
     { k: 'stateRoll', label: 'State Running Total', noAnnual: true, roll: true, f: 'State Tax Due, January through this month.' }
   ]);
