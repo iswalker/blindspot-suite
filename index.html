@@ -736,7 +736,9 @@ input.tax-val { width: 110px; padding: 4px 8px; border-color: #ddd; background: 
 input.tax-val.tax-val-sm { width: 64px; }
 input.tax-cell:hover { border-color: #ddd; background: #fff; }
 input.tax-cell.tax-auto { color: #8a8a8a; font-style: italic; }       /* projected: what the month needs to withhold, not yet entered */
-input.tax-cell.tax-void { color: #8a8a8a; font-style: italic; }       /* entered but not counted (e.g. a 529 contribution over the AGI limit) */
+input.tax-cell.tax-void { color: #8a8a8a; font-style: italic; text-decoration: line-through; }       /* entered but not counted (e.g. a 529 contribution over the AGI limit) */
+input.tax-cell.tax-void:focus { text-decoration: none; }
+#tax-month-table td.tax-in .tax-annual-flag { position: absolute; left: 4px; top: 50%; transform: translateY(-50%); line-height: 1; }
 input.tax-cell:focus, input.tax-val:focus { outline: none; border-color: #e07b22; background: #fff; color: #222; }
 td.tax-bad input.tax-cell, input.tax-val.tax-bad { border-color: #e57373; }
 .tax-fill {
@@ -9484,8 +9486,8 @@ function taxMonthRows(c, doc) {
     { k: 'bizexp', input: true, label: 'Business Expenses', f: 'Expenses of the business: supplies, mileage, and the business share of the home (mortgage interest, property taxes, utilities, internet, insurance, repairs, depreciation over 39 years) or $5 per square foot.' },
     { k: 'halfSe', label: '½ Self-Employment Tax', hideZero: true, f: 'Half of the self-employment tax (see FICA), which is deductible.' },
     { k: 'magi', label: 'Modified Adjusted Gross Income', sub: true, f: 'Gross Income − FSA/HSA − Medical Premiums − 401(k)/IRA − Business Expenses − ½ Self-Employment Tax' },
-    { k: 'sli', label: 'Student Loan Interest', f: 'Interest paid (' + taxFmt(A.sliPaid) + ', entered under Deductions), up to ' + taxFmt(L.sliCap) + ', reduced as MAGI goes from ' + taxFmt(L.sliStart) + ' to ' + taxFmt(L.sliStart + L.sliDivisor) + '.',
-      n: ['Your MAGI of ' + taxFmt(A.magi) + ' leaves ' + taxPct(1 - A.sliCut, 0) + ' of it: ' + taxFmt(A.sli) + ' for the year, spread evenly.'] },
+    { k: 'sli', sliInput: true, label: 'Student Loan Interest', f: 'Interest paid for the year (Form 1098-E), entered in Est. Annual \u2014 up to ' + taxFmt(L.sliCap) + ', reduced as MAGI goes from ' + taxFmt(L.sliStart) + ' to ' + taxFmt(L.sliStart + L.sliDivisor) + '.',
+      n: ['Enter what you paid. It lowers AGI for both returns, even with the standard deduction.', 'The months show the part that counts, spread evenly: ' + taxFmt(A.sli) + ' for the year at your MAGI of ' + taxFmt(A.magi) + ' (' + taxPct(1 - A.sliCut, 0) + ' of the allowed amount).', 'If the limits take some or all of it, the entry is struck through (all) or flagged with a (?) (some).'] },
     { k: 'agi', label: 'Adjusted Gross Income', sub: true, f: 'MAGI − Student Loan Interest' },
     { sec: 'Federal' },
     { k: 'fedDed', label: 'Standard / Itemized Deduction', f: 'The larger of the standard deduction (' + taxFmt(f.std) + ', ' + e(sl.toLowerCase()) + ') and your itemized deductions (' + taxFmt(f.itemized) + ') — using ' + (f.itemizing ? 'itemized' : 'standard') + '.',
@@ -9595,6 +9597,12 @@ function renderTaxMonthTable(c, doc) {
     } else if (row.annualOnly) {
       h += taxValCell(ann, 'tax-annual-col');
       for (var ai = 0; ai < 12; ai++) h += '<td' + (ai === curM ? ' class="tax-cur"' : '') + '></td>';
+    } else if (row.sliInput) {     // the year's interest paid is entered here; the months show the part that counts
+      var sliWhy = taxSliWhy(c), sliOut = c.A.sliPaid > 0 && Math.round(c.A.sli) === 0, sliBad = !isFinite(taxEval(doc.d.studentLoan));
+      h += '<td class="tax-in tax-annual-col' + (sliBad ? ' tax-bad' : '') + '"' + (sliOut ? ' title="' + escAttr(sliWhy) + '"' : '') + '>'
+        + (sliWhy && !sliOut ? '<span class="tax-annual-flag">' + taxHelpIcon('m:sli-ann', 'Student Loan Interest Counted', sliWhy) + '</span>' : '')
+        + taxCellInput('sli', 'A', String(doc.d.studentLoan || ''), c.A.sliPaid, row.label + ', ' + TAX_YEAR + ' total' + (sliOut ? ' (not counted)' : ''), undefined, sliOut ? ' tax-void' : '') + '</td>';
+      for (var si = 0; si < 12; si++) h += taxValCell(vals[si], si === curM ? 'tax-cur' : '');
     } else if (row.input) {
       var raws = doc.m[row.k];
       h += row.calcAnnual ? row.calcAnnual()
@@ -9628,6 +9636,19 @@ function taxUpdateSectionLabel() {
   if (lbl.textContent !== cur) lbl.textContent = cur;
 }
 // An editable cell: shows the formatted amount, and the raw entry (e.g. "187000/12") while focused.
+// Why the interest paid isn't all deducted (cap and / or income phase-out); '' when all of it counts.
+function taxSliWhy(c) {
+  var A = c.A, L = c.L;
+  if (!(A.sliPaid > 0) || A.sli >= A.sliPaid - 0.005) return '';
+  if (Math.round(A.sli) === 0) {
+    return L.sliCap <= 0 ? 'Not deductible for this filing status, so none of the ' + taxFmt(A.sliPaid) + ' counts.'
+      : 'MAGI (' + taxFmt(A.magi) + ') is over ' + taxFmt(L.sliStart + L.sliDivisor) + ', so none of the ' + taxFmt(A.sliPaid) + ' counts.';
+  }
+  var parts = [];
+  if (A.sliPaid > L.sliCap) parts.push('capped at ' + taxFmt(L.sliCap));
+  if (A.sliCut > 0) parts.push('reduced ' + taxPct(A.sliCut, 0) + ' because MAGI (' + taxFmt(A.magi) + ') is over ' + taxFmt(L.sliStart));
+  return 'Only ' + taxFmt(A.sli) + ' of the ' + taxFmt(A.sliPaid) + ' paid counts: ' + parts.join(' and ') + '.';
+}
 function taxCellInput(k, m, raw, val, label, shownOverride, cls) {
   var shown = shownOverride !== undefined ? shownOverride : (String(raw).trim() === '' && m !== 'A' ? '' : taxFmt(val));
   return '<input type="text" class="tax-cell' + (cls || '') + '" inputmode="decimal" autocomplete="off" data-k="' + k + '" data-m="' + m + '" data-raw="' + escAttr(raw)
@@ -9666,9 +9687,6 @@ function renderTaxDedTable(c, doc) {
     + '<tr class="tax-total"><td>Deduction Used' + taxHelpIcon('d:used', 'Deduction Used', 'The larger of Itemized Total and the Standard Deduction, separately for federal and state.', ['Feeds Standard / Itemized Deduction in the monthly table.']) + '</td><td></td><td></td><td></td>'
     +   '<td class="tax-amt">' + taxFmt(f.used) + ' <span class="tax-note">' + (f.itemizing ? 'itemized' : 'standard') + '</span></td>'
     +   '<td class="tax-amt">' + taxFmt(st.used) + ' <span class="tax-note">' + (st.itemizing ? 'itemized' : 'standard') + '</span></td></tr>'
-    + '<tr class="tax-sec"><td colspan="6">Above the Line</td></tr>'
-    + row('sli', 'Student Loan Interest', ['Student loan interest paid for the year (Form 1098-E).', 'Reduces AGI for both returns rather than being itemized, so it applies even with the standard deduction.'], 'both', taxValInput('d.studentLoan', doc.d.studentLoan),
-      'Up to ' + taxFmt(L.sliCap) + '; phases out from ' + taxFmt(L.sliStart) + ' to ' + taxFmt(L.sliStart + L.sliDivisor) + ' MAGI', money(A.sli), money(A.sli))
     + '</tbody>';
   el.classList.toggle('tax-nostate', !!L.stateNone);     // no state column when the state has no income tax
   el.innerHTML = h;
@@ -9877,6 +9895,8 @@ function wireTaxes() {
       var k = t.getAttribute('data-k'), m = t.getAttribute('data-m'), raw = t.value.trim();
       if (k === 'bonus') {                   // bonuses are a yearly figure, kept as typed
         taxDoc.bonus = raw;
+      } else if (k === 'sli') {              // so is the student loan interest paid (the limits are applied to it, not to the entry)
+        taxDoc.d.studentLoan = raw;
       } else if (m === 'A') {                // a yearly amount spreads evenly over the twelve months
         if (raw === '') return;
         var total = taxEval(raw);
