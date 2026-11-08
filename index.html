@@ -1650,6 +1650,7 @@ select.um-in { width: 100%; }
 /* Empty pills while editing: faded until something is typed in */
 #runway-body.rw-editing .rw-pill-empty { opacity: .55; }
 #runway-body.rw-editing .rw-pill-empty:focus-within { opacity: 1; }
+#runway-body.rw-editing .rw-date-yrs { font-weight: 500; opacity: .8; }
 #runway-edit-msg.rw-fail { color: #c62828; font-weight: 600; white-space: normal; width: max-content; max-width: min(46ch, 80vw); text-align: right; background: #fff; padding: 6px 10px; border: 1px solid #e5a5a0; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.12); }
 #runway-factors-btn {
   padding: 6px 12px; background: #fff; border: 1px solid #ccc;
@@ -16608,6 +16609,12 @@ function wireRunwayEditing() {
     if (field === 'text') row.text = val;
     else if (field === 'amount') row.amount = val;
     else if (field === 'blue') row.date_range = val;
+    else if (field === 'unit') {
+      row.unit = val;
+      var yrs = runwayTargetYears(val), yEl = el.parentNode && el.parentNode.querySelector('.rw-date-yrs');
+      if (yEl) yEl.textContent = yrs ? ' \u00b7 ' + yrs : (val ? ' \u00b7 ?' : '');
+      if (yEl) yEl.title = yrs || !val ? '' : 'Not a recognised date \u2014 try YYYY-MM-DD';
+    }
     else if (field === 'title' || field === 'tag') {
       var box = el.closest('.runway-title'), tEl = box && box.querySelector('[data-field="title"]'), gEl = box && box.querySelector('[data-field="tag"]');
       var title = tEl ? rwNormText(rwReadEl(tEl, false), false) : '', tag = gEl ? rwNormText(rwReadEl(gEl, false), false).replace(/^\[|\]$/g, '').trim() : '';
@@ -16858,6 +16865,12 @@ function runwayTargetYears(unitStr) {
   var years = (d.getTime() - Date.now()) / (365.25 * 86400000);
   return years.toFixed(1) + 'y';
 }
+// Hover text for the orange pill: the target date itself, spelled out.
+function runwayTargetDateLabel(unitStr) {
+  var t = (unitStr || '').trim(), d = t ? new Date(t) : null;
+  if (!d || isNaN(d.getTime())) return '';
+  return 'Target date: ' + d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', timeZone: /^\d{4}-\d{2}-\d{2}$/.test(t) ? 'UTC' : undefined });
+}
 
 // Parses a step's Track Against value ("Runway Column <n>" / "Runway Column <n><a>") into the
 // section key it belongs to. Anything else falls back to its own single-section column, keyed
@@ -16944,6 +16957,7 @@ function getRunwayData() {
       // Shown as-is (plain text), not reformatted -- the Amount column isn't always a dollar figure.
       byNum[tn].amount = c.amountRaw || '';
       byNum[tn].targetYears = runwayTargetYears(c.unit);
+      byNum[tn].targetDate = (c.unit || '').trim();
     } else if ((mAlphaTitle = usedFor.match(RUNWAY_ALPHA_TITLE_RE))) {
       var ta = mAlphaTitle[1].toUpperCase();
       if (!byAlpha[ta]) byAlpha[ta] = { kind: 'alpha', letter: ta, title: '', tag: null, subtext: '', col: null, amount: '', targetYears: null };
@@ -16956,6 +16970,7 @@ function getRunwayData() {
       byAlpha[ta].col = runwayColKey(c.trackAgainstRaw, legacyOrder);
       byAlpha[ta].amount = c.amountRaw || '';
       byAlpha[ta].targetYears = runwayTargetYears(c.unit);
+      byAlpha[ta].targetDate = (c.unit || '').trim();
     }
   }
   var alphaSteps = Object.keys(byAlpha).map(function(k) { return byAlpha[k]; })
@@ -17185,7 +17200,12 @@ function renderRunway() {
         : (s.amount ? ' <span class="runway-amt-pill">' + escAttr(s.amount) + '</span>' : '');
       // A target date in the Unit column becomes an orange "X.Yy" pill (years from today),
       // shown after the amount pill and before the tag pill.
-      var datePill = s.targetYears ? ' <span class="runway-date-pill">' + escAttr(s.targetYears) + '</span>' : '';
+      // In edit mode the pill exposes the date itself (the Unit column) to type into, with the
+      // years it works out to shown live beside it.
+      var datePill = editing
+        ? ' <span class="runway-date-pill' + pillCls(s.targetDate) + '">' + rwTxt(s.targetDate || '', s.titleId, 'unit', 'target date')
+          + '<span class="rw-date-yrs">' + (s.targetYears ? ' \u00b7 ' + escHtml(s.targetYears) : '') + '</span></span>'
+        : (s.targetYears ? ' <span class="runway-date-pill" title="' + escAttr(runwayTargetDateLabel(s.targetDate)) + '">' + escAttr(s.targetYears) + '</span>' : '');
       // A "[Tag] Title" prefix in the Text column becomes a grey tag pill, shown last
       // (title, then amount, then date, then tag).
       var tagPill = editing ? ' <span class="runway-tag-pill' + pillCls(s.tag) + '">' + rwTxt(s.tag || '', s.titleId, 'tag', 'tag') + '</span>'
