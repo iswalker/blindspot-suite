@@ -707,6 +707,7 @@ td.cell-active {
 #tax-month-wrap { overflow: visible; }
 #tax-month-table th { position: sticky; top: 0; z-index: 3; border-bottom: none; box-shadow: inset 0 -1px 0 #e4e4e0; }
 #tax-month-table th:first-child { z-index: 4; left: 0; }
+#tax-month-table th#tax-section-label { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }   /* one line always, so the header never changes height as the label changes */
 #tax-month-table td { padding: 4px 8px; font-size: 14px; font-variant-numeric: tabular-nums; }
 #tax-month-table td:first-child, #tax-month-table th:first-child { padding-left: 16px; min-width: 236px; background: #fff; position: sticky; left: 0; }
 #tax-month-table tr.tax-sec td { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #333; padding-top: 16px; border-bottom: 1px solid #e4e4e0; }
@@ -2663,7 +2664,7 @@ html.rw-tab-active #tab-row { z-index: 30; }
     <div class="tax-hdr"><span class="tax-title" id="tax-title"></span><label class="tax-filing"><span>Filing status</span><select id="tax-status-sel" aria-label="Filing status"></select></label><label class="tax-filing"><span>Dependents</span><input type="number" id="tax-dependents-in" min="0" max="30" step="1" inputmode="numeric" aria-label="Number of dependents"></label><span class="tax-status" id="tax-status"></span></div>
     <div class="tax-cards" id="tax-cards"></div>
     <div class="tax-sec-title">Monthly Breakdown</div>
-    <div class="tax-legend">The symbol at the left of a row shows how it follows from the rows above: <b>+</b> add, <b>\u2212</b> subtract, <b>\u00D7</b> apply a rate (shown), <b>\u00F7</b> divide, <b>=</b> result.</div>
+    <div class="tax-legend">The symbol at the left of a row shows how it follows from the rows above: <b>+</b> add, <b>&minus;</b> subtract, <b>&times;</b> apply a rate (shown), <b>&divide;</b> divide, <b>=</b> result.</div>
     <div class="tax-hint" id="tax-empty-hint">Start with your monthly wages. Cells take math (e.g. <code>187000/12</code>), <strong>&raquo;</strong> copies a month to the rest of the year, and typing in Est. Annual spreads an amount evenly. Hover any <span class="tax-help tax-help-inline">?</span> for how a row is figured.</div>
     <div class="lw-table-wrap" id="tax-month-wrap"><table id="tax-month-table"></table></div>
     <div class="tax-sec-title">Itemized Deductions</div>
@@ -8852,13 +8853,13 @@ var TAX_PAY_FREQ = [['semimonthly', 'Twice a month', 2], ['biweekly', 'Every two
 var TAX_MONTH_KEYS = ['wages', 'interest', 'business', 'hsa', 'premiums', 'k401', 'bizexp', 's529', 'treasury'];
 var TAX_DED_KEYS = ['giving', 'mortgage', 'property', 'medical', 'misc', 'studentLoan', 'stateOther'];
 // Credits other than the Child Tax Credit. You enter what you spent; the rate and limit come from the tax figures (see taxCore), except
-// for adoption, which they don't carry, so its % and cap are entered by hand. `count` is an optional number of people the credit is for.
+// for adoption, which they don't carry: its credit is the expenses up to a cap that is entered by hand. `count` is an optional number of people the credit is for.
 var TAX_CREDIT_DEFS = [
   { k: 'childcare', label: 'Child & Dependent Care', live: true, count: 'care-qualifying people', help: 'A share of what you pay for care of a child under 13 (or a dependent unable to care for themselves) so you can work. The share starts at its maximum and falls as AGI rises; expenses count up to a limit per person, for up to two people.' },
   { k: 'college', label: 'Education (College)', live: true, count: 'students', help: 'American Opportunity Credit: 100% of the first $2,000 and 25% of the next $2,000 of tuition, fees and course materials per student (up to $2,500 each), phasing out as AGI rises. Enter total expenses and the number of students. The Lifetime Learning Credit is not included.' },
   { k: 'energy', label: 'Energy Efficiency Upgrades', live: true, help: 'Energy Efficient Home Improvement Credit: a share of qualifying improvements (windows, doors, insulation, heat pumps, ...), up to an annual limit. Heat pumps have a separate, additional limit that is not modelled here.' },
   { k: 'cleanenergy', label: 'Residential Clean Energy', live: true, help: 'Solar, battery storage, geothermal and similar home systems: a percentage of what they cost, with no dollar cap.' },
-  { k: 'adoption', label: 'Adoption', pct: 100, cap: '', help: 'Qualified adoption expenses, up to the year\u2019s per-child limit (Form 8839). The tax figures don\u2019t include this one, so enter the limit for your year as the cap.' }
+  { k: 'adoption', label: 'Adoption', cap: '', help: 'Qualified adoption expenses (100% of them), up to the year\u2019s per-child limit (Form 8839). The tax figures don\u2019t include the limit, so enter it for your year as the cap.' }
 ];
 
 var taxParams = { docs: null, fetchedAt: 0, loading: false, error: '', tried: false };
@@ -8894,14 +8895,16 @@ function taxLoadYamlLib() {
     document.head.appendChild(s);
   });
 }
-// The live figures are kept for a week in this browser; Refresh (or a new year) reads them again. Without
-// Refresh they are asked for at most once per page load, so a failure doesn't retry on every render.
+// The live figures are kept in this browser and read again only when the copy is from an earlier calendar month (or an earlier
+// year, or is missing files), or when Refresh is clicked. Without Refresh they are asked for at most once per page load, so a
+// failure doesn't retry on every render; whatever copy there is keeps being used meanwhile.
 function taxFetchParams(force) {
   if (taxParams.loading || (taxParams.tried && !force)) return;
   var cached = parseJsonLS('tax-params');
   var usable = cached && cached.year === TAX_YEAR && cached.docs && TAX_PE_FILES.every(function(f) { return cached.docs[f] !== undefined; });
   if (usable && !taxParams.docs) { taxParams.docs = cached.docs; taxParams.fetchedAt = cached.fetchedAt || 0; }
-  if (!force && usable && Date.now() - (cached.fetchedAt || 0) < 7 * 86400000) return;
+  var fd = new Date(cached && cached.fetchedAt || 0), now = new Date();
+  if (!force && usable && fd.getFullYear() === now.getFullYear() && fd.getMonth() === now.getMonth()) return;
   taxParams.tried = true;
   taxParams.loading = true;
   taxParams.error = '';
@@ -9165,8 +9168,10 @@ function taxWithholding(raws, target) {
 }
 // The monthly columns cover regular pay only. A bonus is entered for the year and has its own withholding at the time it is
 // paid, so it is left out of the months but counted in the year: the Est. Annual column comes from a second pass with the bonus in.
+// Deductions and credits are worked out once for the whole year (they depend on the year's AGI, bonus included), so the monthly
+// pass for regular pay uses the year's figures for them rather than recomputing them from regular pay alone.
 function taxCompute(doc) {
-  var bonusA = taxNum(doc.bonus), reg = taxCore(doc, 0), full = bonusA ? taxCore(doc, bonusA) : reg;
+  var bonusA = taxNum(doc.bonus), full = taxCore(doc, bonusA, null), reg = bonusA ? taxCore(doc, 0, full.yearly) : full;
   var c = Object.assign({}, full), AN = {};
   Object.keys(full.R).forEach(function(k) { AN[k] = taxSum(full.R[k]); });
   c.R = reg.R; c.AN = AN; c.bonus = bonusA;
@@ -9176,7 +9181,7 @@ function taxCompute(doc) {
   c.wh = { fed: taxWithholding(doc.w.fed, taxSum(reg.R.fedDue)), state: taxWithholding(doc.w.state, taxSum(reg.R.stateDue)) };
   return c;
 }
-function taxCore(doc, bonusDec) {
+function taxCore(doc, bonusDec, fixed) {
   var L = taxLaw(doc.status), v = {}, R = {};
   TAX_MONTH_KEYS.forEach(function(k) { v[k] = doc.m[k].map(taxNum); });
   v.bonus = taxMap(function(i) { return i === 11 ? bonusDec : 0; });
@@ -9199,7 +9204,7 @@ function taxCore(doc, bonusDec) {
   var magiA = taxSum(R.magi);
   var sliPaid = taxPos(doc.d.studentLoan);
   var sliCut = L.sliDivisor > 0 ? Math.min(1, Math.max(0, (magiA - L.sliStart) / L.sliDivisor)) : (magiA > L.sliStart ? 1 : 0);
-  var sliA = Math.min(sliPaid, L.sliCap) * (1 - sliCut);
+  var sliA = fixed ? fixed.sli : Math.min(sliPaid, L.sliCap) * (1 - sliCut);
   R.sli = taxMap(function() { return sliA / 12; });
   R.agi = taxMap(function(i) { return R.magi[i] - R.sli[i]; });
   var agiA = taxSum(R.agi);
@@ -9218,7 +9223,7 @@ function taxCore(doc, bonusDec) {
   st.itemized = giving + mortgage + property + st.medical + st.misc;
   st.std = L.deStd;
   st.itemizing = st.itemized > st.std;
-  st.used = Math.max(st.itemized, st.std);
+  st.used = fixed ? fixed.stUsed : Math.max(st.itemized, st.std);
   R.stateDed = taxMap(function() { return st.used / 12; });
   R.stateTaxable = taxMap(function(i) { return R.stateAgi[i] - R.stateDed[i]; });
   var stTaxableA = Math.max(0, stateAgiA - st.used);
@@ -9241,8 +9246,8 @@ function taxCore(doc, bonusDec) {
   fed.itemized = giving + mortgage + fed.salt + fed.medical;
   fed.std = L.fedStd;
   fed.itemizing = fed.itemized > fed.std;
-  fed.used = Math.max(fed.itemized, fed.std);
-  var qbiA = Math.min(0.2 * Math.max(0, seNetA - seMain / 2), 0.2 * Math.max(0, agiA - fed.used));
+  fed.used = fixed ? fixed.fedUsed : Math.max(fed.itemized, fed.std);
+  var qbiA = fixed ? fixed.qbi : Math.min(0.2 * Math.max(0, seNetA - seMain / 2), 0.2 * Math.max(0, agiA - fed.used));
   R.fedDed = taxMap(function() { return fed.used / 12; });
   R.qbi = taxMap(function(i) { return qbiA * seW[i]; });
   R.fedTaxable = taxMap(function(i) { return R.agi[i] - R.fedDed[i] - R.qbi[i]; });
@@ -9275,15 +9280,16 @@ function taxCore(doc, bonusDec) {
     } else if (x.k === 'cleanenergy') {
       m.ended = !(en.cleanRate > 0); m.rate = en.cleanRate; m.limit = Infinity;
       val = exp * en.cleanRate;
-    } else {                                   // adoption: percentage and cap entered by hand
+    } else {                                   // adoption: the expenses themselves, up to a cap entered by hand
       var cap = String(c.cap).trim() === '' ? Infinity : taxPos(c.cap);
-      m.rate = taxNum(c.pct) / 100; m.limit = cap;
-      val = Math.min(exp * m.rate, cap);
+      m.rate = 1; m.limit = cap;
+      val = Math.min(exp, cap);
     }
     cr.items[x.k] = Math.max(0, val);
     cr.meta[x.k] = m;
     cr.total += cr.items[x.k];
   });
+  if (fixed) cr.total = fixed.crTotal;
   cr.applied = Math.min(cr.total, fedTaxA);     // treated as non-refundable: credits can't take the tax below zero
   var fedDueA = fedTaxA - cr.applied, fW = taxWeights(R.fedTaxable);
   R.fedTax = taxMap(function(i) { return fedTaxA * fW[i]; });
@@ -9311,6 +9317,7 @@ function taxCore(doc, bonusDec) {
 
   return {
     L: L, v: v, R: R, fed: fed, st: st, cr: cr, sc: sc, dependents: dependents, pp: pp, ssCapMonth: ssCapMonth,
+    yearly: { sli: sliA, stUsed: st.used, fedUsed: fed.used, qbi: qbiA, crTotal: cr.total },
     A: { gross: taxSum(R.gross), magi: magiA, agi: agiA, stateAgi: stateAgiA, sliPaid: sliPaid, sliCut: sliCut, sli: sliA, s529: s529A, s529Ok: s529Ok,
          fedTaxable: fedTaxableA, fedTax: fedTaxA, fedDue: fedDueA, stTaxable: stTaxableA, stTax: stTaxA, stDue: stDueA, qbi: qbiA,
          seNet: seNetA, seTax: seMain + seAddl, ficaWages: ficaWagesA, fica: taxSum(R.fica), ss: taxSum(R.ss), medicare: taxSum(R.medicare),
@@ -9430,10 +9437,13 @@ function renderTaxMonthTable(c, doc) {
   var el = document.getElementById('tax-month-table');
   if (!el) return;
   var curM = new Date().getFullYear() === TAX_YEAR ? new Date().getMonth() : -1;
-  var h = '<thead><tr><th>' + TAX_YEAR + '</th><th class="tax-annual-col">Est. Annual</th>'
+  var h = '<thead><tr><th id="tax-section-label">Income</th><th class="tax-annual-col">Est. Annual</th>'
     + TAX_MONTHS.map(function(m, i) { return '<th' + (i === curM ? ' class="tax-cur"' : '') + '>' + m + '</th>'; }).join('') + '</tr></thead><tbody>';
   taxMonthRows(c, doc).forEach(function(row) {
-    if (row.sec) { h += '<tr class="tax-sec"><td>' + escHtml(row.sec) + '</td><td colspan="13"></td></tr>'; return; }
+    if (row.sec) {
+      if (row.sec === 'Income') return;      // the first section's name lives in the pinned header's top-left cell instead
+      h += '<tr class="tax-sec"><td>' + escHtml(row.sec) + '</td><td colspan="13"></td></tr>'; return;
+    }
     if (row.roll && !taxShowRoll) return;
     var vals = (row.input ? c.v[row.k] : c.R[row.k]) || taxMap(function() { return 0; }), ann = taxSum(vals);
     if (!row.input && Object.prototype.hasOwnProperty.call(c.AN, row.k)) ann = c.AN[row.k];       // the year includes bonuses; the months don't
@@ -9473,6 +9483,19 @@ function renderTaxMonthTable(c, doc) {
     h += '</tr>';
   });
   el.innerHTML = h + '</tbody>';
+  taxUpdateSectionLabel();
+}
+// The header's top-left cell names the section currently under it: "Income" at the top, then each section's name as its heading
+// scrolls past the pinned header (the same idea as Cash Flow's header).
+function taxUpdateSectionLabel() {
+  var lbl = document.getElementById('tax-section-label'), table = document.getElementById('tax-month-table');
+  if (!lbl || !table) return;
+  var head = table.tHead, cut = Math.max(0, table.getBoundingClientRect().top) + (head ? head.offsetHeight : 0) + 1;
+  var cur = 'Income', rows = table.querySelectorAll('tr.tax-sec');
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i].getBoundingClientRect().top <= cut) cur = (rows[i].cells[0].textContent || '').trim() || cur;
+  }
+  if (lbl.textContent !== cur) lbl.textContent = cur;
 }
 // An editable cell: shows the formatted amount, and the raw entry (e.g. "187000/12") while focused.
 function taxCellInput(k, m, raw, val, label, shownOverride, cls) {
@@ -9530,9 +9553,9 @@ function renderTaxCredTable(c, doc) {
     var v = doc.c[x.k], m = cr.meta[x.k], rateCell, limitCell, how, notes = [x.help];
     if (m.ended) return;            // a credit that doesn't exist for this year is left out of the table (it counts as $0)
     if (!x.live) {
-      rateCell = taxValInput('c.' + x.k + '.pct', v.pct, '100', 'tax-val-sm');
+      rateCell = '100%';
       limitCell = taxValInput('c.' + x.k + '.cap', v.cap, 'none');
-      how = 'min(Amount \u00D7 %, Cap)';
+      how = 'min(Amount, Cap)';
     } else if (x.k === 'childcare') {
       rateCell = taxPct(m.rate, 0);
       limitCell = '<input type="text" class="tax-val tax-val-xs" inputmode="numeric" data-path="c.childcare.count" value="' + escAttr(v.count) + '" placeholder="' + m.people + '" aria-label="Number of care-qualifying people"> \u00D7 ' + taxFmt(m.perPerson);
@@ -9683,8 +9706,8 @@ function wireTaxes() {
     var w = document.getElementById('tax-month-wrap');
     if (w) w.classList.toggle('hscroll-active', (window.scrollX || window.pageXOffset || 0) > 0);
   }
-  window.addEventListener('scroll', taxEdge, { passive: true });
-  window.addEventListener('resize', taxEdge);
+  window.addEventListener('scroll', function() { taxEdge(); taxUpdateSectionLabel(); }, { passive: true });
+  window.addEventListener('resize', function() { taxEdge(); taxUpdateSectionLabel(); });
   panel.addEventListener('focusin', function(e) {
     var t = e.target;
     if (t.classList && t.classList.contains('tax-cell')) {
