@@ -9503,7 +9503,14 @@ function taxMonthRows(c, doc) {
     { k: 'stateDue', label: 'State Income Tax', sub: true, f: L.stateName + ' does not tax wage income, so there is no state tax to figure.' }
   ] : [
     { k: 's529', input: true, label: '529 Contributions', f: L.stateName + ' subtracts 529 plan contributions, up to ' + taxFmt(L.de529Cap) + ' (' + e(sl.toLowerCase()) + ')' + (isFinite(L.de529AgiLimit) ? ', only when federal AGI is ' + taxFmt(L.de529AgiLimit) + ' or less' : '') + '.',
-      n: [A.s529Barred && A.s529 > 0 ? 'AGI (' + taxFmt(A.agi) + ') is over ' + taxFmt(L.de529AgiLimit) + ', so none of the ' + taxFmt(A.s529) + ' counts.' : (A.s529 > L.de529Cap ? 'You\u2019ve entered ' + taxFmt(A.s529) + '; only ' + taxFmt(A.s529Ok) + ' counts.' : '')] },
+      n: ['Enter contributions in the month they\u2019re made. Est. Annual shows what the state actually subtracts, which can be less than what\u2019s entered.'],
+      // The year's figure is what counts, not an entry: the cap and the AGI limit can cut it below the months' total
+      calcAnnual: function() {
+        var why = A.s529Barred && A.s529 > 0 ? 'AGI (' + taxFmt(A.agi) + ') is over ' + taxFmt(L.de529AgiLimit) + ', so none of the ' + taxFmt(A.s529) + ' entered counts.'
+          : (A.s529Ok < A.s529 - 0.005 ? 'Only ' + taxFmt(A.s529Ok) + ' of the ' + taxFmt(A.s529) + ' entered counts: the subtraction is capped at ' + taxFmt(L.de529Cap) + ' (' + e(sl.toLowerCase()) + ').' : '');
+        return '<td class="tax-annual-col' + (Math.round(A.s529Ok) === 0 ? ' tax-zero' : '') + '">'
+          + (why ? taxHelpIcon('m:s529-ann', '529 Subtraction Counted', why) + ' ' : '') + taxFmt(A.s529Ok) + '</td>';
+      } },
     { k: 'treasury', input: true, label: 'SGOV / Treasury Income', f: 'Interest from U.S. Treasuries (e.g. SGOV, USFR), which states don\u2019t tax.', n: ['It is still federal income, so include it under Interest too.'] },
     { k: 'stateAgi', label: 'State AGI', sub: true, f: 'AGI \u2212 529 Contributions (up to the cap) \u2212 SGOV / Treasury Income' },
     { k: 'stateDed', label: 'Standard / Itemized Deduction', f: 'The larger of ' + L.stateName + '\u2019s standard deduction (' + taxFmt(st.std) + ') and your ' + L.stateName + ' itemized deductions (' + taxFmt(st.itemized) + ') \u2014 using ' + (st.itemizing ? 'itemized' : 'standard') + '.',
@@ -9574,7 +9581,8 @@ function renderTaxMonthTable(c, doc) {
       for (var ai = 0; ai < 12; ai++) h += '<td' + (ai === curM ? ' class="tax-cur"' : '') + '></td>';
     } else if (row.input) {
       var raws = doc.m[row.k];
-      h += '<td class="tax-in tax-annual-col">' + taxCellInput(row.k, 'A', '', ann, row.label + ', ' + TAX_YEAR + ' total') + '</td>';
+      h += row.calcAnnual ? row.calcAnnual()
+        : '<td class="tax-in tax-annual-col">' + taxCellInput(row.k, 'A', '', ann, row.label + ', ' + TAX_YEAR + ' total') + '</td>';
       for (var i = 0; i < 12; i++) {
         var bad = !isFinite(taxEval(raws[i]));
         h += '<td class="tax-in' + (i === curM ? ' tax-cur' : '') + (bad ? ' tax-bad' : '') + '">' + taxCellInput(row.k, i, raws[i], c.v[row.k][i], row.label + ', ' + TAX_MONTHS[i])
