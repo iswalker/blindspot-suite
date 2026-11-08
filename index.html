@@ -1745,6 +1745,16 @@ html.rw-tab-active #tab-row { z-index: 30; }
 .rw-edit:focus { outline: 2px solid #1565c0; background: #f4f8ff; }
 .rw-edit.dirty { background: #fff8e1; }
 .rw-edit:empty::before { content: attr(data-ph); color: #b0b0b0; }
+/* Subtext typed straight on the page (outside edit mode): an icon after the name opens it; with text in it the icon goes */
+.rw-notes-toggle { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0; margin: 0 0 0 4px;
+  border: 0; background: transparent; color: #8a8a8a; cursor: pointer; vertical-align: middle; border-radius: 4px; }
+.rw-notes-toggle:hover { color: #444; background: #eee; }
+.rw-notes-toggle svg { width: 14px; height: 14px; }
+.runway-step:has(.rw-note-live:not(:empty)) .rw-notes-toggle, .runway-phase:has(.rw-note-live:not(:empty)) .rw-notes-toggle { display: none; }
+.runway-step:not(.rw-notes-open) .rw-note-box, .runway-phase:not(.rw-notes-open) .rw-note-box { display: none; }
+.rw-note-live { display: block; white-space: pre-wrap; outline: none; cursor: text; border-radius: 4px; word-break: break-word; }
+.rw-note-live:empty::before { content: attr(data-ph); color: #b0b0b0; }
+.rw-note-live:focus { background: #fffbea; box-shadow: 0 0 0 3px #fffbea; }
 .runway-col { flex: 1 1 240px; min-width: 240px; }
 .runway-col-hdr {
   font-size: 26px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
@@ -16603,6 +16613,66 @@ function rwSetCurrentPhase(titleKey) {
 // Outside edit mode a step's circle still cycles empty -> in progress -> complete and saves at once
 // (only the "Runway Step" row changes). Shown straight away; a failed save puts the saved state back.
 var runwayQuickChain = Promise.resolve();
+// ---- Subtext, edited straight on the page (no edit mode) ----
+// Each step / phase shows a small notes icon after its name while it has no subtext; tapping it opens the field in
+// place. Once there is text the field stays open (editable as it is) and the icon goes away. Leaving the field saves
+// it on its own; left blank it folds back to the icon. In edit mode the field is part of the working copy instead.
+var RW_NOTES_ICON = '<svg viewBox="0 0 1200 1200" fill="currentColor"><path d="m1087.5 131.25h-975c-10.363 0-18.75-8.3867-18.75-18.75s8.3867-18.75 18.75-18.75h975c10.363 0 18.75 8.3867 18.75 18.75s-8.3867 18.75-18.75 18.75zm18.75 176.26c0-10.363-8.3867-18.75-18.75-18.75h-975c-10.363 0-18.75 8.3867-18.75 18.75 0 10.363 8.3867 18.75 18.75 18.75h975c10.363 0 18.75-8.3867 18.75-18.75zm0 194.99c0-10.363-8.3867-18.75-18.75-18.75h-975c-10.363 0-18.75 8.3867-18.75 18.75 0 10.363 8.3867 18.75 18.75 18.75h975c10.363 0 18.75-8.3867 18.75-18.75zm0 195.01c0-10.363-8.3867-18.75-18.75-18.75h-975c-10.363 0-18.75 8.3867-18.75 18.75 0 10.363 8.3867 18.75 18.75 18.75h975c10.363 0 18.75-8.3867 18.75-18.75zm0 194.99c0-10.363-8.3867-18.75-18.75-18.75h-975c-10.363 0-18.75 8.3867-18.75 18.75 0 10.363 8.3867 18.75 18.75 18.75h975c10.363 0 18.75-8.3867 18.75-18.75zm-466.3 195.01c0-10.363-8.3867-18.75-18.75-18.75h-508.7c-10.363 0-18.75 8.3867-18.75 18.75s8.3867 18.75 18.75 18.75h508.7c10.363 0 18.75-8.3867 18.75-18.75z"/></svg>';
+function rwNoteIcon(titleId) {
+  return ' <button type="button" class="rw-notes-toggle" data-act="rw-notes" title="Add subtext" aria-label="Add subtext">' + RW_NOTES_ICON + '</button>';
+}
+function rwNoteField(text, titleId) {
+  return '<span class="rw-note-live" contenteditable="' + RW_CE + '" spellcheck="true" data-rid="' + escAttr(titleId) + '" data-ph="Add subtext">' + escHtml(text || '') + '</span>';
+}
+function runwaySaveNote(el) {
+  var key = el.getAttribute('data-rid'), val = rwNormText(rwReadEl(el, true), true);
+  var row = (dbCfg.rows.Runway || []).filter(function(r) { return String(r.id) === key; })[0];
+  if (!row || (row.notes || '') === val) return;
+  row.notes = val;                                   // optimistic: the field already shows it, so no re-render
+  dbCfgStore(dbCfg.all);
+  runwayQuickChain = runwayQuickChain
+    .then(function() { return dbCfgRequest('PATCH', null, { budgetId: dbCfgBudget(), section: 'Runway', updates: [{ id: row.id, notes: val }] }); })
+    .then(function() { return loadDbConfig(true); })
+    .catch(function(e) {
+      runwayImportMsg = 'Could not save the subtext: ' + (e && e.message || 'failed');
+      return loadDbConfig(true).then(function() { renderRunway(); });   // back to what is actually saved
+    });
+}
+function wireRunwayNotes(panel) {
+  function box(el) { return el.closest('.runway-step, .runway-phase'); }
+  // mousedown would otherwise move focus to the button first and blur the field before the click toggles it
+  panel.addEventListener('mousedown', function(e) { if (e.target.closest('.rw-notes-toggle')) e.preventDefault(); });
+  panel.addEventListener('click', function(e) {
+    var t = e.target.closest('.rw-notes-toggle');
+    if (!t) return;
+    var b = box(t), f = b && b.querySelector('.rw-note-live');
+    if (!f) return;
+    if (b.classList.contains('rw-notes-open')) { b.classList.remove('rw-notes-open'); if (document.activeElement === f) f.blur(); }
+    else { b.classList.add('rw-notes-open'); requestAnimationFrame(function() { f.focus(); }); }
+  });
+  panel.addEventListener('focusout', function(e) {
+    var f = e.target.closest && e.target.closest('.rw-note-live');
+    if (!f) return;
+    runwaySaveNote(f);
+    if (!f.textContent.trim()) { f.textContent = ''; var b = box(f); if (b) b.classList.remove('rw-notes-open'); }
+  });
+  panel.addEventListener('keydown', function(e) {
+    var f = e.target.closest && e.target.closest('.rw-note-live');
+    if (!f) return;
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); f.blur(); }
+    else if (e.key === 'Enter') { e.preventDefault(); document.execCommand('insertText', false, '\n'); }
+    else if (e.key === 'Escape') {
+      var row = (dbCfg.rows.Runway || []).filter(function(r) { return String(r.id) === f.getAttribute('data-rid'); })[0];
+      f.textContent = row ? (row.notes || '') : ''; f.blur();
+    }
+  });
+  panel.addEventListener('paste', function(e) {
+    if (!(e.target.closest && e.target.closest('.rw-note-live'))) return;
+    e.preventDefault();
+    document.execCommand('insertText', false, ((e.clipboardData || window.clipboardData).getData('text') || '').replace(/\r/g, ''));
+  });
+}
+
 function runwayQuickCycle(n) {
   var saved = runwayWork;
   runwayWork = runwayCloneRows();
@@ -16695,6 +16765,7 @@ function rwReadEl(el, multi) {
 function wireRunwayEditing() {
   var panel = document.getElementById('runway-panel');
   if (!panel) return;
+  wireRunwayNotes(panel);
   panel.addEventListener('input', function(e) {
     var el = e.target.closest && e.target.closest('.rw-edit');
     if (!el || !runwayEditing()) return;
@@ -17224,11 +17295,13 @@ function renderRunwayPhasesHtml(data) {
       + '<button type="button" data-act="cur-phase" data-key="' + escAttr(p.titleId) + '" title="Make this the current phase">\u25CE</button>'
       + '<button type="button" data-act="add-phase" data-key="' + escAttr(p.titleId) + '" title="Add a phase after this one">+</button>'
       + '<button type="button" data-act="del-phase" data-key="' + escAttr(p.titleId) + '" title="Remove this phase">\u00d7</button></div>' : '';
-    return '<div class="runway-phase">'
+    var liveNote = !pe && runwayDbRows() && p.titleId;
+    return '<div class="runway-phase' + (liveNote && p.blurb ? ' rw-notes-open' : '') + '">'
       +   pctl
       +   '<div class="runway-phase-chevron rwp-' + pState + '">' + (pe ? rwTxt(p.yearRange, p.titleId, 'yearRange', 'years') : escAttr(p.yearRange)) + '</div>'
-      +   '<div class="runway-phase-title">' + rwTxt(p.title, p.titleId, 'text', 'Phase title') + '</div>'
+      +   '<div class="runway-phase-title">' + rwTxt(p.title, p.titleId, 'text', 'Phase title') + (liveNote ? rwNoteIcon(p.titleId) : '') + '</div>'
       +   (pe ? '<div class="runway-phase-blurb' + (p.blurb ? '' : ' rw-pill-empty') + '">' + rwTxt(p.blurb, p.titleId, 'blurb', 'Add subtext', true) + '</div>'
+            : liveNote ? '<div class="runway-phase-blurb rw-note-box">' + rwNoteField(p.blurb, p.titleId) + '</div>'
             : p.blurb ? '<div class="runway-phase-blurb">' + rwPara(p.blurb) + '</div>' : '')
       +   (p.subtext || (runwayEditing() && p.subtextId) ? '<div class="runway-phase-subtext">' + rwTxt(p.subtext, p.subtextId, 'text', 'Add description', true) + '</div>' : '')
       + '</div>';
@@ -17313,18 +17386,20 @@ function renderRunway() {
       // (title, then amount, then date, then tag).
       var tagPill = editing ? ' <span class="runway-tag-pill' + pillCls(s.tag) + '">' + rwTxt(s.tag || '', s.titleId, 'tag', 'tag') + '</span>'
         : (s.tag ? ' <span class="runway-tag-pill">' + escAttr(s.tag) + '</span>' : '');
+      var liveNote = !editing && runwayDbRows() && s.titleId;      // outside edit mode the subtext is typed straight onto the page
       var ctl = editing ? '<div class="rw-ctl"><span class="rw-grip" draggable="true" title="Drag to reorder, or drop in another column">\u2807\u2807</span><button type="button" data-act="add-step" data-key="' + escAttr(s.titleId) + '" title="Add a step below">+</button>'
         + '<button type="button" data-act="del-step" data-key="' + escAttr(s.titleId) + '" title="Remove this step">\u00d7</button></div>' : '';
-      h += '<div class="runway-step"' + (editing ? ' data-key="' + escAttr(s.titleId) + '"' : '') + '>'
+      h += '<div class="runway-step' + (liveNote && s.blurb ? ' rw-notes-open' : '') + '"' + (editing ? ' data-key="' + escAttr(s.titleId) + '"' : '') + '>'
         +   ctl
         +   '<div class="runway-step-lead">'
         +     '<div class="runway-step-num">' + (s.kind === 'alpha' ? s.displayLetter : s.displayNum) + '</div>'
         +     circleHtml
         +   '</div>'
         +   '<div class="runway-step-text">'
-        +     '<div class="runway-title">' + rwTxt(s.title, s.titleId, 'title', 'Step title') + bluePill + amtPill + datePill + tagPill + '</div>'
+        +     '<div class="runway-title">' + rwTxt(s.title, s.titleId, 'title', 'Step title') + (liveNote ? rwNoteIcon(s.titleId) : '') + bluePill + amtPill + datePill + tagPill + '</div>'
         // Subtext sits between the title and the description: always there to type into in edit mode (faded while empty), gone when saved empty
         +     (editing ? '<div class="runway-blurb' + pillCls(s.blurb) + '">' + rwTxt(s.blurb, s.titleId, 'blurb', 'Add subtext', true) + '</div>'
+                : liveNote ? '<div class="runway-blurb rw-note-box">' + rwNoteField(s.blurb, s.titleId) + '</div>'
                 : s.blurb ? '<div class="runway-blurb">' + rwPara(s.blurb) + '</div>' : '')
         +     (s.subtext || (runwayEditing() && s.subtextId) ? '<div class="runway-subtext">' + rwTxt(s.subtext, s.subtextId, 'text', 'Add description', true) + '</div>' : '')
         +   '</div>'
