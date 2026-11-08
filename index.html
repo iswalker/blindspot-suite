@@ -9528,14 +9528,11 @@ function renderTaxCredTable(c, doc) {
     +   '<td>' + taxBadge('fed') + '</td><td class="tax-amt">' + c.dependents + ' × ' + taxFmt(L.ctcAmount) + '</td><td></td><td class="tax-amt tax-note">over ' + taxFmt(L.ctcPoThreshold) + ' AGI</td><td class="tax-amt">' + money(cr.ctc) + '</td></tr>';
   TAX_CREDIT_DEFS.forEach(function(x) {
     var v = doc.c[x.k], m = cr.meta[x.k], rateCell, limitCell, how, notes = [x.help];
+    if (m.ended) return;            // a credit that doesn't exist for this year is left out of the table (it counts as $0)
     if (!x.live) {
       rateCell = taxValInput('c.' + x.k + '.pct', v.pct, '100', 'tax-val-sm');
       limitCell = taxValInput('c.' + x.k + '.cap', v.cap, 'none');
       how = 'min(Amount \u00D7 %, Cap)';
-    } else if (m.ended) {
-      rateCell = '<span class="tax-note">not available</span>';
-      limitCell = '<span class="tax-note">ended before ' + TAX_YEAR + '</span>';
-      how = 'This credit is not available for ' + TAX_YEAR + ' under the current tax figures, so it is $0.';
     } else if (x.k === 'childcare') {
       rateCell = taxPct(m.rate, 0);
       limitCell = '<input type="text" class="tax-val tax-val-xs" inputmode="numeric" data-path="c.childcare.count" value="' + escAttr(v.count) + '" placeholder="' + m.people + '" aria-label="Number of care-qualifying people"> \u00D7 ' + taxFmt(m.perPerson);
