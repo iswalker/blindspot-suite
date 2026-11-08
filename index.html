@@ -8840,7 +8840,8 @@ var TAX_PE_SOURCE = 'https://github.com/PolicyEngine/policyengine-us/tree/master
 var TAX_PE_FILES = ['irs/income/bracket.yaml', 'irs/deductions/standard/amount.yaml', 'irs/deductions/itemized/salt_and_real_estate/cap.yaml',
   'irs/deductions/itemized/salt_and_real_estate/phase_out/threshold.yaml', 'irs/deductions/itemized/salt_and_real_estate/phase_out/rate.yaml',
   'irs/deductions/itemized/salt_and_real_estate/phase_out/floor/amount.yaml', 'irs/deductions/itemized/salt_and_real_estate/phase_out/in_effect.yaml',
-  'irs/deductions/itemized/medical/floor.yaml', 'irs/payroll/social_security/cap.yaml', 'irs/payroll/social_security/rate/employee.yaml',
+  'irs/deductions/itemized/medical/floor.yaml', 'irs/deductions/itemized/charity/floor/amount.yaml', 'irs/deductions/itemized/charity/floor/applies.yaml',
+  'irs/payroll/social_security/cap.yaml', 'irs/payroll/social_security/rate/employee.yaml',
   'irs/payroll/medicare/rate/employee.yaml', 'irs/payroll/medicare/additional/rate.yaml', 'irs/payroll/medicare/additional/exclusion.yaml',
   'irs/self_employment/rate/social_security.yaml', 'irs/self_employment/rate/medicare.yaml',
   'irs/ald/student_loan_interest/cap.yaml', 'irs/ald/student_loan_interest/reduction/start.yaml', 'irs/ald/student_loan_interest/reduction/divisor.yaml',
@@ -8860,7 +8861,8 @@ var TAX_PE_FILES = ['irs/income/bracket.yaml', 'irs/deductions/standard/amount.y
 var TAX_STATES = [
   { code: 'AK', name: 'Alaska', none: true },
   { code: 'DE', name: 'Delaware', files: { rate: 'states/de/tax/income/rate.yaml', std: 'states/de/tax/income/deductions/standard/amount.yaml',
-      personal: 'states/de/tax/income/credits/personal_credits/personal.yaml', cap529: 'states/de/tax/income/subtractions/plan_529/cap.yaml' } },
+      personal: 'states/de/tax/income/credits/personal_credits/personal.yaml', cap529: 'states/de/tax/income/subtractions/plan_529/cap.yaml',
+      agi529: 'states/de/tax/income/subtractions/plan_529/agi_limit.yaml' } },
   { code: 'FL', name: 'Florida', none: true },
   { code: 'NV', name: 'Nevada', none: true },
   { code: 'NH', name: 'New Hampshire', none: true },
@@ -8874,7 +8876,7 @@ TAX_STATES.forEach(function(st) { Object.keys(st.files || {}).forEach(function(k
 function taxStateOf(code) { for (var i = 0; i < TAX_STATES.length; i++) if (TAX_STATES[i].code === code) return TAX_STATES[i]; return TAX_STATES[1]; }
 // Built-in copy of the same files (values in effect for TAX_FALLBACK_YEAR), used until the live ones load or if they can't.
 var TAX_FALLBACK_YEAR = 2026;
-var TAX_FALLBACK = {"irs/income/bracket.yaml":{"rates":{"1":{"2018-01-01":0.1},"2":{"2018-01-01":0.12},"3":{"2018-01-01":0.22},"4":{"2018-01-01":0.24},"5":{"2018-01-01":0.32},"6":{"2018-01-01":0.35},"7":{"2018-01-01":0.37}},"thresholds":{"1":{"SINGLE":{"values":{"2026-01-01":12400}},"JOINT":{"values":{"2026-01-01":24800}},"SEPARATE":{"values":{"2026-01-01":12400}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":17700}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":24800}}},"2":{"SINGLE":{"values":{"2026-01-01":50400}},"JOINT":{"values":{"2026-01-01":100800}},"SEPARATE":{"values":{"2026-01-01":50400}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":67450}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":100800}}},"3":{"SINGLE":{"values":{"2026-01-01":105700}},"JOINT":{"values":{"2026-01-01":211400}},"SEPARATE":{"values":{"2026-01-01":105700}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":105700}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":211400}}},"4":{"SINGLE":{"values":{"2026-01-01":201775}},"JOINT":{"values":{"2026-01-01":403550}},"SEPARATE":{"values":{"2026-01-01":201775}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":201750}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":403550}}},"5":{"SINGLE":{"values":{"2026-01-01":256225}},"JOINT":{"values":{"2026-01-01":512450}},"SEPARATE":{"values":{"2026-01-01":256225}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":256200}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":512450}}},"6":{"SINGLE":{"values":{"2026-01-01":640600}},"JOINT":{"values":{"2026-01-01":768700}},"SEPARATE":{"values":{"2026-01-01":384350}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":640600}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":768700}}},"7":{"SINGLE":{"values":{"2018-01-01":null}},"JOINT":{"values":{"2018-01-01":null}},"SEPARATE":{"values":{"2018-01-01":null}},"HEAD_OF_HOUSEHOLD":{"values":{"2018-01-01":null}},"SURVIVING_SPOUSE":{"values":{"2018-01-01":null}}}}},"irs/deductions/standard/amount.yaml":{"SINGLE":{"2026-01-01":16100},"JOINT":{"2026-01-01":32200},"SEPARATE":{"2026-01-01":16100},"HEAD_OF_HOUSEHOLD":{"2026-01-01":24150},"SURVIVING_SPOUSE":{"2026-01-01":32200}},"irs/deductions/itemized/salt_and_real_estate/cap.yaml":{"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":40400}},"JOINT":{"values":{"2026-01-01":40400}},"SEPARATE":{"values":{"2026-01-01":20200}},"SINGLE":{"values":{"2026-01-01":40400}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":40400}}},"irs/deductions/itemized/salt_and_real_estate/phase_out/threshold.yaml":{"SINGLE":{"2026-01-01":505000},"HEAD_OF_HOUSEHOLD":{"2026-01-01":505000},"JOINT":{"2026-01-01":505000},"SURVIVING_SPOUSE":{"2026-01-01":505000},"SEPARATE":{"2026-01-01":252500}},"irs/deductions/itemized/salt_and_real_estate/phase_out/rate.yaml":{"values":{"2025-01-01":0.3}},"irs/deductions/itemized/salt_and_real_estate/phase_out/floor/amount.yaml":{"SINGLE":{"2025-01-01":10000},"HEAD_OF_HOUSEHOLD":{"2025-01-01":10000},"JOINT":{"2025-01-01":10000},"SURVIVING_SPOUSE":{"2025-01-01":10000},"SEPARATE":{"2025-01-01":5000}},"irs/deductions/itemized/salt_and_real_estate/phase_out/in_effect.yaml":{"values":{"2025-01-01":true}},"irs/deductions/itemized/medical/floor.yaml":{"values":{"2017-01-01":0.075}},"irs/payroll/social_security/cap.yaml":{"values":{"2026-01-01":184500}},"irs/payroll/social_security/rate/employee.yaml":{"values":{"2013-01-01":0.062}},"irs/payroll/medicare/rate/employee.yaml":{"values":{"2013-01-01":0.0145}},"irs/payroll/medicare/additional/rate.yaml":{"values":{"2013-01-01":0.009}},"irs/payroll/medicare/additional/exclusion.yaml":{"SINGLE":{"2013-01-01":200000},"JOINT":{"2013-01-01":250000},"SEPARATE":{"2013-01-01":125000},"HEAD_OF_HOUSEHOLD":{"2013-01-01":200000},"SURVIVING_SPOUSE":{"2013-01-01":200000}},"irs/self_employment/rate/social_security.yaml":{"values":{"2013-01-01":0.124}},"irs/self_employment/rate/medicare.yaml":{"values":{"2013-01-01":0.029}},"irs/ald/student_loan_interest/cap.yaml":{"JOINT":{"2002-01-01":2500},"SINGLE":{"2002-01-01":2500},"SEPARATE":{"2002-01-01":0},"HEAD_OF_HOUSEHOLD":{"2002-01-01":2500},"SURVIVING_SPOUSE":{"2002-01-01":2500}},"irs/ald/student_loan_interest/reduction/start.yaml":{"JOINT":{"values":{"2026-01-01":175000}},"SINGLE":{"values":{"2026-01-01":85000}},"SEPARATE":{"2002-01-01":0},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":85000}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":85000}}},"irs/ald/student_loan_interest/reduction/divisor.yaml":{"JOINT":{"2002-01-01":30000},"SINGLE":{"2002-01-01":15000},"SEPARATE":{"2002-01-01":0},"HEAD_OF_HOUSEHOLD":{"2002-01-01":15000},"SURVIVING_SPOUSE":{"2002-01-01":15000}},"irs/credits/ctc/amount/base.yaml":{"brackets":[{"threshold":{"values":{"2013-01-01":0}},"amount":{"values":{"2025-01-01":2200}}},{"threshold":{"values":{"2022-01-01":17}},"amount":{"values":{"2013-01-01":0}}}]},"irs/credits/ctc/phase_out/threshold.yaml":{"SINGLE":{"2018-01-01":200000},"JOINT":{"2018-01-01":400000},"SEPARATE":{"2018-01-01":200000},"HEAD_OF_HOUSEHOLD":{"2018-01-01":200000},"SURVIVING_SPOUSE":{"2018-01-01":400000}},"irs/credits/ctc/phase_out/amount.yaml":{"values":{"0000-01-01":50}},"irs/credits/ctc/phase_out/increment.yaml":{"values":{"0000-01-01":1000}},"states/de/tax/income/rate.yaml":{"brackets":[{"threshold":{"1996-01-01":0},"rate":{"1996-01-01":0}},{"threshold":{"1996-01-01":2000},"rate":{"2014-01-01":0.022}},{"threshold":{"1996-01-01":5000},"rate":{"2014-01-01":0.039}},{"threshold":{"1996-01-01":10000},"rate":{"2014-01-01":0.048}},{"threshold":{"1996-01-01":20000},"rate":{"2014-01-01":0.052}},{"threshold":{"1996-01-01":25000},"rate":{"2014-01-01":0.0555}},{"threshold":{"2014-01-01":60000},"rate":{"2014-01-01":0.066}}]},"states/de/tax/income/deductions/standard/amount.yaml":{"JOINT":{"2000-01-01":6500},"SINGLE":{"2000-01-01":3250},"SEPARATE":{"2000-01-01":3250},"HEAD_OF_HOUSEHOLD":{"2000-01-01":3250},"SURVIVING_SPOUSE":{"2000-01-01":3250}},"states/de/tax/income/credits/personal_credits/personal.yaml":{"values":{"1996-01-01":110}},"states/de/tax/income/subtractions/plan_529/cap.yaml":{"JOINT":{"2022-01-01":2000},"SURVIVING_SPOUSE":{"2022-01-01":1000},"SINGLE":{"2022-01-01":1000},"HEAD_OF_HOUSEHOLD":{"2022-01-01":1000},"SEPARATE":{"2022-01-01":1000}},"irs/credits/cdcc/max.yaml":{"values":{"2022-01-01":3000}},"irs/credits/cdcc/eligibility/max.yaml":{"values":{"2010-01-01":2}},"irs/credits/cdcc/phase_out/start.yaml":{"values":{"2022-01-01":15000}},"irs/credits/cdcc/phase_out/min.yaml":{"values":{"2026-01-01":0.35}},"irs/credits/cdcc/phase_out/max.yaml":{"values":{"2026-01-01":0.5}},"irs/credits/cdcc/phase_out/rate.yaml":{"values":{"2013-01-01":0.01}},"irs/credits/cdcc/phase_out/increment.yaml":{"values":{"2013-01-01":2000}},"irs/credits/cdcc/phase_out/amended_structure/applies.yaml":{"values":{"2026-01-01":true}},"irs/credits/cdcc/phase_out/amended_structure/second_start.yaml":{"HEAD_OF_HOUSEHOLD":{"2026-01-01":75000},"JOINT":{"2026-01-01":150000},"SEPARATE":{"2026-01-01":75000},"SINGLE":{"2026-01-01":75000},"SURVIVING_SPOUSE":{"2026-01-01":75000}},"irs/credits/cdcc/phase_out/amended_structure/second_increment.yaml":{"HEAD_OF_HOUSEHOLD":{"2026-01-01":2000},"JOINT":{"2026-01-01":4000},"SEPARATE":{"2026-01-01":2000},"SINGLE":{"2026-01-01":2000},"SURVIVING_SPOUSE":{"2026-01-01":2000}},"irs/credits/cdcc/phase_out/amended_structure/second_min.yaml":{"values":{"2026-01-01":0.2}},"irs/credits/education/phase_out.yaml":{"start":{"single":{"values":{"2010-01-01":80000}},"joint":{"values":{"2010-01-01":160000}}},"length":{"single":{"values":{"2010-01-01":10000}},"joint":{"values":{"2010-01-01":20000}}}},"irs/credits/education/american_opportunity_credit/amount.yaml":{"brackets":[{"threshold":{"2009-01-01":0},"rate":{"2009-01-01":1}},{"threshold":{"2009-01-01":2000},"rate":{"2009-01-01":0.25}},{"threshold":{"2009-01-01":4000},"rate":{"2009-01-01":0}}]},"irs/credits/energy_efficient_home_improvement/in_effect.yaml":{"values":{"2026-01-01":false}},"irs/credits/energy_efficient_home_improvement/rates/improvements.yaml":{"values":{"2023-01-01":0.3}},"irs/credits/energy_efficient_home_improvement/cap/annual/total.yaml":{"values":{"2023-01-01":1200}},"irs/credits/residential_clean_energy/applicable_percentage.yaml":{"values":{"2026-01-01":0}}};
+var TAX_FALLBACK = {"irs/income/bracket.yaml":{"rates":{"1":{"2018-01-01":0.1},"2":{"2018-01-01":0.12},"3":{"2018-01-01":0.22},"4":{"2018-01-01":0.24},"5":{"2018-01-01":0.32},"6":{"2018-01-01":0.35},"7":{"2018-01-01":0.37}},"thresholds":{"1":{"SINGLE":{"values":{"2026-01-01":12400}},"JOINT":{"values":{"2026-01-01":24800}},"SEPARATE":{"values":{"2026-01-01":12400}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":17700}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":24800}}},"2":{"SINGLE":{"values":{"2026-01-01":50400}},"JOINT":{"values":{"2026-01-01":100800}},"SEPARATE":{"values":{"2026-01-01":50400}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":67450}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":100800}}},"3":{"SINGLE":{"values":{"2026-01-01":105700}},"JOINT":{"values":{"2026-01-01":211400}},"SEPARATE":{"values":{"2026-01-01":105700}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":105700}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":211400}}},"4":{"SINGLE":{"values":{"2026-01-01":201775}},"JOINT":{"values":{"2026-01-01":403550}},"SEPARATE":{"values":{"2026-01-01":201775}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":201750}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":403550}}},"5":{"SINGLE":{"values":{"2026-01-01":256225}},"JOINT":{"values":{"2026-01-01":512450}},"SEPARATE":{"values":{"2026-01-01":256225}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":256200}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":512450}}},"6":{"SINGLE":{"values":{"2026-01-01":640600}},"JOINT":{"values":{"2026-01-01":768700}},"SEPARATE":{"values":{"2026-01-01":384350}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":640600}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":768700}}},"7":{"SINGLE":{"values":{"2018-01-01":null}},"JOINT":{"values":{"2018-01-01":null}},"SEPARATE":{"values":{"2018-01-01":null}},"HEAD_OF_HOUSEHOLD":{"values":{"2018-01-01":null}},"SURVIVING_SPOUSE":{"values":{"2018-01-01":null}}}}},"irs/deductions/standard/amount.yaml":{"SINGLE":{"2026-01-01":16100},"JOINT":{"2026-01-01":32200},"SEPARATE":{"2026-01-01":16100},"HEAD_OF_HOUSEHOLD":{"2026-01-01":24150},"SURVIVING_SPOUSE":{"2026-01-01":32200}},"irs/deductions/itemized/salt_and_real_estate/cap.yaml":{"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":40400}},"JOINT":{"values":{"2026-01-01":40400}},"SEPARATE":{"values":{"2026-01-01":20200}},"SINGLE":{"values":{"2026-01-01":40400}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":40400}}},"irs/deductions/itemized/salt_and_real_estate/phase_out/threshold.yaml":{"SINGLE":{"2026-01-01":505000},"HEAD_OF_HOUSEHOLD":{"2026-01-01":505000},"JOINT":{"2026-01-01":505000},"SURVIVING_SPOUSE":{"2026-01-01":505000},"SEPARATE":{"2026-01-01":252500}},"irs/deductions/itemized/salt_and_real_estate/phase_out/rate.yaml":{"values":{"2025-01-01":0.3}},"irs/deductions/itemized/salt_and_real_estate/phase_out/floor/amount.yaml":{"SINGLE":{"2025-01-01":10000},"HEAD_OF_HOUSEHOLD":{"2025-01-01":10000},"JOINT":{"2025-01-01":10000},"SURVIVING_SPOUSE":{"2025-01-01":10000},"SEPARATE":{"2025-01-01":5000}},"irs/deductions/itemized/salt_and_real_estate/phase_out/in_effect.yaml":{"values":{"2025-01-01":true}},"irs/deductions/itemized/medical/floor.yaml":{"values":{"2017-01-01":0.075}},"irs/deductions/itemized/charity/floor/amount.yaml":{"values":{"2026-01-01":0.005}},"irs/deductions/itemized/charity/floor/applies.yaml":{"values":{"2026-01-01":true}},"irs/payroll/social_security/cap.yaml":{"values":{"2026-01-01":184500}},"irs/payroll/social_security/rate/employee.yaml":{"values":{"2013-01-01":0.062}},"irs/payroll/medicare/rate/employee.yaml":{"values":{"2013-01-01":0.0145}},"irs/payroll/medicare/additional/rate.yaml":{"values":{"2013-01-01":0.009}},"irs/payroll/medicare/additional/exclusion.yaml":{"SINGLE":{"2013-01-01":200000},"JOINT":{"2013-01-01":250000},"SEPARATE":{"2013-01-01":125000},"HEAD_OF_HOUSEHOLD":{"2013-01-01":200000},"SURVIVING_SPOUSE":{"2013-01-01":200000}},"irs/self_employment/rate/social_security.yaml":{"values":{"2013-01-01":0.124}},"irs/self_employment/rate/medicare.yaml":{"values":{"2013-01-01":0.029}},"irs/ald/student_loan_interest/cap.yaml":{"JOINT":{"2002-01-01":2500},"SINGLE":{"2002-01-01":2500},"SEPARATE":{"2002-01-01":0},"HEAD_OF_HOUSEHOLD":{"2002-01-01":2500},"SURVIVING_SPOUSE":{"2002-01-01":2500}},"irs/ald/student_loan_interest/reduction/start.yaml":{"JOINT":{"values":{"2026-01-01":175000}},"SINGLE":{"values":{"2026-01-01":85000}},"SEPARATE":{"2002-01-01":0},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":85000}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":85000}}},"irs/ald/student_loan_interest/reduction/divisor.yaml":{"JOINT":{"2002-01-01":30000},"SINGLE":{"2002-01-01":15000},"SEPARATE":{"2002-01-01":0},"HEAD_OF_HOUSEHOLD":{"2002-01-01":15000},"SURVIVING_SPOUSE":{"2002-01-01":15000}},"irs/credits/ctc/amount/base.yaml":{"brackets":[{"threshold":{"values":{"2013-01-01":0}},"amount":{"values":{"2025-01-01":2200}}},{"threshold":{"values":{"2022-01-01":17}},"amount":{"values":{"2013-01-01":0}}}]},"irs/credits/ctc/phase_out/threshold.yaml":{"SINGLE":{"2018-01-01":200000},"JOINT":{"2018-01-01":400000},"SEPARATE":{"2018-01-01":200000},"HEAD_OF_HOUSEHOLD":{"2018-01-01":200000},"SURVIVING_SPOUSE":{"2018-01-01":400000}},"irs/credits/ctc/phase_out/amount.yaml":{"values":{"0000-01-01":50}},"irs/credits/ctc/phase_out/increment.yaml":{"values":{"0000-01-01":1000}},"states/de/tax/income/rate.yaml":{"brackets":[{"threshold":{"1996-01-01":0},"rate":{"1996-01-01":0}},{"threshold":{"1996-01-01":2000},"rate":{"2014-01-01":0.022}},{"threshold":{"1996-01-01":5000},"rate":{"2014-01-01":0.039}},{"threshold":{"1996-01-01":10000},"rate":{"2014-01-01":0.048}},{"threshold":{"1996-01-01":20000},"rate":{"2014-01-01":0.052}},{"threshold":{"1996-01-01":25000},"rate":{"2014-01-01":0.0555}},{"threshold":{"2014-01-01":60000},"rate":{"2014-01-01":0.066}}]},"states/de/tax/income/deductions/standard/amount.yaml":{"JOINT":{"2000-01-01":6500},"SINGLE":{"2000-01-01":3250},"SEPARATE":{"2000-01-01":3250},"HEAD_OF_HOUSEHOLD":{"2000-01-01":3250},"SURVIVING_SPOUSE":{"2000-01-01":3250}},"states/de/tax/income/credits/personal_credits/personal.yaml":{"values":{"1996-01-01":110}},"states/de/tax/income/subtractions/plan_529/agi_limit.yaml":{"JOINT":{"2022-01-01":200000},"SURVIVING_SPOUSE":{"2022-01-01":100000},"SINGLE":{"2022-01-01":100000},"HEAD_OF_HOUSEHOLD":{"2022-01-01":100000},"SEPARATE":{"2022-01-01":100000}},"states/de/tax/income/subtractions/plan_529/cap.yaml":{"JOINT":{"2022-01-01":2000},"SURVIVING_SPOUSE":{"2022-01-01":1000},"SINGLE":{"2022-01-01":1000},"HEAD_OF_HOUSEHOLD":{"2022-01-01":1000},"SEPARATE":{"2022-01-01":1000}},"irs/credits/cdcc/max.yaml":{"values":{"2022-01-01":3000}},"irs/credits/cdcc/eligibility/max.yaml":{"values":{"2010-01-01":2}},"irs/credits/cdcc/phase_out/start.yaml":{"values":{"2022-01-01":15000}},"irs/credits/cdcc/phase_out/min.yaml":{"values":{"2026-01-01":0.35}},"irs/credits/cdcc/phase_out/max.yaml":{"values":{"2026-01-01":0.5}},"irs/credits/cdcc/phase_out/rate.yaml":{"values":{"2013-01-01":0.01}},"irs/credits/cdcc/phase_out/increment.yaml":{"values":{"2013-01-01":2000}},"irs/credits/cdcc/phase_out/amended_structure/applies.yaml":{"values":{"2026-01-01":true}},"irs/credits/cdcc/phase_out/amended_structure/second_start.yaml":{"HEAD_OF_HOUSEHOLD":{"2026-01-01":75000},"JOINT":{"2026-01-01":150000},"SEPARATE":{"2026-01-01":75000},"SINGLE":{"2026-01-01":75000},"SURVIVING_SPOUSE":{"2026-01-01":75000}},"irs/credits/cdcc/phase_out/amended_structure/second_increment.yaml":{"HEAD_OF_HOUSEHOLD":{"2026-01-01":2000},"JOINT":{"2026-01-01":4000},"SEPARATE":{"2026-01-01":2000},"SINGLE":{"2026-01-01":2000},"SURVIVING_SPOUSE":{"2026-01-01":2000}},"irs/credits/cdcc/phase_out/amended_structure/second_min.yaml":{"values":{"2026-01-01":0.2}},"irs/credits/education/phase_out.yaml":{"start":{"single":{"values":{"2010-01-01":80000}},"joint":{"values":{"2010-01-01":160000}}},"length":{"single":{"values":{"2010-01-01":10000}},"joint":{"values":{"2010-01-01":20000}}}},"irs/credits/education/american_opportunity_credit/amount.yaml":{"brackets":[{"threshold":{"2009-01-01":0},"rate":{"2009-01-01":1}},{"threshold":{"2009-01-01":2000},"rate":{"2009-01-01":0.25}},{"threshold":{"2009-01-01":4000},"rate":{"2009-01-01":0}}]},"irs/credits/energy_efficient_home_improvement/in_effect.yaml":{"values":{"2026-01-01":false}},"irs/credits/energy_efficient_home_improvement/rates/improvements.yaml":{"values":{"2023-01-01":0.3}},"irs/credits/energy_efficient_home_improvement/cap/annual/total.yaml":{"values":{"2023-01-01":1200}},"irs/credits/residential_clean_energy/applicable_percentage.yaml":{"values":{"2026-01-01":0}}};
 var TAX_STATUSES = [['SINGLE', 'Single'], ['JOINT', 'Married filing jointly'], ['HEAD_OF_HOUSEHOLD', 'Head of household'], ['SEPARATE', 'Married filing separately']];
 var TAX_PAY_FREQ = [['semimonthly', 'Twice a month', 2], ['biweekly', 'Every two weeks', 26 / 12], ['weekly', 'Weekly', 52 / 12], ['monthly', 'Monthly', 1]];
 var TAX_MONTH_KEYS = ['wages', 'interest', 'business', 'hsa', 'premiums', 'k401', 'bizexp', 's529', 'treasury'];
@@ -9000,6 +9002,9 @@ function taxLaw(status, stateCode) {
     saltPoRate: taxP(S + 'phase_out/rate.yaml', [], null, 0),
     saltPoFloor: taxP(S + 'phase_out/floor/amount.yaml', [], status, 10000),
     medFloor: taxP('irs/deductions/itemized/medical/floor.yaml', [], null, 0.075),
+    // From 2026, itemized charitable gifts count only above a share of AGI (0.5%)
+    charityFloorOn: taxP('irs/deductions/itemized/charity/floor/applies.yaml', [], null, false) === true,
+    charityFloor: taxP('irs/deductions/itemized/charity/floor/amount.yaml', [], null, 0),
     ssCap: taxP('irs/payroll/social_security/cap.yaml', [], null, Infinity),
     // Flat withholding on supplemental pay (bonuses): the third-lowest federal rate (22% under the current rates), and the top rate
     // on the part over $1 million. Both follow the bracket rates above, so they change when those do.
@@ -9020,6 +9025,7 @@ function taxLaw(status, stateCode) {
     deStd: sf ? taxP(sf.std, [], status, 0) : 0,
     dePersonal: sf ? taxP(sf.personal, [], null, 0) : 0,
     de529Cap: sf ? taxP(sf.cap529, [], status, 0) : 0,
+    de529AgiLimit: sf && sf.agi529 ? taxP(sf.agi529, [], status, Infinity) : Infinity,   // no subtraction when federal AGI is over this
     cdcc: {                                   // Child and Dependent Care Credit: rate falls with AGI, expenses capped per person
       max: taxP('irs/credits/cdcc/max.yaml', [], null, 3000), persons: taxP('irs/credits/cdcc/eligibility/max.yaml', [], null, 2),
       rateMax: taxP('irs/credits/cdcc/phase_out/max.yaml', [], null, 0.35), min: taxP('irs/credits/cdcc/phase_out/min.yaml', [], null, 0.2),
@@ -9202,8 +9208,22 @@ function taxWithholding(raws, target) {
 // paid, so it is left out of the months but counted in the year: the Est. Annual column comes from a second pass with the bonus in.
 // Deductions and credits are worked out once for the whole year (they depend on the year's AGI, bonus included), so the monthly
 // pass for regular pay uses the year's figures for them rather than recomputing them from regular pay alone.
+// Federal SALT counts the state income tax paid during the year -- what's withheld (entered, plus the months still to come) and
+// withheld on the bonus -- not the year's state liability. The state side doesn't depend on the federal side, so a first pass gives
+// the state figures that withholding is projected from, and a second pass uses what's paid. With no state withholding entered,
+// the liability stands in for it.
 function taxCompute(doc) {
-  var bonusA = taxNum(doc.bonus), full = taxCore(doc, bonusA, null), reg = bonusA ? taxCore(doc, 0, full.yearly) : full;
+  var bonusA = taxNum(doc.bonus);
+  function pass(statePaid) {
+    var f = taxCore(doc, bonusA, null, statePaid);
+    return { full: f, reg: bonusA ? taxCore(doc, 0, f.yearly, statePaid) : f };
+  }
+  var p = pass(null);
+  if (!p.full.L.stateNone && taxWithholding(doc.w.state, 0).any) {
+    var regDue = taxSum(p.reg.R.stateDue);
+    p = pass(taxWithholding(doc.w.state, regDue).total + taxBonusStateWh(p.full.L, p.reg, bonusA));
+  }
+  var full = p.full, reg = p.reg;
   var c = Object.assign({}, full), AN = {};
   Object.keys(full.R).forEach(function(k) { AN[k] = taxSum(full.R[k]); });
   c.R = reg.R; c.AN = AN; c.bonus = bonusA;
@@ -9219,14 +9239,19 @@ function taxCompute(doc) {
   c.expMonths = c.wh.fed.any ? taxMap(function(i) { return reg.R.fedDue[i] - c.wh.fed.vals[i]; }) : null;
   // State: no flat supplemental rate is assumed. A bonus paid on its own is withheld with the "difference" method: tax on the
   // year's regular taxable pay with the bonus added, less the tax on regular pay alone, through the state's own brackets.
-  var regTaxable = Math.max(0, taxSum(reg.R.stateTaxable));
-  AN.bonusStateWh = bonusA > 0 && !L.stateNone ? taxBracketTax(regTaxable + bonusA, L.deBrackets) - taxBracketTax(regTaxable, L.deBrackets) : 0;
+  AN.bonusStateWh = taxBonusStateWh(L, reg, bonusA);
   c.bonusStateRate = bonusA > 0 ? AN.bonusStateWh / bonusA : 0;
   AN.stateExpected = AN.stateDue - (c.wh.state.any ? c.wh.state.total : 0) - AN.bonusStateWh;
   c.expStMonths = c.wh.state.any ? taxMap(function(i) { return reg.R.stateDue[i] - c.wh.state.vals[i]; }) : null;
   return c;
 }
-function taxCore(doc, bonusDec, fixed) {
+function taxBonusStateWh(L, reg, bonusA) {
+  if (!(bonusA > 0) || L.stateNone) return 0;
+  var regTaxable = Math.max(0, taxSum(reg.R.stateTaxable));
+  return taxBracketTax(regTaxable + bonusA, L.deBrackets) - taxBracketTax(regTaxable, L.deBrackets);
+}
+// statePaid: state income tax paid in the year, for federal SALT (null = use the state tax figured here)
+function taxCore(doc, bonusDec, fixed, statePaid) {
   var L = taxLaw(doc.status, doc.state), v = {}, R = {};
   TAX_MONTH_KEYS.forEach(function(k) { v[k] = doc.m[k].map(taxNum); });
   v.bonus = taxMap(function(i) { return i === 11 ? bonusDec : 0; });
@@ -9255,11 +9280,15 @@ function taxCore(doc, bonusDec, fixed) {
   var agiA = taxSum(R.agi);
 
   // State: AGI less the 529 subtraction (capped) and Treasury income, then the larger of its standard and itemized deductions.
-  var s529A = taxSum(v.s529), s529Ok = Math.min(Math.max(0, s529A), L.de529Cap), s529Share = s529A > 0 ? s529Ok / s529A : 0;
+  var s529A = taxSum(v.s529), s529Barred = agiA > L.de529AgiLimit;
+  var s529Ok = s529Barred ? 0 : Math.min(Math.max(0, s529A), L.de529Cap), s529Share = s529A > 0 ? s529Ok / s529A : 0;
   R.s529 = v.s529;
   R.stateAgi = taxMap(function(i) { return R.agi[i] - v.s529[i] * s529Share - v.treasury[i]; });
   var stateAgiA = taxSum(R.stateAgi);
-  var D = doc.d, giving = taxPos(D.giving), mortgage = taxPos(D.mortgage), property = taxPos(D.property), medical = taxPos(D.medical), misc = taxPos(D.misc);
+  var D = doc.d, givingPaid = taxPos(D.giving), mortgage = taxPos(D.mortgage), property = taxPos(D.property), medical = taxPos(D.medical), misc = taxPos(D.misc);
+  // Itemized giving counts only above the charitable floor (0.5% of AGI from 2026). Delaware itemizes from the federal charitable
+  // deduction, so the same reduced figure carries to the state.
+  var givingFloor = L.charityFloorOn ? L.charityFloor * Math.max(0, agiA) : 0, giving = Math.max(0, givingPaid - givingFloor);
   var st = { giving: giving, mortgage: mortgage, property: property, medFloorPct: 0.10, miscFloorPct: 0.02 };
   st.medFloor = st.medFloorPct * Math.max(0, agiA);
   st.miscFloor = st.miscFloorPct * Math.max(0, agiA);
@@ -9273,7 +9302,9 @@ function taxCore(doc, bonusDec, fixed) {
   R.stateTaxable = taxMap(function(i) { return R.stateAgi[i] - R.stateDed[i]; });
   var stTaxableA = Math.max(0, stateAgiA - st.used);
   var stTaxA = taxBracketTax(stTaxableA, L.deBrackets);
-  var sc = { personal: dependents * L.dePersonal, other: taxPos(D.stateOther) };
+  // One personal credit per exemption: each filer (two on a joint return) and each dependent
+  var exemptions = dependents + (doc.status === 'JOINT' ? 2 : 1);
+  var sc = { exemptions: exemptions, personal: exemptions * L.dePersonal, other: taxPos(D.stateOther) };
   sc.total = sc.personal + sc.other;
   sc.applied = Math.min(sc.total, stTaxA);
   var stDueA = stTaxA - sc.applied, stW = taxWeights(R.stateTaxable);
@@ -9284,7 +9315,9 @@ function taxCore(doc, bonusDec, fixed) {
   // Federal itemized: the state tax just figured joins property taxes under the SALT cap (which phases down at high AGI).
   var saltCap = L.saltCap;
   if (L.saltPoOn && agiA > L.saltPoThreshold) saltCap = Math.max(L.saltPoFloor, saltCap - L.saltPoRate * (agiA - L.saltPoThreshold));
-  var fed = { giving: giving, mortgage: mortgage, stateTax: stDueA, property: property, saltRaw: stDueA + property, saltCap: saltCap };
+  var stPaid = statePaid == null ? stDueA : statePaid;
+  var fed = { giving: giving, givingPaid: givingPaid, givingFloor: givingFloor, mortgage: mortgage, stateTax: stPaid, statePaid: statePaid != null,
+              property: property, saltRaw: stPaid + property, saltCap: saltCap };
   fed.salt = Math.min(fed.saltRaw, saltCap);
   fed.medFloor = L.medFloor * Math.max(0, agiA);
   fed.medical = Math.max(0, medical - fed.medFloor);
@@ -9363,7 +9396,7 @@ function taxCore(doc, bonusDec, fixed) {
   return {
     L: L, v: v, R: R, fed: fed, st: st, cr: cr, sc: sc, dependents: dependents, pp: pp, ssCapMonth: ssCapMonth,
     yearly: { sli: sliA, stUsed: st.used, fedUsed: fed.used, qbi: qbiA, crTotal: cr.total },
-    A: { gross: taxSum(R.gross), magi: magiA, agi: agiA, stateAgi: stateAgiA, sliPaid: sliPaid, sliCut: sliCut, sli: sliA, s529: s529A, s529Ok: s529Ok,
+    A: { gross: taxSum(R.gross), magi: magiA, agi: agiA, stateAgi: stateAgiA, sliPaid: sliPaid, sliCut: sliCut, sli: sliA, s529: s529A, s529Ok: s529Ok, s529Barred: s529Barred,
          fedTaxable: fedTaxableA, fedTax: fedTaxA, fedDue: fedDueA, stTaxable: stTaxableA, stTax: stTaxA, stDue: stDueA, qbi: qbiA,
          seNet: seNetA, seTax: seMain + seAddl, ficaWages: ficaWagesA, fica: taxSum(R.fica), ss: taxSum(R.ss), medicare: taxSum(R.medicare),
          total: taxSum(R.total) }
@@ -9469,8 +9502,8 @@ function taxMonthRows(c, doc) {
   ].concat(L.stateNone ? [
     { k: 'stateDue', label: 'State Income Tax', sub: true, f: L.stateName + ' does not tax wage income, so there is no state tax to figure.' }
   ] : [
-    { k: 's529', input: true, label: '529 Contributions', f: L.stateName + ' subtracts 529 plan contributions, up to ' + taxFmt(L.de529Cap) + ' (' + e(sl.toLowerCase()) + ').',
-      n: [A.s529 > L.de529Cap ? 'You\u2019ve entered ' + taxFmt(A.s529) + '; only ' + taxFmt(A.s529Ok) + ' counts.' : ''] },
+    { k: 's529', input: true, label: '529 Contributions', f: L.stateName + ' subtracts 529 plan contributions, up to ' + taxFmt(L.de529Cap) + ' (' + e(sl.toLowerCase()) + ')' + (isFinite(L.de529AgiLimit) ? ', only when federal AGI is ' + taxFmt(L.de529AgiLimit) + ' or less' : '') + '.',
+      n: [A.s529Barred && A.s529 > 0 ? 'AGI (' + taxFmt(A.agi) + ') is over ' + taxFmt(L.de529AgiLimit) + ', so none of the ' + taxFmt(A.s529) + ' counts.' : (A.s529 > L.de529Cap ? 'You\u2019ve entered ' + taxFmt(A.s529) + '; only ' + taxFmt(A.s529Ok) + ' counts.' : '')] },
     { k: 'treasury', input: true, label: 'SGOV / Treasury Income', f: 'Interest from U.S. Treasuries (e.g. SGOV, USFR), which states don\u2019t tax.', n: ['It is still federal income, so include it under Interest too.'] },
     { k: 'stateAgi', label: 'State AGI', sub: true, f: 'AGI \u2212 529 Contributions (up to the cap) \u2212 SGOV / Treasury Income' },
     { k: 'stateDed', label: 'Standard / Itemized Deduction', f: 'The larger of ' + L.stateName + '\u2019s standard deduction (' + taxFmt(st.std) + ') and your ' + L.stateName + ' itemized deductions (' + taxFmt(st.itemized) + ') \u2014 using ' + (st.itemizing ? 'itemized' : 'standard') + '.',
@@ -9478,7 +9511,7 @@ function taxMonthRows(c, doc) {
     { k: 'stateTaxable', label: 'State Taxable Income', sub: true, f: 'State AGI \u2212 Standard / Itemized Deduction' },
     { k: 'stateTax', label: 'State Income Tax', f: 'The year\u2019s state taxable income (' + taxFmt(A.stTaxable) + ') through the ' + L.stateName + ' brackets below = ' + taxFmt(A.stTax) + '.',
       n: ['Top bracket reached ' + taxPct(stMarg.rate, 2) + '. Each month shows its share, in proportion to its taxable income.'] },
-    { k: 'stateCredits', label: 'State Credits', f: 'Personal credit (' + taxFmt(L.dePersonal) + ' \u00D7 ' + c.dependents + ' dependents = ' + taxFmt(c.sc.personal) + ') + other state / local tax paid (' + taxFmt(c.sc.other) + ').',
+    { k: 'stateCredits', label: 'State Credits', f: 'Personal credit (' + taxFmt(L.dePersonal) + ' \u00D7 ' + c.sc.exemptions + ' exemptions = ' + taxFmt(c.sc.personal) + ') + other state / local tax paid (' + taxFmt(c.sc.other) + ').',
       n: [c.sc.total > A.stTax ? 'Limited to the tax itself (' + taxFmt(A.stTax) + ').' : ''] },
     { k: 'stateDue', label: 'State Tax Due', sub: true, f: 'State Income Tax \u2212 State Credits', n: ['The months cover regular pay; Est. Annual also includes the tax on bonuses.'] },
     { k: 'statePP', label: 'State Per Paycheck', noAnnual: true, f: 'State Tax Due ÷ paychecks in the month.', n: ['Compare with the state withholding on your pay stub.'] },
@@ -9593,10 +9626,11 @@ function renderTaxDedTable(c, doc) {
   function money(v) { return '<span class="' + (Math.round(v) === 0 ? 'tax-zero' : '') + '">' + taxFmt(v) + '</span>'; }
   var saltLimit = 'Capped at ' + taxFmt(f.saltCap) + (L.saltPoOn && A.agi > L.saltPoThreshold ? ' (reduced from ' + taxFmt(L.saltCap) + ' as AGI is over ' + taxFmt(L.saltPoThreshold) + ')' : '');
   var h = '<thead><tr><th>Deduction</th><th>Applies To</th><th class="tax-amt">Amount</th><th>Limit</th><th class="tax-amt">Federal</th><th class="tax-amt">' + escHtml(L.stateNone ? 'State' : L.stateName) + '</th></tr></thead><tbody>'
-    + row('giving', 'Giving', ['Charitable gifts for the year.', 'Entered by hand for now; later this can come from #itemize-tagged transactions.'], 'both', taxValInput('d.giving', doc.d.giving), '', money(f.giving), money(st.giving))
+    + row('giving', 'Giving', ['Charitable gifts for the year.', L.charityFloorOn ? 'Only the part above ' + taxPct(L.charityFloor) + ' of AGI is deductible when itemizing; ' + (L.stateNone ? 'the state' : L.stateName) + ' starts from the same federal figure.' : '', 'Entered by hand for now; later this can come from #itemize-tagged transactions.'].filter(Boolean), 'both', taxValInput('d.giving', doc.d.giving),
+      L.charityFloorOn ? 'Over ' + taxPct(L.charityFloor) + ' of AGI (' + taxFmt(f.givingFloor) + ')' : '', money(f.giving), money(st.giving))
     + row('mortgage', 'Mortgage Interest', ['Home mortgage interest for the year (Form 1098).', 'Only the share not already used as a business expense. Interest on up to $750,000 of mortgage debt counts.'], 'both', taxValInput('d.mortgage', doc.d.mortgage), '', money(f.mortgage), money(st.mortgage))
     + row('property', 'Property Taxes', ['Real estate taxes paid for the year.', 'Federally they count toward the SALT cap, together with state income tax.'], 'both', taxValInput('d.property', doc.d.property), 'Federal: part of SALT', toSalt, money(st.property))
-    + row('statetax', 'State Income Tax', ['State Tax Due from the monthly table, deductible federally (under the SALT cap).', 'Not deductible on the state return itself.'], 'fed', money(f.stateTax), 'From State Tax Due', toSalt, dash)
+    + row('statetax', 'State Income Tax', ['State income tax paid during the year, deductible federally (under the SALT cap): the state withholding entered in the monthly table (with the months still to come projected) plus what\u2019s withheld on the bonus.', 'With no state withholding entered, State Tax Due stands in for it.', 'A prior year\u2019s balance paid this year also counts, but isn\u2019t included.', 'Not deductible on the state return itself.'], 'fed', money(f.stateTax), f.statePaid ? 'State withholding paid' : 'From State Tax Due', toSalt, dash)
     + row('salt', 'SALT (State + Property Taxes)', ['State Income Tax + Property Taxes, up to the federal cap.', 'The cap falls by ' + taxPct(L.saltPoRate, 0) + ' of AGI over ' + taxFmt(L.saltPoThreshold) + ', but not below ' + taxFmt(L.saltPoFloor) + '.'], 'fed', money(f.saltRaw), saltLimit, money(f.salt), dash)
     + row('medical', 'Medical (Not HSA-Reimbursed)', ['Out-of-pocket medical and dental costs not paid from an HSA or FSA.', 'Only the part above a share of AGI counts: ' + taxPct(L.medFloor) + ' federally, ' + taxPct(st.medFloorPct, 0) + ' for the state.'], 'both', taxValInput('d.medical', doc.d.medical),
       'Over ' + taxPct(L.medFloor) + ' of AGI (' + taxFmt(f.medFloor) + ') · State: over ' + taxPct(st.medFloorPct, 0) + ' (' + taxFmt(st.medFloor) + ')', money(f.medical), money(st.medical))
@@ -9650,8 +9684,8 @@ function renderTaxCredTable(c, doc) {
       + '<td class="tax-amt">' + limitCell + '</td>'
       + '<td class="tax-amt">' + money(cr.items[x.k]) + '</td></tr>';
   });
-  var stRows = '<tr><td>' + escHtml(L.stateName) + ' Personal Credit' + taxHelpIcon('c:depersonal', L.stateName + ' Personal Credit', taxFmt(L.dePersonal) + ' for each dependent. The number of dependents is set at the top of the page.') + '</td><td>' + taxBadge('state') + '</td>'
-    +   '<td class="tax-amt">' + c.dependents + ' × ' + taxFmt(L.dePersonal) + '</td><td></td><td></td><td class="tax-amt">' + money(sc.personal) + '</td></tr>'
+  var stRows = '<tr><td>' + escHtml(L.stateName) + ' Personal Credit' + taxHelpIcon('c:depersonal', L.stateName + ' Personal Credit', taxFmt(L.dePersonal) + ' for each exemption: you' + (doc.status === 'JOINT' ? ', your spouse' : '') + ' and each dependent.', ['The number of dependents is set at the top of the page.']) + '</td><td>' + taxBadge('state') + '</td>'
+    +   '<td class="tax-amt">' + c.sc.exemptions + ' × ' + taxFmt(L.dePersonal) + '</td><td></td><td></td><td class="tax-amt">' + money(sc.personal) + '</td></tr>'
     + '<tr><td>Other State / Local Tax Paid' + taxHelpIcon('c:stateother', 'Other State / Local Tax Paid', 'Income tax paid to another state or locality on the same income, credited against ' + L.stateName + ' tax.') + '</td><td>' + taxBadge('state') + '</td>'
     +   '<td class="tax-amt">' + taxValInput('d.stateOther', doc.d.stateOther) + '</td><td></td><td></td><td class="tax-amt">' + money(sc.other) + '</td></tr>';
   h += '<tr class="tax-sub"><td>Federal Credits Total' + taxHelpIcon('c:fedtotal', 'Federal Credits Total', 'Child Tax Credit + the credits above.', ['Limited to the federal income tax (' + taxFmt(A.fedTax) + '); treated as non-refundable.']) + '</td><td></td><td></td><td></td><td></td><td class="tax-amt">' + taxFmt(cr.applied) + (cr.applied < cr.total ? ' <span class="tax-note">of ' + taxFmt(cr.total) + '</span>' : '') + '</td></tr>';
@@ -9698,11 +9732,12 @@ function renderTaxBrackets(c, doc) {
       ['Federal standard deduction', taxFmt(L.fedStd)], L.stateNone ? null : [L.stateName + ' standard deduction', taxFmt(L.deStd)],
       ['SALT cap', taxFmt(L.saltCap) + (L.saltPoOn ? ' (phases down over ' + taxFmt(L.saltPoThreshold) + ' AGI)' : '')],
       ['Medical deduction floor', taxPct(L.medFloor) + ' of AGI'],
+      L.charityFloorOn ? ['Charitable deduction floor', taxPct(L.charityFloor) + ' of AGI'] : null,
       ['Social Security', taxPct(L.ssRate) + ' up to ' + taxFmt(L.ssCap)],
       ['Medicare', taxPct(L.mcRate, 2) + ' + ' + taxPct(L.mcAddRate) + ' over ' + taxFmt(L.mcAddThreshold)],
       ['Child Tax Credit', taxFmt(L.ctcAmount) + ' per child'], L.stateNone ? null : [L.stateName + ' personal credit', taxFmt(L.dePersonal) + ' each'],
       ['Student loan interest', 'up to ' + taxFmt(L.sliCap) + ', phase-out ' + taxFmt(L.sliStart) + '–' + taxFmt(L.sliStart + L.sliDivisor)],
-      L.stateNone ? null : [L.stateName + ' 529 subtraction', 'up to ' + taxFmt(L.de529Cap)]
+      L.stateNone ? null : [L.stateName + ' 529 subtraction', 'up to ' + taxFmt(L.de529Cap) + (isFinite(L.de529AgiLimit) ? ' (AGI up to ' + taxFmt(L.de529AgiLimit) + ')' : '')]
     ].filter(Boolean);
     fig.innerHTML = '<thead><tr><th colspan="2">Other Figures · ' + escHtml(sl) + '</th></tr></thead><tbody>'
       + rows.map(function(r) { return '<tr><td>' + escHtml(r[0]) + '</td><td class="tax-amt">' + escHtml(r[1]) + '</td></tr>'; }).join('') + '</tbody>';
