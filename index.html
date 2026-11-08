@@ -2687,7 +2687,7 @@ html.rw-tab-active #tab-row { z-index: 30; }
     <div class="tax-legend">The symbol at the left of a row shows how it follows from the rows above: <b>+</b> add, <b>&minus;</b> subtract, <b>&times;</b> apply a rate (shown), <b>&divide;</b> divide, <b>=</b> result.</div>
     <div class="tax-hint" id="tax-empty-hint">Start with your monthly wages. Cells take math (e.g. <code>187000/12</code>), <strong>&raquo;</strong> copies a month to the rest of the year, and typing in Est. Annual spreads an amount evenly. Hover any <span class="tax-help tax-help-inline">?</span> for how a row is figured.</div>
     <div class="lw-table-wrap" id="tax-month-wrap"><table id="tax-month-table"></table></div>
-    <div class="tax-sec-title">Itemized Deductions</div>
+    <div class="tax-sec-title">Deductions</div>
     <div class="lw-table-wrap tax-narrow"><table id="tax-ded-table" class="tax-side-table"></table></div>
     <div class="tax-sec-title">Credits</div>
     <div class="lw-table-wrap tax-narrow"><table id="tax-cred-table" class="tax-side-table"></table></div>
@@ -9492,7 +9492,7 @@ function taxMonthRows(c, doc) {
     { k: 'agi', label: 'Adjusted Gross Income', sub: true, f: 'MAGI − Student Loan Interest' },
     { sec: 'Federal' },
     { k: 'fedDed', label: 'Standard / Itemized Deduction', f: 'The larger of the standard deduction (' + taxFmt(f.std) + ', ' + e(sl.toLowerCase()) + ') and your itemized deductions (' + taxFmt(f.itemized) + ') — using ' + (f.itemizing ? 'itemized' : 'standard') + '.',
-      n: ['See Itemized Deductions below. Spread evenly over the year.'] },
+      n: ['See Deductions below. Spread evenly over the year.'] },
     { k: 'qbi', label: 'Qualified Business Income Deduction', hideZero: true, f: '20% of business profit (after ½ self-employment tax), up to 20% of taxable income.' },
     { k: 'fedTaxable', label: 'Federal Taxable Income', sub: true, f: 'AGI − Standard / Itemized Deduction − QBI Deduction' },
     { k: 'fedTax', label: 'Federal Income Tax', f: 'The year’s taxable income (' + taxFmt(A.fedTaxable) + ') through the federal brackets below = ' + taxFmt(A.fedTax) + '.',
@@ -9532,7 +9532,7 @@ function taxMonthRows(c, doc) {
     taxShowTreasury ? { k: 'treasury', input: true, label: 'SGOV / Treasury Income', f: 'Interest from U.S. Treasuries (e.g. SGOV, USFR), which states don\u2019t tax.', n: ['It is still federal income, so include it under Interest too.'] } : null,
     { k: 'stateAgi', label: 'State AGI', sub: true, f: 'AGI \u2212 529 Contributions (up to the cap)' + (taxShowTreasury ? ' \u2212 SGOV / Treasury Income' : '') },
     { k: 'stateDed', label: 'Standard / Itemized Deduction', f: 'The larger of ' + L.stateName + '\u2019s standard deduction (' + taxFmt(st.std) + ') and your ' + L.stateName + ' itemized deductions (' + taxFmt(st.itemized) + ') \u2014 using ' + (st.itemizing ? 'itemized' : 'standard') + '.',
-      n: ['See Itemized Deductions below. Spread evenly over the year.'] },
+      n: ['See Deductions below. Spread evenly over the year.'] },
     { k: 'stateTaxable', label: 'State Taxable Income', sub: true, f: 'State AGI \u2212 Standard / Itemized Deduction' },
     { k: 'stateTax', label: 'State Income Tax', f: 'The year\u2019s state taxable income (' + taxFmt(A.stTaxable) + ') through the ' + L.stateName + ' brackets below = ' + taxFmt(A.stTax) + '.',
       n: ['Top bracket reached ' + taxPct(stMarg.rate, 2) + '. Each month shows its share, in proportion to its taxable income.'] },
