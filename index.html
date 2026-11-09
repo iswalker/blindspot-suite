@@ -768,6 +768,9 @@ td.tax-in:focus-within .tax-fill { display: block; }
 .tax-side-table tr.tax-sec td { font-size: 14px; font-weight: 700; color: #333; padding-top: 14px; }
 .tax-limit { color: #777; font-size: 13px; white-space: normal; min-width: 160px; }
 #tax-figures td.tax-amt { white-space: normal; }
+.tax-compare { text-align: left; color: #777; font-weight: 400; padding-left: 12px; white-space: nowrap; }
+.tax-compare .tax-cmp-used { color: #333; font-weight: 600; }
+.tax-compare .tax-check { width: auto; margin-left: 4px; }
 .tax-check { display: inline-block; width: 18px; margin-left: 2px; text-align: center; color: #1e8e4e; font-weight: 700; }
 .tax-note { color: #999; font-size: 12px; font-weight: 400; font-style: italic; }
 .tax-badge { display: inline-block; padding: 1px 8px; border-radius: 8px; font-size: 12px; font-weight: 600; }
@@ -9304,7 +9307,7 @@ function taxCompute(doc) {
   // The year's federal figures are the whole-year calculation itself, not a sum of the months (which are paystub-by-paystub estimates)
   AN.fedTax = full.A.fedTax; AN.fedCredits = full.cr.applied; AN.fedDue = full.A.fedDue; AN.total = full.A.total;
   AN.stateTax = full.A.stTax; AN.stateCredits = full.sc.applied; AN.stateDue = full.A.stDue;
-  AN.fedItemized = full.fed.itemized; AN.fedStd = full.fed.std; AN.stItemized = full.st.itemized; AN.stStd = full.st.std;
+  AN.fedDedTotal = full.fed.used; AN.stDedTotal = full.st.used;
   // The months show each month as it happened (bonus and all), except the tax rows, which are what a paystub should have withheld:
   // those come from the regular-pay figures, since a paystub knows nothing of a bonus.
   var R = Object.assign({}, full.R);
@@ -9604,17 +9607,17 @@ function taxMonthRows(c, doc) {
           '<b>Tax preparation:</b> return preparation and e-filing fees, tax software and tax books, legal or accounting fees for tax advice and IRS disputes, and appraisal fees for tax purposes.',
           '<b>Investment and other:</b> investment advisory and management fees; fees to collect interest and dividends; safe deposit box rental (for investments); IRA custodial or trustee fees billed separately; investment books, publications and software; legal fees to produce or collect taxable income; hobby expenses up to the hobby\u2019s income; appraisal fees for charitable gifts or casualty losses; repayments of $3,000 or less of income reported in an earlier year.',
           'Not here: gambling losses and casualty losses (their own lines), and anything already counted as a business expense, a medical cost or a gift.'] },
-    { k: 'fedItemized', applies: 'fed', annualOnly: true, checkOn: function() { return f.itemizing; }, label: 'Federal Itemized Total', sub: true, f: 'Giving + Mortgage Interest + SALT + Medical, after their limits.',
-      n: ['Compared with the standard deduction (' + taxFmt(f.std) + '): the larger is the deduction used, marked with a green check. It feeds Standard / Itemized Deduction below.'] },
-    { k: 'fedStd', applies: 'fed', annualOnly: true, checkOn: function() { return !f.itemizing; }, label: 'Federal Standard Deduction', f: 'The flat deduction for your filing status (' + e(sl.toLowerCase()) + ').', n: ['From the tax figures below. Used when it is larger than the itemized total.'] },
-    L.stateNone ? null : { k: 'stItemized', applies: 'state', annualOnly: true, checkOn: function() { return st.itemizing; }, label: L.stateName + ' Itemized Total', sub: true, f: 'Giving + Mortgage Interest + Property Taxes + Medical + Misc., after their limits.',
-      n: ['Compared with ' + L.stateName + '\u2019s standard deduction (' + taxFmt(st.std) + '): the larger is used, marked with a green check.'] },
-    L.stateNone ? null : { k: 'stStd', applies: 'state', annualOnly: true, checkOn: function() { return !st.itemizing; }, label: L.stateName + ' Standard Deduction', f: 'The flat deduction for ' + L.stateName + '.', n: ['From the tax figures below.'] },
+    { k: 'fedDedTotal', applies: 'fed', annualOnly: true, compare: { std: f.std, item: f.itemized, itemizing: f.itemizing }, label: 'Federal Deductions Total', sub: true,
+      f: 'The larger of the standard deduction (' + taxFmt(f.std) + ', ' + e(sl.toLowerCase()) + ') and your itemized deductions (' + taxFmt(f.itemized) + '): Giving + Mortgage Interest + SALT + Medical, after their limits.',
+      n: ['The larger is the deduction used, marked with a green check. It feeds ' + (f.itemizing ? 'Itemized' : 'Standard') + ' Deduction below.'] },
+    L.stateNone ? null : { k: 'stDedTotal', applies: 'state', annualOnly: true, compare: { std: st.std, item: st.itemized, itemizing: st.itemizing }, label: L.stateName + ' Deductions Total', sub: true,
+      f: 'The larger of ' + L.stateName + '\u2019s standard deduction (' + taxFmt(st.std) + ') and your itemized deductions (' + taxFmt(st.itemized) + '): Giving + Mortgage Interest + Property Taxes + Medical + Misc., after their limits.',
+      n: ['The larger is the deduction used, marked with a green check. It feeds ' + (st.itemizing ? 'Itemized' : 'Standard') + ' Deduction in the state section below.'] },
     { sec: 'Federal' },
-    { k: 'fedDed', basis: 'year', label: 'Standard / Itemized Deduction', f: 'The larger of the standard deduction (' + taxFmt(f.std) + ', ' + e(sl.toLowerCase()) + ') and your itemized deductions (' + taxFmt(f.itemized) + ') — using ' + (f.itemizing ? 'itemized' : 'standard') + '.',
+    { k: 'fedDed', basis: 'year', label: (f.itemizing ? 'Itemized' : 'Standard') + ' Deduction', f: 'The larger of the standard deduction (' + taxFmt(f.std) + ', ' + e(sl.toLowerCase()) + ') and your itemized deductions (' + taxFmt(f.itemized) + ') — using ' + (f.itemizing ? 'itemized' : 'standard') + '.',
       n: ['See the Deductions section above. Spread evenly over the year.'] },
     { k: 'qbi', basis: 'year', label: 'Qualified Business Income Deduction', hideZero: true, f: '20% of business profit (after ½ self-employment tax), up to 20% of taxable income.' },
-    { k: 'fedTaxable', label: 'Federal Taxable Income', sub: true, f: 'AGI − Standard / Itemized Deduction − QBI Deduction' },
+    { k: 'fedTaxable', label: 'Federal Taxable Income', sub: true, f: 'AGI − ' + (f.itemizing ? 'Itemized' : 'Standard') + ' Deduction − QBI Deduction' },
     { k: 'fedTax', basis: 'fc', label: 'Federal Income Tax', f: 'The year’s taxable income (' + taxFmt(A.fedTaxable) + ') through the federal brackets below = ' + taxFmt(A.fedTax) + '.',
       n: ['Effective rate ' + taxPct(A.fedTaxable > 0 ? A.fedTax / A.fedTaxable : 0) + ' of taxable income; top bracket reached ' + taxPct(fedMarg.rate, 0) + '.', 'Each month shows what that month\u2019s paystub should have withheld: pay forecast for the rest of the year at this month\u2019s level, plus the interest and other income received through last month, through the brackets, less what earlier paystubs should have withheld, spread over the months left. Bonuses are left out.', 'A raise lifts the later months but never changes the earlier ones. Est. Annual is the whole-year calculation, bonuses included.'] },
     { k: 'fedCredits', basis: 'year', label: 'Federal Credits', f: 'Child Tax Credit (' + taxFmt(c.cr.ctc) + ') + the other credits under Credits below (' + taxFmt(c.cr.total - c.cr.ctc) + ').',
@@ -9643,9 +9646,9 @@ function taxMonthRows(c, doc) {
       } },
     taxShowTreasury ? { k: 'treasury', basis: 'ytd', input: true, label: 'SGOV / Treasury Income', f: 'Interest from U.S. Treasuries (e.g. SGOV, USFR), which states don\u2019t tax.', n: ['It is still federal income, so include it under Interest too.'] } : null,
     { k: 'stateAgi', label: 'State AGI', sub: true, f: 'AGI \u2212 529 Contributions (up to the cap)' + (taxShowTreasury ? ' \u2212 SGOV / Treasury Income' : '') },
-    { k: 'stateDed', basis: 'year', label: 'Standard / Itemized Deduction', f: 'The larger of ' + L.stateName + '\u2019s standard deduction (' + taxFmt(st.std) + ') and your ' + L.stateName + ' itemized deductions (' + taxFmt(st.itemized) + ') \u2014 using ' + (st.itemizing ? 'itemized' : 'standard') + '.',
+    { k: 'stateDed', basis: 'year', label: (st.itemizing ? 'Itemized' : 'Standard') + ' Deduction', f: 'The larger of ' + L.stateName + '\u2019s standard deduction (' + taxFmt(st.std) + ') and your ' + L.stateName + ' itemized deductions (' + taxFmt(st.itemized) + ') \u2014 using ' + (st.itemizing ? 'itemized' : 'standard') + '.',
       n: ['See the Deductions section above. Spread evenly over the year.'] },
-    { k: 'stateTaxable', label: 'State Taxable Income', sub: true, f: 'State AGI \u2212 Standard / Itemized Deduction' },
+    { k: 'stateTaxable', label: 'State Taxable Income', sub: true, f: 'State AGI \u2212 ' + (st.itemizing ? 'Itemized' : 'Standard') + ' Deduction' },
     { k: 'stateTax', basis: 'fc', label: 'State Income Tax', f: 'The year\u2019s state taxable income (' + taxFmt(A.stTaxable) + ') through the ' + L.stateName + ' brackets below = ' + taxFmt(A.stTax) + '.',
       n: ['Top bracket reached ' + taxPct(stMarg.rate, 2) + '.', 'Each month shows what that month\u2019s paystub should have withheld for the state, figured the same way as the federal row: pay forecast for the rest of the year plus other income received through last month, less what earlier paystubs should have withheld. Bonuses are left out.'] },
     { k: 'stateCredits', basis: 'year', label: 'State Credits', f: 'Personal credit (' + taxFmt(L.dePersonal) + ' \u00D7 ' + c.sc.exemptions + ' exemptions = ' + taxFmt(c.sc.personal) + ') + other state / local tax paid (' + taxFmt(c.sc.other) + ').',
@@ -9730,10 +9733,14 @@ function renderTaxMonthTable(c, doc) {
       var eSt = row.expected === 'state', eMonths = eSt ? c.expStMonths : c.expMonths;
       h += taxSignedCell(c.AN[eSt ? 'stateExpected' : 'fedExpected'], 'tax-annual-col');
       for (var ei = 0; ei < 12; ei++) h += eMonths ? taxSignedCell(eMonths[ei], ei === curM ? 'tax-cur' : '') : '<td' + (ei === curM ? ' class="tax-cur"' : '') + '></td>';
+    } else if (row.compare) {      // standard vs itemized in one row: the one used is the total, the comparison runs across the months
+      var cm = row.compare, ck = ' <span class="tax-check">\u2713</span>';
+      h += taxValCell(ann, 'tax-annual-col')
+        + '<td colspan="12" class="tax-compare">'
+        + '<span class="' + (cm.itemizing ? '' : 'tax-cmp-used') + '">' + taxFmt(cm.std) + ' standard' + (cm.itemizing ? '' : ck) + '</span> vs. '
+        + '<span class="' + (cm.itemizing ? 'tax-cmp-used' : '') + '">' + taxFmt(cm.item) + ' itemized' + (cm.itemizing ? ck : '') + '</span></td>';
     } else if (row.annualOnly) {
-      h += row.checkOn
-        ? '<td class="tax-annual-col' + (Math.round(ann) === 0 ? ' tax-zero' : '') + '">' + taxFmt(ann) + '<span class="tax-check"' + (row.checkOn() ? ' title="Larger, so this is the deduction used"' : '') + '>' + (row.checkOn() ? '\u2713' : '') + '</span></td>'
-        : taxValCell(ann, 'tax-annual-col');
+      h += taxValCell(ann, 'tax-annual-col');
       for (var ai = 0; ai < 12; ai++) h += '<td' + (ai === curM ? ' class="tax-cur"' : '') + '></td>';
     } else if (row.sliInput) {     // the year's interest paid is entered here; the months show the part that counts
       var sliWhy = taxSliWhy(c), sliOut = c.A.sliPaid > 0 && Math.round(c.A.sli) === 0, sliBad = !isFinite(taxEval(doc.d.studentLoan));
