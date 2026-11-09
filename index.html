@@ -768,6 +768,13 @@ td.tax-in:focus-within .tax-fill { display: block; }
 .tax-side-table tr.tax-sec td { font-size: 14px; font-weight: 700; color: #333; padding-top: 14px; }
 .tax-limit { color: #777; font-size: 13px; white-space: normal; min-width: 160px; }
 #tax-figures td.tax-amt { white-space: normal; }
+.tax-dual { position: relative; }
+.tax-dual input.tax-cell { min-width: 88px; color: transparent; }
+.tax-dual input.tax-cell:focus { color: #1a4fa0; }
+.tax-dual-view { position: absolute; left: 2px; right: 2px; top: 50%; transform: translateY(-50%); padding: 0 6px; text-align: right; font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; pointer-events: none; }
+.tax-dual:focus-within .tax-dual-view { display: none; }
+.tax-dual-view .tax-entered { color: #1a4fa0; }
+.tax-dual-view .tax-used { color: #333; }
 .tax-compare { text-align: left; color: #777; font-weight: 400; padding-left: 12px; white-space: nowrap; }
 .tax-compare .tax-cmp-used { color: #333; font-weight: 600; }
 .tax-compare .tax-check { width: auto; margin-left: 4px; }
@@ -2711,7 +2718,7 @@ html.rw-tab-active #tab-row { z-index: 30; }
     <div class="tax-cards" id="tax-cards"></div>
     <div class="tax-sec-title">Monthly Breakdown</div>
     <div class="tax-legend">The symbol at the left of a row shows how it follows from the rows above: <b>+</b> add, <b>&minus;</b> subtract, <b>&times;</b> apply a rate (shown), <b>&divide;</b> divide, <b>=</b> result.<br>The <b>Monthly Basis</b> column says how each figure feeds a month&rsquo;s expected withholding: <span class="tax-bchip b-month">In-Month</span> counts in its own month &middot; <span class="tax-bchip b-off">Off-Cycle</span> has its own withholding, so it never changes a paystub &middot; <span class="tax-bchip b-ytd">YTD &rarr; Later</span> a paystub can&rsquo;t know it yet, so the year-to-date total through last month raises withholding from this month on &middot; <span class="tax-bchip b-year">Annual &divide; 12</span> spread evenly &middot; <span class="tax-bchip b-fc">Paystub Est.</span> what that paystub should have withheld.</div>
-    <div class="tax-hint" id="tax-empty-hint">Start with your monthly wages. Cells take math (e.g. <code>187000/12</code>), <strong>&raquo;</strong> copies a month to the rest of the year, and typing in Est. Annual spreads an amount evenly. Hover any <span class="tax-help tax-help-inline">?</span> for how a row is figured.</div>
+    <div class="tax-hint" id="tax-empty-hint">Start with your monthly wages. Cells take math (e.g. <code>187000/12</code>), <strong>&raquo;</strong> copies a month to the rest of the year, and Est. Annual is just the total of the months. Hover any <span class="tax-help tax-help-inline">?</span> for how a row is figured.</div>
     <div class="lw-table-wrap" id="tax-month-wrap"><table id="tax-month-table"></table></div>
     <div class="tax-sec-title">Credits</div>
     <div class="lw-table-wrap tax-narrow"><table id="tax-cred-table" class="tax-side-table"></table></div>
@@ -8914,8 +8921,8 @@ var TAX_FALLBACK_YEAR = 2026;
 var TAX_FALLBACK = {"irs/income/bracket.yaml":{"rates":{"1":{"2018-01-01":0.1},"2":{"2018-01-01":0.12},"3":{"2018-01-01":0.22},"4":{"2018-01-01":0.24},"5":{"2018-01-01":0.32},"6":{"2018-01-01":0.35},"7":{"2018-01-01":0.37}},"thresholds":{"1":{"SINGLE":{"values":{"2026-01-01":12400}},"JOINT":{"values":{"2026-01-01":24800}},"SEPARATE":{"values":{"2026-01-01":12400}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":17700}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":24800}}},"2":{"SINGLE":{"values":{"2026-01-01":50400}},"JOINT":{"values":{"2026-01-01":100800}},"SEPARATE":{"values":{"2026-01-01":50400}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":67450}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":100800}}},"3":{"SINGLE":{"values":{"2026-01-01":105700}},"JOINT":{"values":{"2026-01-01":211400}},"SEPARATE":{"values":{"2026-01-01":105700}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":105700}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":211400}}},"4":{"SINGLE":{"values":{"2026-01-01":201775}},"JOINT":{"values":{"2026-01-01":403550}},"SEPARATE":{"values":{"2026-01-01":201775}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":201750}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":403550}}},"5":{"SINGLE":{"values":{"2026-01-01":256225}},"JOINT":{"values":{"2026-01-01":512450}},"SEPARATE":{"values":{"2026-01-01":256225}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":256200}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":512450}}},"6":{"SINGLE":{"values":{"2026-01-01":640600}},"JOINT":{"values":{"2026-01-01":768700}},"SEPARATE":{"values":{"2026-01-01":384350}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":640600}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":768700}}},"7":{"SINGLE":{"values":{"2018-01-01":null}},"JOINT":{"values":{"2018-01-01":null}},"SEPARATE":{"values":{"2018-01-01":null}},"HEAD_OF_HOUSEHOLD":{"values":{"2018-01-01":null}},"SURVIVING_SPOUSE":{"values":{"2018-01-01":null}}}}},"irs/deductions/standard/amount.yaml":{"SINGLE":{"2026-01-01":16100},"JOINT":{"2026-01-01":32200},"SEPARATE":{"2026-01-01":16100},"HEAD_OF_HOUSEHOLD":{"2026-01-01":24150},"SURVIVING_SPOUSE":{"2026-01-01":32200}},"irs/deductions/itemized/salt_and_real_estate/cap.yaml":{"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":40400}},"JOINT":{"values":{"2026-01-01":40400}},"SEPARATE":{"values":{"2026-01-01":20200}},"SINGLE":{"values":{"2026-01-01":40400}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":40400}}},"irs/deductions/itemized/salt_and_real_estate/phase_out/threshold.yaml":{"SINGLE":{"2026-01-01":505000},"HEAD_OF_HOUSEHOLD":{"2026-01-01":505000},"JOINT":{"2026-01-01":505000},"SURVIVING_SPOUSE":{"2026-01-01":505000},"SEPARATE":{"2026-01-01":252500}},"irs/deductions/itemized/salt_and_real_estate/phase_out/rate.yaml":{"values":{"2025-01-01":0.3}},"irs/deductions/itemized/salt_and_real_estate/phase_out/floor/amount.yaml":{"SINGLE":{"2025-01-01":10000},"HEAD_OF_HOUSEHOLD":{"2025-01-01":10000},"JOINT":{"2025-01-01":10000},"SURVIVING_SPOUSE":{"2025-01-01":10000},"SEPARATE":{"2025-01-01":5000}},"irs/deductions/itemized/salt_and_real_estate/phase_out/in_effect.yaml":{"values":{"2025-01-01":true}},"irs/deductions/itemized/medical/floor.yaml":{"values":{"2017-01-01":0.075}},"irs/deductions/itemized/charity/floor/amount.yaml":{"values":{"2026-01-01":0.005}},"irs/deductions/itemized/charity/floor/applies.yaml":{"values":{"2026-01-01":true}},"irs/payroll/social_security/cap.yaml":{"values":{"2026-01-01":184500}},"irs/payroll/social_security/rate/employee.yaml":{"values":{"2013-01-01":0.062}},"irs/payroll/medicare/rate/employee.yaml":{"values":{"2013-01-01":0.0145}},"irs/payroll/medicare/additional/rate.yaml":{"values":{"2013-01-01":0.009}},"irs/payroll/medicare/additional/exclusion.yaml":{"SINGLE":{"2013-01-01":200000},"JOINT":{"2013-01-01":250000},"SEPARATE":{"2013-01-01":125000},"HEAD_OF_HOUSEHOLD":{"2013-01-01":200000},"SURVIVING_SPOUSE":{"2013-01-01":200000}},"irs/self_employment/rate/social_security.yaml":{"values":{"2013-01-01":0.124}},"irs/self_employment/rate/medicare.yaml":{"values":{"2013-01-01":0.029}},"irs/ald/student_loan_interest/cap.yaml":{"JOINT":{"2002-01-01":2500},"SINGLE":{"2002-01-01":2500},"SEPARATE":{"2002-01-01":0},"HEAD_OF_HOUSEHOLD":{"2002-01-01":2500},"SURVIVING_SPOUSE":{"2002-01-01":2500}},"irs/ald/student_loan_interest/reduction/start.yaml":{"JOINT":{"values":{"2026-01-01":175000}},"SINGLE":{"values":{"2026-01-01":85000}},"SEPARATE":{"2002-01-01":0},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":85000}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":85000}}},"irs/ald/student_loan_interest/reduction/divisor.yaml":{"JOINT":{"2002-01-01":30000},"SINGLE":{"2002-01-01":15000},"SEPARATE":{"2002-01-01":0},"HEAD_OF_HOUSEHOLD":{"2002-01-01":15000},"SURVIVING_SPOUSE":{"2002-01-01":15000}},"irs/credits/ctc/amount/base.yaml":{"brackets":[{"threshold":{"values":{"2013-01-01":0}},"amount":{"values":{"2025-01-01":2200}}},{"threshold":{"values":{"2022-01-01":17}},"amount":{"values":{"2013-01-01":0}}}]},"irs/credits/ctc/phase_out/threshold.yaml":{"SINGLE":{"2018-01-01":200000},"JOINT":{"2018-01-01":400000},"SEPARATE":{"2018-01-01":200000},"HEAD_OF_HOUSEHOLD":{"2018-01-01":200000},"SURVIVING_SPOUSE":{"2018-01-01":400000}},"irs/credits/ctc/phase_out/amount.yaml":{"values":{"0000-01-01":50}},"irs/credits/ctc/phase_out/increment.yaml":{"values":{"0000-01-01":1000}},"states/de/tax/income/rate.yaml":{"brackets":[{"threshold":{"1996-01-01":0},"rate":{"1996-01-01":0}},{"threshold":{"1996-01-01":2000},"rate":{"2014-01-01":0.022}},{"threshold":{"1996-01-01":5000},"rate":{"2014-01-01":0.039}},{"threshold":{"1996-01-01":10000},"rate":{"2014-01-01":0.048}},{"threshold":{"1996-01-01":20000},"rate":{"2014-01-01":0.052}},{"threshold":{"1996-01-01":25000},"rate":{"2014-01-01":0.0555}},{"threshold":{"2014-01-01":60000},"rate":{"2014-01-01":0.066}}]},"states/de/tax/income/deductions/standard/amount.yaml":{"JOINT":{"2000-01-01":6500},"SINGLE":{"2000-01-01":3250},"SEPARATE":{"2000-01-01":3250},"HEAD_OF_HOUSEHOLD":{"2000-01-01":3250},"SURVIVING_SPOUSE":{"2000-01-01":3250}},"states/de/tax/income/credits/personal_credits/personal.yaml":{"values":{"1996-01-01":110}},"states/de/tax/income/subtractions/plan_529/agi_limit.yaml":{"JOINT":{"2022-01-01":200000},"SURVIVING_SPOUSE":{"2022-01-01":100000},"SINGLE":{"2022-01-01":100000},"HEAD_OF_HOUSEHOLD":{"2022-01-01":100000},"SEPARATE":{"2022-01-01":100000}},"states/de/tax/income/subtractions/plan_529/cap.yaml":{"JOINT":{"2022-01-01":2000},"SURVIVING_SPOUSE":{"2022-01-01":1000},"SINGLE":{"2022-01-01":1000},"HEAD_OF_HOUSEHOLD":{"2022-01-01":1000},"SEPARATE":{"2022-01-01":1000}},"irs/credits/cdcc/max.yaml":{"values":{"2022-01-01":3000}},"irs/credits/cdcc/eligibility/max.yaml":{"values":{"2010-01-01":2}},"irs/credits/cdcc/phase_out/start.yaml":{"values":{"2022-01-01":15000}},"irs/credits/cdcc/phase_out/min.yaml":{"values":{"2026-01-01":0.35}},"irs/credits/cdcc/phase_out/max.yaml":{"values":{"2026-01-01":0.5}},"irs/credits/cdcc/phase_out/rate.yaml":{"values":{"2013-01-01":0.01}},"irs/credits/cdcc/phase_out/increment.yaml":{"values":{"2013-01-01":2000}},"irs/credits/cdcc/phase_out/amended_structure/applies.yaml":{"values":{"2026-01-01":true}},"irs/credits/cdcc/phase_out/amended_structure/second_start.yaml":{"HEAD_OF_HOUSEHOLD":{"2026-01-01":75000},"JOINT":{"2026-01-01":150000},"SEPARATE":{"2026-01-01":75000},"SINGLE":{"2026-01-01":75000},"SURVIVING_SPOUSE":{"2026-01-01":75000}},"irs/credits/cdcc/phase_out/amended_structure/second_increment.yaml":{"HEAD_OF_HOUSEHOLD":{"2026-01-01":2000},"JOINT":{"2026-01-01":4000},"SEPARATE":{"2026-01-01":2000},"SINGLE":{"2026-01-01":2000},"SURVIVING_SPOUSE":{"2026-01-01":2000}},"irs/credits/cdcc/phase_out/amended_structure/second_min.yaml":{"values":{"2026-01-01":0.2}},"irs/credits/education/phase_out.yaml":{"start":{"single":{"values":{"2010-01-01":80000}},"joint":{"values":{"2010-01-01":160000}}},"length":{"single":{"values":{"2010-01-01":10000}},"joint":{"values":{"2010-01-01":20000}}}},"irs/credits/education/american_opportunity_credit/amount.yaml":{"brackets":[{"threshold":{"2009-01-01":0},"rate":{"2009-01-01":1}},{"threshold":{"2009-01-01":2000},"rate":{"2009-01-01":0.25}},{"threshold":{"2009-01-01":4000},"rate":{"2009-01-01":0}}]},"irs/credits/energy_efficient_home_improvement/in_effect.yaml":{"values":{"2026-01-01":false}},"irs/credits/energy_efficient_home_improvement/rates/improvements.yaml":{"values":{"2023-01-01":0.3}},"irs/credits/energy_efficient_home_improvement/cap/annual/total.yaml":{"values":{"2023-01-01":1200}},"irs/credits/residential_clean_energy/applicable_percentage.yaml":{"values":{"2026-01-01":0}}};
 var TAX_STATUSES = [['SINGLE', 'Single'], ['JOINT', 'Married filing jointly'], ['HEAD_OF_HOUSEHOLD', 'Head of household'], ['SEPARATE', 'Married filing separately']];
 var TAX_PAY_FREQ = [['semimonthly', 'Twice a month', 2], ['biweekly', 'Every two weeks', 26 / 12], ['weekly', 'Weekly', 52 / 12], ['monthly', 'Monthly', 1]];
-var TAX_MONTH_KEYS = ['wages', 'bonus', 'interest', 'business', 'hsa', 'premiums', 'k401', 'bizexp', 's529', 'treasury', 'giving', 'mortgage', 'property', 'medical', 'misc'];
-var TAX_DED_KEYS = ['studentLoan', 'stateOther'];
+var TAX_MONTH_KEYS = ['wages', 'bonus', 'interest', 'business', 'hsa', 'premiums', 'k401', 'bizexp', 's529', 'treasury', 'giving', 'mortgage', 'property', 'medical', 'misc', 'sli'];
+var TAX_DED_KEYS = ['stateOther'];
 // Credits other than the Child Tax Credit. You enter what you spent; the rate and limit come from the tax figures (see taxCore), except
 // for adoption, which they don't carry: its credit is the expenses up to a cap that is entered by hand. `count` is an optional number of people the credit is for.
 var TAX_CREDIT_DEFS = [
@@ -9158,9 +9165,10 @@ function taxNormalize(doc) {
   });
   TAX_DED_KEYS.forEach(function(k) { if (doc.d && doc.d[k] != null) base.d[k] = String(doc.d[k]); });
   // Itemized deductions used to be one figure for the year; a copy saved that way is spread evenly over the months
-  ['giving', 'mortgage', 'property', 'medical', 'misc'].forEach(function(k) {
-    if (!(doc.d && doc.d[k] != null) || String(doc.d[k]).trim() === '' || base.m[k].some(function(x) { return String(x).trim() !== ''; })) return;
-    var total = taxEval(doc.d[k]);
+  [['giving', 'giving'], ['mortgage', 'mortgage'], ['property', 'property'], ['medical', 'medical'], ['misc', 'misc'], ['studentLoan', 'sli']].forEach(function(pair) {
+    var k = pair[1];
+    if (!(doc.d && doc.d[pair[0]] != null) || String(doc.d[pair[0]]).trim() === '' || base.m[k].some(function(x) { return String(x).trim() !== ''; })) return;
+    var total = taxEval(doc.d[pair[0]]);
     if (!isFinite(total) || !total) return;
     var each = String(Math.round(total / 12 * 100) / 100);
     for (var i = 0; i < 12; i++) base.m[k][i] = each;
@@ -9359,7 +9367,7 @@ function taxCore(doc, withBonus, fixed, statePaid) {
   R.halfSe = taxMap(function(i) { return seMain / 2 * seW[i]; });
   R.magi = taxMap(function(i) { return R.gross[i] - v.hsa[i] - v.premiums[i] - v.k401[i] - v.bizexp[i] - R.halfSe[i]; });
   var magiA = taxSum(R.magi);
-  var sliPaid = taxPos(doc.d.studentLoan);
+  var sliPaid = taxPos(taxSum(v.sli));
   var sliCut = L.sliDivisor > 0 ? Math.min(1, Math.max(0, (magiA - L.sliStart) / L.sliDivisor)) : (magiA > L.sliStart ? 1 : 0);
   var sliA = fixed ? fixed.sli : Math.min(sliPaid, L.sliCap) * (1 - sliCut);
   R.sli = taxMap(function() { return sliA / 12; });
@@ -9568,7 +9576,7 @@ function taxMonthRows(c, doc) {
   return [
     { sec: 'Income' },
     { k: 'wages', basis: 'month', input: true, label: 'Wages', f: 'Gross pay before anything is taken out, for the month it is paid.',
-      n: ['Cells take math, e.g. 187000/12. » copies a month to the rest of the year; typing in Est. Annual spreads it evenly.'] },
+      n: ['Cells take math, e.g. 187000/12. » copies a month to the rest of the year. Est. Annual is the total of the months.'] },
     { k: 'bonus', basis: 'off', input: true, noAnnualInput: true, label: 'Bonuses', f: 'Bonuses, in the month they are paid.',
       n: ['Taxed as ordinary income, the same as wages, so they raise the year\u2019s bill (see the \u201Cfrom bonuses\u201D rows under Total).', 'A paystub knows nothing of a bonus: it is withheld on its own at a flat rate when paid (see Bonus Federal Withheld), so it never changes what a month\u2019s paystub should withhold.', 'The 22% \u201Cbonus rate\u201D is only how much employers withhold, not the tax on it.'] },
     { k: 'interest', basis: 'ytd', input: true, label: 'Interest', f: 'Taxable interest and dividends (savings, CDs, Treasury funds).', n: ['Not subject to FICA.', 'A paystub can\u2019t know about it. The interest received through last month is added to the year\u2019s forecast, so withholding rises from the next month on, spread over the months left \u2014 never in the month it arrives, and never reaching back to earlier months.'] },
@@ -9581,8 +9589,11 @@ function taxMonthRows(c, doc) {
     { k: 'bizexp', basis: 'ytd', input: true, label: 'Business Expenses', f: 'Expenses of the business: supplies, mileage, and the business share of the home (mortgage interest, property taxes, utilities, internet, insurance, repairs, depreciation over 39 years) or $5 per square foot.' },
     { k: 'halfSe', basis: 'ytd', label: '½ Self-Employment Tax', hideZero: true, f: 'Half of the self-employment tax (see FICA), which is deductible.' },
     { k: 'magi', label: 'Modified Adjusted Gross Income', sub: true, f: 'Gross Income − FSA/HSA − Medical Premiums − 401(k)/IRA − Business Expenses − ½ Self-Employment Tax' },
-    { k: 'sli', basis: 'year', sliInput: true, label: 'Student Loan Interest', f: 'Interest paid for the year (Form 1098-E), entered in Est. Annual \u2014 up to ' + taxFmt(L.sliCap) + ', reduced as MAGI goes from ' + taxFmt(L.sliStart) + ' to ' + taxFmt(L.sliStart + L.sliDivisor) + '.',
-      n: ['Enter what you paid. It lowers AGI for both returns, even with the standard deduction.', 'The months show the part that counts, spread evenly: ' + taxFmt(A.sli) + ' for the year at your MAGI of ' + taxFmt(A.magi) + ' (' + taxPct(1 - A.sliCut, 0) + ' of the allowed amount).', 'If the limits take some or all of it, the entry is struck through (all) or flagged with a (?) (some).'] },
+    { k: 'sli', basis: 'year', input: true, dual: true,
+      label: L.sliCap <= 0 ? 'Student Loan Interest (not deductible)' : isFinite(L.sliStart + L.sliDivisor) ? 'Student Loan Interest if MAGI < ' + taxShort(L.sliStart + L.sliDivisor) : 'Student Loan Interest',
+      f: 'Interest paid, in the month it is paid (Form 1098-E) \u2014 up to ' + taxFmt(L.sliCap) + ' a year, reduced as MAGI goes from ' + taxFmt(L.sliStart) + ' to ' + taxFmt(L.sliStart + L.sliDivisor) + '.',
+      n: ['Enter what you paid. It lowers AGI for both returns, even with the standard deduction.', 'Est. Annual and each month show what was entered, struck through when the limits take some of it, then what counts: ' + taxFmt(A.sli) + ' for the year at your MAGI of ' + taxFmt(A.magi) + ' (' + taxPct(1 - A.sliCut, 0) + ' of the allowed amount), spread evenly over the months.', 'Click a month to see and change just what you entered.'],
+      calcAnnual: function() { return taxCountedAnnual(A.sliPaid, A.sli, 'm:sli-ann', 'Student Loan Interest Counted', taxSliWhy(c)); } },
     { k: 'agi', label: 'Adjusted Gross Income', sub: true, f: 'MAGI − Student Loan Interest' },
     { sec: 'Deductions' },
     { k: 'giving', basis: 'year', applies: 'both', input: true, label: L.charityFloorOn ? 'Giving Over ' + taxFmt(f.givingFloor) : 'Giving', f: 'Charitable gifts, in the month given.',
@@ -9680,6 +9691,16 @@ function taxMonthRows(c, doc) {
     { k: 'stateRoll', label: 'State Running Total', noAnnual: true, roll: true, f: 'State Tax Due, January through this month.' }
   ]);
 }
+// A month cell whose typed entry and the amount that counts differ: shown as the entry struck through, then what counts. (While the cell
+// is being edited the view is hidden and only the entry shows.)
+function taxDualView(entered, used, has) {
+  if (!has) return { html: Math.round(used) === 0 ? '<span class="tax-zero">' + taxFmt(used) + '</span>' : '<span class="tax-used">' + taxFmt(used) + '</span>', tip: '' };
+  if (Math.abs(entered - used) < 0.005) return { html: '<span class="tax-entered">' + taxFmt(entered) + '</span>', tip: '' };
+  return { html: '<span class="tax-struck">' + taxFmt(entered) + '</span> <span class="tax-used' + (Math.round(used) === 0 ? ' tax-zero' : '') + '">' + taxFmt(used) + '</span>',
+    tip: 'Entered ' + taxFmt(entered) + '; ' + taxFmt(used) + ' counts for tax' };
+}
+// $205,000 -> "$205k" (labels)
+function taxShort(v) { return v >= 1000 ? '$' + parseFloat((v / 1000).toFixed(1)) + 'k' : taxFmt(v); }
 // An Est. Annual cell that is not typed into: the sum of what was entered, struck through when part of it doesn't count, then what does.
 function taxCountedAnnual(sum, counted, helpId, helpTitle, why) {
   return '<td class="tax-annual-col' + (Math.round(counted) === 0 ? ' tax-zero' : '') + '">'
@@ -9742,22 +9763,16 @@ function renderTaxMonthTable(c, doc) {
     } else if (row.annualOnly) {
       h += taxValCell(ann, 'tax-annual-col');
       for (var ai = 0; ai < 12; ai++) h += '<td' + (ai === curM ? ' class="tax-cur"' : '') + '></td>';
-    } else if (row.sliInput) {     // the year's interest paid is entered here; the months show the part that counts
-      var sliWhy = taxSliWhy(c), sliOut = c.A.sliPaid > 0 && Math.round(c.A.sli) === 0, sliBad = !isFinite(taxEval(doc.d.studentLoan));
-      h += '<td class="tax-in tax-annual-col' + (sliBad ? ' tax-bad' : '') + '"' + (sliOut ? ' title="' + escAttr(sliWhy) + '"' : '') + '>'
-        + (sliWhy && !sliOut ? '<span class="tax-annual-flag">' + taxHelpIcon('m:sli-ann', 'Student Loan Interest Counted', sliWhy) + '</span>' : '')
-        + taxCellInput('sli', 'A', String(doc.d.studentLoan || ''), c.A.sliPaid, row.label + ', ' + TAX_YEAR + ' total' + (sliOut ? ' (not counted)' : ''), undefined, sliOut ? ' tax-void' : '') + '</td>';
-      for (var si = 0; si < 12; si++) h += taxValCell(vals[si], si === curM ? 'tax-cur' : '');
     } else if (row.input) {
       var raws = doc.m[row.k];
-      h += row.calcAnnual ? row.calcAnnual()
-        : row.noAnnualInput ? taxValCell(ann, 'tax-annual-col')
-        : '<td class="tax-in tax-annual-col">' + taxCellInput(row.k, 'A', '', ann, row.label + ', ' + TAX_YEAR + ' total') + '</td>';
+      h += row.calcAnnual ? row.calcAnnual() : taxValCell(ann, 'tax-annual-col');      // the year is the total of the months, never typed over
       var voidWhy = row.voidMonths ? row.voidMonths() : '';
       for (var i = 0; i < 12; i++) {
         var bad = !isFinite(taxEval(raws[i]));
-        h += '<td class="tax-in' + (i === curM ? ' tax-cur' : '') + (bad ? ' tax-bad' : '') + '"' + (voidWhy && String(raws[i]).trim() !== '' ? ' title="' + escAttr(voidWhy) + '"' : '') + '>'
-          + taxCellInput(row.k, i, raws[i], c.v[row.k][i], row.label + ', ' + TAX_MONTHS[i] + (voidWhy ? ' (not counted)' : ''), undefined, voidWhy ? ' tax-void' : '')
+        var dual = row.dual ? taxDualView(c.v[row.k][i], c.R[row.k][i], String(raws[i]).trim() !== '') : null;
+        h += '<td class="tax-in' + (dual ? ' tax-dual' : '') + (i === curM ? ' tax-cur' : '') + (bad ? ' tax-bad' : '') + '"' + (voidWhy && String(raws[i]).trim() !== '' ? ' title="' + escAttr(voidWhy) + '"' : (dual && dual.tip ? ' title="' + escAttr(dual.tip) + '"' : '')) + '>'
+          + taxCellInput(row.k, i, raws[i], c.v[row.k][i], row.label + ', ' + TAX_MONTHS[i] + (voidWhy ? ' (not counted)' : ''), dual ? (String(raws[i]).trim() === '' ? '' : taxFmt(c.v[row.k][i])) : undefined, voidWhy ? ' tax-void' : '')
+          + (dual ? '<span class="tax-dual-view">' + dual.html + '</span>' : '')
           + (i < 11 ? '<button type="button" class="tax-fill" data-k="' + row.k + '" data-m="' + i + '" title="Copy ' + TAX_MONTHS[i] + ' to the rest of the year" tabindex="-1">»</button>' : '') + '</td>';
       }
     } else {
@@ -10009,17 +10024,7 @@ function wireTaxes() {
     var t = e.target;
     if (t.classList.contains('tax-cell')) {
       var k = t.getAttribute('data-k'), m = t.getAttribute('data-m'), raw = t.value.trim();
-      if (k === 'sli') {              // so is the student loan interest paid (the limits are applied to it, not to the entry)
-        taxDoc.d.studentLoan = raw;
-      } else if (m === 'A') {                // a yearly amount spreads evenly over the twelve months
-        if (raw === '') return;
-        var total = taxEval(raw);
-        if (!isFinite(total)) { t.classList.add('tax-bad'); return; }
-        var each = Math.round(total / 12 * 100) / 100;
-        for (var i = 0; i < 12; i++) taxDoc.m[k][i] = total ? String(each) : '';
-      } else {
-        taxMonthArr(k)[parseInt(m, 10)] = raw;
-      }
+      taxMonthArr(k)[parseInt(m, 10)] = raw;
       taxChanged();
     } else if (t.classList.contains('tax-val')) {
       taxSetPath(t.getAttribute('data-path'), t.value.trim());
