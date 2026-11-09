@@ -2354,6 +2354,7 @@ html.rw-tab-active #tab-row { z-index: 30; }
           </div>
           <div class="settings-tab-block" data-tab="taxes">
             <div class="settings-divider"></div>
+            <div class="settings-row tax-set-row"><label for="tax-bonus-sel">Bonus Basis</label><select id="tax-bonus-sel"><option value="month">In-Month</option><option value="off">Off-Cycle</option></select></div>
             <div class="settings-row">
               <label class="ios-toggle-wrap">
                 <input type="checkbox" id="tax-show-roll">
@@ -8949,6 +8950,8 @@ var taxShowBusiness = localStorage.getItem('tax-show-business') === '1';
 var taxShowStateMisc = localStorage.getItem('tax-show-statemisc') === '1';
 // Off by default: the Non-HSA Medical row is hidden and left out of the itemized totals (entries are kept).
 var taxShowMedical = localStorage.getItem('tax-show-medical') === '1';
+// Bonuses are either withheld in the paycheck they arrive in ("In-Month", the default) or on their own, off the paystub ("Off-Cycle").
+var taxBonusInMonth = localStorage.getItem('tax-bonus-basis') !== 'off';
 var taxLastC = null;      // the latest calculation, for the dollar amounts in the dropdown's labels
 // The "Additional Line Items" dropdown at the top of the page: rows that are hidden (and not counted) until switched on.
 var TAX_ITEMS = [
@@ -9277,11 +9280,14 @@ function taxWeights(basis) {
 // goes through the brackets, less what the earlier paystubs were expected to withhold, spread over the months left. So a raise
 // lifts the later months but never the earlier ones, and a lump of interest raises withholding only from the month after it,
 // spread over the rest of the year. Months with no wages have no paystub, so they show nothing.
-function taxPaystubTax(pay, wages, off, deductAt, brackets) {
-  var out = taxMap(function() { return 0; }), prior = 0, ytdPay = 0, ytdOff = 0;
+// `bonus` (optional) is pay received in the paycheck itself: it counts once, from the month it arrives, and is never repeated into
+// the months ahead, which are forecast from the wages alone.
+function taxPaystubTax(pay, wages, off, deductAt, brackets, bonus) {
+  var out = taxMap(function() { return 0; }), prior = 0, ytdPay = 0, ytdOff = 0, ytdBonus = 0;
   for (var m = 0; m < 12; m++) {
+    if (bonus) ytdBonus += bonus[m];
     if (wages[m] > 0) {
-      var forecast = Math.max(0, ytdPay + pay[m] * (12 - m) + ytdOff - deductAt(m));
+      var forecast = Math.max(0, ytdPay + pay[m] * (12 - m) + ytdOff + ytdBonus - deductAt(m));
       var e = Math.max(0, (taxBracketTax(forecast, brackets) - prior) / (12 - m));
       out[m] = e; prior += e;
     }
@@ -9328,51 +9334,62 @@ function taxWithholding(raws, target) {
 // the liability stands in for it.
 function taxCompute(doc) {
   var bonusA = taxSum(doc.m.bonus.map(taxNum)), ltA = taxNum(doc.d.ltcg);
+  var inM = taxBonusInMonth;
+  // full: everything. reg: regular pay only. base: what the months are built on: regular pay (off-cycle bonus), or regular pay with
+  // the bonus in the month it arrives and only the long-term gains left out (in-month bonus).
   function pass(statePaid) {
-    var f = taxCore(doc, true, null, statePaid);
-    return { full: f, reg: bonusA || ltA ? taxCore(doc, false, f.yearly, statePaid) : f };
+    var f = taxCore(doc, true, null, statePaid), r = bonusA || ltA ? taxCore(doc, false, f.yearly, statePaid) : f;
+    return { full: f, reg: r, base: inM ? (ltA ? taxCore(doc, true, f.yearly, statePaid, true) : f) : r };
   }
   var p = pass(null);
   if (!p.full.L.stateNone && taxWithholding(doc.w.state, 0).any) {
-    var regDue = p.reg.A.stDue;
-    p = pass(taxWithholding(doc.w.state, regDue).total + taxBonusStateWh(p.full.L, p.reg, bonusA));
+    var regDue = p.base.A.stDue;
+    p = pass(taxWithholding(doc.w.state, regDue).total + (inM ? 0 : taxBonusStateWh(p.full.L, p.reg, bonusA)));
   }
-  var full = p.full, reg = p.reg;
+  var full = p.full, reg = p.reg, base = p.base;
   var c = Object.assign({}, full), AN = {};
   Object.keys(full.R).forEach(function(k) { AN[k] = taxSum(full.R[k]); });
   // The year's federal figures are the whole-year calculation itself, not a sum of the months (which are paystub-by-paystub estimates)
   AN.fedTax = full.A.fedTax; AN.fedCredits = full.cr.applied; AN.fedDue = full.A.fedDue; AN.total = full.A.total;
   AN.stateTax = full.A.stTax; AN.stateCredits = full.sc.applied; AN.stateDue = full.A.stDue;
   AN.fedDedTotal = full.fed.used; AN.stDedTotal = full.st.used;
-  // The months are regular pay: income and taxable-income rows leave bonuses out of the month (their year figure, Est. Annual, has them),
-  // and the tax rows are what a paystub should have withheld, since a paystub knows nothing of a bonus.
+  // The months are the base pass: income and taxable-income rows leave out what is not in the month (an off-cycle bonus, long-term gains;
+  // their year figure, Est. Annual, has them), and the tax rows are what a paystub should have withheld, which for an off-cycle bonus
+  // knows nothing of it.
   var R = Object.assign({}, full.R);
   R.grossLit = full.R.gross;      // the month as received, bonus and all (Gross Income shows it struck through beside the regular-pay figure)
-  ['gross', 'cgLimit', 'magi', 'agi', 'fedTaxable', 'stateAgi', 'stateTaxable', 'fedTax', 'fedCredits', 'fedDue', 'fedPP', 'fedRoll', 'stateTax', 'stateCredits', 'stateDue', 'statePP', 'stateRoll'].forEach(function(k) { R[k] = reg.R[k]; });
+  ['gross', 'cgLimit', 'magi', 'agi', 'fedTaxable', 'stateAgi', 'stateTaxable', 'fedTax', 'fedCredits', 'fedDue', 'fedPP', 'fedRoll', 'stateTax', 'stateCredits', 'stateDue', 'statePP', 'stateRoll'].forEach(function(k) { R[k] = base.R[k]; });
+  // Per paycheck: the regular paychecks' share, apart from what the bonus adds to the month (only an in-month bonus adds any)
+  R.fedPP = reg.R.fedPP; R.statePP = reg.R.statePP;
+  R.fedBonusPart = taxMap(function(i) { return inM ? Math.max(0, base.R.fedDue[i] - reg.R.fedDue[i]) : 0; });
+  R.stateBonusPart = taxMap(function(i) { return inM ? Math.max(0, base.R.stateDue[i] - reg.R.stateDue[i]) : 0; });
+  if (!inM) { R.fedPP = base.R.fedPP; R.statePP = base.R.statePP; }
   R.total = taxMap(function(i) { return R.fedDue[i] + R.fica[i] + R.stateDue[i]; });
-  c.R = R; c.AN = AN; c.bonus = bonusA;
-  AN.bonusFed = AN.fedDue - reg.A.fedDue;
+  c.R = R; c.AN = AN; c.bonus = bonusA; c.bonusInMonth = inM;
+  // What the year's tax is beyond what the paystub months add up to: the tax on an off-cycle bonus and on long-term gains
+  AN.bonusFed = AN.fedDue - base.A.fedDue;
   AN.bonusFica = AN.fica - reg.A.fica;
-  AN.bonusState = AN.stateDue - reg.A.stDue;
-  c.wh = { fed: taxWithholding(doc.w.fed, reg.A.fedDue), state: taxWithholding(doc.w.state, reg.A.stDue) };
+  AN.bonusState = AN.stateDue - base.A.stDue;
+  c.wh = { fed: taxWithholding(doc.w.fed, base.A.fedDue), state: taxWithholding(doc.w.state, base.A.stDue) };
   // Federal withholding on the bonus at the flat supplemental rate, and what is left to pay (or get back) once that and the paystub
   // withholding are taken off the year's federal tax. Positive = still owed, negative = overpaid.
   var L = full.L;
-  AN.bonusFedWh = taxSum(full.R.bonusFedWh);
+  AN.bonusFedWh = inM ? 0 : taxSum(full.R.bonusFedWh);      // an in-month bonus is withheld in the paycheck, so it is in the paystub figures
   AN.fedExpected = AN.fedDue - (c.wh.fed.any ? c.wh.fed.total : 0) - AN.bonusFedWh;
   // Running totals of what the paystubs withheld (entered months, then the projected ones), and the YTD expected due / refund built on them
   function runOf(fn) { var t = 0; return taxMap(function(i) { return (t += fn(i)); }); }
   R.fedWhRoll = c.wh.fed.any ? runOf(function(i) { return c.wh.fed.vals[i]; }) : taxMap(function() { return 0; });
   R.stateWhRoll = c.wh.state.any ? runOf(function(i) { return c.wh.state.vals[i]; }) : taxMap(function() { return 0; });
   // The tax beyond what the paystubs figure (on bonuses and on long-term gains) is counted from the month each was received
-  var bonusPos = taxSum(full.v.bonus.map(function(x, i) { return Math.max(0, x) + Math.max(0, full.v.ltcg[i]); }));
-  function bonusShare(i) { return bonusPos > 0 ? (Math.max(0, full.v.bonus[i]) + Math.max(0, full.v.ltcg[i])) / bonusPos : 0; }
-  var bonusFedWhRun = runOf(function(i) { return full.R.bonusFedWh[i]; });
+  function extraAt(i) { return (inM ? 0 : Math.max(0, full.v.bonus[i])) + Math.max(0, full.v.ltcg[i]); }
+  var bonusPos = taxSum(taxMap(extraAt));
+  function bonusShare(i) { return bonusPos > 0 ? extraAt(i) / bonusPos : 0; }
+  var bonusFedWhRun = runOf(function(i) { return inM ? 0 : full.R.bonusFedWh[i]; });
   var bonusFedTaxRun = runOf(function(i) { return AN.bonusFed * bonusShare(i); });
   c.expMonths = c.wh.fed.any ? taxMap(function(i) { return R.fedRoll[i] + bonusFedTaxRun[i] - R.fedWhRoll[i] - bonusFedWhRun[i]; }) : null;
   // State: no flat supplemental rate is assumed. A bonus paid on its own is withheld with the "difference" method: tax on the
   // year's regular taxable pay with the bonus added, less the tax on regular pay alone, through the state's own brackets.
-  AN.bonusStateWh = taxBonusStateWh(L, reg, bonusA);
+  AN.bonusStateWh = inM ? 0 : taxBonusStateWh(L, reg, bonusA);
   c.bonusStateRate = bonusA > 0 ? AN.bonusStateWh / bonusA : 0;
   AN.stateExpected = AN.stateDue - (c.wh.state.any ? c.wh.state.total : 0) - AN.bonusStateWh;
   var bonusStTaxRun = runOf(function(i) { return AN.bonusState * bonusShare(i); }), bonusStWhRun = runOf(function(i) { return AN.bonusStateWh * bonusShare(i); });
@@ -9385,11 +9402,14 @@ function taxBonusStateWh(L, reg, bonusA) {
   return taxBracketTax(regTaxable + bonusA, L.deBrackets) - taxBracketTax(regTaxable, L.deBrackets);
 }
 // statePaid: state income tax paid in the year, for federal SALT (null = use the state tax figured here)
-function taxCore(doc, withBonus, fixed, statePaid) {
+// withBonus false = the regular-pay pass (no bonus, no long-term gains); noLt leaves just the long-term gains out of a pass with the bonus.
+function taxCore(doc, withBonus, fixed, statePaid, noLt) {
   var L = taxLaw(doc.status, doc.state), v = {}, R = {};
   TAX_MONTH_KEYS.forEach(function(k) { v[k] = doc.m[k].map(taxNum); });
   TAX_DED_KEYS.forEach(function(k) { var a = taxNum(doc.d[k]); v[k] = taxMap(function() { return a / 12; }); });      // yearly entries, spread evenly
-  if (!withBonus) { v.bonus = taxMap(function() { return 0; }); v.ltcg = taxMap(function() { return 0; }); }      // the regular-pay pass: what a paystub can know (bonuses and long-term gains are withheld separately, if at all)
+  var bonusOnStub = withBonus && taxBonusInMonth;      // an in-month bonus is on the paystub; an off-cycle one is not
+  if (!withBonus) { v.bonus = taxMap(function() { return 0; }); v.ltcg = taxMap(function() { return 0; }); }
+  else if (noLt) v.ltcg = taxMap(function() { return 0; });      // the regular-pay pass: what a paystub can know (bonuses and long-term gains are withheld separately, if at all)
   if (!taxShowMedical) v.medical = taxMap(function() { return 0; });      // hidden = not counted
   if (!taxShowStateMisc) v.misc = taxMap(function() { return 0; });      // the Misc. itemized deduction is hidden (and not counted) until switched on
   if (!taxShowBusiness) { v.business = taxMap(function() { return 0; }); v.bizexp = taxMap(function() { return 0; }); }      // hidden = not counted
@@ -9474,7 +9494,7 @@ function taxCore(doc, withBonus, fixed, statePaid) {
   var stDueA = stTaxA - sc.applied, stW = taxWeights(R.stateTaxable);
   var stOff = taxMap(function(i) { return offStub[i] - v.s529[i] * s529Share - (taxShowTreasury ? v.treasury[i] : 0); });
   R.stateTax = stTaxA <= 0 || !hasPay ? taxMap(function(i) { return stTaxA * stW[i]; })
-    : taxPaystubTax(payStub, v.wages, stOff, function(m) { return st.used + sliA + halfSeA * bizShown(m); }, L.deBrackets);
+    : taxPaystubTax(payStub, v.wages, stOff, function(m) { return st.used + sliA + halfSeA * bizShown(m); }, L.deBrackets, bonusOnStub ? v.bonus : null);
   R.stateCredits = taxFlatShares(sc.applied, R.stateTax);
   R.stateDue = taxMap(function(i) { return R.stateTax[i] - R.stateCredits[i]; });
 
@@ -9542,7 +9562,7 @@ function taxCore(doc, withBonus, fixed, statePaid) {
   cr.applied = Math.min(cr.total, fedTaxA);     // treated as non-refundable: credits can't take the tax below zero
   var fedDueA = fedTaxA - cr.applied, fW = taxWeights(R.fedTaxable);
   R.fedTax = !hasPay ? taxMap(function(i) { return fedTaxA * fW[i]; })
-    : taxPaystubTax(payStub, v.wages, offStub, function(m) { return fed.used + sliA + (halfSeA + qbiA) * bizShown(m); }, L.fedBrackets);
+    : taxPaystubTax(payStub, v.wages, offStub, function(m) { return fed.used + sliA + (halfSeA + qbiA) * bizShown(m); }, L.fedBrackets, bonusOnStub ? v.bonus : null);
   R.fedCredits = taxFlatShares(cr.applied, R.fedTax);
   R.fedDue = taxMap(function(i) { return R.fedTax[i] - R.fedCredits[i]; });
 
@@ -9640,17 +9660,19 @@ function taxRowRate(k, c) {
   return '';
 }
 function taxMonthRows(c, doc) {
+  var bm = c.bonusInMonth;
   var L = c.L, A = c.A, f = c.fed, st = c.st, sl = taxStatusLabel(doc.status), e = escHtml;
   var fedMarg = L.fedBrackets[taxBracketIndex(A.fedOrdTaxable, L.fedBrackets)] || { rate: 0 };
   var stMarg = L.deBrackets[taxBracketIndex(A.stTaxable, L.deBrackets)] || { rate: 0 };
   return [
     { sec: 'Income' },
-    { k: 'gross', basis: 'act', yvm: true, litOf: function(j) { return c.R.grossLit[j]; }, litTip: function(lit, used, j) { var b = c.v.bonus[j], g = c.v.ltcg[j], parts = []; if (Math.abs(b) >= 0.5) parts.push(taxFmt(b) + ' of bonus'); if (Math.abs(g) >= 0.5) parts.push(taxFmt(g) + ' of long-term gains'); return 'Received ' + taxFmt(lit) + ', including ' + parts.join(' and ') + '. The ' + taxFmt(used) + ' of regular pay is what the tax estimates use.'; }, label: 'Gross Income', sub: true, f: 'Wages + Bonuses + Interest' + (taxShowBusiness ? ' + Business Income' : ''),
+    { k: 'gross', basis: 'act', yvm: true, litOf: function(j) { return c.R.grossLit[j]; }, litTip: function(lit, used, j) { var b = c.v.bonus[j], g = c.v.ltcg[j], parts = []; if (!bm && Math.abs(b) >= 0.5) parts.push(taxFmt(b) + ' of bonus'); if (Math.abs(g) >= 0.5) parts.push(taxFmt(g) + ' of long-term gains'); return 'Received ' + taxFmt(lit) + ', including ' + parts.join(' and ') + '. The ' + taxFmt(used) + ' ' + (bm ? 'counted in the month' : 'of regular pay') + ' is what the tax estimates use.'; }, label: 'Gross Income', sub: true, f: 'Wages + Bonuses + Interest' + (taxShowBusiness ? ' + Business Income' : ''),
       n: ['A month with a bonus or a long-term gain shows what was actually received struck through, then the regular pay (wages, interest, short-term gains' + (taxShowBusiness ? ', business income' : '') + ') that the tax estimates for the months are built on.'] },
     { k: 'wages', basis: 'month', input: true, label: 'Wages', f: 'Gross pay before anything is taken out, for the month it is paid.',
       n: ['Cells take math, e.g. 187000/12. » copies a month to the rest of the year. Est. Annual is the total of the months.'] },
-    { k: 'bonus', basis: 'off', input: true, noAnnualInput: true, label: 'Bonuses', f: 'Bonuses, in the month they are paid.',
-      n: ['Taxed as ordinary income, the same as wages, so they raise the year\u2019s bill (the Est. Annual figures show it).', 'A paystub knows nothing of a bonus: it is withheld on its own at a flat rate when paid, so it never changes what a month\u2019s paystub should withhold. It shows in the year figures (Est. Annual) of the income and tax rows below, not in their months.', 'The 22% \u201Cbonus rate\u201D is only how much employers withhold, not the tax on it.'] },
+    { k: 'bonus', basis: bm ? 'month' : 'off', input: true, noAnnualInput: true, label: 'Bonuses', f: 'Bonuses, in the month they are paid.',
+      n: bm ? ['Taxed as ordinary income, the same as wages, so they raise the year\u2019s bill.', 'In-Month: the bonus is in the paycheck it arrives in, so that month\u2019s paystub withholding reflects it. It counts once, from that month on: the months ahead are forecast from your wages alone, so a bonus is never assumed to keep coming. The per-paycheck hovers show the bonus part apart from the regular paychecks.', 'Change this under Settings \u2192 Bonus Basis (Off-Cycle treats the bonus as withheld on its own, at a flat rate).']
+          : ['Taxed as ordinary income, the same as wages, so they raise the year\u2019s bill (the Est. Annual figures show it).', 'Off-Cycle: a paystub knows nothing of a bonus: it is withheld on its own at a flat rate when paid, so it never changes what a month\u2019s paystub should withhold. It shows in the year figures (Est. Annual) of the income and tax rows below, not in their months.', 'The 22% \u201Cbonus rate\u201D is only how much employers withhold, not the tax on it.', 'Change this under Settings \u2192 Bonus Basis.'] },
     { k: 'business', basis: 'ytd', input: true, hide: !taxShowBusiness, label: 'Business Income', f: 'Self-employment (1099) income before expenses.' },
     { sec: 'Adjustments', note: 'Used to determine eligibility for some programs (e.g. Student Loan Interest, Roth IRA, etc.), besides lowering taxable base' },
     { k: 'hsa', basis: 'month', input: true, label: 'FSA / HSA Contributions', f: 'Payroll FSA and HSA contributions.', n: ['Lower income tax and FICA.'] },
@@ -9708,9 +9730,9 @@ function taxMonthRows(c, doc) {
     { k: 'otherState', basis: 'year', applies: 'both', input: true, label: 'Taxes Paid to Other States', f: 'State and local income taxes paid to other states or localities, in the month paid.',
       n: ['Federally they count toward the SALT cap with the state income tax you paid and your property taxes (see Property Taxes): ' + taxFmt(f.otherState) + ' entered.',
           L.stateNone ? '' : L.stateName + ' credits them against its own tax (see State Credits), so they count there too.'] },
-    L.stateNone ? null : { k: 'stWhDed', basis: 'year', applies: 'fed', label: 'State Withholdings', labelNote: f.statePaid ? taxFmt(c.wh.state.total) + ' paystub + ' + taxFmt(c.AN.bonusStateWh) + ' on bonuses' : 'estimated State Tax Due (none entered)',
+    L.stateNone ? null : { k: 'stWhDed', basis: 'year', annualOnly: true, applies: 'fed', label: 'State Withholdings', labelNote: f.statePaid ? taxFmt(c.wh.state.total) + ' paystub + ' + taxFmt(c.AN.bonusStateWh) + ' on bonuses' : 'estimated State Tax Due (none entered)',
       f: 'State income tax paid in the year: Paystub State Withheld (' + taxFmt(c.wh.state.total) + ', what was entered plus the months still to come) + the state tax withheld on bonuses (' + taxFmt(c.AN.bonusStateWh) + '). With no withholding entered, the State Tax Due stands in.',
-      n: ['Federally it counts toward the SALT cap (' + taxFmt(f.saltCap) + ') with Taxes Paid to Other States and Property Taxes: ' + taxFmt(f.saltRaw) + ' in all, ' + taxFmt(f.salt) + ' counts.', L.stateName + ' doesn\u2019t deduct its own income tax.', 'Spread evenly over the months.'] },
+      n: ['Federally it counts toward the SALT cap (' + taxFmt(f.saltCap) + ') with Taxes Paid to Other States and Property Taxes: ' + taxFmt(f.saltRaw) + ' in all, ' + taxFmt(f.salt) + ' counts.', L.stateName + ' doesn\u2019t deduct its own income tax.'] },
     { k: 'fedDedTotal', basis: 'year', annualOnly: true, compare: { std: f.std, item: f.itemized, itemizing: f.itemizing }, label: 'Federal Deductions Total', sub: true,
       f: 'The larger of the standard deduction (' + taxFmt(f.std) + ', ' + e(sl.toLowerCase()) + ') and your itemized deductions (' + taxFmt(f.itemized) + '): Giving + Mortgage Interest + SALT (state income tax paid, property taxes and taxes paid to other states, up to the cap) + Medical, after their limits.',
       n: ['The larger is the deduction used, marked with a green check. It feeds ' + (f.itemizing ? 'Itemized' : 'Standard') + ' Deduction below.'] },
@@ -9724,16 +9746,16 @@ function taxMonthRows(c, doc) {
         : 'The year’s taxable income (' + taxFmt(A.fedTaxable) + ') through the federal brackets below = ' + taxFmt(A.fedTax) + '.',
       n: [A.cg.pref > 0.5 ? 'Long-term gains are taxed on top of your ordinary income: ' + taxFmt(A.cg.amt0) + ' falls under the ' + taxFmt(L.cgZeroTop) + ' limit for ' + taxPct(L.cgRate0, 0) + ', ' + taxFmt(A.cg.amt15) + ' is taxed at ' + taxPct(L.cgRate15, 0) + ' (up to ' + taxFmt(L.cgFifteenTop) + ' of taxable income)' + (A.cg.amt20 > 0.5 ? ', and ' + taxFmt(A.cg.amt20) + ' at ' + taxPct(L.cgRate20, 0) : '') + '.' : '',
           A.cg.pref > 0.5 || Math.abs(A.cg.st) >= 0.5 ? 'Short-term gains are ordinary income, so they go through the brackets with everything else. Short- and long-term gains and losses net against each other first' + (A.cg.disallowed > 0.5 ? '; the net loss counts for only ' + taxFmt(A.cg.limit) + ' of income this year.' : '.') : '',
-          'Effective rate ' + taxPct(A.fedTaxable > 0 ? A.fedTax / A.fedTaxable : 0) + ' of taxable income; top ordinary bracket reached ' + taxPct(fedMarg.rate, 0) + '.', 'Each month shows what that month\u2019s paystub should have withheld: pay forecast for the rest of the year at this month\u2019s level, plus the interest and other income received through last month, through the brackets, less what earlier paystubs should have withheld, spread over the months left. Bonuses and long-term gains are left out.', 'A raise lifts the later months but never changes the earlier ones. Est. Annual is the whole-year calculation, bonuses and long-term gains included.'] },
+          'Effective rate ' + taxPct(A.fedTaxable > 0 ? A.fedTax / A.fedTaxable : 0) + ' of taxable income; top ordinary bracket reached ' + taxPct(fedMarg.rate, 0) + '.', 'Each month shows what that month\u2019s paystub should have withheld: pay forecast for the rest of the year at this month\u2019s level, plus the interest and other income received through last month, through the brackets, less what earlier paystubs should have withheld, spread over the months left. ' + (bm ? 'A bonus counts from the month it arrives (once, never repeated into the months ahead, which are forecast from wages alone); long-term gains are left out.' : 'Bonuses and long-term gains are left out.'), 'A raise lifts the later months but never changes the earlier ones. Est. Annual is the whole-year calculation, ' + (bm ? 'long-term gains' : 'bonuses and long-term gains') + ' included.'] },
     { k: 'fedCredits', basis: 'year', label: 'Federal Credits', f: 'Child Tax Credit (' + taxFmt(c.cr.ctc) + ') + the other credits under Credits below (' + taxFmt(c.cr.total - c.cr.ctc) + ').',
       n: ['Credits are fixed amounts, so the months show them spread evenly (a month\u2019s credit can\u2019t exceed that month\u2019s tax).', c.cr.total > A.fedTax ? 'Limited to the tax itself (' + taxFmt(A.fedTax) + ').' : ''] },
-    { k: 'fedDue', basis: 'month', yvm: true, perPaycheck: 'fedPP', label: 'Federal Income Tax Due', sub: true, f: 'Federal Income Tax − Federal Credits', n: ['The months are paystub estimates (no bonuses or long-term gains). Est. Annual shows their total struck through, then the whole year with those included.', 'Hover a month for what that is per paycheck (paid ' + e(taxPayLabel(doc)) + ' \u2014 change it in Settings), to compare with the federal withholding on your pay stub.'] },
+    { k: 'fedDue', basis: 'month', yvm: true, perPaycheck: 'fedPP', perBonus: 'fedBonusPart', label: 'Federal Income Tax Due', sub: true, f: 'Federal Income Tax − Federal Credits', n: ['The months are paystub estimates (' + (bm ? 'a bonus counts from its month; no long-term gains' : 'no bonuses or long-term gains') + '). Est. Annual shows their total struck through, then the whole year with everything included.', 'Hover a month for what that is per paycheck (paid ' + e(taxPayLabel(doc)) + ' \u2014 change it in the header above)' + (bm ? ', apart from what the bonus adds to the month' : '') + ', to compare with the federal withholding on your pay stub.'] },
     { k: 'fedWh', basis: 'month', wh: 'fed', label: 'Paystub Federal Withheld', f: 'What your paychecks actually withheld, month by month. Leave it blank until you have figures.',
-      n: ['Once you enter some months, the months after the last one entered show what each must withhold to reach the year\u2019s federal tax on regular pay: (Federal Income Tax Due for the year \u2212 withheld so far) \u00F7 months remaining.', 'Type over a projected month to enter its actual figure. Withholding on bonuses is separate: see the note under Expected Federal Tax Bill.'] },
+      n: ['Once you enter some months, the months after the last one entered show what each must withhold to reach the year\u2019s federal tax on ' + (bm ? 'wages and bonuses' : 'regular pay') + ': (Federal Income Tax Due for the year \u2212 withheld so far) \u00F7 months remaining.', 'Type over a projected month to enter its actual figure. ' + (bm ? 'A bonus is withheld in its own paycheck, so it is part of these figures.' : 'Withholding on bonuses is separate: see the note under Expected Federal Tax Bill.')] },
     { k: 'fedRoll', basis: 'tot', label: 'Federal Running Total', noAnnual: true, roll: true, f: 'Federal Income Tax Due, January through this month.' },
     { k: 'fedWhRoll', basis: 'tot', label: 'Paystub Withheld Running Total', noAnnual: true, roll: true, blank: !c.wh.fed.any, f: 'Paystub Federal Withheld, January through this month: what you entered, then the projected months.' },
     { k: 'fedExpected', expected: 'fed', basis: 'tot', label: 'Expected Federal Tax Bill', sub: true, labelNote: c.AN.bonusFedWh >= 0.5 ? 'after ' + taxFmt(c.AN.bonusFedWh) + ' withheld on bonuses' : '', f: 'Federal Income Tax Due \u2212 Paystub Federal Withheld \u2212 Federal Withheld on Bonuses',
-      n: ['Positive (orange): still to pay. Negative (blue): withheld more than the tax, so a refund.', 'The year column is the whole-year figure: the paystub withholding you entered plus the projected months, and the withholding on bonuses (' + taxFmt(c.AN.bonusFedWh) + ': bonuses \u00D7 the flat ' + taxPct(L.suppRate, 0) + ' federal rate on supplemental pay, withheld when each is paid).', 'Each month is the year-to-date position: Federal Running Total \u2212 Paystub Withheld Running Total, plus the tax on bonuses paid so far less what was withheld on them. Positive means withholding is behind at that point, negative means it is ahead; it meets the year column by December once the projected months catch up.'] },
+      n: ['Positive (orange): still to pay. Negative (blue): withheld more than the tax, so a refund.', 'The year column is the whole-year figure: the paystub withholding you entered plus the projected months' + (bm ? ' (a bonus is withheld in its own paycheck, so it is in them).' : ', and the withholding on bonuses (' + taxFmt(c.AN.bonusFedWh) + ': bonuses \u00D7 the flat ' + taxPct(L.suppRate, 0) + ' federal rate on supplemental pay, withheld when each is paid).'), 'Each month is the year-to-date position: Federal Running Total \u2212 Paystub Withheld Running Total' + (bm ? ', plus the tax on long-term gains received so far (which nothing withholds).' : ', plus the tax on bonuses paid so far less what was withheld on them.') + ' Positive means withholding is behind at that point, negative means it is ahead; it meets the year column by December once the projected months catch up.'] },
     { sec: 'State (' + L.stateName + ')' }
   ].concat(L.stateNone ? [
     { k: 'stateDue', label: 'State Income Tax', sub: true, f: L.stateName + ' does not tax wage income, so there is no state tax to figure.' }
@@ -9754,16 +9776,16 @@ function taxMonthRows(c, doc) {
       n: ['See the Deductions section above. Spread evenly over the year.'] },
     { k: 'stateTaxable', basis: 'act', yvm: true, label: 'State Taxable Income', sub: true, f: 'State AGI \u2212 ' + (st.itemizing ? 'Itemized' : 'Standard') + ' Deduction' },
     { k: 'stateTax', basis: 'fc', label: 'State Income Tax', f: 'The year\u2019s state taxable income (' + taxFmt(A.stTaxable) + ') through the ' + L.stateName + ' brackets below = ' + taxFmt(A.stTax) + '.',
-      n: ['Top bracket reached ' + taxPct(stMarg.rate, 2) + '.', 'Each month shows what that month\u2019s paystub should have withheld for the state, figured the same way as the federal row: pay forecast for the rest of the year plus other income received through last month, less what earlier paystubs should have withheld. Bonuses and long-term gains are left out.', Math.abs(A.cg.lt) >= 0.5 ? L.stateName + ' taxes capital gains like any other income, so long-term gains are in the year figure at the regular rates.' : ''] },
+      n: ['Top bracket reached ' + taxPct(stMarg.rate, 2) + '.', 'Each month shows what that month\u2019s paystub should have withheld for the state, figured the same way as the federal row: pay forecast for the rest of the year plus other income received through last month, less what earlier paystubs should have withheld. ' + (bm ? 'A bonus counts from the month it arrives; long-term gains are left out.' : 'Bonuses and long-term gains are left out.'), Math.abs(A.cg.lt) >= 0.5 ? L.stateName + ' taxes capital gains like any other income, so long-term gains are in the year figure at the regular rates.' : ''] },
     { k: 'stateCredits', basis: 'year', label: 'State Credits', f: 'Personal credit (' + taxFmt(L.dePersonal) + ' \u00D7 ' + c.sc.exemptions + ' exemptions = ' + taxFmt(c.sc.personal) + ') + other state / local tax paid (' + taxFmt(c.sc.other) + ').',
       n: ['Credits are fixed amounts, so the months show them spread evenly (a month\u2019s credit can\u2019t exceed that month\u2019s tax).', c.sc.total > A.stTax ? 'Limited to the tax itself (' + taxFmt(A.stTax) + ').' : ''] },
-    { k: 'stateDue', basis: 'month', yvm: true, perPaycheck: 'statePP', label: 'State Tax Due', sub: true, f: 'State Income Tax \u2212 State Credits', n: ['The months are paystub estimates (no bonuses or long-term gains). Est. Annual shows their total struck through, then the whole year with those included.', 'Hover a month for what that is per paycheck, to compare with the state withholding on your pay stub.'] },
+    { k: 'stateDue', basis: 'month', yvm: true, perPaycheck: 'statePP', perBonus: 'stateBonusPart', label: 'State Tax Due', sub: true, f: 'State Income Tax \u2212 State Credits', n: ['The months are paystub estimates (' + (bm ? 'a bonus counts from its month; no long-term gains' : 'no bonuses or long-term gains') + '). Est. Annual shows their total struck through, then the whole year with everything included.', 'Hover a month for what that is per paycheck' + (bm ? ', apart from what the bonus adds to the month' : '') + ', to compare with the state withholding on your pay stub.'] },
     { k: 'stateWh', basis: 'month', wh: 'state', label: 'Paystub State Withheld', f: 'What your paychecks actually withheld for the state, month by month. Leave it blank until you have figures.',
       n: ['Once you enter some months, the months after the last one entered show what each must withhold to reach the year\u2019s state tax on regular pay: (State Tax Due for the year \u2212 withheld so far) \u00F7 months remaining.', 'Type over a projected month to enter its actual figure.'] },
     { k: 'stateRoll', basis: 'tot', label: 'State Running Total', noAnnual: true, roll: true, f: 'State Tax Due, January through this month.' },
     { k: 'stateWhRoll', basis: 'tot', label: 'Paystub Withheld Running Total', noAnnual: true, roll: true, blank: !c.wh.state.any, f: 'Paystub State Withheld, January through this month: what you entered, then the projected months.' },
     { k: 'stateExpected', expected: 'state', basis: 'tot', label: 'Expected State Tax Bill', sub: true, labelNote: c.AN.bonusStateWh >= 0.5 ? 'after ' + taxFmt(c.AN.bonusStateWh) + ' withheld on bonuses' : '', f: 'State Tax Due \u2212 Paystub State Withheld \u2212 State Withheld on Bonuses',
-      n: ['Positive (orange): still to pay. Negative (blue): withheld more than the tax, so a refund.', 'The year column is the whole-year figure: the paystub withholding you entered plus the projected months, and the withholding on bonuses (' + taxFmt(c.AN.bonusStateWh) + ', ' + taxPct(c.bonusStateRate, 2) + ' of them: the state tax a bonus adds on top of your regular pay, withheld when each is paid).', 'Each month is the year-to-date position: State Running Total \u2212 Paystub Withheld Running Total, plus the tax on bonuses paid so far less what was withheld on them. Positive means withholding is behind at that point, negative means it is ahead; it meets the year column by December once the projected months catch up.'] },
+      n: ['Positive (orange): still to pay. Negative (blue): withheld more than the tax, so a refund.', 'The year column is the whole-year figure: the paystub withholding you entered plus the projected months' + (bm ? ' (a bonus is withheld in its own paycheck, so it is in them).' : ', and the withholding on bonuses (' + taxFmt(c.AN.bonusStateWh) + ', ' + taxPct(c.bonusStateRate, 2) + ' of them: the state tax a bonus adds on top of your regular pay, withheld when each is paid).'), 'Each month is the year-to-date position: State Running Total \u2212 Paystub Withheld Running Total' + (bm ? ', plus the tax on long-term gains received so far.' : ', plus the tax on bonuses paid so far less what was withheld on them.') + ' Positive means withholding is behind at that point, negative means it is ahead; it meets the year column by December once the projected months catch up.'] },
   ]).concat([
     { sec: 'FICA', note: 'Levers to reduce are 1) Max out FSA/HSA 2) Incur tactical business expenses as sole proprietor to reduce profit 3) Take distributions from S-Corp after a reasonable salary.  There is no way to take it to 0 (unlike income tax).' },
     { k: 'ss', basis: 'month', perPaycheck: 'ssPP', perBonus: 'ssBonus', label: 'Social Security', f: taxPct(L.ssRate) + ' of FICA Wages (above), up to the ' + taxFmt(L.ssCap) + ' wage base' + (c.ssCapMonth >= 0 ? ' (reached in ' + TAX_MONTHS[c.ssCapMonth] + ')' : '') + '.',
@@ -9798,10 +9820,10 @@ function taxYearVsMonths(row, c, vals, year) {
   var sum = taxSum(vals), cut = Math.abs(year - sum) >= 1, why = '';      // under a dollar apart is just the months' rounding
   if (cut) {
     var d = year - sum, mon = taxFmt(sum), yr = taxFmt(year);
-    var what = [Math.abs(taxSum(c.v.bonus)) >= 0.5 ? 'bonuses' : '', Math.abs(taxSum(c.v.ltcg)) >= 0.5 ? 'long-term gains' : ''].filter(Boolean).join(' and ') || 'other income';
+    var what = [!c.bonusInMonth && Math.abs(taxSum(c.v.bonus)) >= 0.5 ? 'bonuses' : '', Math.abs(taxSum(c.v.ltcg)) >= 0.5 ? 'long-term gains' : ''].filter(Boolean).join(' and ') || 'other income';
     why = row.k === 'fedDue' || row.k === 'stateDue'
       ? 'The months add up to ' + mon + ' (what the paystubs should withhold, with no ' + what + '). The year figure, ' + yr + ', also counts the tax on ' + what + ' (' + (d >= 0 ? '+' : '\u2212') + taxFmt(Math.abs(d)) + ').'
-      : 'The months add up to ' + mon + ' of regular pay, with ' + what + ' left out. The year figure, ' + yr + ', is what counts for tax: it includes ' + (row.k === 'cgLimit' ? 'a loss over the limit' : taxFmt(Math.abs(d)) + ' of ' + what) + (row.k === 'fedTaxable' || row.k === 'stateTaxable' ? ' (less the extra deductions they allow)' : '') + '.';
+      : 'The months add up to ' + mon + ' of ' + (c.bonusInMonth ? 'income in the months' : 'regular pay') + ', with ' + what + ' left out. The year figure, ' + yr + ', is what counts for tax: it includes ' + (row.k === 'cgLimit' ? 'a loss over the limit' : taxFmt(Math.abs(d)) + ' of ' + what) + (row.k === 'fedTaxable' || row.k === 'stateTaxable' ? ' (less the extra deductions they allow)' : '') + '.';
   }
   return cut ? taxCountedAnnual(sum, year, 'm:' + row.k + '-ann', row.label + ', Year vs. Months', why) : taxValCell(year, 'tax-annual-col');
 }
@@ -9812,12 +9834,13 @@ var TAX_BASIS = {
   ytd:   { label: 'YTD \u2192 Later', tip: 'A paystub can\u2019t know it yet. The year-to-date total through last month raises (or lowers) the withholding from this month on, spread over the months left \u2014 never the month it happens, never earlier months.' },
   year:  { label: 'Annual \u00F7 12', tip: 'A whole-year figure, spread evenly over the months.' },
   fc:    { label: 'In-Month \u2192 Later', tip: 'What that month\u2019s paystub should have withheld, given only what was known by then: a forecast of the year, less what earlier paystubs withheld, so a raise or new income lifts the later months and never reaches back to earlier ones.' },
-  act:   { label: 'Actual', tip: 'The rows above added up for the month, on regular pay: bonuses and long-term capital gains are left out of the figures the taxes use, and show in the year figure (Est. Annual, with the months\u2019 total struck through). Gross Income also shows a month\u2019s literal total, struck through, when it had a bonus or a long-term gain. Annual items such as deductions are spread evenly.' },
+  act:   { label: 'Actual', tip: function() { return taxBonusInMonth ? 'The rows above added up for the month: a bonus is counted in the month it arrives. Long-term capital gains are left out of the months and show in the year figure (Est. Annual, with the months\u2019 total struck through), and Gross Income also shows a month\u2019s literal total, struck through, when it had a long-term gain. Annual items such as deductions are spread evenly.' : 'The rows above added up for the month, on regular pay: bonuses and long-term capital gains are left out of the figures the taxes use, and show in the year figure (Est. Annual, with the months\u2019 total struck through). Gross Income also shows a month\u2019s literal total, struck through, when it had a bonus or a long-term gain. Annual items such as deductions are spread evenly.'; } },
+
   tot:   { label: 'YTD', tip: 'A year-to-date figure: January through this month, adding up as the year goes.' }
 };
 function taxBasisCell(row) {
   var b = row.basis && TAX_BASIS[row.basis];
-  return '<td class="tax-basis">' + (b ? '<span class="tax-bchip b-' + row.basis + '" title="' + escAttr(b.tip) + '">' + escHtml(b.label) + '</span>' : '') + '</td>';
+  return '<td class="tax-basis">' + (b ? '<span class="tax-bchip b-' + row.basis + '" title="' + escAttr(typeof b.tip === 'function' ? b.tip() : b.tip) + '">' + escHtml(b.label) + '</span>' : '') + '</td>';
 }
 function renderTaxMonthTable(c, doc) {
   var el = document.getElementById('tax-month-table');
@@ -10065,6 +10088,8 @@ function taxSyncSettings() {
   if (p) { if (!p.options.length) p.innerHTML = TAX_PAY_FREQ.map(function(x) { return '<option value="' + x[0] + '">' + escHtml(x[1]) + '</option>'; }).join(''); p.value = taxDoc.payFreq; }
   if (d && document.activeElement !== d) d.value = taxDoc.dependents;
   if (r) r.checked = taxShowRoll;
+  var bs = document.getElementById('tax-bonus-sel');
+  if (bs) bs.value = taxBonusInMonth ? 'month' : 'off';
   taxSyncItems();
 }
 // "Additional Line Items": one checkbox per optional row, like the Factors dropdown on Runway.
@@ -10202,6 +10227,12 @@ function wireTaxes() {
   if (r) r.addEventListener('change', function() {
     taxShowRoll = r.checked;
     try { localStorage.setItem('tax-show-roll', taxShowRoll ? '1' : '0'); } catch (x) {}
+    renderTaxes();
+  });
+  var bonusSel = document.getElementById('tax-bonus-sel');
+  if (bonusSel) bonusSel.addEventListener('change', function() {
+    taxBonusInMonth = bonusSel.value !== 'off';
+    try { localStorage.setItem('tax-bonus-basis', taxBonusInMonth ? 'month' : 'off'); } catch (x) {}
     renderTaxes();
   });
   var itemsPanel = document.getElementById('tax-items-panel'), itemsBtn = document.getElementById('tax-items-btn'), itemsWrap = document.getElementById('tax-items-wrap');
