@@ -9219,6 +9219,21 @@ function taxWeights(basis) {
   var pos = basis.map(function(x) { return Math.max(0, x); }), s = taxSum(pos);
   return s > 0 ? pos.map(function(x) { return x / s; }) : taxMap(function() { return 1 / 12; });
 }
+// A credit is a fixed amount for the year (it doesn't grow with a month's pay), so it is spread evenly over the months. A month
+// can't use more than its own tax, though: what a month can't absorb moves to the others (all of it ends up used, since the
+// year's credit is already limited to the year's tax).
+function taxFlatShares(total, caps) {
+  var out = taxMap(function() { return 0; }), open = [], i, remaining = total;
+  for (i = 0; i < 12; i++) open.push(i);
+  for (;;) {
+    var share = open.length ? remaining / open.length : 0, capped = open.filter(function(j) { return caps[j] <= share + 1e-9; });
+    if (!capped.length) { open.forEach(function(j) { out[j] = share; }); break; }
+    capped.forEach(function(j) { out[j] = caps[j]; remaining -= caps[j]; });
+    open = open.filter(function(j) { return capped.indexOf(j) === -1; });
+    if (!open.length) break;
+  }
+  return out;
+}
 // What has been withheld so far, and what the remaining months must withhold to reach `target` for the year. Months up to the
 // last one with an entry count as entered (a blank one among them is $0); the months after it split what is still owed.
 function taxWithholding(raws, target) {
@@ -9340,8 +9355,8 @@ function taxCore(doc, bonusDec, fixed, statePaid) {
   sc.applied = Math.min(sc.total, stTaxA);
   var stDueA = stTaxA - sc.applied, stW = taxWeights(R.stateTaxable);
   R.stateTax = taxMap(function(i) { return stTaxA * stW[i]; });
-  R.stateCredits = taxMap(function(i) { return sc.applied * stW[i]; });
-  R.stateDue = taxMap(function(i) { return stDueA * stW[i]; });
+  R.stateCredits = taxFlatShares(sc.applied, R.stateTax);
+  R.stateDue = taxMap(function(i) { return R.stateTax[i] - R.stateCredits[i]; });
 
   // Federal itemized: the state tax just figured joins property taxes under the SALT cap (which phases down at high AGI).
   var saltCap = L.saltCap;
@@ -9402,8 +9417,8 @@ function taxCore(doc, bonusDec, fixed, statePaid) {
   cr.applied = Math.min(cr.total, fedTaxA);     // treated as non-refundable: credits can't take the tax below zero
   var fedDueA = fedTaxA - cr.applied, fW = taxWeights(R.fedTaxable);
   R.fedTax = taxMap(function(i) { return fedTaxA * fW[i]; });
-  R.fedCredits = taxMap(function(i) { return cr.applied * fW[i]; });
-  R.fedDue = taxMap(function(i) { return fedDueA * fW[i]; });
+  R.fedCredits = taxFlatShares(cr.applied, R.fedTax);
+  R.fedDue = taxMap(function(i) { return R.fedTax[i] - R.fedCredits[i]; });
 
   // FICA month by month, so Social Security stops once the year's wages pass the wage base.
   R.ss = []; R.medicare = [];
@@ -9513,7 +9528,7 @@ function taxMonthRows(c, doc) {
     { k: 'fedTax', label: 'Federal Income Tax', f: 'The year’s taxable income (' + taxFmt(A.fedTaxable) + ') through the federal brackets below = ' + taxFmt(A.fedTax) + '.',
       n: ['Effective rate ' + taxPct(A.fedTaxable > 0 ? A.fedTax / A.fedTaxable : 0) + ' of taxable income; top bracket reached ' + taxPct(fedMarg.rate, 0) + '.', 'Each month shows its share, in proportion to its taxable income, so the months add up to the year.'] },
     { k: 'fedCredits', label: 'Federal Credits', f: 'Child Tax Credit (' + taxFmt(c.cr.ctc) + ') + the other credits under Credits below (' + taxFmt(c.cr.total - c.cr.ctc) + ').',
-      n: [c.cr.total > A.fedTax ? 'Limited to the tax itself (' + taxFmt(A.fedTax) + ').' : ''] },
+      n: ['Credits are fixed amounts, so the months show them spread evenly (a month\u2019s credit can\u2019t exceed that month\u2019s tax).', c.cr.total > A.fedTax ? 'Limited to the tax itself (' + taxFmt(A.fedTax) + ').' : ''] },
     { k: 'fedDue', label: 'Federal Income Tax Due', sub: true, f: 'Federal Income Tax − Federal Credits', n: ['The months cover regular pay; Est. Annual also includes the tax on bonuses.'] },
     { k: 'fedPP', label: 'Federal Per Paycheck', noAnnual: true, f: 'Federal Income Tax Due ÷ paychecks in the month (paid ' + e(taxPayLabel(doc)) + ' — change it in Settings).', n: ['Compare with the federal withholding on your pay stub.'] },
     { k: 'fedWh', wh: 'fed', label: 'Paystub Federal Withheld', f: 'What your paychecks actually withheld, month by month. Leave it blank until you have figures.',
@@ -9545,7 +9560,7 @@ function taxMonthRows(c, doc) {
     { k: 'stateTax', label: 'State Income Tax', f: 'The year\u2019s state taxable income (' + taxFmt(A.stTaxable) + ') through the ' + L.stateName + ' brackets below = ' + taxFmt(A.stTax) + '.',
       n: ['Top bracket reached ' + taxPct(stMarg.rate, 2) + '. Each month shows its share, in proportion to its taxable income.'] },
     { k: 'stateCredits', label: 'State Credits', f: 'Personal credit (' + taxFmt(L.dePersonal) + ' \u00D7 ' + c.sc.exemptions + ' exemptions = ' + taxFmt(c.sc.personal) + ') + other state / local tax paid (' + taxFmt(c.sc.other) + ').',
-      n: [c.sc.total > A.stTax ? 'Limited to the tax itself (' + taxFmt(A.stTax) + ').' : ''] },
+      n: ['Credits are fixed amounts, so the months show them spread evenly (a month\u2019s credit can\u2019t exceed that month\u2019s tax).', c.sc.total > A.stTax ? 'Limited to the tax itself (' + taxFmt(A.stTax) + ').' : ''] },
     { k: 'stateDue', label: 'State Tax Due', sub: true, f: 'State Income Tax \u2212 State Credits', n: ['The months cover regular pay; Est. Annual also includes the tax on bonuses.'] },
     { k: 'statePP', label: 'State Per Paycheck', noAnnual: true, f: 'State Tax Due ÷ paychecks in the month.', n: ['Compare with the state withholding on your pay stub.'] },
     { k: 'stateWh', wh: 'state', label: 'Paystub State Withheld', f: 'What your paychecks actually withheld for the state, month by month. Leave it blank until you have figures.',
