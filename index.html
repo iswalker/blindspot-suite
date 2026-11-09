@@ -752,7 +752,7 @@ input.tax-val { width: 110px; padding: 4px 8px; border-color: #ddd; background: 
 input.tax-val.tax-val-sm { width: 64px; }
 input.tax-cell:hover { border-color: #ddd; background: #fff; }
 input.tax-cell.tax-auto { color: #8a8a8a; font-style: italic; }       /* projected: what the month needs to withhold, not yet entered */
-input.tax-cell.tax-void { color: #8a8a8a; font-style: italic; text-decoration: line-through; }       /* entered but not counted (e.g. a 529 contribution over the AGI limit) */
+input.tax-cell.tax-void { color: #1a4fa0; text-decoration: line-through; }       /* entered but not counted (e.g. a 529 contribution over the AGI limit) */
 input.tax-cell.tax-void:focus { text-decoration: none; }
 #tax-month-table td.tax-in .tax-annual-flag { position: absolute; left: 4px; top: 50%; transform: translateY(-50%); line-height: 1; }
 input.tax-cell:focus, input.tax-val:focus { outline: none; border-color: #e07b22; background: #fff; color: #222; }
@@ -9529,9 +9529,22 @@ function taxCore(doc, withBonus, fixed, statePaid) {
     R.medicare.push(L.mcRate * R.ficaWages[i] + L.mcAddRate * (Math.max(0, cum - L.mcAddThreshold) - Math.max(0, prev - L.mcAddThreshold)));
   }
   R.fica = taxMap(function(i) { return R.ss[i] + R.medicare[i] + R.seTax[i]; });
+  // The part of each month's Social Security / Medicare that the bonus accounts for: the bonus is the last pay of the month, so it is
+  // what the month's tax is over the tax on its regular FICA wages alone. The paychecks of the month cover the rest.
+  R.ssBonus = []; R.mcBonus = [];
+  var cum2 = 0;
+  for (var i2 = 0; i2 < 12; i2++) {
+    var prev2 = cum2, bF = Math.max(0, Math.min(v.bonus[i2], R.ficaWages[i2])), regF = R.ficaWages[i2] - bF;
+    cum2 += R.ficaWages[i2];
+    var regSs = L.ssRate * (Math.min(prev2 + regF, L.ssCap) - Math.min(prev2, L.ssCap));
+    var regMc = L.mcRate * regF + L.mcAddRate * (Math.max(0, prev2 + regF - L.mcAddThreshold) - Math.max(0, prev2 - L.mcAddThreshold));
+    R.ssBonus.push(Math.max(0, R.ss[i2] - regSs)); R.mcBonus.push(Math.max(0, R.medicare[i2] - regMc));
+  }
   R.total = taxMap(function(i) { return R.fedDue[i] + R.fica[i] + R.stateDue[i]; });
   var pp = taxPayPeriods(doc);
   R.fedPP = taxMap(function(i) { return R.fedDue[i] / pp; });
+  R.ssPP = taxMap(function(i) { return (R.ss[i] - R.ssBonus[i]) / pp; });
+  R.medicarePP = taxMap(function(i) { return (R.medicare[i] - R.mcBonus[i]) / pp; });
   R.statePP = taxMap(function(i) { return R.stateDue[i] / pp; });
   var rf = 0, rs = 0;
   R.fedRoll = taxMap(function(i) { return (rf += R.fedDue[i]); });
@@ -9581,7 +9594,7 @@ var TAX_ROW_OPS = {
   bonus: '+', interest: '+', business: '+', gross: '=',
   hsa: '\u2212', premiums: '\u2212', k401: '\u2212', bizexp: '\u2212', halfSe: '\u2212', magi: '=', sli: '\u2212', agi: '=',
   fedDed: '\u2212', qbi: '\u2212', fedTaxable: '=', fedTax: '', fedCredits: '\u2212', fedDue: '=',
-  ss: '\u00D7', medicare: '\u00D7', seTax: '+', fica: '=',
+  ficaWages: '=', ss: '\u00D7', medicare: '\u00D7', seTax: '+', fica: '=',
   s529: '\u2212', treasury: '\u2212', stateAgi: '=', stateDed: '\u2212', stateTaxable: '=', stateTax: '', stateCredits: '\u2212', stateDue: '=',
   total: '=',
   fedWh: '\u2212', fedExpected: '=',
@@ -9605,14 +9618,22 @@ function taxMonthRows(c, doc) {
     { k: 'wages', basis: 'month', input: true, label: 'Wages', f: 'Gross pay before anything is taken out, for the month it is paid.',
       n: ['Cells take math, e.g. 187000/12. » copies a month to the rest of the year. Est. Annual is the total of the months.'] },
     { k: 'bonus', basis: 'off', input: true, noAnnualInput: true, label: 'Bonuses', f: 'Bonuses, in the month they are paid.',
-      n: ['Taxed as ordinary income, the same as wages, so they raise the year\u2019s bill (see the \u201Cfrom bonuses\u201D rows under Total).', 'A paystub knows nothing of a bonus: it is withheld on its own at a flat rate when paid, so it never changes what a month\u2019s paystub should withhold. It shows in the year figures (Est. Annual) of the income and tax rows below, not in their months.', 'The 22% \u201Cbonus rate\u201D is only how much employers withhold, not the tax on it.'] },
+      n: ['Taxed as ordinary income, the same as wages, so they raise the year\u2019s bill (the Est. Annual figures show it).', 'A paystub knows nothing of a bonus: it is withheld on its own at a flat rate when paid, so it never changes what a month\u2019s paystub should withhold. It shows in the year figures (Est. Annual) of the income and tax rows below, not in their months.', 'The 22% \u201Cbonus rate\u201D is only how much employers withhold, not the tax on it.'] },
     { k: 'interest', basis: 'ytd', input: true, label: 'Interest', f: 'Taxable interest and dividends (savings, CDs, Treasury funds).', n: ['Not subject to FICA.', 'A paystub can\u2019t know about it. The interest received through last month is added to the year\u2019s forecast, so withholding rises from the next month on, spread over the months left \u2014 never in the month it arrives, and never reaching back to earlier months.'] },
     { k: 'business', basis: 'ytd', input: true, hide: !taxShowBusiness, label: 'Business Income', f: 'Self-employment (1099) income before expenses.' },
-    { k: 'gross', basis: 'act', yvm: true, litKey: 'grossLit', label: 'Gross Income', sub: true, f: 'Wages + Bonuses + Interest' + (taxShowBusiness ? ' + Business Income' : ''),
+    { k: 'gross', basis: 'act', yvm: true, litOf: function(j) { return c.R.grossLit[j]; }, litTip: function(lit, used) { return 'Received ' + taxFmt(lit) + ', including ' + taxFmt(lit - used) + ' of bonus. The ' + taxFmt(used) + ' of regular pay is what the tax estimates use.'; }, label: 'Gross Income', sub: true, f: 'Wages + Bonuses + Interest' + (taxShowBusiness ? ' + Business Income' : ''),
       n: ['A month with a bonus shows what was actually received struck through, then the regular pay (wages, interest' + (taxShowBusiness ? ', business income' : '') + ') that the tax estimates for the months are built on.'] },
     { sec: 'Pre-Tax Adjustments' },
     { k: 'hsa', basis: 'month', input: true, label: 'FSA / HSA Contributions', f: 'Payroll FSA and HSA contributions.', n: ['Lower income tax and FICA.'] },
     { k: 'premiums', basis: 'month', input: true, label: 'Medical Premiums', f: 'Pre-tax (Section 125) health, dental and vision premiums.', n: ['Lower income tax and FICA. Not life or emergency coverage.'] },
+    { k: 'ficaWages', basis: 'month', sub: true, label: 'FICA Wages', f: 'Gross Income \u2212 FSA/HSA \u2212 Medical Premiums',
+      n: ['Struck through: that straight sum. Then the figure FICA actually applies to, which leaves out interest' + (taxShowBusiness ? ' and business income (self-employment tax covers that)' : '') + '. It counts bonuses in the month they are paid.', '401(k) contributions don\u2019t lower FICA wages.'],
+      litOf: function(j) { return c.R.grossLit[j] - c.v.hsa[j] - c.v.premiums[j]; },
+      litTip: function(lit, used) { return 'Gross \u2212 FSA/HSA \u2212 Medical Premiums is ' + taxFmt(lit) + '; ' + taxFmt(used) + ' is FICA wages (interest' + (taxShowBusiness ? ' and business income' : '') + ' aren\u2019t).'; },
+      annCell: function(ann) {
+        var lit = 0; for (var q = 0; q < 12; q++) lit += c.R.grossLit[q] - c.v.hsa[q] - c.v.premiums[q];
+        return taxCountedAnnual(lit, ann, 'm:ficaWages-ann', 'FICA Wages, Straight Sum vs. Counted', Math.round(lit) === Math.round(ann) ? '' : 'Gross \u2212 FSA/HSA \u2212 Medical Premiums is ' + taxFmt(lit) + ', but FICA wages are ' + taxFmt(ann) + ': interest' + (taxShowBusiness ? ' and business income' : '') + ' aren\u2019t subject to FICA.');
+      } },
     { k: 'k401', basis: 'month', input: true, label: '401(k) / IRA Contributions', f: 'Traditional (pre-tax) retirement contributions.', n: ['Lower income tax, but not FICA. Roth contributions don’t count here.'] },
     { k: 'bizexp', basis: 'ytd', input: true, hide: !taxShowBusiness, label: 'Business Expenses', f: 'Expenses of the business: supplies, mileage, and the business share of the home (mortgage interest, property taxes, utilities, internet, insurance, repairs, depreciation over 39 years) or $5 per square foot.' },
     { k: 'halfSe', basis: 'ytd', label: '½ Self-Employment Tax', hideZero: true, f: 'Half of the self-employment tax (see FICA), which is deductible.' },
@@ -9710,19 +9731,15 @@ function taxMonthRows(c, doc) {
       n: ['Positive (orange): still to pay. Negative (blue): withheld more than the tax, so a refund.', 'The year column is the whole-year figure: the paystub withholding you entered plus the projected months, and the withholding on bonuses (' + taxFmt(c.AN.bonusStateWh) + ', ' + taxPct(c.bonusStateRate, 2) + ' of them: the state tax a bonus adds on top of your regular pay, withheld when each is paid).', 'Each month is the year-to-date position: State Running Total \u2212 Paystub Withheld Running Total, plus the tax on bonuses paid so far less what was withheld on them. Positive means withholding is behind at that point, negative means it is ahead; it meets the year column by December once the projected months catch up.'] },
   ]).concat([
     { sec: 'FICA', note: 'Levers to reduce are 1) Max out FSA/HSA 2) Incur real business expenses as sole proprietor to reduce profit 3) Take income as distributions as S-Corp. Itemized deductions don\u2019t touch this line item, and there is no way to take it to 0 (unlike income tax).' },
-    { k: 'ficaWages', basis: 'month', label: 'FICA Wages', f: 'Wages + Bonuses − FSA/HSA − Medical Premiums', n: ['401(k) contributions don’t lower FICA wages, and interest isn’t part of them.'] },
-    { k: 'ss', basis: 'month', label: 'Social Security', f: taxPct(L.ssRate) + ' of FICA wages, up to the ' + taxFmt(L.ssCap) + ' wage base' + (c.ssCapMonth >= 0 ? ' (reached in ' + TAX_MONTHS[c.ssCapMonth] + ')' : '') + '.',
-      n: ['The wage base applies per person; this treats all wages as one earner’s.'] },
-    { k: 'medicare', basis: 'month', label: 'Medicare', f: taxPct(L.mcRate, 2) + ' of FICA wages, plus ' + taxPct(L.mcAddRate) + ' Additional Medicare Tax on wages over ' + taxFmt(L.mcAddThreshold) + ' (' + e(sl.toLowerCase()) + ').' },
+    { k: 'ss', basis: 'month', perPaycheck: 'ssPP', perBonus: 'ssBonus', label: 'Social Security', f: taxPct(L.ssRate) + ' of FICA Wages (above), up to the ' + taxFmt(L.ssCap) + ' wage base' + (c.ssCapMonth >= 0 ? ' (reached in ' + TAX_MONTHS[c.ssCapMonth] + ')' : '') + '.',
+      n: ['The wage base applies per person; this treats all wages as one earner’s.', 'Hover a month for what each paycheck withholds (paid ' + e(taxPayLabel(doc)) + '). A bonus is withheld on its own, so a month with one shows the bonus part separately.'] },
+    { k: 'medicare', basis: 'month', perPaycheck: 'medicarePP', perBonus: 'mcBonus', label: 'Medicare', f: taxPct(L.mcRate, 2) + ' of FICA wages, plus ' + taxPct(L.mcAddRate) + ' Additional Medicare Tax on wages over ' + taxFmt(L.mcAddThreshold) + ' (' + e(sl.toLowerCase()) + ').', n: ['Hover a month for what each paycheck withholds (paid ' + e(taxPayLabel(doc)) + '). A bonus is withheld on its own, so a month with one shows the bonus part separately.'] },
     { k: 'seTax', basis: 'month', label: 'Self-Employment Tax', hideZero: true, f: taxPct(L.seSsRate) + ' Social Security (up to what wages leave of the wage base) + ' + taxPct(L.seMcRate) + ' Medicare, on 92.35% of business profit. None when profit is under $400.' },
     { k: 'fica', basis: 'act', label: 'FICA Total', sub: true, f: 'Social Security + Medicare + Self-Employment Tax' }
   ]).concat([
     { sec: 'Total' },
     { k: 'total', label: 'Total Tax', total: true, f: 'Federal Income Tax Due + State Tax Due + FICA Total',
-      n: ['That is ' + taxPct(A.gross > 0 ? A.total / A.gross : 0) + ' of gross income.'] },
-    { k: 'bonusFed', basis: 'off', annualOnly: true, hideZero: true, label: 'Federal Tax From Bonuses', f: 'Federal Income Tax Due for the year with bonuses \u2212 without them.', n: ['Included in Est. Annual only. Compare it with what was withheld from the bonus.'] },
-    { k: 'bonusState', basis: 'off', annualOnly: true, hideZero: true, label: 'State Tax From Bonuses', f: 'State Tax Due for the year with bonuses \u2212 without them.', n: ['Included in Est. Annual only.'] },
-    { k: 'bonusFica', basis: 'off', annualOnly: true, hideZero: true, label: 'FICA From Bonuses', f: 'FICA Total for the year with bonuses \u2212 without them.', n: ['Included in Est. Annual only.'] }
+      n: ['That is ' + taxPct(A.gross > 0 ? A.total / A.gross : 0) + ' of gross income.'] }
   ]);
 }
 // A month cell whose typed entry and the amount that counts differ: shown as the entry struck through, then what counts. (While the cell
@@ -9780,7 +9797,7 @@ function renderTaxMonthTable(c, doc) {
     }
     if (row.roll && !taxShowRoll) return;
     if (row.hide) return;
-    if (c.L.stateNone && (row.k === 'stateRoll' || row.k === 'bonusState')) return;      // nothing to show for a state with no income tax
+    if (c.L.stateNone && row.k === 'stateRoll') return;      // nothing to show for a state with no income tax
     var vals = (row.input ? c.v[row.k] : c.R[row.k]) || taxMap(function() { return 0; }), ann = taxSum(vals);
     if (!row.input && Object.prototype.hasOwnProperty.call(c.AN, row.k)) ann = c.AN[row.k];       // the year includes bonuses; the months don't
     if (row.hideZero && (row.annualOnly ? Math.abs(ann) < 0.5 : vals.every(function(x) { return Math.abs(x) < 0.5; }))) return;
@@ -9826,11 +9843,11 @@ function renderTaxMonthTable(c, doc) {
       h += '<td class="tax-annual-col"></td>';
       for (var bk = 0; bk < 12; bk++) h += '<td' + (bk === curM ? ' class="tax-cur"' : '') + '></td>';
     } else {
-      h += row.noAnnual ? '<td class="tax-annual-col"></td>' : row.yvm ? taxYearVsMonths(row, c, vals, ann) : taxValCell(ann, 'tax-annual-col');
+      h += row.noAnnual ? '<td class="tax-annual-col"></td>' : row.annCell ? row.annCell(ann) : row.yvm ? taxYearVsMonths(row, c, vals, ann) : taxValCell(ann, 'tax-annual-col');
       for (var j = 0; j < 12; j++) {
-        var lit = row.litKey ? c.R[row.litKey][j] : vals[j];
-        h += row.litKey && Math.abs(lit - vals[j]) >= 1 ? taxStruckCell(lit, vals[j], j === curM ? 'tax-cur' : '', 'Received ' + taxFmt(lit) + ', including ' + taxFmt(lit - vals[j]) + ' of bonus. The ' + taxFmt(vals[j]) + ' of regular pay is what the tax estimates use.')
-          : taxValCell(vals[j], j === curM ? 'tax-cur' : '', row.perPaycheck ? taxFmt(c.R[row.perPaycheck][j]) + ' per paycheck' : '');
+        var lit = row.litOf ? row.litOf(j) : vals[j];
+        h += row.litOf && Math.abs(lit - vals[j]) >= 1 ? taxStruckCell(lit, vals[j], j === curM ? 'tax-cur' : '', row.litTip(lit, vals[j]))
+          : taxValCell(vals[j], j === curM ? 'tax-cur' : '', row.perPaycheck ? taxFmt(c.R[row.perPaycheck][j]) + ' per paycheck' + (row.perBonus && c.R[row.perBonus][j] >= 0.5 ? ' (the other ' + taxFmt(c.R[row.perBonus][j]) + ' is on the bonus)' : '') : '');
       }
     }
     h += '</tr>';
