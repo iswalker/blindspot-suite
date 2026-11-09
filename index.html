@@ -741,6 +741,7 @@ td.cell-active {
 .tax-bchip.b-ytd   { background: #ece8fb; color: #5a45b0; }
 .tax-bchip.b-year  { background: #eceae3; color: #666; }
 .tax-bchip.b-fc    { background: #e0f1e6; color: #2b7a4b; }
+.tax-bchip.b-act   { background: #eceff1; color: #52666f; }
 .tax-bchip.b-tot   { background: #e4eef3; color: #2f6a82; }
 input.tax-cell, input.tax-val {
   box-sizing: border-box; border: 1px solid transparent; background: transparent; text-align: right;
@@ -2721,7 +2722,7 @@ html.rw-tab-active #tab-row { z-index: 30; }
     <div class="tax-hdr"><span class="tax-title" id="tax-title"></span><label class="tax-filing"><span>State</span><select id="tax-state-sel" aria-label="State"></select></label><label class="tax-filing"><span>Filing status</span><select id="tax-status-sel" aria-label="Filing status"></select></label><label class="tax-filing"><span>Dependents</span><input type="number" id="tax-dependents-in" min="0" max="30" step="1" inputmode="numeric" aria-label="Number of dependents"></label><span class="tax-status" id="tax-status"></span></div>
     <div class="tax-cards" id="tax-cards"></div>
     <div class="tax-sec-title">Monthly Breakdown</div>
-    <div class="tax-legend">The symbol at the left of a row shows how it follows from the rows above: <b>+</b> add, <b>&minus;</b> subtract, <b>&times;</b> apply a rate (shown), <b>=</b> result.<br>The <b>Monthly Basis</b> column says how each figure feeds a month&rsquo;s expected withholding: <span class="tax-bchip b-month">In-Month</span> counts in its own month &middot; <span class="tax-bchip b-off">Off-Cycle</span> has its own withholding, so it never changes a paystub &middot; <span class="tax-bchip b-ytd">YTD &rarr; Later</span> a paystub can&rsquo;t know it yet, so the year-to-date total through last month raises withholding from this month on &middot; <span class="tax-bchip b-year">Annual &divide; 12</span> spread evenly &middot; <span class="tax-bchip b-fc">In-Month &rarr; Later</span> what that paystub should have withheld, given what was known by then &middot; <span class="tax-bchip b-tot">YTD</span> a running total from January.</div>
+    <div class="tax-legend">The symbol at the left of a row shows how it follows from the rows above: <b>+</b> add, <b>&minus;</b> subtract, <b>&times;</b> apply a rate (shown), <b>=</b> result.<br>The <b>Monthly Basis</b> column says how each figure feeds a month&rsquo;s expected withholding: <span class="tax-bchip b-month">In-Month</span> counts in its own month &middot; <span class="tax-bchip b-off">Off-Cycle</span> has its own withholding, so it never changes a paystub &middot; <span class="tax-bchip b-ytd">YTD &rarr; Later</span> a paystub can&rsquo;t know it yet, so the year-to-date total through last month raises withholding from this month on &middot; <span class="tax-bchip b-year">Annual &divide; 12</span> spread evenly &middot; <span class="tax-bchip b-fc">In-Month &rarr; Later</span> what that paystub should have withheld, given what was known by then &middot; <span class="tax-bchip b-tot">YTD</span> a running total from January &middot; <span class="tax-bchip b-act">Actual</span> a subtotal of what happened that month.</div>
     <div class="tax-hint" id="tax-empty-hint">Start with your monthly wages. Cells take math (e.g. <code>187000/12</code>), <strong>&raquo;</strong> copies a month to the rest of the year, and Est. Annual is just the total of the months. Hover any <span class="tax-help tax-help-inline">?</span> for how a row is figured.</div>
     <div class="lw-table-wrap" id="tax-month-wrap"><table id="tax-month-table"></table></div>
     <div class="tax-sec-title">Credits</div>
@@ -9593,20 +9594,20 @@ function taxMonthRows(c, doc) {
       n: ['Taxed as ordinary income, the same as wages, so they raise the year\u2019s bill (see the \u201Cfrom bonuses\u201D rows under Total).', 'A paystub knows nothing of a bonus: it is withheld on its own at a flat rate when paid (see Bonus Federal Withheld), so it never changes what a month\u2019s paystub should withhold.', 'The 22% \u201Cbonus rate\u201D is only how much employers withhold, not the tax on it.'] },
     { k: 'interest', basis: 'ytd', input: true, label: 'Interest', f: 'Taxable interest and dividends (savings, CDs, Treasury funds).', n: ['Not subject to FICA.', 'A paystub can\u2019t know about it. The interest received through last month is added to the year\u2019s forecast, so withholding rises from the next month on, spread over the months left \u2014 never in the month it arrives, and never reaching back to earlier months.'] },
     { k: 'business', basis: 'ytd', input: true, label: 'Business Income', f: 'Self-employment (1099) income before expenses.' },
-    { k: 'gross', label: 'Gross Income', sub: true, f: 'Wages + Bonuses + Interest + Business Income' },
+    { k: 'gross', basis: 'act', label: 'Gross Income', sub: true, f: 'Wages + Bonuses + Interest + Business Income' },
     { sec: 'Pre-Tax Adjustments' },
     { k: 'hsa', basis: 'month', input: true, label: 'FSA / HSA Contributions', f: 'Payroll FSA and HSA contributions.', n: ['Lower income tax and FICA.'] },
     { k: 'premiums', basis: 'month', input: true, label: 'Medical Premiums', f: 'Pre-tax (Section 125) health, dental and vision premiums.', n: ['Lower income tax and FICA. Not life or emergency coverage.'] },
     { k: 'k401', basis: 'month', input: true, label: '401(k) / IRA Contributions', f: 'Traditional (pre-tax) retirement contributions.', n: ['Lower income tax, but not FICA. Roth contributions don’t count here.'] },
     { k: 'bizexp', basis: 'ytd', input: true, label: 'Business Expenses', f: 'Expenses of the business: supplies, mileage, and the business share of the home (mortgage interest, property taxes, utilities, internet, insurance, repairs, depreciation over 39 years) or $5 per square foot.' },
     { k: 'halfSe', basis: 'ytd', label: '½ Self-Employment Tax', hideZero: true, f: 'Half of the self-employment tax (see FICA), which is deductible.' },
-    { k: 'magi', label: 'Modified Adjusted Gross Income', sub: true, f: 'Gross Income − FSA/HSA − Medical Premiums − 401(k)/IRA − Business Expenses − ½ Self-Employment Tax' },
+    { k: 'magi', basis: 'act', label: 'Modified Adjusted Gross Income', sub: true, f: 'Gross Income − FSA/HSA − Medical Premiums − 401(k)/IRA − Business Expenses − ½ Self-Employment Tax' },
     { k: 'sli', basis: 'year', input: true, dual: true,
       label: L.sliCap <= 0 ? 'Student Loan Interest (not deductible)' : isFinite(L.sliStart + L.sliDivisor) ? 'Student Loan Interest if MAGI < ' + taxShort(L.sliStart + L.sliDivisor) : 'Student Loan Interest',
       f: 'Interest paid, in the month it is paid (Form 1098-E) \u2014 up to ' + taxFmt(L.sliCap) + ' a year, reduced as MAGI goes from ' + taxFmt(L.sliStart) + ' to ' + taxFmt(L.sliStart + L.sliDivisor) + '.',
       n: ['Enter what you paid. It lowers AGI for both returns, even with the standard deduction.', 'Est. Annual and each month show what was entered, struck through when the limits take some of it, then what counts: ' + taxFmt(A.sli) + ' for the year at your MAGI of ' + taxFmt(A.magi) + ' (' + taxPct(1 - A.sliCut, 0) + ' of the allowed amount), spread evenly over the months.', 'Click a month to see and change just what you entered.'],
       calcAnnual: function() { return taxCountedAnnual(A.sliPaid, A.sli, 'm:sli-ann', 'Student Loan Interest Counted', taxSliWhy(c)); } },
-    { k: 'agi', label: 'Adjusted Gross Income', sub: true, f: 'MAGI − Student Loan Interest' },
+    { k: 'agi', basis: 'act', label: 'Adjusted Gross Income', sub: true, f: 'MAGI − Student Loan Interest' },
     { sec: 'Deductions' },
     { k: 'giving', basis: 'year', applies: 'both', input: true, label: L.charityFloorOn ? 'Giving Over ' + taxFmt(f.givingFloor) : 'Giving', f: 'Charitable gifts, in the month given.',
       n: [L.charityFloorOn ? 'Only the part above ' + taxPct(L.charityFloor) + ' of AGI (' + taxFmt(f.givingFloor) + ') is deductible when itemizing, so there is no point entering less than that; ' + (L.stateNone ? 'the state' : L.stateName) + ' starts from the same federal figure.' : '',
@@ -9650,7 +9651,7 @@ function taxMonthRows(c, doc) {
     { k: 'fedDed', basis: 'year', label: (f.itemizing ? 'Itemized' : 'Standard') + ' Deduction', f: 'The larger of the standard deduction (' + taxFmt(f.std) + ', ' + e(sl.toLowerCase()) + ') and your itemized deductions (' + taxFmt(f.itemized) + ') — using ' + (f.itemizing ? 'itemized' : 'standard') + '.',
       n: ['See the Deductions section above. Spread evenly over the year.'] },
     { k: 'qbi', basis: 'year', label: 'Qualified Business Income Deduction', hideZero: true, f: '20% of business profit (after ½ self-employment tax), up to 20% of taxable income.' },
-    { k: 'fedTaxable', label: 'Federal Taxable Income', sub: true, f: 'AGI − ' + (f.itemizing ? 'Itemized' : 'Standard') + ' Deduction − QBI Deduction' },
+    { k: 'fedTaxable', basis: 'act', label: 'Federal Taxable Income', sub: true, f: 'AGI − ' + (f.itemizing ? 'Itemized' : 'Standard') + ' Deduction − QBI Deduction' },
     { k: 'fedTax', basis: 'fc', label: 'Federal Income Tax', f: 'The year’s taxable income (' + taxFmt(A.fedTaxable) + ') through the federal brackets below = ' + taxFmt(A.fedTax) + '.',
       n: ['Effective rate ' + taxPct(A.fedTaxable > 0 ? A.fedTax / A.fedTaxable : 0) + ' of taxable income; top bracket reached ' + taxPct(fedMarg.rate, 0) + '.', 'Each month shows what that month\u2019s paystub should have withheld: pay forecast for the rest of the year at this month\u2019s level, plus the interest and other income received through last month, through the brackets, less what earlier paystubs should have withheld, spread over the months left. Bonuses are left out.', 'A raise lifts the later months but never changes the earlier ones. Est. Annual is the whole-year calculation, bonuses included.'] },
     { k: 'fedCredits', basis: 'year', label: 'Federal Credits', f: 'Child Tax Credit (' + taxFmt(c.cr.ctc) + ') + the other credits under Credits below (' + taxFmt(c.cr.total - c.cr.ctc) + ').',
@@ -9679,10 +9680,10 @@ function taxMonthRows(c, doc) {
         return taxCountedAnnual(A.s529, A.s529Ok, 'm:s529-ann', '529 Subtraction Counted', why);
       } },
     taxShowTreasury ? { k: 'treasury', basis: 'ytd', input: true, label: 'SGOV / Treasury Income', f: 'Interest from U.S. Treasuries (e.g. SGOV, USFR), which states don\u2019t tax.', n: ['It is still federal income, so include it under Interest too.'] } : null,
-    { k: 'stateAgi', label: 'State AGI', sub: true, f: 'AGI \u2212 529 Contributions (up to the cap)' + (taxShowTreasury ? ' \u2212 SGOV / Treasury Income' : '') },
+    { k: 'stateAgi', basis: 'act', label: 'State AGI', sub: true, f: 'AGI \u2212 529 Contributions (up to the cap)' + (taxShowTreasury ? ' \u2212 SGOV / Treasury Income' : '') },
     { k: 'stateDed', basis: 'year', label: (st.itemizing ? 'Itemized' : 'Standard') + ' Deduction', f: 'The larger of ' + L.stateName + '\u2019s standard deduction (' + taxFmt(st.std) + ') and your ' + L.stateName + ' itemized deductions (' + taxFmt(st.itemized) + ') \u2014 using ' + (st.itemizing ? 'itemized' : 'standard') + '.',
       n: ['See the Deductions section above. Spread evenly over the year.'] },
-    { k: 'stateTaxable', label: 'State Taxable Income', sub: true, f: 'State AGI \u2212 ' + (st.itemizing ? 'Itemized' : 'Standard') + ' Deduction' },
+    { k: 'stateTaxable', basis: 'act', label: 'State Taxable Income', sub: true, f: 'State AGI \u2212 ' + (st.itemizing ? 'Itemized' : 'Standard') + ' Deduction' },
     { k: 'stateTax', basis: 'fc', label: 'State Income Tax', f: 'The year\u2019s state taxable income (' + taxFmt(A.stTaxable) + ') through the ' + L.stateName + ' brackets below = ' + taxFmt(A.stTax) + '.',
       n: ['Top bracket reached ' + taxPct(stMarg.rate, 2) + '.', 'Each month shows what that month\u2019s paystub should have withheld for the state, figured the same way as the federal row: pay forecast for the rest of the year plus other income received through last month, less what earlier paystubs should have withheld. Bonuses are left out.'] },
     { k: 'stateCredits', basis: 'year', label: 'State Credits', f: 'Personal credit (' + taxFmt(L.dePersonal) + ' \u00D7 ' + c.sc.exemptions + ' exemptions = ' + taxFmt(c.sc.personal) + ') + other state / local tax paid (' + taxFmt(c.sc.other) + ').',
@@ -9703,7 +9704,7 @@ function taxMonthRows(c, doc) {
       n: ['The wage base applies per person; this treats all wages as one earner’s.'] },
     { k: 'medicare', basis: 'month', label: 'Medicare', f: taxPct(L.mcRate, 2) + ' of FICA wages, plus ' + taxPct(L.mcAddRate) + ' Additional Medicare Tax on wages over ' + taxFmt(L.mcAddThreshold) + ' (' + e(sl.toLowerCase()) + ').' },
     { k: 'seTax', basis: 'month', label: 'Self-Employment Tax', hideZero: true, f: taxPct(L.seSsRate) + ' Social Security (up to what wages leave of the wage base) + ' + taxPct(L.seMcRate) + ' Medicare, on 92.35% of business profit. None when profit is under $400.' },
-    { k: 'fica', label: 'FICA Total', sub: true, f: 'Social Security + Medicare + Self-Employment Tax' }
+    { k: 'fica', basis: 'act', label: 'FICA Total', sub: true, f: 'Social Security + Medicare + Self-Employment Tax' }
   ]).concat([
     { sec: 'Total' },
     { k: 'total', label: 'Total Tax', total: true, f: 'Federal Income Tax Due + State Tax Due + FICA Total',
@@ -9736,6 +9737,7 @@ var TAX_BASIS = {
   ytd:   { label: 'YTD \u2192 Later', tip: 'A paystub can\u2019t know it yet. The year-to-date total through last month raises (or lowers) the withholding from this month on, spread over the months left \u2014 never the month it happens, never earlier months.' },
   year:  { label: 'Annual \u00F7 12', tip: 'A whole-year figure, spread evenly over the months.' },
   fc:    { label: 'In-Month \u2192 Later', tip: 'What that month\u2019s paystub should have withheld, given only what was known by then: a forecast of the year, less what earlier paystubs withheld, so a raise or new income lifts the later months and never reaches back to earlier ones.' },
+  act:   { label: 'Actual', tip: 'The month as it actually happened: the rows above added up, with bonuses and interest counted in the month they arrive. This is what happened, not what a paystub should withhold (that is forecast separately: see the In-Month \u2192 Later rows), and annual items such as deductions are spread evenly.' },
   tot:   { label: 'YTD', tip: 'A year-to-date figure: January through this month, adding up as the year goes.' }
 };
 function taxBasisCell(row) {
