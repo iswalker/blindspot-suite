@@ -9729,8 +9729,8 @@ function taxMonthRows(c, doc) {
     { k: 'otherState', basis: 'year', applies: 'both', input: true, label: 'Taxes Paid to Other States', f: 'State and local income taxes paid to other states or localities, in the month paid.',
       n: ['Federally they count toward the SALT cap with the state income tax you paid and your property taxes (see Property Taxes): ' + taxFmt(f.otherState) + ' entered.',
           L.stateNone ? '' : L.stateName + ' credits them against its own tax (see State Credits), so they count there too.'] },
-    L.stateNone ? null : { k: 'stWhDed', basis: 'year', annualOnly: true, applies: 'fed', label: 'State Withholdings', labelNote: f.statePaid ? taxFmt(c.wh.state.total) + ' paystub + ' + taxFmt(c.AN.bonusStateWh) + ' on bonuses' : 'estimated State Tax Due (none entered)',
-      f: 'State income tax paid in the year: Paystub State Withheld (' + taxFmt(c.wh.state.total) + ', what was entered plus the months still to come) + the state tax withheld on bonuses (' + taxFmt(c.AN.bonusStateWh) + '). With no withholding entered, the State Tax Due stands in.',
+    L.stateNone ? null : { k: 'stWhDed', basis: 'year', annualOnly: true, applies: 'fed', label: 'State Withholdings', labelNote: f.statePaid ? '' : 'estimated State Tax Due (none entered)',
+      f: 'State income tax paid in the year: the Paystub State Withheld total above' + (c.AN.bonusStateWh >= 0.5 ? ' (with the ' + taxFmt(c.AN.bonusStateWh) + ' withheld on bonuses)' : '') + '. With no withholding entered, the State Tax Due stands in.',
       n: ['Federally it counts toward the SALT cap (' + taxFmt(f.saltCap) + ') with Taxes Paid to Other States and Property Taxes: ' + taxFmt(f.saltRaw) + ' in all, ' + taxFmt(f.salt) + ' counts.', L.stateName + ' doesn\u2019t deduct its own income tax.'] },
     { k: 'fedDedTotal', basis: 'year', annualOnly: true, compare: { std: f.std, item: f.itemized, itemizing: f.itemizing }, label: 'Federal Deductions Total', sub: true,
       f: 'The larger of the standard deduction (' + taxFmt(f.std) + ', ' + e(sl.toLowerCase()) + ') and your itemized deductions (' + taxFmt(f.itemized) + '): Giving + Mortgage Interest + SALT (state income tax paid, property taxes and taxes paid to other states, up to the cap) + Medical, after their limits.',
@@ -9867,7 +9867,11 @@ function renderTaxMonthTable(c, doc) {
       + (row.labelNote ? '<div class="tax-label-note">' + escHtml(row.labelNote) + '</div>' : '') + '</td>' + taxBasisCell(row);
     if (row.wh) {        // withholding: entered figures, then what the rest of the year needs
       var wd = c.wh[row.wh], wraw = doc.w[row.wh], wk = 'wh-' + row.wh;
-      h += wd.any ? taxValCell(wd.total, 'tax-annual-col') : '<td class="tax-annual-col"></td>';
+      // Off-cycle bonuses are withheld apart from the paystubs: the year's paystub total is struck through, then the total with them
+      var wBonus = wd.any ? (row.wh === 'state' ? c.AN.bonusStateWh : c.AN.bonusFedWh) : 0;
+      h += !wd.any ? '<td class="tax-annual-col"></td>' : wBonus >= 0.5
+        ? taxCountedAnnual(wd.total, wd.total + wBonus, 'm:' + row.k + '-ann', row.label + ', With Bonus Withholding', 'The paystubs withhold ' + taxFmt(wd.total) + ' (what you entered plus the months still to come). A bonus is withheld on its own, which adds ' + taxFmt(wBonus) + ' (' + (row.wh === 'state' ? 'the state tax it adds on top of your regular pay' : 'the flat ' + taxPct(c.L.suppRate, 0) + ' federal rate on supplemental pay') + '): ' + taxFmt(wd.total + wBonus) + ' in all.')
+        : taxValCell(wd.total, 'tax-annual-col');
       for (var wi = 0; wi < 12; wi++) {
         var wbad = !isFinite(taxEval(wraw[wi]));
         h += '<td class="tax-in' + (wi === curM ? ' tax-cur' : '') + (wbad ? ' tax-bad' : '') + '">'
