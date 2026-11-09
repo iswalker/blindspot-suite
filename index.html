@@ -778,7 +778,7 @@ td.tax-in:focus-within .tax-fill { display: block; }
 .tax-dual-view { position: absolute; left: 2px; right: 2px; top: 50%; transform: translateY(-50%); padding: 0 6px; text-align: right; font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; pointer-events: none; }
 .tax-dual:focus-within .tax-dual-view { display: none; }
 .tax-dual-view .tax-entered { color: #1a4fa0; }
-.tax-dual-view .tax-used { color: #333; }
+.tax-dual-view .tax-used, .tax-dual-view .tax-used.tax-zero, .tax-dual-view .tax-zero { color: #1a4fa0; }       /* the in-month figure is yours to edit: the same blue as the other input cells */
 .tax-label-note { font-size: 12px; font-weight: 400; color: #777; margin-top: 1px; }
 .tax-compare { text-align: left; color: #777; font-weight: 400; padding-left: 12px; white-space: nowrap; }
 .tax-compare .tax-cmp-used { color: #333; font-weight: 600; }
@@ -2365,6 +2365,13 @@ html.rw-tab-active #tab-row { z-index: 30; }
                 <input type="checkbox" id="tax-show-treasury">
                 <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
                 Show Treasury Income
+              </label>
+            </div>
+            <div class="settings-row">
+              <label class="ios-toggle-wrap">
+                <input type="checkbox" id="tax-show-business">
+                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
+                Show Business Income
               </label>
             </div>
           </div>
@@ -8946,6 +8953,9 @@ var taxShowRoll = localStorage.getItem('tax-show-roll') === '1';
 // Off by default: the SGOV / Treasury Income row is hidden and left out of State AGI. Amounts already
 // entered are kept and count again once it's switched back on.
 var taxShowTreasury = localStorage.getItem('tax-show-treasury') === '1';
+// Off by default: Business Income, Business Expenses and the self-employment figures are hidden and left out of the calculation.
+// Amounts already entered are kept and count again once it's switched back on.
+var taxShowBusiness = localStorage.getItem('tax-show-business') === '1';
 
 // ---- Tax-law figures ----
 var TAX_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -9324,6 +9334,7 @@ function taxCompute(doc) {
   // The months are regular pay: income and taxable-income rows leave bonuses out of the month (their year figure, Est. Annual, has them),
   // and the tax rows are what a paystub should have withheld, since a paystub knows nothing of a bonus.
   var R = Object.assign({}, full.R);
+  R.grossLit = full.R.gross;      // the month as received, bonus and all (Gross Income shows it struck through beside the regular-pay figure)
   ['gross', 'magi', 'agi', 'fedTaxable', 'stateAgi', 'stateTaxable', 'fedTax', 'fedCredits', 'fedDue', 'fedPP', 'fedRoll', 'stateTax', 'stateCredits', 'stateDue', 'statePP', 'stateRoll'].forEach(function(k) { R[k] = reg.R[k]; });
   R.total = taxMap(function(i) { return R.fedDue[i] + R.fica[i] + R.stateDue[i]; });
   c.R = R; c.AN = AN; c.bonus = bonusA;
@@ -9364,6 +9375,7 @@ function taxCore(doc, withBonus, fixed, statePaid) {
   var L = taxLaw(doc.status, doc.state), v = {}, R = {};
   TAX_MONTH_KEYS.forEach(function(k) { v[k] = doc.m[k].map(taxNum); });
   if (!withBonus) v.bonus = taxMap(function() { return 0; });      // the regular-pay pass: what a paystub can know
+  if (!taxShowBusiness) { v.business = taxMap(function() { return 0; }); v.bizexp = taxMap(function() { return 0; }); }      // hidden = not counted
   var dependents = Math.max(0, Math.floor(taxNum(doc.dependents)));
 
   R.gross = taxMap(function(i) { return v.wages[i] + v.bonus[i] + v.interest[i] + v.business[i]; });
@@ -9552,6 +9564,10 @@ function taxSignedCell(v, cls) {
 function taxValCell(v, cls, title) {
   return '<td class="' + (cls || '') + (Math.round(v) === 0 ? ' tax-zero' : (v < 0 ? ' tax-neg' : '')) + '"' + (title ? ' title="' + escAttr(title) + '"' : '') + '>' + taxFmt(v) + '</td>';
 }
+// A month's literal figure struck through, then the figure the tax estimates use.
+function taxStruckCell(lit, used, cls, title) {
+  return '<td class="' + (cls || '') + (Math.round(used) === 0 ? ' tax-zero' : '') + '" title="' + escAttr(title) + '"><span class="tax-struck">' + taxFmt(lit) + '</span> ' + taxFmt(used) + '</td>';
+}
 // A hover (?) whose text is kept in taxHelpMap under `id`: a title, the formula, and optional notes.
 function taxHelpIcon(id, title, formula, notes, wide) {
   taxHelpMap[id] = '<div class="taxtt-title">' + escHtml(title) + (wide ? '<span class="taxtt-wide-mark"></span>' : '') + '</div>'
@@ -9591,13 +9607,14 @@ function taxMonthRows(c, doc) {
     { k: 'bonus', basis: 'off', input: true, noAnnualInput: true, label: 'Bonuses', f: 'Bonuses, in the month they are paid.',
       n: ['Taxed as ordinary income, the same as wages, so they raise the year\u2019s bill (see the \u201Cfrom bonuses\u201D rows under Total).', 'A paystub knows nothing of a bonus: it is withheld on its own at a flat rate when paid, so it never changes what a month\u2019s paystub should withhold. It shows in the year figures (Est. Annual) of the income and tax rows below, not in their months.', 'The 22% \u201Cbonus rate\u201D is only how much employers withhold, not the tax on it.'] },
     { k: 'interest', basis: 'ytd', input: true, label: 'Interest', f: 'Taxable interest and dividends (savings, CDs, Treasury funds).', n: ['Not subject to FICA.', 'A paystub can\u2019t know about it. The interest received through last month is added to the year\u2019s forecast, so withholding rises from the next month on, spread over the months left \u2014 never in the month it arrives, and never reaching back to earlier months.'] },
-    { k: 'business', basis: 'ytd', input: true, label: 'Business Income', f: 'Self-employment (1099) income before expenses.' },
-    { k: 'gross', basis: 'act', yvm: true, label: 'Gross Income', sub: true, f: 'Wages + Bonuses + Interest + Business Income' },
+    { k: 'business', basis: 'ytd', input: true, hide: !taxShowBusiness, label: 'Business Income', f: 'Self-employment (1099) income before expenses.' },
+    { k: 'gross', basis: 'act', yvm: true, litKey: 'grossLit', label: 'Gross Income', sub: true, f: 'Wages + Bonuses + Interest' + (taxShowBusiness ? ' + Business Income' : ''),
+      n: ['A month with a bonus shows what was actually received struck through, then the regular pay (wages, interest' + (taxShowBusiness ? ', business income' : '') + ') that the tax estimates for the months are built on.'] },
     { sec: 'Pre-Tax Adjustments' },
     { k: 'hsa', basis: 'month', input: true, label: 'FSA / HSA Contributions', f: 'Payroll FSA and HSA contributions.', n: ['Lower income tax and FICA.'] },
     { k: 'premiums', basis: 'month', input: true, label: 'Medical Premiums', f: 'Pre-tax (Section 125) health, dental and vision premiums.', n: ['Lower income tax and FICA. Not life or emergency coverage.'] },
     { k: 'k401', basis: 'month', input: true, label: '401(k) / IRA Contributions', f: 'Traditional (pre-tax) retirement contributions.', n: ['Lower income tax, but not FICA. Roth contributions don’t count here.'] },
-    { k: 'bizexp', basis: 'ytd', input: true, label: 'Business Expenses', f: 'Expenses of the business: supplies, mileage, and the business share of the home (mortgage interest, property taxes, utilities, internet, insurance, repairs, depreciation over 39 years) or $5 per square foot.' },
+    { k: 'bizexp', basis: 'ytd', input: true, hide: !taxShowBusiness, label: 'Business Expenses', f: 'Expenses of the business: supplies, mileage, and the business share of the home (mortgage interest, property taxes, utilities, internet, insurance, repairs, depreciation over 39 years) or $5 per square foot.' },
     { k: 'halfSe', basis: 'ytd', label: '½ Self-Employment Tax', hideZero: true, f: 'Half of the self-employment tax (see FICA), which is deductible.' },
     { k: 'magi', basis: 'act', yvm: true, label: 'Modified Adjusted Gross Income (MAGI)', sub: true, f: 'Gross Income − FSA/HSA − Medical Premiums − 401(k)/IRA − Business Expenses − ½ Self-Employment Tax' },
     { k: 'sli', basis: 'year', input: true, dual: true,
@@ -9742,7 +9759,7 @@ var TAX_BASIS = {
   ytd:   { label: 'YTD \u2192 Later', tip: 'A paystub can\u2019t know it yet. The year-to-date total through last month raises (or lowers) the withholding from this month on, spread over the months left \u2014 never the month it happens, never earlier months.' },
   year:  { label: 'Annual \u00F7 12', tip: 'A whole-year figure, spread evenly over the months.' },
   fc:    { label: 'In-Month \u2192 Later', tip: 'What that month\u2019s paystub should have withheld, given only what was known by then: a forecast of the year, less what earlier paystubs withheld, so a raise or new income lifts the later months and never reaches back to earlier ones.' },
-  act:   { label: 'Actual', tip: 'The rows above added up for the month, on regular pay: bonuses are left out of the months and show in the year figure (Est. Annual, with the months\u2019 total struck through). Annual items such as deductions are spread evenly.' },
+  act:   { label: 'Actual', tip: 'The rows above added up for the month, on regular pay: bonuses are left out of the figures the taxes use, and show in the year figure (Est. Annual, with the months\u2019 total struck through). Gross Income also shows a month\u2019s literal total, struck through, when it had a bonus. Annual items such as deductions are spread evenly.' },
   tot:   { label: 'YTD', tip: 'A year-to-date figure: January through this month, adding up as the year goes.' }
 };
 function taxBasisCell(row) {
@@ -9762,6 +9779,7 @@ function renderTaxMonthTable(c, doc) {
       h += '<tr class="tax-sec"><td>' + escHtml(row.sec) + '</td><td colspan="14"' + (row.note ? ' class="tax-sec-note"' : '') + '>' + (row.note ? escHtml(row.note) : '') + '</td></tr>'; return;
     }
     if (row.roll && !taxShowRoll) return;
+    if (row.hide) return;
     if (c.L.stateNone && (row.k === 'stateRoll' || row.k === 'bonusState')) return;      // nothing to show for a state with no income tax
     var vals = (row.input ? c.v[row.k] : c.R[row.k]) || taxMap(function() { return 0; }), ann = taxSum(vals);
     if (!row.input && Object.prototype.hasOwnProperty.call(c.AN, row.k)) ann = c.AN[row.k];       // the year includes bonuses; the months don't
@@ -9809,7 +9827,11 @@ function renderTaxMonthTable(c, doc) {
       for (var bk = 0; bk < 12; bk++) h += '<td' + (bk === curM ? ' class="tax-cur"' : '') + '></td>';
     } else {
       h += row.noAnnual ? '<td class="tax-annual-col"></td>' : row.yvm ? taxYearVsMonths(row, c, vals, ann) : taxValCell(ann, 'tax-annual-col');
-      for (var j = 0; j < 12; j++) h += taxValCell(vals[j], j === curM ? 'tax-cur' : '', row.perPaycheck ? taxFmt(c.R[row.perPaycheck][j]) + ' per paycheck' : '');
+      for (var j = 0; j < 12; j++) {
+        var lit = row.litKey ? c.R[row.litKey][j] : vals[j];
+        h += row.litKey && Math.abs(lit - vals[j]) >= 1 ? taxStruckCell(lit, vals[j], j === curM ? 'tax-cur' : '', 'Received ' + taxFmt(lit) + ', including ' + taxFmt(lit - vals[j]) + ' of bonus. The ' + taxFmt(vals[j]) + ' of regular pay is what the tax estimates use.')
+          : taxValCell(vals[j], j === curM ? 'tax-cur' : '', row.perPaycheck ? taxFmt(c.R[row.perPaycheck][j]) + ' per paycheck' : '');
+      }
     }
     h += '</tr>';
   });
@@ -9988,6 +10010,8 @@ function taxSyncSettings() {
   if (r) r.checked = taxShowRoll;
   var tr = document.getElementById('tax-show-treasury');
   if (tr) tr.checked = taxShowTreasury;
+  var tb = document.getElementById('tax-show-business');
+  if (tb) tb.checked = taxShowBusiness;
 }
 function renderTaxes() {
   if (!document.getElementById('taxes-panel')) return;
@@ -10119,6 +10143,12 @@ function wireTaxes() {
   if (tr) tr.addEventListener('change', function() {
     taxShowTreasury = tr.checked;
     try { localStorage.setItem('tax-show-treasury', taxShowTreasury ? '1' : '0'); } catch (x) {}
+    renderTaxes();
+  });
+  var tb = document.getElementById('tax-show-business');
+  if (tb) tb.addEventListener('change', function() {
+    taxShowBusiness = tb.checked;
+    try { localStorage.setItem('tax-show-business', taxShowBusiness ? '1' : '0'); } catch (x) {}
     renderTaxes();
   });
 }
