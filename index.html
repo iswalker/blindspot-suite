@@ -9593,9 +9593,9 @@ function taxHelpIcon(id, title, formula, notes, wide) {
 var TAX_ROW_OPS = {
   bonus: '+', interest: '+', business: '+', gross: '=',
   hsa: '\u2212', premiums: '\u2212', k401: '\u2212', bizexp: '\u2212', halfSe: '\u2212', magi: '=', sli: '\u2212', agi: '=',
-  fedDed: '\u2212', qbi: '\u2212', fedTaxable: '=', fedTax: '', fedCredits: '\u2212', fedDue: '=',
+  fedDed: '\u2212', qbi: '\u2212', fedTaxable: '=', fedTax: '\u00D7', fedCredits: '\u2212', fedDue: '=',
   ficaWages: '=', ss: '\u00D7', medicare: '\u00D7', seTax: '+', fica: '=',
-  s529: '\u2212', treasury: '\u2212', stateAgi: '=', stateDed: '\u2212', stateTaxable: '=', stateTax: '', stateCredits: '\u2212', stateDue: '=',
+  s529: '\u2212', treasury: '\u2212', stateAgi: '=', stateDed: '\u2212', stateTaxable: '=', stateTax: '\u00D7', stateCredits: '\u2212', stateDue: '=',
   total: '=',
   fedWh: '\u2212', fedExpected: '=',
   stateWh: '\u2212', stateExpected: '='
@@ -9803,7 +9803,7 @@ function renderTaxMonthTable(c, doc) {
     if (row.hideZero && (row.annualOnly ? Math.abs(ann) < 0.5 : vals.every(function(x) { return Math.abs(x) < 0.5; }))) return;
     h += '<tr class="' + (row.sub ? 'tax-sub' : row.total ? 'tax-total' : row.input ? 'tax-inrow' : '') + '">'
       + '<td><span class="tax-op">' + (TAX_ROW_OPS[row.k] || '') + '</span>' + escHtml(row.label)
-      + (TAX_ROW_OPS[row.k] === '\u00D7' ? '<span class="tax-rate" title="' + (TAX_ROW_OPS[row.k] === '\u00F7' ? 'Paychecks in a month' : 'Effective rate for the year') + '">' + TAX_ROW_OPS[row.k] + '\u00A0' + taxRowRate(row.k, c) + '</span>' : '')
+      + (TAX_ROW_OPS[row.k] === '\u00D7' && row.k !== 'fedTax' && row.k !== 'stateTax' ? '<span class="tax-rate" title="' + (TAX_ROW_OPS[row.k] === '\u00F7' ? 'Paychecks in a month' : 'Effective rate for the year') + '">' + TAX_ROW_OPS[row.k] + '\u00A0' + taxRowRate(row.k, c) + '</span>' : '')
       + taxHelpIcon('m:' + row.k, row.label, row.f, row.n, row.wide)
       + (row.applies ? ' ' + taxBadge(row.applies === 'both' && c.L.stateNone ? 'fed' : row.applies) : '')
       + (row.labelNote ? '<div class="tax-label-note">' + escHtml(row.labelNote) + '</div>' : '') + '</td>' + taxBasisCell(row);
