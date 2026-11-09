@@ -704,7 +704,7 @@ td.cell-active {
 .tax-struck { color: #8a8a8a; font-style: italic; font-weight: 400; text-decoration: line-through; }
 .taxtt-title { font-size: 15px; font-weight: 700; color: #333; margin-bottom: 6px; }
 .taxtt-formula { font-size: 14px; color: #333; line-height: 1.45; }
-.taxtt-tip { font-size: 15px; color: #333; line-height: 1.4; white-space: nowrap; }
+.taxtt-tip { font-size: 15px; color: #333; line-height: 1.4; max-width: 320px; white-space: normal; }
 .taxtt-tip b { font-weight: 700; }
 .taxtt-note { font-size: 13px; color: #777; line-height: 1.45; margin-top: 6px; }
 #tax-month-table, .tax-side-table { border-collapse: collapse; width: 100%; }
@@ -10087,7 +10087,7 @@ function wireTaxes() {
   });
   panel.addEventListener('mousemove', function(e) {
     var help = e.target.closest && e.target.closest('.tax-help'), tipEl = !help && e.target.closest && e.target.closest('[data-tip]');
-    if (help) taxShowHelp(help, e.clientX, e.clientY); else if (tipEl) taxShowTip(tipEl, e.clientX, e.clientY); else taxHideHelp();
+    if (help) taxShowHelp(help, e.clientX, e.clientY); else if (tipEl) taxShowTip(tipEl); else taxHideHelp();
   });
   panel.addEventListener('mouseleave', taxHideHelp);
   document.addEventListener('click', function(e) { if (!e.target.closest || !e.target.closest('.tax-help')) taxHideHelp(); });
@@ -10131,14 +10131,18 @@ function taxShowHelp(icon, x, y) {
 }
 // Short hover text on table cells (data-tip): the same card as the (?) help, shown the instant the pointer is over the cell.
 var taxTipShown = null;
-function taxShowTip(el, x, y) {
+function taxShowTip(el) {
   var tip = document.getElementById('lw-tooltip'), txt = el.getAttribute('data-tip');
-  if (!tip || !txt) return;
-  if (taxTipShown !== el) { tip.innerHTML = '<div class="taxtt"><div class="taxtt-tip">' + escHtml(txt).replace(/^(-?\$[\d,]+)/, '<b>$1</b>') + '</div></div>'; taxTipShown = el; taxHelpShown = null; }
+  if (!tip || !txt || taxTipShown === el) return;       // already showing for this cell: it stays put rather than following the pointer
+  tip.innerHTML = '<div class="taxtt"><div class="taxtt-tip">' + escHtml(txt).replace(/^(-?\$[\d,]+)/, '<b>$1</b>') + '</div></div>';
+  taxTipShown = el; taxHelpShown = null;
+  tip.style.left = '0px'; tip.style.top = '0px';           // measured unconstrained, then placed
   tip.style.display = 'block';
-  var tw = tip.offsetWidth, th = tip.offsetHeight, tx = x + 14, ty = y - th - 12;
-  if (ty < 8) ty = y + 18;
-  if (tx + tw > window.innerWidth - 8) tx = x - tw - 14;
+  // Below the cell, left edges aligned (like the State / Filing status dropdowns); above it when there is no room below
+  var r = el.getBoundingClientRect(), tw = tip.offsetWidth, th = tip.offsetHeight;
+  var tx = r.left, ty = r.bottom + 6;
+  if (tx + tw > window.innerWidth - 8) tx = r.right - tw;
+  if (ty + th > window.innerHeight - 8) ty = r.top - th - 6;
   var pos = clampToViewport(tx, ty, tw, th);
   tip.style.left = pos.x + 'px';
   tip.style.top = pos.y + 'px';
