@@ -8947,11 +8947,15 @@ var taxShowTreasury = localStorage.getItem('tax-show-treasury') === '1';
 var taxShowBusiness = localStorage.getItem('tax-show-business') === '1';
 // Off by default: the Misc. itemized deduction row ("Misc. Over $X") is hidden and left out of the state itemized total (entries are kept).
 var taxShowStateMisc = localStorage.getItem('tax-show-statemisc') === '1';
-// The "Additional Line Items" dropdown in Settings: rows that are hidden (and not counted) until switched on.
+// Off by default: the Non-HSA Medical row is hidden and left out of the itemized totals (entries are kept).
+var taxShowMedical = localStorage.getItem('tax-show-medical') === '1';
+var taxLastC = null;      // the latest calculation, for the dollar amounts in the dropdown's labels
+// The "Additional Line Items" dropdown at the top of the page: rows that are hidden (and not counted) until switched on.
 var TAX_ITEMS = [
   { label: 'Treasury Income', ls: 'tax-show-treasury', get: function() { return taxShowTreasury; }, set: function(v) { taxShowTreasury = v; } },
   { label: 'Business Income', ls: 'tax-show-business', get: function() { return taxShowBusiness; }, set: function(v) { taxShowBusiness = v; } },
-  { label: 'Misc. State Deductions', ls: 'tax-show-statemisc', get: function() { return taxShowStateMisc; }, set: function(v) { taxShowStateMisc = v; } }
+  { label: function() { return 'Misc. State Deductions' + (taxLastC ? ' over ' + taxFmt(taxLastC.st.miscFloor) : ''); }, ls: 'tax-show-statemisc', get: function() { return taxShowStateMisc; }, set: function(v) { taxShowStateMisc = v; } },
+  { label: function() { return 'Non-HSA Medical' + (taxLastC ? ' Over ' + taxFmt(taxLastC.L.stateNone ? taxLastC.fed.medFloor : Math.min(taxLastC.fed.medFloor, taxLastC.st.medFloor)) : ''); }, ls: 'tax-show-medical', get: function() { return taxShowMedical; }, set: function(v) { taxShowMedical = v; } }
 ];
 
 // ---- Tax-law figures ----
@@ -9386,6 +9390,7 @@ function taxCore(doc, withBonus, fixed, statePaid) {
   TAX_MONTH_KEYS.forEach(function(k) { v[k] = doc.m[k].map(taxNum); });
   TAX_DED_KEYS.forEach(function(k) { var a = taxNum(doc.d[k]); v[k] = taxMap(function() { return a / 12; }); });      // yearly entries, spread evenly
   if (!withBonus) { v.bonus = taxMap(function() { return 0; }); v.ltcg = taxMap(function() { return 0; }); }      // the regular-pay pass: what a paystub can know (bonuses and long-term gains are withheld separately, if at all)
+  if (!taxShowMedical) v.medical = taxMap(function() { return 0; });      // hidden = not counted
   if (!taxShowStateMisc) v.misc = taxMap(function() { return 0; });      // the Misc. itemized deduction is hidden (and not counted) until switched on
   if (!taxShowBusiness) { v.business = taxMap(function() { return 0; }); v.bizexp = taxMap(function() { return 0; }); }      // hidden = not counted
   var dependents = Math.max(0, Math.floor(taxNum(doc.dependents)));
@@ -9479,6 +9484,7 @@ function taxCore(doc, withBonus, fixed, statePaid) {
   var stPaid = statePaid == null ? stDueA : statePaid;
   var fed = { giving: giving, givingPaid: givingPaid, givingFloor: givingFloor, mortgage: mortgage, stateTax: stPaid, statePaid: statePaid != null,
               property: property, otherState: otherState, saltRaw: stPaid + property + otherState, saltCap: saltCap, medicalPaid: medical };
+  R.stWhDed = taxMap(function() { return stPaid / 12; });      // the state income tax paid, shown in the Deductions section
   fed.salt = Math.min(fed.saltRaw, saltCap);
   fed.medFloor = L.medFloor * Math.max(0, agiA);
   fed.medical = Math.max(0, medical - fed.medFloor);
@@ -9617,7 +9623,7 @@ function taxHelpIcon(id, title, formula, notes, wide) {
 var TAX_ROW_OPS = {
   bonus: '+', interest: '+', stcg: '+', ltcg: '+', cgLimit: '+', business: '+', gross: '=',
   hsa: '\u2212', premiums: '\u2212', k401: '\u2212', bizexp: '\u2212', halfSe: '\u2212', magi: '=', sli: '\u2212', agi: '=',
-  fedDed: '\u2212', qbi: '\u2212', fedTaxable: '=', fedTax: '\u00D7', fedCredits: '\u2212', fedDue: '=',
+  otherState: '+', stWhDed: '+', fedDed: '\u2212', qbi: '\u2212', fedTaxable: '=', fedTax: '\u00D7', fedCredits: '\u2212', fedDue: '=',
   ficaWages: '=', ss: '\u00D7', medicare: '\u00D7', seTax: '+', fica: '=',
   s529: '\u2212', treasury: '\u2212', stateAgi: '=', stateDed: '\u2212', stateTaxable: '=', stateTax: '\u00D7', stateCredits: '\u2212', stateDue: '=',
   total: '=',
@@ -9680,10 +9686,7 @@ function taxMonthRows(c, doc) {
     { k: 'property', basis: 'year', applies: 'both', input: true, label: 'Property Taxes', f: 'Real estate taxes, in the month paid.',
       n: ['Federally they count toward the SALT cap, together with the state income tax paid (' + taxFmt(f.stateTax) + ', ' + (f.statePaid ? 'from the state withholding entered' : 'State Tax Due') + ') and taxes paid to other states (' + taxFmt(f.otherState) + '): ' + taxFmt(f.stateTax) + ' + ' + taxFmt(f.property) + ' + ' + taxFmt(f.otherState) + ' = ' + taxFmt(f.saltRaw) + ', up to the ' + taxFmt(f.saltCap) + ' cap' + (L.saltPoOn && A.agi > L.saltPoThreshold ? ' (reduced from ' + taxFmt(L.saltCap) + ' because AGI is over ' + taxFmt(L.saltPoThreshold) + ')' : '') + ' = ' + taxFmt(f.salt) + ' counts.',
           L.stateNone ? '' : L.stateName + ' counts the property taxes (' + taxFmt(st.property) + ') but not its own income tax.'] },
-    { k: 'otherState', basis: 'year', applies: 'both', input: true, label: 'Taxes Paid to Other States', f: 'State and local income taxes paid to other states or localities, in the month paid.',
-      n: ['Federally they count toward the SALT cap with the state income tax you paid and your property taxes (see Property Taxes): ' + taxFmt(f.otherState) + ' entered.',
-          L.stateNone ? '' : L.stateName + ' credits them against its own tax (see State Credits), so they count there too.'] },
-    { k: 'medical', basis: 'year', applies: 'both', input: true, label: 'Non-HSA Medical Over ' + taxFmt(L.stateNone ? f.medFloor : Math.min(f.medFloor, st.medFloor)), f: 'Out-of-pocket medical and dental costs not paid from an HSA or FSA, in the month paid.',
+    !taxShowMedical ? null : { k: 'medical', basis: 'year', applies: 'both', input: true, label: 'Non-HSA Medical Over ' + taxFmt(L.stateNone ? f.medFloor : Math.min(f.medFloor, st.medFloor)), f: 'Out-of-pocket medical and dental costs not paid from an HSA or FSA, in the month paid.',
       n: ['Only the part above a share of AGI counts, so there is no point entering less than ' + taxFmt(L.stateNone ? f.medFloor : Math.min(f.medFloor, st.medFloor)) + ': ' + taxPct(L.medFloor) + ' federally (over ' + taxFmt(f.medFloor) + ')' + (L.stateNone ? '' : ', ' + taxPct(st.medFloorPct, 0) + ' for ' + L.stateName + ' (over ' + taxFmt(st.medFloor) + ')') + '.',
           'Est. Annual shows what was paid, struck through when the floor takes some of it, then what counts federally: ' + taxFmt(f.medical) + (L.stateNone ? '' : ' (' + taxFmt(st.medical) + ' for ' + L.stateName + ')') + ' of ' + taxFmt(f.medicalPaid) + '.'],
       calcAnnual: function() {
@@ -9699,12 +9702,18 @@ function taxMonthRows(c, doc) {
       calcAnnual: function() {
         return taxCountedAnnual(st.miscPaid, st.misc, 'm:misc-ann', 'Misc. Counted', st.miscPaid - st.misc > 0.005 ? (st.misc <= 0.005 ? 'None of the ' + taxFmt(st.miscPaid) + ' counts: it is under the ' + taxFmt(st.miscFloor) + ' floor (' + taxPct(st.miscFloorPct, 0) + ' of AGI).' : 'Only the part over the ' + taxFmt(st.miscFloor) + ' floor (' + taxPct(st.miscFloorPct, 0) + ' of AGI) counts: ' + taxFmt(st.misc) + ' of the ' + taxFmt(st.miscPaid) + ' paid.') : '');
       } },
-    { k: 'fedDedTotal', basis: 'year', labelNote: f.stateTax > 0.5 ? 'incl. ' + taxFmt(f.stateTax) + (f.statePaid ? ' state withholdings' : ' state income tax (est.)') : '', annualOnly: true, compare: { std: f.std, item: f.itemized, itemizing: f.itemizing }, label: 'Federal Deductions Total', sub: true,
-      f: 'The larger of the standard deduction (' + taxFmt(f.std) + ', ' + e(sl.toLowerCase()) + ') and your itemized deductions (' + taxFmt(f.itemized) + '): Giving + Mortgage Interest + SALT (state income tax paid, property taxes and taxes paid to other states, up to the cap) + Medical, after their limits.',
-      n: ['The larger is the deduction used, marked with a green check. It feeds ' + (f.itemizing ? 'Itemized' : 'Standard') + ' Deduction below.'] },
     L.stateNone ? null : { k: 'stDedTotal', basis: 'year', applies: 'state', annualOnly: true, compare: { std: st.std, item: st.itemized, itemizing: st.itemizing }, label: L.stateName + ' Deductions Total', sub: true,
       f: 'The larger of ' + L.stateName + '\u2019s standard deduction (' + taxFmt(st.std) + ') and your itemized deductions (' + taxFmt(st.itemized) + '): Giving + Mortgage Interest + Property Taxes + Medical + Misc., after their limits.',
       n: ['The larger is the deduction used, marked with a green check. It feeds ' + (st.itemizing ? 'Itemized' : 'Standard') + ' Deduction in the state section below.'] },
+    { k: 'otherState', basis: 'year', applies: 'both', input: true, label: 'Taxes Paid to Other States', f: 'State and local income taxes paid to other states or localities, in the month paid.',
+      n: ['Federally they count toward the SALT cap with the state income tax you paid and your property taxes (see Property Taxes): ' + taxFmt(f.otherState) + ' entered.',
+          L.stateNone ? '' : L.stateName + ' credits them against its own tax (see State Credits), so they count there too.'] },
+    L.stateNone ? null : { k: 'stWhDed', basis: 'year', applies: 'fed', label: 'State Withholdings', labelNote: f.statePaid ? taxFmt(c.wh.state.total) + ' paystub + ' + taxFmt(c.AN.bonusStateWh) + ' on bonuses' : 'estimated State Tax Due (none entered)',
+      f: 'State income tax paid in the year: Paystub State Withheld (' + taxFmt(c.wh.state.total) + ', what was entered plus the months still to come) + the state tax withheld on bonuses (' + taxFmt(c.AN.bonusStateWh) + '). With no withholding entered, the State Tax Due stands in.',
+      n: ['Federally it counts toward the SALT cap (' + taxFmt(f.saltCap) + ') with Taxes Paid to Other States and Property Taxes: ' + taxFmt(f.saltRaw) + ' in all, ' + taxFmt(f.salt) + ' counts.', L.stateName + ' doesn\u2019t deduct its own income tax.', 'Spread evenly over the months.'] },
+    { k: 'fedDedTotal', basis: 'year', annualOnly: true, compare: { std: f.std, item: f.itemized, itemizing: f.itemizing }, label: 'Federal Deductions Total', sub: true,
+      f: 'The larger of the standard deduction (' + taxFmt(f.std) + ', ' + e(sl.toLowerCase()) + ') and your itemized deductions (' + taxFmt(f.itemized) + '): Giving + Mortgage Interest + SALT (state income tax paid, property taxes and taxes paid to other states, up to the cap) + Medical, after their limits.',
+      n: ['The larger is the deduction used, marked with a green check. It feeds ' + (f.itemizing ? 'Itemized' : 'Standard') + ' Deduction below.'] },
     { sec: 'Federal' },
     { k: 'fedDed', basis: 'year', label: (f.itemizing ? 'Itemized' : 'Standard') + ' Deduction', f: 'The larger of the standard deduction (' + taxFmt(f.std) + ', ' + e(sl.toLowerCase()) + ') and your itemized deductions (' + taxFmt(f.itemized) + ') — using ' + (f.itemizing ? 'itemized' : 'standard') + '.',
       n: ['See the Deductions section above. Spread evenly over the year.'] },
@@ -10063,7 +10072,7 @@ function taxSyncItems() {
   var panel = document.getElementById('tax-items-panel'), btn = document.getElementById('tax-items-btn');
   if (!panel || !btn) return;
   panel.innerHTML = TAX_ITEMS.map(function(it, i) {
-    return '<label class="acct-chk-row"><input type="checkbox" data-item="' + i + '"' + (it.get() ? ' checked' : '') + '>' + escHtml(it.label) + '</label>';
+    return '<label class="acct-chk-row"><input type="checkbox" data-item="' + i + '"' + (it.get() ? ' checked' : '') + '>' + escHtml(typeof it.label === 'function' ? it.label() : it.label) + '</label>';
   }).join('');
   var on = TAX_ITEMS.filter(function(it) { return it.get(); }).length;
   btn.textContent = 'Additional Line Items (' + on + '/' + TAX_ITEMS.length + ') \u25BE';
@@ -10082,6 +10091,7 @@ function renderTaxes() {
   renderTaxBrackets(c, taxDoc);
   var hint = document.getElementById('tax-empty-hint');
   if (hint) hint.style.display = c.A.gross ? 'none' : '';
+  taxLastC = c;
   taxSyncSettings();
   taxShowSaveState();
 }
