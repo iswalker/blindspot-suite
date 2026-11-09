@@ -9219,6 +9219,23 @@ function taxWeights(basis) {
   var pos = basis.map(function(x) { return Math.max(0, x); }), s = taxSum(pos);
   return s > 0 ? pos.map(function(x) { return x / s; }) : taxMap(function() { return 1 / 12; });
 }
+// What each month's paystub should have withheld for federal income tax, given only what was known by then: the year's income as
+// forecast at that month (the months before it as they were, this month's pay repeated for the rest of the year), put through the
+// brackets, less what the earlier paystubs were expected to withhold, spread over the months left. A later raise lifts the later
+// months but never reaches back to earlier ones. Months with no income have no paystub, so they show nothing. By December the
+// forecast is the year itself, so (with steady or rising pay) the months add up to the year's tax.
+function taxPaystubTax(agi, deduct, brackets) {
+  var out = taxMap(function() { return 0; }), prior = 0, ytd = 0;
+  for (var m = 0; m < 12; m++) {
+    if (agi[m] > 0) {
+      var forecast = Math.max(0, ytd + agi[m] * (12 - m) - deduct);
+      var e = Math.max(0, (taxBracketTax(forecast, brackets) - prior) / (12 - m));
+      out[m] = e; prior += e;
+    }
+    ytd += agi[m];
+  }
+  return out;
+}
 // A credit is a fixed amount for the year (it doesn't grow with a month's pay), so it is spread evenly over the months. A month
 // can't use more than its own tax, though: what a month can't absorb moves to the others (all of it ends up used, since the
 // year's credit is already limited to the year's tax).
@@ -9270,11 +9287,13 @@ function taxCompute(doc) {
   var full = p.full, reg = p.reg;
   var c = Object.assign({}, full), AN = {};
   Object.keys(full.R).forEach(function(k) { AN[k] = taxSum(full.R[k]); });
+  // The year's federal figures are the whole-year calculation itself, not a sum of the months (which are paystub-by-paystub estimates)
+  AN.fedTax = full.A.fedTax; AN.fedCredits = full.cr.applied; AN.fedDue = full.A.fedDue; AN.total = full.A.total;
   c.R = reg.R; c.AN = AN; c.bonus = bonusA;
-  AN.bonusFed = AN.fedDue - taxSum(reg.R.fedDue);
+  AN.bonusFed = AN.fedDue - reg.A.fedDue;
   AN.bonusFica = AN.fica - taxSum(reg.R.fica);
   AN.bonusState = AN.stateDue - taxSum(reg.R.stateDue);
-  c.wh = { fed: taxWithholding(doc.w.fed, taxSum(reg.R.fedDue)), state: taxWithholding(doc.w.state, taxSum(reg.R.stateDue)) };
+  c.wh = { fed: taxWithholding(doc.w.fed, reg.A.fedDue), state: taxWithholding(doc.w.state, taxSum(reg.R.stateDue)) };
   // Federal withholding on the bonus at the flat supplemental rate, and what is left to pay (or get back) once that and the paystub
   // withholding are taken off the year's federal tax. Positive = still owed, negative = overpaid.
   var L = full.L;
@@ -9416,7 +9435,7 @@ function taxCore(doc, bonusDec, fixed, statePaid) {
   if (fixed) cr.total = fixed.crTotal;
   cr.applied = Math.min(cr.total, fedTaxA);     // treated as non-refundable: credits can't take the tax below zero
   var fedDueA = fedTaxA - cr.applied, fW = taxWeights(R.fedTaxable);
-  R.fedTax = taxMap(function(i) { return fedTaxA * fW[i]; });
+  R.fedTax = taxPaystubTax(R.agi, fed.used + qbiA, L.fedBrackets);
   R.fedCredits = taxFlatShares(cr.applied, R.fedTax);
   R.fedDue = taxMap(function(i) { return R.fedTax[i] - R.fedCredits[i]; });
 
@@ -9445,7 +9464,7 @@ function taxCore(doc, bonusDec, fixed, statePaid) {
     A: { gross: taxSum(R.gross), magi: magiA, agi: agiA, stateAgi: stateAgiA, sliPaid: sliPaid, sliCut: sliCut, sli: sliA, s529: s529A, s529Ok: s529Ok, s529Barred: s529Barred,
          fedTaxable: fedTaxableA, fedTax: fedTaxA, fedDue: fedDueA, stTaxable: stTaxableA, stTax: stTaxA, stDue: stDueA, qbi: qbiA,
          seNet: seNetA, seTax: seMain + seAddl, ficaWages: ficaWagesA, fica: taxSum(R.fica), ss: taxSum(R.ss), medicare: taxSum(R.medicare),
-         total: taxSum(R.total) }
+         total: fedDueA + taxSum(R.fica) + stDueA }
   };
 }
 
@@ -9526,7 +9545,7 @@ function taxMonthRows(c, doc) {
     { k: 'qbi', label: 'Qualified Business Income Deduction', hideZero: true, f: '20% of business profit (after ½ self-employment tax), up to 20% of taxable income.' },
     { k: 'fedTaxable', label: 'Federal Taxable Income', sub: true, f: 'AGI − Standard / Itemized Deduction − QBI Deduction' },
     { k: 'fedTax', label: 'Federal Income Tax', f: 'The year’s taxable income (' + taxFmt(A.fedTaxable) + ') through the federal brackets below = ' + taxFmt(A.fedTax) + '.',
-      n: ['Effective rate ' + taxPct(A.fedTaxable > 0 ? A.fedTax / A.fedTaxable : 0) + ' of taxable income; top bracket reached ' + taxPct(fedMarg.rate, 0) + '.', 'Each month shows its share, in proportion to its taxable income, so the months add up to the year.'] },
+      n: ['Effective rate ' + taxPct(A.fedTaxable > 0 ? A.fedTax / A.fedTaxable : 0) + ' of taxable income; top bracket reached ' + taxPct(fedMarg.rate, 0) + '.', 'Each month shows what that month\u2019s paystub should have withheld: the year\u2019s income as forecast at that point (earlier months as they were, this month\u2019s pay repeated for the rest of the year) through the brackets, less what earlier paystubs should have withheld, spread over the months left.', 'A raise lifts the later months but never changes the earlier ones. Est. Annual is the whole-year calculation.'] },
     { k: 'fedCredits', label: 'Federal Credits', f: 'Child Tax Credit (' + taxFmt(c.cr.ctc) + ') + the other credits under Credits below (' + taxFmt(c.cr.total - c.cr.ctc) + ').',
       n: ['Credits are fixed amounts, so the months show them spread evenly (a month\u2019s credit can\u2019t exceed that month\u2019s tax).', c.cr.total > A.fedTax ? 'Limited to the tax itself (' + taxFmt(A.fedTax) + ').' : ''] },
     { k: 'fedDue', label: 'Federal Income Tax Due', sub: true, f: 'Federal Income Tax − Federal Credits', n: ['The months cover regular pay; Est. Annual also includes the tax on bonuses.'] },
