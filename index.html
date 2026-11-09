@@ -700,6 +700,8 @@ td.cell-active {
 .tax-legend b { color: #333; }
 /* Hover help (in the shared #lw-tooltip): sized 1-2px above the usual tooltip text */
 .taxtt { max-width: 340px; white-space: normal; }
+.taxtt:has(.taxtt-wide-mark) { max-width: 480px; }
+.tax-struck { color: #8a8a8a; font-style: italic; font-weight: 400; text-decoration: line-through; }
 .taxtt-title { font-size: 15px; font-weight: 700; color: #333; margin-bottom: 6px; }
 .taxtt-formula { font-size: 14px; color: #333; line-height: 1.45; }
 .taxtt-note { font-size: 13px; color: #777; line-height: 1.45; margin-top: 6px; }
@@ -9526,8 +9528,8 @@ function taxValCell(v, cls) {
   return '<td class="' + (cls || '') + (Math.round(v) === 0 ? ' tax-zero' : (v < 0 ? ' tax-neg' : '')) + '">' + taxFmt(v) + '</td>';
 }
 // A hover (?) whose text is kept in taxHelpMap under `id`: a title, the formula, and optional notes.
-function taxHelpIcon(id, title, formula, notes) {
-  taxHelpMap[id] = '<div class="taxtt-title">' + escHtml(title) + '</div>'
+function taxHelpIcon(id, title, formula, notes, wide) {
+  taxHelpMap[id] = '<div class="taxtt-title">' + escHtml(title) + (wide ? '<span class="taxtt-wide-mark"></span>' : '') + '</div>'
     + (formula ? '<div class="taxtt-formula">' + formula + '</div>' : '')
     + (notes || []).filter(Boolean).map(function(n) { return '<div class="taxtt-note">' + n + '</div>'; }).join('');
   return '<span class="tax-help" data-help="' + escAttr(id) + '" tabindex="0">?</span>';
@@ -9580,26 +9582,34 @@ function taxMonthRows(c, doc) {
       n: ['Enter what you paid. It lowers AGI for both returns, even with the standard deduction.', 'The months show the part that counts, spread evenly: ' + taxFmt(A.sli) + ' for the year at your MAGI of ' + taxFmt(A.magi) + ' (' + taxPct(1 - A.sliCut, 0) + ' of the allowed amount).', 'If the limits take some or all of it, the entry is struck through (all) or flagged with a (?) (some).'] },
     { k: 'agi', label: 'Adjusted Gross Income', sub: true, f: 'MAGI − Student Loan Interest' },
     { sec: 'Deductions' },
-    { k: 'giving', basis: 'year', input: true, label: 'Giving', f: 'Charitable gifts, in the month given.',
-      n: [L.charityFloorOn ? 'Only the part above ' + taxPct(L.charityFloor) + ' of AGI (' + taxFmt(f.givingFloor) + ') is deductible when itemizing; ' + (L.stateNone ? 'the state' : L.stateName) + ' starts from the same federal figure.' : '',
-          'Counts for ' + taxFmt(f.giving) + (L.stateNone ? '' : ' (' + taxFmt(st.giving) + ' for ' + L.stateName + ')') + ' of the ' + taxFmt(f.givingPaid) + ' given.',
-          'Only matters if your itemized total beats the standard deduction. Entered by hand for now; later this can come from #itemize-tagged transactions.'] },
-    { k: 'mortgage', basis: 'year', input: true, label: 'Mortgage Interest', f: 'Home mortgage interest, in the month paid (Form 1098).',
+    { k: 'giving', basis: 'year', applies: 'both', input: true, label: L.charityFloorOn ? 'Giving Over ' + taxFmt(f.givingFloor) : 'Giving', f: 'Charitable gifts, in the month given.',
+      n: [L.charityFloorOn ? 'Only the part above ' + taxPct(L.charityFloor) + ' of AGI (' + taxFmt(f.givingFloor) + ') is deductible when itemizing, so there is no point entering less than that; ' + (L.stateNone ? 'the state' : L.stateName) + ' starts from the same federal figure.' : '',
+          'Est. Annual shows what was given, struck through when the floor takes some of it, then what counts: ' + taxFmt(f.giving) + ' of ' + taxFmt(f.givingPaid) + '.',
+          'Only matters if your itemized total beats the standard deduction. Entered by hand for now; later this can come from #itemize-tagged transactions.'],
+      calcAnnual: function() {
+        return taxCountedAnnual(f.givingPaid, f.giving, 'm:giving-ann', 'Giving Counted',
+          f.givingPaid - f.giving > 0.005 ? (f.giving <= 0.005 ? 'None of the ' + taxFmt(f.givingPaid) + ' given counts: it is under the ' + taxFmt(f.givingFloor) + ' floor (' + taxPct(L.charityFloor) + ' of AGI).' : 'Only the part over the ' + taxFmt(f.givingFloor) + ' floor (' + taxPct(L.charityFloor) + ' of AGI) counts: ' + taxFmt(f.giving) + ' of the ' + taxFmt(f.givingPaid) + ' given.') : '');
+      } },
+    { k: 'mortgage', basis: 'year', applies: 'both', input: true, label: 'Mortgage Interest', f: 'Home mortgage interest, in the month paid (Form 1098).',
       n: ['Only the share not already used as a business expense. Interest on up to $750,000 of mortgage debt counts.', 'Counts for ' + taxFmt(f.mortgage) + '.'] },
-    { k: 'property', basis: 'year', input: true, label: 'Property Taxes', f: 'Real estate taxes, in the month paid.',
+    { k: 'property', basis: 'year', applies: 'both', input: true, label: 'Property Taxes', f: 'Real estate taxes, in the month paid.',
       n: ['Federally they count toward the SALT cap, together with the state income tax paid (' + taxFmt(f.stateTax) + ', ' + (f.statePaid ? 'from the state withholding entered' : 'State Tax Due') + '): ' + taxFmt(f.stateTax) + ' + ' + taxFmt(f.property) + ' = ' + taxFmt(f.saltRaw) + ', up to the ' + taxFmt(f.saltCap) + ' cap' + (L.saltPoOn && A.agi > L.saltPoThreshold ? ' (reduced from ' + taxFmt(L.saltCap) + ' because AGI is over ' + taxFmt(L.saltPoThreshold) + ')' : '') + ' = ' + taxFmt(f.salt) + ' counts.',
           L.stateNone ? '' : L.stateName + ' counts the property taxes (' + taxFmt(st.property) + ') but not its own income tax.'] },
-    { k: 'medical', basis: 'year', input: true, label: 'Medical (Not HSA-Reimbursed)', f: 'Out-of-pocket medical and dental costs not paid from an HSA or FSA, in the month paid.',
-      n: ['Only the part above a share of AGI counts: ' + taxPct(L.medFloor) + ' federally (over ' + taxFmt(f.medFloor) + ')' + (L.stateNone ? '' : ', ' + taxPct(st.medFloorPct, 0) + ' for ' + L.stateName + ' (over ' + taxFmt(st.medFloor) + ')') + '.',
+    { k: 'medical', basis: 'year', applies: 'both', input: true, label: 'Non-HSA Medical Over ' + taxFmt(L.stateNone ? f.medFloor : Math.min(f.medFloor, st.medFloor)), f: 'Out-of-pocket medical and dental costs not paid from an HSA or FSA, in the month paid.',
+      n: ['Only the part above a share of AGI counts, so there is no point entering less than ' + taxFmt(L.stateNone ? f.medFloor : Math.min(f.medFloor, st.medFloor)) + ': ' + taxPct(L.medFloor) + ' federally (over ' + taxFmt(f.medFloor) + ')' + (L.stateNone ? '' : ', ' + taxPct(st.medFloorPct, 0) + ' for ' + L.stateName + ' (over ' + taxFmt(st.medFloor) + ')') + '.',
           'Counts for ' + taxFmt(f.medical) + (L.stateNone ? '' : ' (' + taxFmt(st.medical) + ' for ' + L.stateName + ')') + '.'] },
-    L.stateNone ? null : { k: 'misc', basis: 'year', input: true, label: 'Misc. Over 2%', f: 'Miscellaneous deductions (unreimbursed job expenses, tax prep, ...), in the month paid.',
-      n: ['No longer deductible federally; ' + L.stateName + ' counts the part over 2% of AGI (' + taxFmt(st.miscFloor) + '): ' + taxFmt(st.misc) + '.'] },
-    { k: 'fedItemized', annualOnly: true, checkOn: function() { return f.itemizing; }, label: 'Federal Itemized Total', sub: true, f: 'Giving + Mortgage Interest + SALT + Medical, after their limits.',
+    L.stateNone ? null : { k: 'misc', basis: 'year', applies: 'state', input: true, label: 'Misc. Over ' + taxFmt(st.miscFloor), f: 'Miscellaneous itemized deductions that are subject to the ' + taxPct(st.miscFloorPct, 0) + ' of AGI floor, in the month paid.', wide: true,
+      n: ['No longer deductible federally (2018 on). ' + L.stateName + ' counts the part over ' + taxPct(st.miscFloorPct, 0) + ' of AGI (' + taxFmt(st.miscFloor) + '), so there is no point entering less than that: ' + taxFmt(st.misc) + ' counts.',
+          '<b>Job expenses your employer didn\u2019t reimburse:</b> business travel and 50% of meals; work clothes and uniforms not suitable for everyday wear, and their upkeep; tools and supplies; business use of a home computer or home office; union dues; professional society, licensing and regulatory fees; professional journals, trade magazines and subscriptions; costs of looking for a new job in your present occupation (employment agency, r\u00E9sum\u00E9, travel); education that maintains or improves skills for your current job; malpractice and business liability insurance; medical exams your employer requires; occupational taxes; passport fees for a business trip; legal fees about your job; employee bad debts; repaying an employer income-aid payment; a college professor\u2019s research expenses; rural mail carriers\u2019 vehicle costs.',
+          '<b>Tax preparation:</b> return preparation and e-filing fees, tax software and tax books, legal or accounting fees for tax advice and IRS disputes, and appraisal fees for tax purposes.',
+          '<b>Investment and other:</b> investment advisory and management fees; fees to collect interest and dividends; safe deposit box rental (for investments); IRA custodial or trustee fees billed separately; investment books, publications and software; legal fees to produce or collect taxable income; hobby expenses up to the hobby\u2019s income; appraisal fees for charitable gifts or casualty losses; repayments of $3,000 or less of income reported in an earlier year.',
+          'Not here: gambling losses and casualty losses (their own lines), and anything already counted as a business expense, a medical cost or a gift.'] },
+    { k: 'fedItemized', applies: 'fed', annualOnly: true, checkOn: function() { return f.itemizing; }, label: 'Federal Itemized Total', sub: true, f: 'Giving + Mortgage Interest + SALT + Medical, after their limits.',
       n: ['Compared with the standard deduction (' + taxFmt(f.std) + '): the larger is the deduction used, marked with a green check. It feeds Standard / Itemized Deduction below.'] },
-    { k: 'fedStd', annualOnly: true, checkOn: function() { return !f.itemizing; }, label: 'Federal Standard Deduction', f: 'The flat deduction for your filing status (' + e(sl.toLowerCase()) + ').', n: ['From the tax figures below. Used when it is larger than the itemized total.'] },
-    L.stateNone ? null : { k: 'stItemized', annualOnly: true, checkOn: function() { return st.itemizing; }, label: L.stateName + ' Itemized Total', sub: true, f: 'Giving + Mortgage Interest + Property Taxes + Medical + Misc., after their limits.',
+    { k: 'fedStd', applies: 'fed', annualOnly: true, checkOn: function() { return !f.itemizing; }, label: 'Federal Standard Deduction', f: 'The flat deduction for your filing status (' + e(sl.toLowerCase()) + ').', n: ['From the tax figures below. Used when it is larger than the itemized total.'] },
+    L.stateNone ? null : { k: 'stItemized', applies: 'state', annualOnly: true, checkOn: function() { return st.itemizing; }, label: L.stateName + ' Itemized Total', sub: true, f: 'Giving + Mortgage Interest + Property Taxes + Medical + Misc., after their limits.',
       n: ['Compared with ' + L.stateName + '\u2019s standard deduction (' + taxFmt(st.std) + '): the larger is used, marked with a green check.'] },
-    L.stateNone ? null : { k: 'stStd', annualOnly: true, checkOn: function() { return !st.itemizing; }, label: L.stateName + ' Standard Deduction', f: 'The flat deduction for ' + L.stateName + '.', n: ['From the tax figures below.'] },
+    L.stateNone ? null : { k: 'stStd', applies: 'state', annualOnly: true, checkOn: function() { return !st.itemizing; }, label: L.stateName + ' Standard Deduction', f: 'The flat deduction for ' + L.stateName + '.', n: ['From the tax figures below.'] },
     { sec: 'Federal' },
     { k: 'fedDed', basis: 'year', label: 'Standard / Itemized Deduction', f: 'The larger of the standard deduction (' + taxFmt(f.std) + ', ' + e(sl.toLowerCase()) + ') and your itemized deductions (' + taxFmt(f.itemized) + ') — using ' + (f.itemizing ? 'itemized' : 'standard') + '.',
       n: ['See the Deductions section above. Spread evenly over the year.'] },
@@ -9622,15 +9632,14 @@ function taxMonthRows(c, doc) {
     { k: 'stateDue', label: 'State Income Tax', sub: true, f: L.stateName + ' does not tax wage income, so there is no state tax to figure.' }
   ] : [
     { k: 's529', basis: 'ytd', input: true, label: '529 Contributions', f: L.stateName + ' subtracts 529 plan contributions, up to ' + taxFmt(L.de529Cap) + ' (' + e(sl.toLowerCase()) + ')' + (isFinite(L.de529AgiLimit) ? ', only when federal AGI is ' + taxFmt(L.de529AgiLimit) + ' or less' : '') + '.',
-      n: ['Enter contributions in the month they\u2019re made. Est. Annual shows what the state actually subtracts, which can be less than what\u2019s entered.'],
+      n: ['Enter contributions in the month they\u2019re made. Est. Annual shows what was entered, struck through if part of it doesn\u2019t count, then what the state actually subtracts.'],
       // Entries stay as context but read as not counted (grey italic) when the AGI limit zeroes the year out
       voidMonths: function() { return A.s529Barred && A.s529 > 0 ? 'Not counted: AGI (' + taxFmt(A.agi) + ') is over ' + taxFmt(L.de529AgiLimit) : ''; },
       // The year's figure is what counts, not an entry: the cap and the AGI limit can cut it below the months' total
       calcAnnual: function() {
         var why = A.s529Barred && A.s529 > 0 ? 'AGI (' + taxFmt(A.agi) + ') is over ' + taxFmt(L.de529AgiLimit) + ', so none of the ' + taxFmt(A.s529) + ' entered counts.'
           : (A.s529Ok < A.s529 - 0.005 ? 'Only ' + taxFmt(A.s529Ok) + ' of the ' + taxFmt(A.s529) + ' entered counts: the subtraction is capped at ' + taxFmt(L.de529Cap) + ' (' + e(sl.toLowerCase()) + ').' : '');
-        return '<td class="tax-annual-col' + (Math.round(A.s529Ok) === 0 ? ' tax-zero' : '') + '">'
-          + (why ? taxHelpIcon('m:s529-ann', '529 Subtraction Counted', why) + ' ' : '') + taxFmt(A.s529Ok) + '</td>';
+        return taxCountedAnnual(A.s529, A.s529Ok, 'm:s529-ann', '529 Subtraction Counted', why);
       } },
     taxShowTreasury ? { k: 'treasury', basis: 'ytd', input: true, label: 'SGOV / Treasury Income', f: 'Interest from U.S. Treasuries (e.g. SGOV, USFR), which states don\u2019t tax.', n: ['It is still federal income, so include it under Interest too.'] } : null,
     { k: 'stateAgi', label: 'State AGI', sub: true, f: 'AGI \u2212 529 Contributions (up to the cap)' + (taxShowTreasury ? ' \u2212 SGOV / Treasury Income' : '') },
@@ -9668,6 +9677,12 @@ function taxMonthRows(c, doc) {
     { k: 'stateRoll', label: 'State Running Total', noAnnual: true, roll: true, f: 'State Tax Due, January through this month.' }
   ]);
 }
+// An Est. Annual cell that is not typed into: the sum of what was entered, struck through when part of it doesn't count, then what does.
+function taxCountedAnnual(sum, counted, helpId, helpTitle, why) {
+  return '<td class="tax-annual-col' + (Math.round(counted) === 0 ? ' tax-zero' : '') + '">'
+    + (why ? taxHelpIcon(helpId, helpTitle, why) + ' ' : '')
+    + (Math.abs(sum - counted) > 0.005 ? '<span class="tax-struck">' + taxFmt(sum) + '</span> ' : '') + taxFmt(counted) + '</td>';
+}
 // How a row's figures are used in the monthly columns (the "Monthly Basis" column): a fixed set of values.
 var TAX_BASIS = {
   month: { label: 'In-Month', tip: 'Counts in the month it happens, and that month\u2019s paystub reflects it.' },
@@ -9700,7 +9715,8 @@ function renderTaxMonthTable(c, doc) {
     h += '<tr class="' + (row.sub ? 'tax-sub' : row.total ? 'tax-total' : row.input ? 'tax-inrow' : '') + '">'
       + '<td><span class="tax-op">' + (TAX_ROW_OPS[row.k] || '') + '</span>' + escHtml(row.label)
       + (TAX_ROW_OPS[row.k] === '\u00D7' || TAX_ROW_OPS[row.k] === '\u00F7' || row.k === 'bonusFedWh' || row.k === 'bonusStateWh' ? '<span class="tax-rate" title="' + (row.k === 'bonusFedWh' ? 'Flat federal withholding rate on bonuses' : row.k === 'bonusStateWh' ? 'State tax the bonus adds at your regular pay, as a share of the bonus' : TAX_ROW_OPS[row.k] === '\u00F7' ? 'Paychecks in a month' : 'Effective rate for the year') + '">' + (row.k === 'bonusFedWh' || row.k === 'bonusStateWh' ? '\u00D7' : TAX_ROW_OPS[row.k]) + '\u00A0' + taxRowRate(row.k, c) + '</span>' : '')
-      + taxHelpIcon('m:' + row.k, row.label, row.f, row.n) + '</td>' + taxBasisCell(row);
+      + taxHelpIcon('m:' + row.k, row.label, row.f, row.n, row.wide)
+      + (row.applies ? ' ' + taxBadge(row.applies === 'both' && c.L.stateNone ? 'fed' : row.applies) : '') + '</td>' + taxBasisCell(row);
     if (row.wh) {        // withholding: entered figures, then what the rest of the year needs
       var wd = c.wh[row.wh], wraw = doc.w[row.wh], wk = 'wh-' + row.wh;
       h += wd.any ? taxValCell(wd.total, 'tax-annual-col') : '<td class="tax-annual-col"></td>';
