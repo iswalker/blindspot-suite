@@ -1665,7 +1665,7 @@ select.um-in { width: 100%; }
 
 /* ---- Runway ---- */
 #runway-hdr-right { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-left: auto; position: relative; min-width: 76px; }
-#runway-factors-wrap { position: relative; }
+#runway-factors-wrap, #tax-items-wrap { position: relative; }
 #runway-edit-btn, #runway-edit-cancel {
   position: relative; width: 34px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
   background: #fff; border: 1px solid #ccc; border-radius: 5px; color: #555; cursor: pointer; touch-action: manipulation;
@@ -1682,14 +1682,14 @@ select.um-in { width: 100%; }
 #runway-body.rw-editing .rw-pill-empty:focus-within { opacity: 1; }
 #runway-body.rw-editing .rw-date-yrs { font-weight: 500; opacity: .8; }
 #runway-edit-msg.rw-fail { color: #c62828; font-weight: 600; white-space: normal; width: max-content; max-width: min(46ch, 80vw); text-align: right; background: #fff; padding: 6px 10px; border: 1px solid #e5a5a0; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.12); }
-#runway-factors-btn {
+#runway-factors-btn, #tax-items-btn {
   padding: 6px 12px; background: #fff; border: 1px solid #ccc;
   border-radius: 5px; font-size: 15px; cursor: pointer; color: #555; white-space: nowrap;
 }
 .settings-hint { font-size: 14px; color: #999; }
-#runway-factors-btn:hover { background: #f0f0f0; }
-#runway-factors-btn.active { border-color: #333; background: #f0f0f0; }
-#runway-factors-panel {
+#runway-factors-btn:hover, #tax-items-btn:hover { background: #f0f0f0; }
+#runway-factors-btn.active, #tax-items-btn.active { border-color: #333; background: #f0f0f0; }
+#runway-factors-panel, #tax-items-panel {
   display: none; position: absolute; top: calc(100% + 4px); left: 0;
   background: #fff; border: 1px solid #ddd; border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0,0,0,.13); min-width: 180px; max-height: 300px;
@@ -2352,7 +2352,6 @@ html.rw-tab-active #tab-row { z-index: 30; }
           </div>
           <div class="settings-tab-block" data-tab="taxes">
             <div class="settings-divider"></div>
-            <div class="settings-row tax-set-row"><label for="tax-payfreq-sel">Paychecks</label><select id="tax-payfreq-sel"></select></div>
             <div class="settings-row">
               <label class="ios-toggle-wrap">
                 <input type="checkbox" id="tax-show-roll">
@@ -2361,18 +2360,10 @@ html.rw-tab-active #tab-row { z-index: 30; }
               </label>
             </div>
             <div class="settings-row">
-              <label class="ios-toggle-wrap">
-                <input type="checkbox" id="tax-show-treasury">
-                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
-                Show Treasury Income
-              </label>
-            </div>
-            <div class="settings-row">
-              <label class="ios-toggle-wrap">
-                <input type="checkbox" id="tax-show-business">
-                <span class="ios-toggle-track"><span class="ios-toggle-thumb"></span></span>
-                Show Business Income
-              </label>
+              <div id="tax-items-wrap">
+                <button id="tax-items-btn">Additional Line Items &#9660;</button>
+                <div id="tax-items-panel"></div>
+              </div>
             </div>
           </div>
           <div class="settings-tab-block" data-tab="acct-summary">
@@ -2726,7 +2717,7 @@ html.rw-tab-active #tab-row { z-index: 30; }
     </div>
   </div>
   <div id="taxes-panel" style="display:none">
-    <div class="tax-hdr"><span class="tax-title" id="tax-title"></span><label class="tax-filing"><span>State</span><select id="tax-state-sel" aria-label="State"></select></label><label class="tax-filing"><span>Filing status</span><select id="tax-status-sel" aria-label="Filing status"></select></label><label class="tax-filing"><span>Dependents</span><input type="number" id="tax-dependents-in" min="0" max="30" step="1" inputmode="numeric" aria-label="Number of dependents"></label><span class="tax-status" id="tax-status"></span></div>
+    <div class="tax-hdr"><span class="tax-title" id="tax-title"></span><label class="tax-filing"><span>State</span><select id="tax-state-sel" aria-label="State"></select></label><label class="tax-filing"><span>Filing status</span><select id="tax-status-sel" aria-label="Filing status"></select></label><label class="tax-filing"><span>Dependents</span><input type="number" id="tax-dependents-in" min="0" max="30" step="1" inputmode="numeric" aria-label="Number of dependents"></label><label class="tax-filing"><span>Paychecks</span><select id="tax-payfreq-sel" aria-label="Paychecks"></select></label><span class="tax-status" id="tax-status"></span></div>
     <div class="tax-cards" id="tax-cards"></div>
     <div class="tax-sec-title">Monthly Breakdown</div>
     <div class="tax-legend">The symbol at the left of a row shows how it follows from the rows above: <b>+</b> add, <b>&minus;</b> subtract, <b>&times;</b> apply a rate (shown), <b>=</b> result.<br>The <b>Monthly Basis</b> column says how each figure feeds a month&rsquo;s expected withholding: <span class="tax-bchip b-month">In-Month</span> counts in its own month &middot; <span class="tax-bchip b-off">Off-Cycle</span> has its own withholding, so it never changes a paystub &middot; <span class="tax-bchip b-ytd">YTD &rarr; Later</span> a paystub can&rsquo;t know it yet, so the year-to-date total through last month raises withholding from this month on &middot; <span class="tax-bchip b-year">Annual &divide; 12</span> spread evenly &middot; <span class="tax-bchip b-fc">In-Month &rarr; Later</span> what that paystub should have withheld, given what was known by then &middot; <span class="tax-bchip b-tot">YTD</span> a running total from January &middot; <span class="tax-bchip b-act">Actual</span> a subtotal of what happened that month.</div>
@@ -8934,7 +8925,7 @@ var TAX_FALLBACK_YEAR = 2026;
 var TAX_FALLBACK = {"irs/income/bracket.yaml":{"rates":{"1":{"2018-01-01":0.1},"2":{"2018-01-01":0.12},"3":{"2018-01-01":0.22},"4":{"2018-01-01":0.24},"5":{"2018-01-01":0.32},"6":{"2018-01-01":0.35},"7":{"2018-01-01":0.37}},"thresholds":{"1":{"SINGLE":{"values":{"2026-01-01":12400}},"JOINT":{"values":{"2026-01-01":24800}},"SEPARATE":{"values":{"2026-01-01":12400}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":17700}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":24800}}},"2":{"SINGLE":{"values":{"2026-01-01":50400}},"JOINT":{"values":{"2026-01-01":100800}},"SEPARATE":{"values":{"2026-01-01":50400}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":67450}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":100800}}},"3":{"SINGLE":{"values":{"2026-01-01":105700}},"JOINT":{"values":{"2026-01-01":211400}},"SEPARATE":{"values":{"2026-01-01":105700}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":105700}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":211400}}},"4":{"SINGLE":{"values":{"2026-01-01":201775}},"JOINT":{"values":{"2026-01-01":403550}},"SEPARATE":{"values":{"2026-01-01":201775}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":201750}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":403550}}},"5":{"SINGLE":{"values":{"2026-01-01":256225}},"JOINT":{"values":{"2026-01-01":512450}},"SEPARATE":{"values":{"2026-01-01":256225}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":256200}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":512450}}},"6":{"SINGLE":{"values":{"2026-01-01":640600}},"JOINT":{"values":{"2026-01-01":768700}},"SEPARATE":{"values":{"2026-01-01":384350}},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":640600}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":768700}}},"7":{"SINGLE":{"values":{"2018-01-01":null}},"JOINT":{"values":{"2018-01-01":null}},"SEPARATE":{"values":{"2018-01-01":null}},"HEAD_OF_HOUSEHOLD":{"values":{"2018-01-01":null}},"SURVIVING_SPOUSE":{"values":{"2018-01-01":null}}}}},"irs/deductions/standard/amount.yaml":{"SINGLE":{"2026-01-01":16100},"JOINT":{"2026-01-01":32200},"SEPARATE":{"2026-01-01":16100},"HEAD_OF_HOUSEHOLD":{"2026-01-01":24150},"SURVIVING_SPOUSE":{"2026-01-01":32200}},"irs/deductions/itemized/salt_and_real_estate/cap.yaml":{"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":40400}},"JOINT":{"values":{"2026-01-01":40400}},"SEPARATE":{"values":{"2026-01-01":20200}},"SINGLE":{"values":{"2026-01-01":40400}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":40400}}},"irs/deductions/itemized/salt_and_real_estate/phase_out/threshold.yaml":{"SINGLE":{"2026-01-01":505000},"HEAD_OF_HOUSEHOLD":{"2026-01-01":505000},"JOINT":{"2026-01-01":505000},"SURVIVING_SPOUSE":{"2026-01-01":505000},"SEPARATE":{"2026-01-01":252500}},"irs/deductions/itemized/salt_and_real_estate/phase_out/rate.yaml":{"values":{"2025-01-01":0.3}},"irs/deductions/itemized/salt_and_real_estate/phase_out/floor/amount.yaml":{"SINGLE":{"2025-01-01":10000},"HEAD_OF_HOUSEHOLD":{"2025-01-01":10000},"JOINT":{"2025-01-01":10000},"SURVIVING_SPOUSE":{"2025-01-01":10000},"SEPARATE":{"2025-01-01":5000}},"irs/deductions/itemized/salt_and_real_estate/phase_out/in_effect.yaml":{"values":{"2025-01-01":true}},"irs/deductions/itemized/medical/floor.yaml":{"values":{"2017-01-01":0.075}},"irs/deductions/itemized/charity/floor/amount.yaml":{"values":{"2026-01-01":0.005}},"irs/deductions/itemized/charity/floor/applies.yaml":{"values":{"2026-01-01":true}},"irs/payroll/social_security/cap.yaml":{"values":{"2026-01-01":184500}},"irs/payroll/social_security/rate/employee.yaml":{"values":{"2013-01-01":0.062}},"irs/payroll/medicare/rate/employee.yaml":{"values":{"2013-01-01":0.0145}},"irs/payroll/medicare/additional/rate.yaml":{"values":{"2013-01-01":0.009}},"irs/payroll/medicare/additional/exclusion.yaml":{"SINGLE":{"2013-01-01":200000},"JOINT":{"2013-01-01":250000},"SEPARATE":{"2013-01-01":125000},"HEAD_OF_HOUSEHOLD":{"2013-01-01":200000},"SURVIVING_SPOUSE":{"2013-01-01":200000}},"irs/self_employment/rate/social_security.yaml":{"values":{"2013-01-01":0.124}},"irs/self_employment/rate/medicare.yaml":{"values":{"2013-01-01":0.029}},"irs/ald/student_loan_interest/cap.yaml":{"JOINT":{"2002-01-01":2500},"SINGLE":{"2002-01-01":2500},"SEPARATE":{"2002-01-01":0},"HEAD_OF_HOUSEHOLD":{"2002-01-01":2500},"SURVIVING_SPOUSE":{"2002-01-01":2500}},"irs/ald/student_loan_interest/reduction/start.yaml":{"JOINT":{"values":{"2026-01-01":175000}},"SINGLE":{"values":{"2026-01-01":85000}},"SEPARATE":{"2002-01-01":0},"HEAD_OF_HOUSEHOLD":{"values":{"2026-01-01":85000}},"SURVIVING_SPOUSE":{"values":{"2026-01-01":85000}}},"irs/ald/student_loan_interest/reduction/divisor.yaml":{"JOINT":{"2002-01-01":30000},"SINGLE":{"2002-01-01":15000},"SEPARATE":{"2002-01-01":0},"HEAD_OF_HOUSEHOLD":{"2002-01-01":15000},"SURVIVING_SPOUSE":{"2002-01-01":15000}},"irs/credits/ctc/amount/base.yaml":{"brackets":[{"threshold":{"values":{"2013-01-01":0}},"amount":{"values":{"2025-01-01":2200}}},{"threshold":{"values":{"2022-01-01":17}},"amount":{"values":{"2013-01-01":0}}}]},"irs/credits/ctc/phase_out/threshold.yaml":{"SINGLE":{"2018-01-01":200000},"JOINT":{"2018-01-01":400000},"SEPARATE":{"2018-01-01":200000},"HEAD_OF_HOUSEHOLD":{"2018-01-01":200000},"SURVIVING_SPOUSE":{"2018-01-01":400000}},"irs/credits/ctc/phase_out/amount.yaml":{"values":{"0000-01-01":50}},"irs/credits/ctc/phase_out/increment.yaml":{"values":{"0000-01-01":1000}},"states/de/tax/income/rate.yaml":{"brackets":[{"threshold":{"1996-01-01":0},"rate":{"1996-01-01":0}},{"threshold":{"1996-01-01":2000},"rate":{"2014-01-01":0.022}},{"threshold":{"1996-01-01":5000},"rate":{"2014-01-01":0.039}},{"threshold":{"1996-01-01":10000},"rate":{"2014-01-01":0.048}},{"threshold":{"1996-01-01":20000},"rate":{"2014-01-01":0.052}},{"threshold":{"1996-01-01":25000},"rate":{"2014-01-01":0.0555}},{"threshold":{"2014-01-01":60000},"rate":{"2014-01-01":0.066}}]},"states/de/tax/income/deductions/standard/amount.yaml":{"JOINT":{"2000-01-01":6500},"SINGLE":{"2000-01-01":3250},"SEPARATE":{"2000-01-01":3250},"HEAD_OF_HOUSEHOLD":{"2000-01-01":3250},"SURVIVING_SPOUSE":{"2000-01-01":3250}},"states/de/tax/income/credits/personal_credits/personal.yaml":{"values":{"1996-01-01":110}},"states/de/tax/income/subtractions/plan_529/agi_limit.yaml":{"JOINT":{"2022-01-01":200000},"SURVIVING_SPOUSE":{"2022-01-01":100000},"SINGLE":{"2022-01-01":100000},"HEAD_OF_HOUSEHOLD":{"2022-01-01":100000},"SEPARATE":{"2022-01-01":100000}},"states/de/tax/income/subtractions/plan_529/cap.yaml":{"JOINT":{"2022-01-01":2000},"SURVIVING_SPOUSE":{"2022-01-01":1000},"SINGLE":{"2022-01-01":1000},"HEAD_OF_HOUSEHOLD":{"2022-01-01":1000},"SEPARATE":{"2022-01-01":1000}},"irs/credits/cdcc/max.yaml":{"values":{"2022-01-01":3000}},"irs/credits/cdcc/eligibility/max.yaml":{"values":{"2010-01-01":2}},"irs/credits/cdcc/phase_out/start.yaml":{"values":{"2022-01-01":15000}},"irs/credits/cdcc/phase_out/min.yaml":{"values":{"2026-01-01":0.35}},"irs/credits/cdcc/phase_out/max.yaml":{"values":{"2026-01-01":0.5}},"irs/credits/cdcc/phase_out/rate.yaml":{"values":{"2013-01-01":0.01}},"irs/credits/cdcc/phase_out/increment.yaml":{"values":{"2013-01-01":2000}},"irs/credits/cdcc/phase_out/amended_structure/applies.yaml":{"values":{"2026-01-01":true}},"irs/credits/cdcc/phase_out/amended_structure/second_start.yaml":{"HEAD_OF_HOUSEHOLD":{"2026-01-01":75000},"JOINT":{"2026-01-01":150000},"SEPARATE":{"2026-01-01":75000},"SINGLE":{"2026-01-01":75000},"SURVIVING_SPOUSE":{"2026-01-01":75000}},"irs/credits/cdcc/phase_out/amended_structure/second_increment.yaml":{"HEAD_OF_HOUSEHOLD":{"2026-01-01":2000},"JOINT":{"2026-01-01":4000},"SEPARATE":{"2026-01-01":2000},"SINGLE":{"2026-01-01":2000},"SURVIVING_SPOUSE":{"2026-01-01":2000}},"irs/credits/cdcc/phase_out/amended_structure/second_min.yaml":{"values":{"2026-01-01":0.2}},"irs/credits/education/phase_out.yaml":{"start":{"single":{"values":{"2010-01-01":80000}},"joint":{"values":{"2010-01-01":160000}}},"length":{"single":{"values":{"2010-01-01":10000}},"joint":{"values":{"2010-01-01":20000}}}},"irs/credits/education/american_opportunity_credit/amount.yaml":{"brackets":[{"threshold":{"2009-01-01":0},"rate":{"2009-01-01":1}},{"threshold":{"2009-01-01":2000},"rate":{"2009-01-01":0.25}},{"threshold":{"2009-01-01":4000},"rate":{"2009-01-01":0}}]},"irs/credits/energy_efficient_home_improvement/in_effect.yaml":{"values":{"2026-01-01":false}},"irs/credits/energy_efficient_home_improvement/rates/improvements.yaml":{"values":{"2023-01-01":0.3}},"irs/credits/energy_efficient_home_improvement/cap/annual/total.yaml":{"values":{"2023-01-01":1200}},"irs/credits/residential_clean_energy/applicable_percentage.yaml":{"values":{"2026-01-01":0}},"irs/capital_gains/thresholds.yaml":{"1":{"SINGLE":{"2026-01-01":49450},"JOINT":{"2026-01-01":98900},"SEPARATE":{"2026-01-01":49450},"HEAD_OF_HOUSEHOLD":{"2026-01-01":66200},"SURVIVING_SPOUSE":{"2026-01-01":98900}},"2":{"SINGLE":{"2026-01-01":545500},"JOINT":{"2026-01-01":613700},"SEPARATE":{"2026-01-01":306850},"HEAD_OF_HOUSEHOLD":{"2026-01-01":579600},"SURVIVING_SPOUSE":{"2026-01-01":613700}}},"irs/capital_gains/rates.yaml":{"1":{"2013-01-01":0},"2":{"2013-01-01":0.15},"3":{"2013-01-01":0.2}},"irs/capital_gains/loss_limit.yaml":{"HEAD_OF_HOUSEHOLD":{"2013-01-01":3000},"JOINT":{"2013-01-01":3000},"SEPARATE":{"2013-01-01":1500},"SINGLE":{"2013-01-01":3000},"SURVIVING_SPOUSE":{"2013-01-01":3000}}};
 var TAX_STATUSES = [['SINGLE', 'Single'], ['JOINT', 'Married filing jointly'], ['HEAD_OF_HOUSEHOLD', 'Head of household'], ['SEPARATE', 'Married filing separately']];
 var TAX_PAY_FREQ = [['semimonthly', 'Twice a month', 2], ['biweekly', 'Every two weeks', 26 / 12], ['weekly', 'Weekly', 52 / 12], ['monthly', 'Monthly', 1]];
-var TAX_MONTH_KEYS = ['wages', 'bonus', 'interest', 'business', 'hsa', 'premiums', 'k401', 'bizexp', 's529', 'treasury', 'giving', 'mortgage', 'property', 'otherState', 'medical', 'misc', 'sli'];
+var TAX_MONTH_KEYS = ['wages', 'bonus', 'interest', 'stateMisc', 'business', 'hsa', 'premiums', 'k401', 'bizexp', 's529', 'treasury', 'giving', 'mortgage', 'property', 'otherState', 'medical', 'misc', 'sli'];
 // Yearly figures: entered once for the year (doc.d) and spread evenly over the months, which are read-only.
 var TAX_DED_KEYS = ['stcg', 'ltcg'];
 // Credits other than the Child Tax Credit. You enter what you spent; the rate and limit come from the tax figures (see taxCore), except
@@ -8958,6 +8949,14 @@ var taxShowTreasury = localStorage.getItem('tax-show-treasury') === '1';
 // Off by default: Business Income, Business Expenses and the self-employment figures are hidden and left out of the calculation.
 // Amounts already entered are kept and count again once it's switched back on.
 var taxShowBusiness = localStorage.getItem('tax-show-business') === '1';
+// Off by default: the Misc. State Deductions row is hidden and left out of State Taxable Income (entries are kept).
+var taxShowStateMisc = localStorage.getItem('tax-show-statemisc') === '1';
+// The "Additional Line Items" dropdown in Settings: rows that are hidden (and not counted) until switched on.
+var TAX_ITEMS = [
+  { label: 'Treasury Income', ls: 'tax-show-treasury', get: function() { return taxShowTreasury; }, set: function(v) { taxShowTreasury = v; } },
+  { label: 'Business Income', ls: 'tax-show-business', get: function() { return taxShowBusiness; }, set: function(v) { taxShowBusiness = v; } },
+  { label: 'Misc. State Deductions', ls: 'tax-show-statemisc', get: function() { return taxShowStateMisc; }, set: function(v) { taxShowStateMisc = v; } }
+];
 
 // ---- Tax-law figures ----
 var TAX_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -9391,6 +9390,7 @@ function taxCore(doc, withBonus, fixed, statePaid) {
   TAX_MONTH_KEYS.forEach(function(k) { v[k] = doc.m[k].map(taxNum); });
   TAX_DED_KEYS.forEach(function(k) { var a = taxNum(doc.d[k]); v[k] = taxMap(function() { return a / 12; }); });      // yearly entries, spread evenly
   if (!withBonus) { v.bonus = taxMap(function() { return 0; }); v.ltcg = taxMap(function() { return 0; }); }      // the regular-pay pass: what a paystub can know (bonuses and long-term gains are withheld separately, if at all)
+  if (!taxShowStateMisc) v.stateMisc = taxMap(function() { return 0; });
   if (!taxShowBusiness) { v.business = taxMap(function() { return 0; }); v.bizexp = taxMap(function() { return 0; }); }      // hidden = not counted
   var dependents = Math.max(0, Math.floor(taxNum(doc.dependents)));
 
@@ -9462,8 +9462,8 @@ function taxCore(doc, withBonus, fixed, statePaid) {
   st.itemizing = st.itemized > st.std;
   st.used = fixed ? fixed.stUsed : Math.max(st.itemized, st.std);
   R.stateDed = taxMap(function() { return st.used / 12; });
-  R.stateTaxable = taxMap(function(i) { return R.stateAgi[i] - R.stateDed[i]; });
-  var stTaxableA = Math.max(0, stateAgiA - st.used);
+  R.stateTaxable = taxMap(function(i) { return R.stateAgi[i] - R.stateDed[i] - v.stateMisc[i]; });
+  var stTaxableA = Math.max(0, stateAgiA - st.used - taxSum(v.stateMisc));
   var stTaxA = taxBracketTax(stTaxableA, L.deBrackets);
   // One personal credit per exemption: each filer (two on a joint return) and each dependent
   var exemptions = dependents + (doc.status === 'JOINT' ? 2 : 1);
@@ -9471,7 +9471,7 @@ function taxCore(doc, withBonus, fixed, statePaid) {
   sc.total = sc.personal + sc.other;
   sc.applied = Math.min(sc.total, stTaxA);
   var stDueA = stTaxA - sc.applied, stW = taxWeights(R.stateTaxable);
-  var stOff = taxMap(function(i) { return offStub[i] - v.s529[i] * s529Share - (taxShowTreasury ? v.treasury[i] : 0); });
+  var stOff = taxMap(function(i) { return offStub[i] - v.s529[i] * s529Share - (taxShowTreasury ? v.treasury[i] : 0) - v.stateMisc[i]; });
   R.stateTax = stTaxA <= 0 || !hasPay ? taxMap(function(i) { return stTaxA * stW[i]; })
     : taxPaystubTax(payStub, v.wages, stOff, function(m) { return st.used + sliA + halfSeA * bizShown(m); }, L.deBrackets);
   R.stateCredits = taxFlatShares(sc.applied, R.stateTax);
@@ -9623,7 +9623,7 @@ var TAX_ROW_OPS = {
   hsa: '\u2212', premiums: '\u2212', k401: '\u2212', bizexp: '\u2212', halfSe: '\u2212', magi: '=', sli: '\u2212', agi: '=',
   fedDed: '\u2212', qbi: '\u2212', fedTaxable: '=', fedTax: '\u00D7', fedCredits: '\u2212', fedDue: '=',
   ficaWages: '=', ss: '\u00D7', medicare: '\u00D7', seTax: '+', fica: '=',
-  s529: '\u2212', treasury: '\u2212', stateAgi: '=', stateDed: '\u2212', stateTaxable: '=', stateTax: '\u00D7', stateCredits: '\u2212', stateDue: '=',
+  s529: '\u2212', treasury: '\u2212', stateMisc: '\u2212', stateAgi: '=', stateDed: '\u2212', stateTaxable: '=', stateTax: '\u00D7', stateCredits: '\u2212', stateDue: '=',
   total: '=',
   fedWh: '\u2212', fedExpected: '=',
   stateWh: '\u2212', stateExpected: '='
@@ -9747,7 +9747,8 @@ function taxMonthRows(c, doc) {
     { k: 'stateAgi', basis: 'act', yvm: true, label: 'State AGI', sub: true, f: 'AGI \u2212 529 Contributions (up to the cap)' + (taxShowTreasury ? ' \u2212 SGOV / Treasury Income' : '') },
     { k: 'stateDed', basis: 'year', label: (st.itemizing ? 'Itemized' : 'Standard') + ' Deduction', f: 'The larger of ' + L.stateName + '\u2019s standard deduction (' + taxFmt(st.std) + ') and your ' + L.stateName + ' itemized deductions (' + taxFmt(st.itemized) + ') \u2014 using ' + (st.itemizing ? 'itemized' : 'standard') + '.',
       n: ['See the Deductions section above. Spread evenly over the year.'] },
-    { k: 'stateTaxable', basis: 'act', yvm: true, label: 'State Taxable Income', sub: true, f: 'State AGI \u2212 ' + (st.itemizing ? 'Itemized' : 'Standard') + ' Deduction' },
+    taxShowStateMisc ? { k: 'stateMisc', basis: 'ytd', input: true, applies: 'state', label: 'Misc. State Deductions', f: 'Other deductions ' + L.stateName + ' allows on top of the standard / itemized deduction, in the month they happen.', n: ['They lower State Taxable Income only; the federal return is unchanged.', 'Counted like the 529 subtraction: a paystub learns of it after the month, so withholding eases from the next month on.'] } : null,
+    { k: 'stateTaxable', basis: 'act', yvm: true, label: 'State Taxable Income', sub: true, f: 'State AGI \u2212 ' + (st.itemizing ? 'Itemized' : 'Standard') + ' Deduction' + (taxShowStateMisc ? ' \u2212 Misc. State Deductions' : '') },
     { k: 'stateTax', basis: 'fc', label: 'State Income Tax', f: 'The year\u2019s state taxable income (' + taxFmt(A.stTaxable) + ') through the ' + L.stateName + ' brackets below = ' + taxFmt(A.stTax) + '.',
       n: ['Top bracket reached ' + taxPct(stMarg.rate, 2) + '.', 'Each month shows what that month\u2019s paystub should have withheld for the state, figured the same way as the federal row: pay forecast for the rest of the year plus other income received through last month, less what earlier paystubs should have withheld. Bonuses and long-term gains are left out.', Math.abs(A.cg.lt) >= 0.5 ? L.stateName + ' taxes capital gains like any other income, so long-term gains are in the year figure at the regular rates.' : ''] },
     { k: 'stateCredits', basis: 'year', label: 'State Credits', f: 'Personal credit (' + taxFmt(L.dePersonal) + ' \u00D7 ' + c.sc.exemptions + ' exemptions = ' + taxFmt(c.sc.personal) + ') + other state / local tax paid (' + taxFmt(c.sc.other) + ').',
@@ -10060,10 +10061,17 @@ function taxSyncSettings() {
   if (p) { if (!p.options.length) p.innerHTML = TAX_PAY_FREQ.map(function(x) { return '<option value="' + x[0] + '">' + escHtml(x[1]) + '</option>'; }).join(''); p.value = taxDoc.payFreq; }
   if (d && document.activeElement !== d) d.value = taxDoc.dependents;
   if (r) r.checked = taxShowRoll;
-  var tr = document.getElementById('tax-show-treasury');
-  if (tr) tr.checked = taxShowTreasury;
-  var tb = document.getElementById('tax-show-business');
-  if (tb) tb.checked = taxShowBusiness;
+  taxSyncItems();
+}
+// "Additional Line Items": one checkbox per optional row, like the Factors dropdown on Runway.
+function taxSyncItems() {
+  var panel = document.getElementById('tax-items-panel'), btn = document.getElementById('tax-items-btn');
+  if (!panel || !btn) return;
+  panel.innerHTML = TAX_ITEMS.map(function(it, i) {
+    return '<label class="acct-chk-row"><input type="checkbox" data-item="' + i + '"' + (it.get() ? ' checked' : '') + '>' + escHtml(it.label) + '</label>';
+  }).join('');
+  var on = TAX_ITEMS.filter(function(it) { return it.get(); }).length;
+  btn.textContent = 'Additional Line Items (' + on + '/' + TAX_ITEMS.length + ') \u25BE';
 }
 function renderTaxes() {
   if (!document.getElementById('taxes-panel')) return;
@@ -10191,17 +10199,22 @@ function wireTaxes() {
     try { localStorage.setItem('tax-show-roll', taxShowRoll ? '1' : '0'); } catch (x) {}
     renderTaxes();
   });
-  var tr = document.getElementById('tax-show-treasury');
-  if (tr) tr.addEventListener('change', function() {
-    taxShowTreasury = tr.checked;
-    try { localStorage.setItem('tax-show-treasury', taxShowTreasury ? '1' : '0'); } catch (x) {}
+  var itemsPanel = document.getElementById('tax-items-panel'), itemsBtn = document.getElementById('tax-items-btn'), itemsWrap = document.getElementById('tax-items-wrap');
+  if (itemsPanel) itemsPanel.addEventListener('change', function(e) {
+    var box = e.target, it = box && box.getAttribute && TAX_ITEMS[parseInt(box.getAttribute('data-item'), 10)];
+    if (!it) return;
+    it.set(box.checked);
+    try { localStorage.setItem(it.ls, box.checked ? '1' : '0'); } catch (x) {}
     renderTaxes();
   });
-  var tb = document.getElementById('tax-show-business');
-  if (tb) tb.addEventListener('change', function() {
-    taxShowBusiness = tb.checked;
-    try { localStorage.setItem('tax-show-business', taxShowBusiness ? '1' : '0'); } catch (x) {}
-    renderTaxes();
+  if (itemsBtn) itemsBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    var open = itemsPanel.style.display === 'block';
+    itemsPanel.style.display = open ? 'none' : 'block';
+    itemsBtn.classList.toggle('active', !open);
+  });
+  document.addEventListener('click', function(e) {
+    if (itemsWrap && !itemsWrap.contains(e.target)) { itemsPanel.style.display = 'none'; itemsBtn.classList.remove('active'); }
   });
 }
 var taxHelpShown = null;
