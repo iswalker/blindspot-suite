@@ -9358,14 +9358,15 @@ function taxCompute(doc) {
   // the bonus in the month it arrives and only the long-term gains left out (in-month bonus).
   function pass(statePaid) {
     var f = taxCore(doc, true, null, statePaid), r = bonusA || ltA ? taxCore(doc, false, f.yearly, statePaid) : f;
-    return { full: f, reg: r, base: inM ? (ltA ? taxCore(doc, true, f.yearly, statePaid, true) : f) : r };
+    var noLt = ltA ? taxCore(doc, true, f.yearly, statePaid, true) : f;      // the bonus without the long-term gains: the bonus's own tax
+    return { full: f, reg: r, base: inM ? noLt : r, noLt: noLt };
   }
   var p = pass(null);
   if (!p.full.L.stateNone && taxWithholding(doc.w.state, 0).any) {
     var regDue = p.reg.A.stDue;
     p = pass(taxWithholding(doc.w.state, regDue).total + taxBonusStateWh(p.full.L, p.reg, bonusA));
   }
-  var full = p.full, reg = p.reg, base = p.base;
+  var full = p.full, reg = p.reg, base = p.base, noLt = p.noLt;
   var c = Object.assign({}, full), AN = {};
   Object.keys(full.R).forEach(function(k) { AN[k] = taxSum(full.R[k]); });
   // The year's federal figures are the whole-year calculation itself, not a sum of the months (which are paystub-by-paystub estimates)
@@ -9414,6 +9415,9 @@ function taxCompute(doc) {
   // year's regular taxable pay with the bonus added, less the tax on regular pay alone, through the state's own brackets.
   AN.bonusStateWh = taxBonusStateWh(L, reg, bonusA);
   R.fedWhBonus = full.R.bonusFedWh; R.stateWhBonus = taxMap(function(i) { return AN.bonusStateWh * bonusOnlyShare(i); });      // by month, for In-Month's cells
+  // The tax a bonus really adds to the year (apart from long-term gains), shared out by the month each bonus was paid
+  var bonusTaxFedA = bonusA > 0 ? Math.max(0, noLt.A.fedDue - reg.A.fedDue) : 0, bonusTaxStA = bonusA > 0 ? Math.max(0, noLt.A.stDue - reg.A.stDue) : 0;
+  R.fedBonusTax = taxMap(function(i) { return bonusTaxFedA * bonusOnlyShare(i); }); R.stateBonusTax = taxMap(function(i) { return bonusTaxStA * bonusOnlyShare(i); });
   c.bonusStateRate = bonusA > 0 ? AN.bonusStateWh / bonusA : 0;
   AN.stateExpected = AN.stateDue - (c.wh.state.any ? c.wh.state.total : 0) - AN.bonusStateWh;
   var bonusStTaxRun = runOf(function(i) { return AN.bonusState * bonusShare(i); }), bonusStWhRun = runOf(function(i) { return AN.bonusStateWh * bonusOnlyShare(i); });
@@ -9695,6 +9699,19 @@ function taxMonthRows(c, doc) {
     { k: 'wages', basis: 'month', input: true, label: 'Wages', f: 'Gross pay before anything is taken out, for the month it is paid.',
       n: ['Cells take math, e.g. 187000/12. » copies a month to the rest of the year. Est. Annual is the total of the months.'] },
     { k: 'bonus', basis: bm ? 'month' : 'off', input: true, noAnnualInput: true, label: 'Bonuses', f: 'Bonuses, in the month they are paid.',
+      // What lands in your account: the bonus less the federal and state withholding and FICA taken from it
+      cellTip: function(i) {
+        var b = c.v.bonus[i];
+        if (!(b >= 0.5)) return '';
+        var fed = c.R.fedWhBonus[i], stt = c.L.stateNone ? 0 : c.R.stateWhBonus[i], fica = c.R.ssBonus[i] + c.R.mcBonus[i], net = b - fed - stt - fica;
+        var pc = function(x) { return taxPct(x / b, 2); };
+        var lines = [taxFmt(b) + ' bonus', '\u2212 ' + taxFmt(fed) + ' Federal (' + pc(fed) + ' flat withholding)'];
+        if (!c.L.stateNone) lines.push('\u2212 ' + taxFmt(stt) + ' ' + c.L.stateName + ' (' + pc(stt) + ')');
+        lines.push('\u2212 ' + taxFmt(fica) + ' FICA (' + pc(fica) + ')', '= ' + taxFmt(net) + ' after withholding');
+        var realFed = c.R.fedBonusTax[i], realSt = c.L.stateNone ? 0 : c.R.stateBonusTax[i];
+        if (Math.abs(realFed - fed) >= 1 || Math.abs(realSt - stt) >= 1) lines.push('Its actual tax is ' + taxFmt(realFed) + ' federal' + (c.L.stateNone ? '' : ', ' + taxFmt(realSt) + ' ' + c.L.stateName) + ': the difference settles when you file.');
+        return lines.join('\n');
+      },
       n: bm ? ['Taxed as ordinary income, the same as wages, so they raise the year\u2019s bill.', 'In-Month: the bonus is in the paycheck it arrives in, so that month\u2019s paystub withholding reflects it. Its tax is withheld in that month, all at once (what the bonus adds to the year\u2019s tax, with the year forecast from your wages alone, so it is never assumed to keep coming); the months after are back to their regular level. The per-paycheck hovers show the bonus part apart from the regular paychecks. Its withholding (the flat rate on supplemental pay) is taken in that month: the Paystub Withheld cell shows what you entered struck through, then the total with it.', 'Change this with Bonus Basis in the header above (Off-Cycle treats the bonus as withheld on its own, at a flat rate).']
           : ['Taxed as ordinary income, the same as wages, so they raise the year\u2019s bill (the Est. Annual figures show it).', 'Off-Cycle: a paystub knows nothing of a bonus: it is withheld on its own at a flat rate when paid, so it never changes what a month\u2019s paystub should withhold. It shows in the year figures (Est. Annual) of the income and tax rows below, not in their months.', 'The 22% \u201Cbonus rate\u201D is only how much employers withhold, not the tax on it.', 'Change this with Bonus Basis in the header above.'] },
     { k: 'business', basis: 'ytd', input: true, hide: !taxShowBusiness, label: 'Business Income', f: 'Self-employment (1099) income before expenses.' },
@@ -9929,7 +9946,7 @@ function renderTaxMonthTable(c, doc) {
       for (var i = 0; i < 12; i++) {
         var bad = !isFinite(taxEval(raws[i]));
         var dual = row.dual ? taxDualView(c.v[row.k][i], c.R[row.k][i], String(raws[i]).trim() !== '') : null;
-        h += '<td class="tax-in' + (dual ? ' tax-dual' : '') + (i === curM ? ' tax-cur' : '') + (bad ? ' tax-bad' : '') + '"' + (voidWhy && String(raws[i]).trim() !== '' ? ' title="' + escAttr(voidWhy) + '"' : (dual && dual.tip ? ' title="' + escAttr(dual.tip) + '"' : '')) + '>'
+        h += '<td class="tax-in' + (dual ? ' tax-dual' : '') + (i === curM ? ' tax-cur' : '') + (bad ? ' tax-bad' : '') + '"' + (voidWhy && String(raws[i]).trim() !== '' ? ' title="' + escAttr(voidWhy) + '"' : (dual && dual.tip ? ' title="' + escAttr(dual.tip) + '"' : (row.cellTip && row.cellTip(i) ? ' title="' + escAttr(row.cellTip(i)) + '"' : ''))) + '>'
           + taxCellInput(row.k, i, raws[i], c.v[row.k][i], row.label + ', ' + TAX_MONTHS[i] + (voidWhy ? ' (not counted)' : ''), dual ? (String(raws[i]).trim() === '' ? '' : taxFmt(c.v[row.k][i])) : undefined, voidWhy ? ' tax-void' : '')
           + (dual ? '<span class="tax-dual-view">' + dual.html + '</span>' : '')
           + (i < 11 ? '<button type="button" class="tax-fill" data-k="' + row.k + '" data-m="' + i + '" title="Copy ' + TAX_MONTHS[i] + ' to the rest of the year" tabindex="-1">»</button>' : '') + '</td>';
@@ -10302,7 +10319,7 @@ var taxTipShown = null;
 function taxShowTip(el) {
   var tip = document.getElementById('lw-tooltip'), txt = el.getAttribute('data-tip');
   if (!tip || !txt || taxTipShown === el) return;       // already showing for this cell: it stays put rather than following the pointer
-  tip.innerHTML = '<div class="taxtt"><div class="taxtt-tip">' + escHtml(txt).replace(/^(-?\$[\d,]+)/, '<b>$1</b>') + '</div></div>';
+  tip.innerHTML = '<div class="taxtt"><div class="taxtt-tip">' + escHtml(txt).replace(/^(-?\$[\d,]+)/, '<b>$1</b>').replace(/\n/g, '<br>') + '</div></div>';
   taxTipShown = el; taxHelpShown = null;
   tip.style.left = '0px'; tip.style.top = '0px';           // measured unconstrained, then placed
   tip.style.display = 'block';
