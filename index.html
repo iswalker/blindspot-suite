@@ -5783,7 +5783,7 @@ function renderTable(opts) {
     : '<span class="grp-arrow"></span> ';
   html += '<tr class="data-row exp-group' + (nlsIsExp ? ' grp-bordered' : '') + '" data-group="' + nlsGrpIdx + '">';
   html += '<td>' + nlsArrow + 'Non-Liquid Savings</td>';
-  html += valCells(nlsVals, avgNls, true, 'group', nlsGrpIdx);
+  html += valCells(nlsVals, avgNls, true, 'group', nlsGrpIdx, undefined, marginPctRef);      // % of Remaining Income, like the margin rows around it
   html += '</tr>';
   var nlsCatItems = nlsCats.map(function(ncat, nci) {
     var ncatVals = keys.map(function(k) { return ((d.catPivot['Non-Liquid Savings'] || {})[ncat] || {})[k] || 0; });
@@ -5795,7 +5795,7 @@ function renderTable(opts) {
     var isLastNls = nci === nlsCatItems.length - 1;
     html += '<tr class="cat-row' + (nlsIsExp ? ' cat-row-bordered' : '') + (isLastNls ? ' cat-row-last' : '') + '" data-group="' + nlsGrpIdx + '" style="' + (nlsIsExp ? '' : 'display:none') + '">';
     html += '<td>' + ni.cat + '</td>';
-    html += valCells(ni.vals, ni.avg, true, 'cat', nlsGrpIdx, ni.ci);
+    html += valCells(ni.vals, ni.avg, true, 'cat', nlsGrpIdx, ni.ci, marginPctRef);
     html += '</tr>';
   }
 
