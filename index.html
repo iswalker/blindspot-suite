@@ -774,7 +774,7 @@ td.tax-in:focus-within .tax-fill { display: block; }
 .tax-limit { color: #777; font-size: 13px; white-space: normal; min-width: 160px; }
 #tax-figures td.tax-amt { white-space: normal; }
 .tax-dual { position: relative; }
-.tax-dual input.tax-cell { min-width: 88px; color: transparent; }
+.tax-dual input.tax-cell { min-width: 112px; color: transparent; }
 .tax-dual input.tax-cell:focus { color: #1a4fa0; }
 .tax-dual-view { position: absolute; left: 2px; right: 2px; top: 50%; transform: translateY(-50%); padding: 0 6px; text-align: right; font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; pointer-events: none; }
 .tax-dual:focus-within .tax-dual-view { display: none; }
@@ -9342,8 +9342,8 @@ function taxCompute(doc) {
   }
   var p = pass(null);
   if (!p.full.L.stateNone && taxWithholding(doc.w.state, 0).any) {
-    var regDue = p.base.A.stDue;
-    p = pass(taxWithholding(doc.w.state, regDue).total + (inM ? 0 : taxBonusStateWh(p.full.L, p.reg, bonusA)));
+    var regDue = p.reg.A.stDue;
+    p = pass(taxWithholding(doc.w.state, regDue).total + taxBonusStateWh(p.full.L, p.reg, bonusA));
   }
   var full = p.full, reg = p.reg, base = p.base;
   var c = Object.assign({}, full), AN = {};
@@ -9369,11 +9369,13 @@ function taxCompute(doc) {
   AN.bonusFed = AN.fedDue - base.A.fedDue;
   AN.bonusFica = AN.fica - reg.A.fica;
   AN.bonusState = AN.stateDue - base.A.stDue;
-  c.wh = { fed: taxWithholding(doc.w.fed, base.A.fedDue), state: taxWithholding(doc.w.state, base.A.stDue) };
+  // Withholding works the same on both bases: the paystubs (entered, then projected) cover the regular-pay tax, and a bonus is withheld
+  // automatically in its own month (the flat rate federally, the "difference" method for the state). In-Month shows it in that month's cell.
+  c.wh = { fed: taxWithholding(doc.w.fed, reg.A.fedDue), state: taxWithholding(doc.w.state, reg.A.stDue) };
   // Federal withholding on the bonus at the flat supplemental rate, and what is left to pay (or get back) once that and the paystub
   // withholding are taken off the year's federal tax. Positive = still owed, negative = overpaid.
   var L = full.L;
-  AN.bonusFedWh = inM ? 0 : taxSum(full.R.bonusFedWh);      // an in-month bonus is withheld in the paycheck, so it is in the paystub figures
+  AN.bonusFedWh = taxSum(full.R.bonusFedWh);
   AN.fedExpected = AN.fedDue - (c.wh.fed.any ? c.wh.fed.total : 0) - AN.bonusFedWh;
   // Running totals of what the paystubs withheld (entered months, then the projected ones), and the YTD expected due / refund built on them
   function runOf(fn) { var t = 0; return taxMap(function(i) { return (t += fn(i)); }); }
@@ -9383,15 +9385,18 @@ function taxCompute(doc) {
   function extraAt(i) { return (inM ? 0 : Math.max(0, full.v.bonus[i])) + Math.max(0, full.v.ltcg[i]); }
   var bonusPos = taxSum(taxMap(extraAt));
   function bonusShare(i) { return bonusPos > 0 ? extraAt(i) / bonusPos : 0; }
-  var bonusFedWhRun = runOf(function(i) { return inM ? 0 : full.R.bonusFedWh[i]; });
+  var bonusPosOnly = taxSum(full.v.bonus.map(function(x) { return Math.max(0, x); }));
+  function bonusOnlyShare(i) { return bonusPosOnly > 0 ? Math.max(0, full.v.bonus[i]) / bonusPosOnly : 0; }
+  var bonusFedWhRun = runOf(function(i) { return full.R.bonusFedWh[i]; });
   var bonusFedTaxRun = runOf(function(i) { return AN.bonusFed * bonusShare(i); });
   c.expMonths = c.wh.fed.any ? taxMap(function(i) { return R.fedRoll[i] + bonusFedTaxRun[i] - R.fedWhRoll[i] - bonusFedWhRun[i]; }) : null;
   // State: no flat supplemental rate is assumed. A bonus paid on its own is withheld with the "difference" method: tax on the
   // year's regular taxable pay with the bonus added, less the tax on regular pay alone, through the state's own brackets.
-  AN.bonusStateWh = inM ? 0 : taxBonusStateWh(L, reg, bonusA);
+  AN.bonusStateWh = taxBonusStateWh(L, reg, bonusA);
+  R.fedWhBonus = full.R.bonusFedWh; R.stateWhBonus = taxMap(function(i) { return AN.bonusStateWh * bonusOnlyShare(i); });      // by month, for In-Month's cells
   c.bonusStateRate = bonusA > 0 ? AN.bonusStateWh / bonusA : 0;
   AN.stateExpected = AN.stateDue - (c.wh.state.any ? c.wh.state.total : 0) - AN.bonusStateWh;
-  var bonusStTaxRun = runOf(function(i) { return AN.bonusState * bonusShare(i); }), bonusStWhRun = runOf(function(i) { return AN.bonusStateWh * bonusShare(i); });
+  var bonusStTaxRun = runOf(function(i) { return AN.bonusState * bonusShare(i); }), bonusStWhRun = runOf(function(i) { return AN.bonusStateWh * bonusOnlyShare(i); });
   c.expStMonths = c.wh.state.any ? taxMap(function(i) { return R.stateRoll[i] + bonusStTaxRun[i] - R.stateWhRoll[i] - bonusStWhRun[i]; }) : null;
   return c;
 }
@@ -9670,7 +9675,7 @@ function taxMonthRows(c, doc) {
     { k: 'wages', basis: 'month', input: true, label: 'Wages', f: 'Gross pay before anything is taken out, for the month it is paid.',
       n: ['Cells take math, e.g. 187000/12. » copies a month to the rest of the year. Est. Annual is the total of the months.'] },
     { k: 'bonus', basis: bm ? 'month' : 'off', input: true, noAnnualInput: true, label: 'Bonuses', f: 'Bonuses, in the month they are paid.',
-      n: bm ? ['Taxed as ordinary income, the same as wages, so they raise the year\u2019s bill.', 'In-Month: the bonus is in the paycheck it arrives in, so that month\u2019s paystub withholding reflects it. It counts once, from that month on: the months ahead are forecast from your wages alone, so a bonus is never assumed to keep coming. The per-paycheck hovers show the bonus part apart from the regular paychecks.', 'Change this with Bonus Basis in the header above (Off-Cycle treats the bonus as withheld on its own, at a flat rate).']
+      n: bm ? ['Taxed as ordinary income, the same as wages, so they raise the year\u2019s bill.', 'In-Month: the bonus is in the paycheck it arrives in, so that month\u2019s paystub withholding reflects it. It counts once, from that month on: the months ahead are forecast from your wages alone, so a bonus is never assumed to keep coming. The per-paycheck hovers show the bonus part apart from the regular paychecks. Its withholding (the flat rate on supplemental pay) is taken in that month: the Paystub Withheld cell shows what you entered struck through, then the total with it.', 'Change this with Bonus Basis in the header above (Off-Cycle treats the bonus as withheld on its own, at a flat rate).']
           : ['Taxed as ordinary income, the same as wages, so they raise the year\u2019s bill (the Est. Annual figures show it).', 'Off-Cycle: a paystub knows nothing of a bonus: it is withheld on its own at a flat rate when paid, so it never changes what a month\u2019s paystub should withhold. It shows in the year figures (Est. Annual) of the income and tax rows below, not in their months.', 'The 22% \u201Cbonus rate\u201D is only how much employers withhold, not the tax on it.', 'Change this with Bonus Basis in the header above.'] },
     { k: 'business', basis: 'ytd', input: true, hide: !taxShowBusiness, label: 'Business Income', f: 'Self-employment (1099) income before expenses.' },
     { sec: 'Adjustments', note: 'Used to determine eligibility for some programs (e.g. Student Loan Interest, Roth IRA, etc.), besides lowering taxable base' },
@@ -9750,11 +9755,11 @@ function taxMonthRows(c, doc) {
       n: ['Credits are fixed amounts, so the months show them spread evenly (a month\u2019s credit can\u2019t exceed that month\u2019s tax).', c.cr.total > A.fedTax ? 'Limited to the tax itself (' + taxFmt(A.fedTax) + ').' : ''] },
     { k: 'fedDue', basis: 'month', yvm: true, perPaycheck: 'fedPP', perBonus: 'fedBonusPart', label: 'Federal Income Tax Due', sub: true, f: 'Federal Income Tax − Federal Credits', n: ['The months are paystub estimates (' + (bm ? 'a bonus counts from its month; no long-term gains' : 'no bonuses or long-term gains') + '). Est. Annual shows their total struck through, then the whole year with everything included.', 'Hover a month for what that is per paycheck (paid ' + e(taxPayLabel(doc)) + ' \u2014 change it in the header above)' + (bm ? ', apart from what the bonus adds to the month' : '') + ', to compare with the federal withholding on your pay stub.'] },
     { k: 'fedWh', basis: 'month', wh: 'fed', label: 'Paystub Federal Withheld', f: 'What your paychecks actually withheld, month by month. Leave it blank until you have figures.',
-      n: ['Once you enter some months, the months after the last one entered show what each must withhold to reach the year\u2019s federal tax on ' + (bm ? 'wages and bonuses' : 'regular pay') + ': (Federal Income Tax Due for the year \u2212 withheld so far) \u00F7 months remaining.', 'Type over a projected month to enter its actual figure. ' + (bm ? 'A bonus is withheld in its own paycheck, so it is part of these figures.' : 'Withholding on bonuses is separate: see the note under Expected Federal Tax Bill.')] },
+      n: ['Once you enter some months, the months after the last one entered show what each must withhold to reach the year\u2019s federal tax on regular pay: (Federal Income Tax Due for the year \u2212 withheld so far) \u00F7 months remaining.', 'Type over a projected month to enter its actual figure. ' + (bm ? 'A bonus is withheld automatically in the month it is paid (the flat rate on supplemental pay): that month\u2019s cell shows what you entered struck through, then the total with the bonus withholding.' : 'Withholding on bonuses is separate: see the note under Expected Federal Tax Bill.')] },
     { k: 'fedRoll', basis: 'tot', label: 'Federal Running Total', noAnnual: true, roll: true, f: 'Federal Income Tax Due, January through this month.' },
     { k: 'fedWhRoll', basis: 'tot', label: 'Paystub Withheld Running Total', noAnnual: true, roll: true, blank: !c.wh.fed.any, f: 'Paystub Federal Withheld, January through this month: what you entered, then the projected months.' },
     { k: 'fedExpected', expected: 'fed', basis: 'tot', label: 'Expected Federal Tax Bill', sub: true, labelNote: c.AN.bonusFedWh >= 0.5 ? 'after ' + taxFmt(c.AN.bonusFedWh) + ' withheld on bonuses' : '', f: 'Federal Income Tax Due \u2212 Paystub Federal Withheld \u2212 Federal Withheld on Bonuses',
-      n: ['Positive (orange): still to pay. Negative (blue): withheld more than the tax, so a refund.', 'The year column is the whole-year figure: the paystub withholding you entered plus the projected months' + (bm ? ' (a bonus is withheld in its own paycheck, so it is in them).' : ', and the withholding on bonuses (' + taxFmt(c.AN.bonusFedWh) + ': bonuses \u00D7 the flat ' + taxPct(L.suppRate, 0) + ' federal rate on supplemental pay, withheld when each is paid).'), 'Each month is the year-to-date position: Federal Running Total \u2212 Paystub Withheld Running Total' + (bm ? ', plus the tax on long-term gains received so far (which nothing withholds).' : ', plus the tax on bonuses paid so far less what was withheld on them.') + ' Positive means withholding is behind at that point, negative means it is ahead; it meets the year column by December once the projected months catch up.'] },
+      n: ['Positive (orange): still to pay. Negative (blue): withheld more than the tax, so a refund.', 'The year column is the whole-year figure: the paystub withholding you entered plus the projected months, and the withholding on bonuses (' + taxFmt(c.AN.bonusFedWh) + ': bonuses \u00D7 the flat ' + taxPct(L.suppRate, 0) + ' federal rate on supplemental pay, withheld ' + (bm ? 'in the month each is paid' : 'when each is paid') + ').', 'Each month is the year-to-date position: Federal Running Total \u2212 Paystub Withheld Running Total' + (bm ? ', less the bonus withholding so far, plus the tax on long-term gains received so far (which nothing withholds).' : ', plus the tax on bonuses paid so far less what was withheld on them.') + ' Positive means withholding is behind at that point, negative means it is ahead; it meets the year column by December once the projected months catch up.'] },
     { sec: 'State (' + L.stateName + ')' }
   ].concat(L.stateNone ? [
     { k: 'stateDue', label: 'State Income Tax', sub: true, f: L.stateName + ' does not tax wage income, so there is no state tax to figure.' }
@@ -9784,7 +9789,7 @@ function taxMonthRows(c, doc) {
     { k: 'stateRoll', basis: 'tot', label: 'State Running Total', noAnnual: true, roll: true, f: 'State Tax Due, January through this month.' },
     { k: 'stateWhRoll', basis: 'tot', label: 'Paystub Withheld Running Total', noAnnual: true, roll: true, blank: !c.wh.state.any, f: 'Paystub State Withheld, January through this month: what you entered, then the projected months.' },
     { k: 'stateExpected', expected: 'state', basis: 'tot', label: 'Expected State Tax Bill', sub: true, labelNote: c.AN.bonusStateWh >= 0.5 ? 'after ' + taxFmt(c.AN.bonusStateWh) + ' withheld on bonuses' : '', f: 'State Tax Due \u2212 Paystub State Withheld \u2212 State Withheld on Bonuses',
-      n: ['Positive (orange): still to pay. Negative (blue): withheld more than the tax, so a refund.', 'The year column is the whole-year figure: the paystub withholding you entered plus the projected months' + (bm ? ' (a bonus is withheld in its own paycheck, so it is in them).' : ', and the withholding on bonuses (' + taxFmt(c.AN.bonusStateWh) + ', ' + taxPct(c.bonusStateRate, 2) + ' of them: the state tax a bonus adds on top of your regular pay, withheld when each is paid).'), 'Each month is the year-to-date position: State Running Total \u2212 Paystub Withheld Running Total' + (bm ? ', plus the tax on long-term gains received so far.' : ', plus the tax on bonuses paid so far less what was withheld on them.') + ' Positive means withholding is behind at that point, negative means it is ahead; it meets the year column by December once the projected months catch up.'] },
+      n: ['Positive (orange): still to pay. Negative (blue): withheld more than the tax, so a refund.', 'The year column is the whole-year figure: the paystub withholding you entered plus the projected months, and the withholding on bonuses (' + taxFmt(c.AN.bonusStateWh) + ', ' + taxPct(c.bonusStateRate, 2) + ' of them: the state tax a bonus adds on top of your regular pay, withheld ' + (bm ? 'in the month each is paid' : 'when each is paid') + ').', 'Each month is the year-to-date position: State Running Total \u2212 Paystub Withheld Running Total' + (bm ? ', less the bonus withholding so far, plus the tax on long-term gains received so far.' : ', plus the tax on bonuses paid so far less what was withheld on them.') + ' Positive means withholding is behind at that point, negative means it is ahead; it meets the year column by December once the projected months catch up.'] },
   ]).concat([
     { sec: 'FICA', note: 'Levers to reduce are 1) Max out FSA/HSA 2) Incur tactical business expenses as sole proprietor to reduce profit 3) Take distributions from S-Corp after a reasonable salary.  There is no way to take it to 0 (unlike income tax).' },
     { k: 'ss', basis: 'month', perPaycheck: 'ssPP', perBonus: 'ssBonus', label: 'Social Security', f: taxPct(L.ssRate) + ' of FICA Wages (above), up to the ' + taxFmt(L.ssCap) + ' wage base' + (c.ssCapMonth >= 0 ? ' (reached in ' + TAX_MONTHS[c.ssCapMonth] + ')' : '') + '.',
@@ -9870,12 +9875,15 @@ function renderTaxMonthTable(c, doc) {
       // Off-cycle bonuses are withheld apart from the paystubs: the year's paystub total is struck through, then the total with them
       var wBonus = wd.any ? (row.wh === 'state' ? c.AN.bonusStateWh : c.AN.bonusFedWh) : 0;
       h += !wd.any ? '<td class="tax-annual-col"></td>' : wBonus >= 0.5
-        ? taxCountedAnnual(wd.total, wd.total + wBonus, 'm:' + row.k + '-ann', row.label + ', With Bonus Withholding', 'The paystubs withhold ' + taxFmt(wd.total) + ' (what you entered plus the months still to come). A bonus is withheld on its own, which adds ' + taxFmt(wBonus) + ' (' + (row.wh === 'state' ? 'the state tax it adds on top of your regular pay' : 'the flat ' + taxPct(c.L.suppRate, 0) + ' federal rate on supplemental pay') + '): ' + taxFmt(wd.total + wBonus) + ' in all.')
+        ? taxCountedAnnual(wd.total, wd.total + wBonus, 'm:' + row.k + '-ann', row.label + ', With Bonus Withholding', 'The paystubs withhold ' + taxFmt(wd.total) + ' (what you entered plus the months still to come). A bonus is withheld on its own' + (c.bonusInMonth ? ', in the month it is paid' : '') + ', which adds ' + taxFmt(wBonus) + ' (' + (row.wh === 'state' ? 'the state tax it adds on top of your regular pay' : 'the flat ' + taxPct(c.L.suppRate, 0) + ' federal rate on supplemental pay') + '): ' + taxFmt(wd.total + wBonus) + ' in all.')
         : taxValCell(wd.total, 'tax-annual-col');
       for (var wi = 0; wi < 12; wi++) {
         var wbad = !isFinite(taxEval(wraw[wi]));
-        h += '<td class="tax-in' + (wi === curM ? ' tax-cur' : '') + (wbad ? ' tax-bad' : '') + '">'
-          + taxCellInput(wk, wi, wraw[wi], wd.vals[wi], row.label + ', ' + TAX_MONTHS[wi], wd.any ? taxFmt(wd.vals[wi]) : '', wd.auto[wi] ? ' tax-auto' : '')
+        // In-Month: a bonus is withheld in its own month, so that month's cell shows what is entered struck through, then it plus the bonus withholding
+        var wb = c.bonusInMonth && wd.any ? c.R[row.wh === 'state' ? 'stateWhBonus' : 'fedWhBonus'][wi] : 0, wdual = wb >= 0.5;
+        h += '<td class="tax-in' + (wdual ? ' tax-dual' : '') + (wi === curM ? ' tax-cur' : '') + (wbad ? ' tax-bad' : '') + '"' + (wdual ? ' title="' + escAttr((wd.auto[wi] ? 'Projected ' : 'Entered ') + taxFmt(wd.vals[wi]) + ' + ' + taxFmt(wb) + ' withheld on the bonus = ' + taxFmt(wd.vals[wi] + wb)) + '"' : '') + '>'
+          + taxCellInput(wk, wi, wraw[wi], wd.vals[wi], row.label + ', ' + TAX_MONTHS[wi], wd.any ? taxFmt(wd.vals[wi]) : '', wd.auto[wi] && !wdual ? ' tax-auto' : '')
+          + (wdual ? '<span class="tax-dual-view"><span class="tax-struck">' + taxFmt(wd.vals[wi]) + '</span> <span class="tax-used">' + taxFmt(wd.vals[wi] + wb) + '</span></span>' : '')
           + (wi < 11 ? '<button type="button" class="tax-fill" data-k="' + wk + '" data-m="' + wi + '" title="Copy ' + TAX_MONTHS[wi] + ' to the rest of the year" tabindex="-1">\u00BB</button>' : '') + '</td>';
       }
     } else if (row.expected) {   // what is still owed (orange) or will come back (blue)
