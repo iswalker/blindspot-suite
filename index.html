@@ -833,6 +833,7 @@ td.tax-in:focus-within .tax-fill { display: block; }
 /* Keep the header row (Settings panel, tab dropdown) above the pinned button row: its controls bar is a
    transformed element, so its dropdowns would otherwise be stacked beneath the later sticky row. */
 html.as-tab-active #tab-row { z-index: 30; }
+html.rw-tab-active #tab-row { z-index: 50; }
 #acct-summary-panel .panel-hdr {
   position: sticky; top: 0; z-index: 2; margin-bottom: 0; padding: 8px 0;
   background: #F6F4EE;
@@ -1972,6 +1973,8 @@ html.rw-tab-active #tab-row { z-index: 30; }
      body a scroll container that never scrolls, which stops sticky working; clip still prevents sideways
      shifting without creating one (browsers without overflow:clip ignore this and keep hidden). */
   html.as-tab-active, html.as-tab-active body { overflow-x: clip; }
+  /* Runway's edit pencil floats with position:sticky too, so it needs the same treatment */
+  html.rw-tab-active, html.rw-tab-active body { overflow-x: clip; }
 
   /* Date range picker: full-width panel, stacked columns, no overflow off-screen. The month
      grid (rp-main-col-wrap) is the primary control, so it's reordered above the quick-range
@@ -7820,6 +7823,7 @@ function switchTab(tab) {
   }
   document.documentElement.classList.toggle('cf-tab-active', tab === 'margin');
   document.documentElement.classList.toggle('as-tab-active', tab === 'acct-summary');
+  document.documentElement.classList.toggle('rw-tab-active', tab === 'runway');
   document.documentElement.classList.toggle('rw-tab-active', tab === 'runway');
   document.documentElement.classList.toggle('tax-tab-active', tab === 'taxes');
   document.getElementById('acct-summary-panel').style.display = tab === 'acct-summary' ? 'block' : 'none';
@@ -17856,6 +17860,7 @@ function showReport() {
   updateSettingsGearAvailability(tab);
   document.documentElement.classList.toggle('cf-tab-active', tab === 'margin');
   document.documentElement.classList.toggle('as-tab-active', tab === 'acct-summary');
+  document.documentElement.classList.toggle('rw-tab-active', tab === 'runway');
   document.documentElement.classList.toggle('rw-tab-active', tab === 'runway');
   document.documentElement.classList.toggle('tax-tab-active', tab === 'taxes');
 
